@@ -1494,7 +1494,11 @@
             if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
             if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
             
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            // For events older than 24h, show day and time
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const dayName = days[date.getDay()];
+            const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            return `${dayName} ${time}`;
         }
 
         function escapeHtml(text) {
