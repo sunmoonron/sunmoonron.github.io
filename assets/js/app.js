@@ -14,6 +14,23 @@
         let timeRangeHours = 24;
         let seenEventIds = new Set(); // For deduplication
         
+        // Time constants (ms)
+        const MS_MINUTE = 60000;
+        const MS_HOUR = 3600000;
+        const MS_DAY = 86400000;
+        
+        // Helper: filter events by current viewMode
+        function filterByViewMode(events) {
+            if (viewMode === 'posts') return events.filter(e => !e.isReply);
+            if (viewMode === 'replies') return events.filter(e => e.isReply);
+            return events;
+        }
+        
+        // Helper: get mention count from event tags
+        function getMentionCount(event) {
+            return event.tags?.filter(t => t[0] === 'p').length || 0;
+        }
+        
         // Thread visualization
         let showThreadLines = false;
         let eventPositions = new Map(); // eventId -> {x, y}
@@ -703,11 +720,7 @@
             const radius = Math.min(width, height) * 0.35;
             
             // Filter events based on view mode
-            const filteredEvents = userEvents.filter(e => {
-                if (viewMode === 'posts') return !e.isReply;
-                if (viewMode === 'replies') return e.isReply;
-                return true;
-            });
+            const filteredEvents = filterByViewMode(userEvents);
             
             // Sort by time
             filteredEvents.sort((a, b) => a.created_at - b.created_at);
@@ -768,14 +781,8 @@
             btn.classList.toggle('active', showThreadLines);
             
             // Count threads for both main and compare views
-            const mainThreads = userEvents.filter(e => 
-                e.parentEventId && userEvents.some(p => p.id === e.parentEventId)
-            ).length;
-            
-            const compareThreads = compareMode ? compareEvents.filter(e => 
-                e.parentEventId && compareEvents.some(p => p.id === e.parentEventId)
-            ).length : 0;
-            
+            const mainThreads = countVisibleThreads(userEvents);
+            const compareThreads = compareMode ? countVisibleThreads(compareEvents) : 0;
             const totalThreads = mainThreads + compareThreads;
             
             btn.innerHTML = showThreadLines 
@@ -821,11 +828,7 @@
             // Clear existing lines
             clearCompareSvgLines();
             
-            const filteredEvents = compareEvents.filter(e => {
-                if (viewMode === 'posts') return !e.isReply;
-                if (viewMode === 'replies') return e.isReply;
-                return true;
-            });
+            const filteredEvents = filterByViewMode(compareEvents);
             
             filteredEvents.forEach(event => {
                 if (!event.parentEventId) return;
@@ -862,19 +865,9 @@
             });
         }
         
-        function updateThreadButtonCount() {
-            const visibleThreads = userEvents.filter(e => 
-                e.parentEventId && userEvents.some(p => p.id === e.parentEventId)
-            ).length;
-            
-            const btn = document.getElementById('thread-toggle');
-            if (visibleThreads > 0 && showThreadLines) {
-                btn.innerHTML = `🔗 Threads (${visibleThreads})`;
-            } else if (visibleThreads > 0) {
-                btn.innerHTML = `🔗 Show Threads (${visibleThreads})`;
-            } else {
-                btn.innerHTML = '🔗 Show Threads';
-            }
+        // Helper to count visible threads in an event array
+        function countVisibleThreads(events) {
+            return events.filter(e => e.parentEventId && events.some(p => p.id === e.parentEventId)).length;
         }
         
         function renderThreadLines(events) {
@@ -926,9 +919,6 @@
                 
                 svg.appendChild(path);
             });
-            
-            // Update button with thread count
-            updateThreadButtonCount();
         }
         
         function highlightThread(event) {
@@ -1028,21 +1018,12 @@
         
         function initPlayback() {
             // Get filtered and sorted events from main timeline
-            let mainEvents = userEvents.filter(e => {
-                if (viewMode === 'posts') return !e.isReply;
-                if (viewMode === 'replies') return e.isReply;
-                return true;
-            }).map(e => ({ ...e, isCompareEvent: false }));
+            let mainEvents = filterByViewMode(userEvents).map(e => ({ ...e, isCompareEvent: false }));
             
             // Include compare events if in compare mode
             let allEvents = mainEvents;
             if (compareMode && compareEvents.length > 0) {
-                const filteredCompareEvents = compareEvents.filter(e => {
-                    if (viewMode === 'posts') return !e.isReply;
-                    if (viewMode === 'replies') return e.isReply;
-                    return true;
-                }).map(e => ({ ...e, isCompareEvent: true }));
-                
+                const filteredCompareEvents = filterByViewMode(compareEvents).map(e => ({ ...e, isCompareEvent: true }));
                 allEvents = [...mainEvents, ...filteredCompareEvents];
             }
             
@@ -1296,7 +1277,7 @@
                     <div class="event-content">${escapeHtml(event.content)}</div>
                     <div class="event-meta">
                         <span>ID: ${event.id.slice(0, 8)}...</span>
-                        ${event.tags?.filter(t => t[0] === 'p').length > 0 ? `<span>👥 ${event.tags.filter(t => t[0] === 'p').length} mentions</span>` : ''}
+                        ${getMentionCount(event) > 0 ? `<span>👥 ${getMentionCount(event)} mentions</span>` : ''}
                     </div>
                     ${event.parentEventId ? `
                         <div class="thread-info">
@@ -1333,9 +1314,7 @@
             }
             
             // Count visible thread connections
-            const visibleThreads = userEvents.filter(e => 
-                e.parentEventId && userEvents.some(p => p.id === e.parentEventId)
-            ).length;
+            const visibleThreads = countVisibleThreads(userEvents);
             document.getElementById('stat-threads').textContent = 
                 visibleThreads > 0 ? `${visibleThreads} visible` : '—';
         }
@@ -1343,11 +1322,7 @@
         function renderEventFeed(highlightEvent = null) {
             const container = document.getElementById('event-detail');
             
-            const filteredEvents = userEvents.filter(e => {
-                if (viewMode === 'posts') return !e.isReply;
-                if (viewMode === 'replies') return e.isReply;
-                return true;
-            }).sort((a, b) => b.created_at - a.created_at);
+            const filteredEvents = filterByViewMode(userEvents).sort((a, b) => b.created_at - a.created_at);
             
             if (filteredEvents.length === 0) {
                 container.innerHTML = `
@@ -1371,7 +1346,7 @@
                         <div class="event-content">${escapeHtml(event.content.slice(0, 300))}${event.content.length > 300 ? '...' : ''}</div>
                         <div class="event-meta">
                             <span>ID: ${event.id.slice(0, 8)}...</span>
-                            ${event.tags.filter(t => t[0] === 'p').length > 0 ? `<span>👥 ${event.tags.filter(t => t[0] === 'p').length} mentions</span>` : ''}
+                            ${getMentionCount(event) > 0 ? `<span>👥 ${getMentionCount(event)} mentions</span>` : ''}
                         </div>
                         ${event.parentEventId ? `
                             <div class="thread-info">
@@ -1405,26 +1380,30 @@
             });
         }
 
-        function connectToRelay(url, subId, filter, onEvent, onEose = null) {
-            const relay = relays.find(r => r.url === url);
-            if (relay) {
-                relay.status = 'connecting';
+        // Helper to update relay status and refresh UI (debounced)
+        let relayUITimeout = null;
+        function setRelayStatus(relay, status) {
+            if (!relay) return;
+            relay.status = status;
+            // Debounce UI updates to avoid excessive redraws
+            clearTimeout(relayUITimeout);
+            relayUITimeout = setTimeout(() => {
                 renderRelayBar();
                 renderRelayList();
                 updateRelayCount();
-            }
+            }, 100);
+        }
+        
+        function connectToRelay(url, subId, filter, onEvent, onEose = null) {
+            const relay = relays.find(r => r.url === url);
+            setRelayStatus(relay, 'connecting');
             
             try {
                 const socket = new WebSocket(url);
                 activeConnections.set(url, socket);
                 
                 socket.onopen = () => {
-                    if (relay) {
-                        relay.status = 'connected';
-                        renderRelayBar();
-                        renderRelayList();
-                        updateRelayCount();
-                    }
+                    setRelayStatus(relay, 'connected');
                     socket.send(JSON.stringify(['REQ', subId, filter]));
                 };
                 
@@ -1441,42 +1420,22 @@
                     }
                 };
                 
-                socket.onerror = (e) => {
-                    console.error('WebSocket error:', e);
-                    if (relay) {
-                        relay.status = 'error';
-                        renderRelayBar();
-                        renderRelayList();
-                        updateRelayCount();
-                    }
-                };
+                socket.onerror = () => setRelayStatus(relay, 'error');
                 
                 socket.onclose = () => {
-                    if (relay && relay.status !== 'error') {
-                        relay.status = 'closed';
-                        renderRelayBar();
-                        renderRelayList();
-                        updateRelayCount();
-                    }
+                    if (relay?.status !== 'error') setRelayStatus(relay, 'closed');
                     activeConnections.delete(url);
                 };
                 
                 // Auto-close after 30 seconds
                 setTimeout(() => {
-                    if (socket.readyState === WebSocket.OPEN) {
-                        socket.close();
-                    }
+                    if (socket.readyState === WebSocket.OPEN) socket.close();
                 }, 30000);
                 
                 return socket;
             } catch (e) {
                 console.error('Connection error:', e);
-                if (relay) {
-                    relay.status = 'error';
-                    renderRelayBar();
-                    renderRelayList();
-                    updateRelayCount();
-                }
+                setRelayStatus(relay, 'error');
                 return null;
             }
         }
@@ -1487,24 +1446,23 @@
 
         function formatTime(timestamp) {
             const date = new Date(timestamp * 1000);
-            const now = new Date();
-            const diff = now - date;
+            const diff = Date.now() - date;
             
-            if (diff < 60000) return 'Just now';
-            if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-            if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+            if (diff < MS_MINUTE) return 'Just now';
+            if (diff < MS_HOUR) return `${Math.floor(diff / MS_MINUTE)}m ago`;
+            if (diff < MS_DAY) return `${Math.floor(diff / MS_HOUR)}h ago`;
             
             // For events older than 24h, show day and time
             const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-            const dayName = days[date.getDay()];
             const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            return `${dayName} ${time}`;
+            return `${days[date.getDay()]} ${time}`;
         }
 
+        // Cached element for escapeHtml to avoid creating new elements each time
+        const escapeDiv = document.createElement('div');
         function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+            escapeDiv.textContent = text;
+            return escapeDiv.innerHTML;
         }
 
         function showToast(message) {
@@ -1723,11 +1681,7 @@
             compareEventPositions.clear();
             
             // Filter events
-            const filteredEvents = compareEvents.filter(e => {
-                if (viewMode === 'posts') return !e.isReply;
-                if (viewMode === 'replies') return e.isReply;
-                return true;
-            });
+            const filteredEvents = filterByViewMode(compareEvents);
             
             if (filteredEvents.length === 0) {
                 nodesContainer.innerHTML = `
@@ -1786,11 +1740,8 @@
                 `${compareUser?.name || 'User'} — ${filteredEvents.length} events`;
         }
         
-        // Keep selectCompareEvent for backward compatibility but redirect to selectEvent
-        function selectCompareEvent(event) {
-            if (!event) return;
-            selectEvent(event, true);
-        }
+        // Alias for backward compatibility
+        const selectCompareEvent = (event) => event && selectEvent(event, true);
         
         function updateCompareStats() {
             if (!selectedUser || !compareUser) return;
@@ -1991,7 +1942,7 @@
                 addedAt: Date.now()
             });
             
-            saveStoredUsers();
+            saveUsers();
             renderUserList();
             showToast('✅ Added yourself to the list!');
         }
@@ -2054,7 +2005,7 @@
                     }
                 }
                 
-                saveStoredUsers();
+                saveUsers();
                 renderUserList();
                 
                 // Fetch profiles for all new users
