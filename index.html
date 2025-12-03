@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOSTR ORBIT — User Activity Timeline</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- User List Panel -->
+        <div id="user-panel">
+            <div id="user-panel-header">
+                <h2>⚡ Nostr Users</h2>
+                
+                <!-- Identity Panel -->
+                <div id="identity-panel">
+                    <div id="identity-info">
+                        <div id="identity-avatar">👤</div>
+                        <div id="identity-details">
+                            <div id="identity-name">Not connected</div>
+                            <div id="identity-npub">Login to import follows</div>
+                        </div>
+                    </div>
+                    <div id="identity-logged-out">
+                        <button class="identity-btn login" onclick="loginWithExtension()">
+                            🔑 Connect with Extension
+                        </button>
+                    </div>
+                    <div id="identity-logged-in" style="display:none;">
+                        <div id="identity-actions">
+                            <button class="identity-btn small secondary" onclick="importFollows()">
+                                👥 Import Follows
+                            </button>
+                            <button class="identity-btn small secondary" onclick="addMeToList()">
+                                ➕ Add Me
+                            </button>
+                        </div>
+                        <button class="identity-btn small secondary" onclick="logout()" style="margin-top:6px;">
+                            Disconnect
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="add-user-form">
+                    <input type="text" id="npub-input" placeholder="npub or hex pubkey...">
+                    <button onclick="addUserFromInput()">+</button>
+                </div>
+                <div class="sort-options">
+                    <button class="sort-btn active" data-sort="recent" onclick="sortUsers('recent')">Recent</button>
+                    <button class="sort-btn" data-sort="posts" onclick="sortUsers('posts')">Most Posts</button>
+                    <button class="sort-btn" data-sort="name" onclick="sortUsers('name')">A-Z</button>
+                </div>
+                <div id="time-range">
+                    <button class="time-btn" data-hours="6" onclick="setTimeRange(6)">6h</button>
+                    <button class="time-btn" data-hours="12" onclick="setTimeRange(12)">12h</button>
+                    <button class="time-btn active" data-hours="24" onclick="setTimeRange(24)">24h</button>
+                    <button class="time-btn" data-hours="48" onclick="setTimeRange(48)">48h</button>
+                    <button class="time-btn" data-hours="168" onclick="setTimeRange(168)">7d</button>
+                    <input type="number" id="custom-time-input" placeholder="hrs" min="1" max="720" onchange="setCustomTimeRange(this.value)">
+                </div>
+            </div>
+            <div id="user-list">
+                <div class="loading"><div class="spinner"></div>Loading users...</div>
+            </div>
+        </div>
+        
+        <!-- Timeline Canvas -->
+        <div id="canvas-container">
+            <canvas id="timeline-canvas"></canvas>
+            <div id="timeline-header">
+                <span id="selected-user-info">Select a user to view their 24h activity</span>
+            </div>
+            
+            <!-- Relay status bar -->
+            <div id="relay-bar"></div>
+            
+            <!-- Relay manager toggle -->
+            <button id="relay-toggle-btn" onclick="toggleRelayManager()">
+                ⚡ Relays <span class="relay-count" id="relay-count">0/0</span>
+            </button>
+            
+            <!-- Relay manager panel -->
+            <div id="relay-manager">
+                <h4>Relay Manager <button class="close-btn" onclick="toggleRelayManager()">×</button></h4>
+                <div class="relay-list" id="relay-list"></div>
+                <div id="add-relay-form">
+                    <input type="text" id="new-relay-input" placeholder="wss://relay.example.com">
+                    <button onclick="addCustomRelay()">Add</button>
+                </div>
+            </div>
+            
+            <!-- SVG layer for connection lines -->
+            <svg id="connections-svg">
+                <defs>
+                    <linearGradient id="threadGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" style="stop-color:#f59e0b;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#22c55e;stop-opacity:1" />
+                    </linearGradient>
+                    <linearGradient id="selfReplyGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" style="stop-color:#8b5cf6;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#6366f1;stop-opacity:1" />
+                    </linearGradient>
+                    <marker id="arrowhead" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
+                        <polygon points="0 0, 6 2, 0 4" fill="#6366f1" />
+                    </marker>
+                </defs>
+            </svg>
+            
+            <div id="event-nodes"></div>
+            
+            <!-- Timeline toolbar (consolidated controls) -->
+            <div id="timeline-toolbar">
+                <button id="thread-toggle" onclick="toggleThreadLines()">
+                    🔗 Threads
+                </button>
+                
+                <button id="compare-toggle" onclick="toggleCompareMode()">
+                    📊 Compare
+                </button>
+                
+                <div id="playback-controls">
+                    <button class="playback-btn" onclick="resetPlayback()" title="Reset">⏮</button>
+                    <button class="playback-btn" id="play-btn" onclick="togglePlayback()" title="Play/Pause">▶️</button>
+                    <div id="playback-progress" onclick="seekPlayback(event)">
+                        <div id="playback-progress-bar"></div>
+                    </div>
+                    <span id="playback-time">0 / 0</span>
+                    <span id="playback-speed" onclick="cycleSpeed()" title="Click to change speed">1x</span>
+                </div>
+            </div>
+            
+            <div id="timeline-legend">
+                <div class="legend-item"><div class="legend-dot post"></div> Posts</div>
+                <div class="legend-item"><div class="legend-dot reply"></div> Replies</div>
+            </div>
+        </div>
+        
+        <!-- Compare Container (2nd timeline) -->
+        <div id="compare-container">
+            <canvas id="compare-canvas"></canvas>
+            <div id="compare-header">
+                <span id="compare-user-info">Select a user to compare</span>
+            </div>
+            <!-- SVG layer for compare thread lines -->
+            <svg id="compare-connections-svg">
+                <defs>
+                    <linearGradient id="compareThreadGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" style="stop-color:#fbbf24;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#34d399;stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+            </svg>
+            <div id="compare-nodes"></div>
+            <div id="compare-legend">
+                <div class="legend-item"><div class="legend-dot post"></div> Posts</div>
+                <div class="legend-item"><div class="legend-dot reply"></div> Replies</div>
+            </div>
+        </div>
+        
+        <!-- Sidebar - Event Details -->
+        <div id="sidebar">
+            <div class="panel">
+                <h3>📊 View Mode</h3>
+                <div id="view-toggle">
+                    <button class="toggle-btn" data-view="posts" onclick="setViewMode('posts')">Posts Only</button>
+                    <button class="toggle-btn" data-view="replies" onclick="setViewMode('replies')">Replies Only</button>
+                    <button class="toggle-btn active" data-view="all" onclick="setViewMode('all')">All Events</button>
+                </div>
+            </div>
+            
+            <div class="panel" id="stats-panel">
+                <h3>📈 24h Stats</h3>
+                <div class="stat-row">
+                    <span class="stat-label">Total Events</span>
+                    <span class="stat-value" id="stat-total">—</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Posts</span>
+                    <span class="stat-value" id="stat-posts">—</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Replies</span>
+                    <span class="stat-value" id="stat-replies">—</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Peak Hour</span>
+                    <span class="stat-value" id="stat-peak">—</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Thread Links</span>
+                    <span class="stat-value" id="stat-threads">—</span>
+                </div>
+            </div>
+            
+            <!-- Compare stats panel (hidden by default) -->
+            <div id="compare-stats" style="display:none;">
+                <h4>📊 Comparison</h4>
+                <div class="compare-stat-row">
+                    <span class="stat-label">User</span>
+                    <span class="stat-user1" id="compare-name1">—</span>
+                    <span class="stat-user2" id="compare-name2">—</span>
+                </div>
+                <div class="compare-stat-row">
+                    <span class="stat-label">Total</span>
+                    <span class="stat-user1" id="compare-total1">—</span>
+                    <span class="stat-user2" id="compare-total2">—</span>
+                </div>
+                <div class="compare-bar" id="compare-bar-total">
+                    <div class="bar-user1" style="width:50%"></div>
+                    <div class="bar-user2" style="width:50%"></div>
+                </div>
+                <div class="compare-stat-row" style="margin-top:8px;">
+                    <span class="stat-label">Posts</span>
+                    <span class="stat-user1" id="compare-posts1">—</span>
+                    <span class="stat-user2" id="compare-posts2">—</span>
+                </div>
+                <div class="compare-bar" id="compare-bar-posts">
+                    <div class="bar-user1" style="width:50%"></div>
+                    <div class="bar-user2" style="width:50%"></div>
+                </div>
+                <div class="compare-stat-row" style="margin-top:8px;">
+                    <span class="stat-label">Replies</span>
+                    <span class="stat-user1" id="compare-replies1">—</span>
+                    <span class="stat-user2" id="compare-replies2">—</span>
+                </div>
+                <div class="compare-bar" id="compare-bar-replies">
+                    <div class="bar-user1" style="width:50%"></div>
+                    <div class="bar-user2" style="width:50%"></div>
+                </div>
+                <div class="compare-stat-row" style="margin-top:8px;">
+                    <span class="stat-label">Activity</span>
+                    <span class="stat-user1" id="compare-activity1">—</span>
+                    <span class="stat-user2" id="compare-activity2">—</span>
+                </div>
+            </div>
+            
+            <div id="event-detail">
+                <h3 style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#666;margin-bottom:12px;">📝 Event Feed</h3>
+                <div class="empty-state">
+                    <div class="icon">🔭</div>
+                    <p>Select a user to view their events</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="toast"></div>
+    <script src="assets/js/nostr.build.js"></script>
+    <script src="assets/js/app.js"></script>
+</body>
+</html>
