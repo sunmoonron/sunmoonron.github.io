@@ -58,6 +58,9 @@
         let currentRequestId = 0;
         let isLoading = false;
         
+        // Clock timer
+        let clockInterval = null;
+        
         // Relay management
         const DEFAULT_RELAYS = [
             'wss://relay.damus.io',
@@ -99,6 +102,108 @@
             
             // Try to restore previous session
             restoreIdentity();
+            
+            // Start clock timer (small delay to ensure canvas is rendered)
+            setTimeout(startClockTimer, 100);
+        }
+        
+        // Clock timer - shows current time position on timeline (only for ≤24h)
+        function startClockTimer() {
+            updateClockHand();
+            // Update every second
+            clockInterval = setInterval(updateClockHand, 1000);
+        }
+        
+        // Update clock arrow to point to "now" position (progress = 1.0 on timeline)
+        function updateClockHand() {
+            updateClockArrow('canvas-container', 'clock-arrow-line', 'clock-time', '#ff3366');
+            if (compareMode) {
+                updateClockArrow('compare-container', 'compare-clock-arrow-line', null, '#8b5cf6');
+            }
+        }
+        
+        function updateClockArrow(containerId, lineId, timeId, color) {
+            const container = document.getElementById(containerId);
+            const line = document.getElementById(lineId);
+            if (!container || !line || container.clientWidth === 0) return;
+            
+            // Only show for 24h or less
+            const svg = line.closest('svg');
+            if (timeRangeHours > 24) {
+                if (svg) svg.style.display = 'none';
+                if (timeId) document.getElementById(timeId).style.display = 'none';
+                return;
+            }
+            
+            if (svg) svg.style.display = 'block';
+            
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const radius = Math.min(width, height) * 0.35;
+            
+            // "Now" is at progress = 1.0 (full circle from start)
+            // Timeline goes from rangeStart to now, so now is at the end
+            const angle = Math.PI * 2 - Math.PI / 2; // = 3π/2 = top of circle (same as start, full rotation)
+            
+            // Arrow from center to edge
+            const endX = centerX + Math.cos(angle) * (radius - 5);
+            const endY = centerY + Math.sin(angle) * (radius - 5);
+            
+            line.setAttribute('x1', centerX);
+            line.setAttribute('y1', centerY);
+            line.setAttribute('x2', endX);
+            line.setAttribute('y2', endY);
+            
+            // Update time label
+            if (timeId) {
+                const clockTime = document.getElementById(timeId);
+                clockTime.style.display = 'block';
+                clockTime.textContent = 'NOW';
+                clockTime.style.left = (endX + 10) + 'px';
+                clockTime.style.top = (endY - 10) + 'px';
+            }
+        }
+        
+        // Animate arrow during playback
+        function updatePlaybackArrow(progress) {
+            animateArrow('canvas-container', 'clock-arrow-line', 'clock-time', progress);
+            if (compareMode) {
+                animateArrow('compare-container', 'compare-clock-arrow-line', null, progress);
+            }
+        }
+        
+        function animateArrow(containerId, lineId, timeId, progress) {
+            const container = document.getElementById(containerId);
+            const line = document.getElementById(lineId);
+            if (!container || !line) return;
+            
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const radius = Math.min(width, height) * 0.35;
+            
+            // Calculate angle based on playback progress
+            const angle = progress * Math.PI * 2 - Math.PI / 2;
+            
+            const endX = centerX + Math.cos(angle) * (radius - 5);
+            const endY = centerY + Math.sin(angle) * (radius - 5);
+            
+            line.setAttribute('x1', centerX);
+            line.setAttribute('y1', centerY);
+            line.setAttribute('x2', endX);
+            line.setAttribute('y2', endY);
+            
+            // Update time label position
+            if (timeId) {
+                const clockTime = document.getElementById(timeId);
+                const pct = Math.round(progress * 100);
+                clockTime.textContent = pct < 100 ? `${pct}%` : 'NOW';
+                clockTime.style.left = (endX + 10) + 'px';
+                clockTime.style.top = (endY - 10) + 'px';
+            }
         }
         
         function setupCompareCanvas() {
@@ -244,6 +349,9 @@
             // Clear custom input if preset button clicked
             document.getElementById('custom-time-input').value = '';
             
+            // Update clock visibility
+            updateClockHand();
+            
             if (selectedUser) {
                 fetchUserEvents(selectedUser.pubkey);
             }
@@ -275,6 +383,9 @@
             document.querySelectorAll('.time-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
+            
+            // Update clock visibility
+            updateClockHand();
             
             if (selectedUser) {
                 fetchUserEvents(selectedUser.pubkey);
@@ -636,6 +747,7 @@
                 canvas.width = container.clientWidth;
                 canvas.height = container.clientHeight;
                 drawTimelineBackground(ctx, canvas.width, canvas.height);
+                updateClockHand(); // Update clock position on resize
             }
             
             resize();
@@ -840,10 +952,6 @@
                 
                 const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 
-                const dx = childPos.x - parentPos.x;
-                const dy = childPos.y - parentPos.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
                 const container = document.getElementById('compare-container');
                 const centerX = container.clientWidth / 2;
                 const centerY = container.clientHeight / 2;
@@ -892,11 +1000,6 @@
                 // Create curved path between parent and child
                 const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 
-                // Calculate control points for a nice curve
-                const dx = childPos.x - parentPos.x;
-                const dy = childPos.y - parentPos.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
                 // Curve towards center for better visibility
                 const container = document.getElementById('canvas-container');
                 const centerX = container.clientWidth / 2;
@@ -905,8 +1008,6 @@
                 const midX = (parentPos.x + childPos.x) / 2;
                 const midY = (parentPos.y + childPos.y) / 2;
                 
-                // Pull control point towards center
-                const pullFactor = Math.min(distance * 0.3, 50);
                 const ctrlX = midX + (centerX - midX) * 0.2;
                 const ctrlY = midY + (centerY - midY) * 0.2;
                 
@@ -1221,6 +1322,12 @@
             
             const percent = total > 0 ? (current / total) * 100 : 0;
             document.getElementById('playback-progress-bar').style.width = `${percent}%`;
+            
+            // Animate the clock arrow based on playback progress
+            if (isPlaying || current > 0) {
+                const progress = total > 0 ? current / total : 0;
+                updatePlaybackArrow(progress);
+            }
         }
         
         function resetPlaybackUI() {
@@ -1230,6 +1337,9 @@
             document.getElementById('playback-progress-bar').style.width = '0%';
             document.getElementById('play-btn').textContent = '▶️';
             document.getElementById('play-btn').classList.remove('active');
+            
+            // Reset arrow to "now" position
+            updateClockHand();
         }
 
         // ============================================
@@ -1503,6 +1613,9 @@
                     // Redraw the background circle
                     drawTimelineBackground(ctx, canvas.width, canvas.height);
                     
+                    // Update clock arrows for both canvases
+                    updateClockHand();
+                    
                     if (selectedUser) {
                         renderTimeline();
                     }
@@ -1514,6 +1627,10 @@
                 btn.classList.remove('active');
                 btn.innerHTML = '📊 Compare';
                 statsPanel.style.display = 'none';
+                
+                // Hide compare arrow
+                const compareArrowSvg = document.getElementById('compare-clock-arrow-svg');
+                if (compareArrowSvg) compareArrowSvg.style.display = 'none';
                 
                 // Clear compare state
                 compareUser = null;
@@ -1533,6 +1650,9 @@
                     
                     // Redraw the background circle
                     drawTimelineBackground(ctx, canvas.width, canvas.height);
+                    
+                    // Update main clock arrow
+                    updateClockHand();
                     
                     if (selectedUser) {
                         renderTimeline();
@@ -1799,10 +1919,8 @@
         function checkNip07Extension() {
             // Check if window.nostr exists (NIP-07)
             if (window.nostr) {
-                console.log('NIP-07 extension detected!');
                 return true;
             } else {
-                console.log('No NIP-07 extension detected');
                 // Update UI to show extension not found
                 document.querySelector('.identity-btn.login').textContent = '🔑 No Extension Found';
                 document.querySelector('.identity-btn.login').title = 'Install Alby, nos2x, or another NIP-07 extension';
