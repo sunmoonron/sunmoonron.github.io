@@ -109,21 +109,6 @@
             
             <div id="event-nodes"></div>
             
-            <!-- Current time arrow (from center to edge) -->
-            <svg id="clock-arrow-svg" class="clock-arrow-layer">
-                <defs>
-                    <linearGradient id="clockArrowGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" style="stop-color:#ff3366;stop-opacity:0.3" />
-                        <stop offset="100%" style="stop-color:#ff3366;stop-opacity:1" />
-                    </linearGradient>
-                    <marker id="clockArrowHead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-                        <polygon points="0 0, 8 3, 0 6" fill="#ff3366" />
-                    </marker>
-                </defs>
-                <line id="clock-arrow-line" stroke="url(#clockArrowGradient)" stroke-width="2" marker-end="url(#clockArrowHead)" />
-            </svg>
-            <div id="clock-time">NOW</div>
-            
             <!-- Timeline toolbar (consolidated controls) -->
             <div id="timeline-toolbar">
                 <button id="thread-toggle" onclick="toggleThreadLines()">
@@ -166,21 +151,6 @@
                     </linearGradient>
                 </defs>
             </svg>
-            
-            <!-- Compare time arrow -->
-            <svg id="compare-clock-arrow-svg" class="clock-arrow-layer">
-                <defs>
-                    <linearGradient id="compareClockArrowGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" style="stop-color:#8b5cf6;stop-opacity:0.3" />
-                        <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
-                    </linearGradient>
-                    <marker id="compareClockArrowHead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-                        <polygon points="0 0, 8 3, 0 6" fill="#8b5cf6" />
-                    </marker>
-                </defs>
-                <line id="compare-clock-arrow-line" stroke="url(#compareClockArrowGradient)" stroke-width="2" marker-end="url(#compareClockArrowHead)" />
-            </svg>
-            
             <div id="compare-nodes"></div>
             <div id="compare-legend">
                 <div class="legend-item"><div class="legend-dot post"></div> Posts</div>
@@ -200,7 +170,7 @@
             </div>
             
             <div class="panel" id="stats-panel">
-                <h3>📈 24h Stats</h3>
+                <h3 id="stats-header">📈 Stats</h3>
                 <div class="stat-row">
                     <span class="stat-label">Total Events</span>
                     <span class="stat-value" id="stat-total">—</span>
@@ -277,6 +247,6 @@
     
     <div id="toast"></div>
     <script src="assets/js/nostr.bundle.js"></script>
-    <script src="assets/js/app.js"></script>
+    <script src="assets/js/app.refactored.js"></script>
 </body>
 </html>

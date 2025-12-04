@@ -253,41 +253,6 @@
         .legend-dot.post { background: var(--post-color); }
         .legend-dot.reply { background: var(--reply-color); }
         
-        /* Current time clock arrow */
-        .clock-arrow-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 150;
-        }
-        
-        #clock-arrow-line {
-            filter: drop-shadow(0 0 6px rgba(255, 51, 102, 0.6));
-        }
-        
-        #compare-clock-arrow-line {
-            filter: drop-shadow(0 0 6px rgba(139, 92, 246, 0.6));
-        }
-        
-        #clock-time {
-            position: absolute;
-            font-size: 10px;
-            font-weight: bold;
-            color: #ff3366;
-            background: rgba(10, 10, 15, 0.9);
-            padding: 3px 8px;
-            border-radius: 4px;
-            z-index: 201;
-            pointer-events: none;
-            white-space: nowrap;
-            border: 1px solid rgba(255, 51, 102, 0.5);
-            display: none;
-            text-shadow: 0 0 4px rgba(255, 51, 102, 0.5);
-        }
-        
         /* Event node on timeline */
         .event-node {
             position: absolute;
