@@ -1,4 +1,4 @@
-# NOSTR User Event/Replies Viewer
+# [NOSTR User Event/Replies Viewer](sunmoonron.github.io)
 
 - Connects to 5 relays to fetch NOSTR events
 - Enables viewing user posts and/or replies in maximum 720 hours (30 days) range
