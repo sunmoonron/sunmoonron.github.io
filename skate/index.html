@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Toronto Drop-in Skating | Find Skating Near You</title>
+    <meta name="description" content="Find drop-in skating, shinny hockey, figure skating, and more across Toronto. Real-time data from City of Toronto.">
+    <meta name="theme-color" content="#1a1a2e">
+    
+    <style>
+        /* ========================================
+           CSS Variables & Reset
+           ======================================== */
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #22d3ee;
+            --accent: #f472b6;
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --bg-hover: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border: #334155;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            
+            /* Activity type colors */
+            --leisure-color: #22d3ee;
+            --shinny-color: #f472b6;
+            --figure-color: #a78bfa;
+            --speed-color: #fb923c;
+            
+            --radius: 12px;
+            --radius-sm: 8px;
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+            
+            --header-height: 180px;
+            --footer-height: 80px;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+        
+        /* ========================================
+           Layout
+           ======================================== */
+        .skate-app {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 1rem;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .skate-header {
+            text-align: center;
+            padding: 2rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .skate-header h1 {
+            font-size: clamp(1.5rem, 5vw, 2.5rem);
+            background: linear-gradient(135deg, var(--secondary), var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+        
+        .skate-header .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+        
+        .cache-status {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+        }
+        
+        /* ========================================
+           Controls Section
+           ======================================== */
+        .skate-controls {
+            padding: 1.5rem 0;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            position: sticky;
+            top: 0;
+            background: var(--bg-dark);
+            z-index: 100;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .search-bar {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .search-bar input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+        
+        .search-bar input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 0.75rem 1.25rem;
+            border-radius: var(--radius-sm);
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+        
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--bg-hover);
+        }
+        
+        .btn-link {
+            background: none;
+            color: var(--text-secondary);
+            padding: 0.5rem;
+        }
+        
+        .btn-link:hover {
+            color: var(--secondary);
+        }
+        
+        /* Quick Filters */
+        .quick-filters {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .filter-chip {
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        
+        .filter-chip:hover {
+            border-color: var(--primary);
+            color: var(--text-primary);
+        }
+        
+        .filter-chip.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+        
+        /* Advanced Filters */
+        .advanced-filters {
+            position: relative;
+        }
+        
+        .filter-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.7rem;
+            padding: 0.15rem 0.4rem;
+            border-radius: 50px;
+            margin-left: 0.25rem;
+        }
+        
+        .filter-panel {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            margin-top: 0.5rem;
+            z-index: 50;
+            box-shadow: var(--shadow-lg);
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .filter-panel.hidden {
+            display: none;
+        }
+        
+        .filter-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .filter-group input,
+        .filter-group select {
+            width: 100%;
+            padding: 0.5rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--bg-dark);
+            color: var(--text-primary);
+        }
+        
+        .filter-group select[multiple] {
+            height: 100px;
+        }
+        
+        .time-range {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .time-range span {
+            color: var(--text-muted);
+        }
+        
+        .day-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+        }
+        
+        .day-btn {
+            padding: 0.35rem 0.6rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--bg-dark);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.15s;
+        }
+        
+        .day-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+        
+        .filter-actions {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+        }
+        
+        /* View Controls */
+        .view-controls {
+            display: flex;
+            gap: 0.25rem;
+            margin-left: auto;
+        }
+        
+        .view-btn {
+            padding: 0.5rem 0.75rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: all 0.2s;
+        }
+        
+        .view-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        /* ========================================
+           Stats Bar
+           ======================================== */
+        .skate-stats {
+            display: flex;
+            gap: 1.5rem;
+            padding: 0.75rem 0;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .stat strong {
+            color: var(--secondary);
+        }
+        
+        /* ========================================
+           Content Area
+           ======================================== */
+        .skate-content {
+            flex: 1;
+            padding: 1rem 0;
+        }
+        
+        /* Card View */
+        .program-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+        
+        .program-card {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 1.25rem;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .program-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--leisure-color);
+        }
+        
+        .program-card.shinny::before { background: var(--shinny-color); }
+        .program-card.figure::before { background: var(--figure-color); }
+        .program-card.speed::before { background: var(--speed-color); }
+        
+        .program-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--primary);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+        
+        .activity-type {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        
+        .facility-badge {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            background: var(--bg-dark);
+            border-radius: 50px;
+            color: var(--text-secondary);
+        }
+        
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+        
+        .card-location {
+            font-size: 0.85rem;
+            color: var(--secondary);
+            margin-bottom: 1rem;
+        }
+        
+        .card-details {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .detail {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        
+        .detail .icon {
+            font-size: 0.9rem;
+        }
+        
+        /* List View */
+        .program-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        
+        .program-table th,
+        .program-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .program-table th {
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            font-weight: 500;
+            position: sticky;
+            top: 0;
+        }
+        
+        .program-table tr:hover {
+            background: var(--bg-card);
+        }
+        
+        /* Calendar View */
+        .calendar-view {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 0.5rem;
+        }
+        
+        @media (max-width: 900px) {
+            .calendar-view {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        
+        @media (max-width: 500px) {
+            .calendar-view {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .calendar-day {
+            background: var(--bg-card);
+            border-radius: var(--radius-sm);
+            padding: 0.75rem;
+            min-height: 150px;
+        }
+        
+        .calendar-day h4 {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .mini-card {
+            background: var(--bg-dark);
+            padding: 0.4rem 0.5rem;
+            border-radius: var(--radius-sm);
+            margin-bottom: 0.35rem;
+            font-size: 0.75rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .mini-card .time {
+            color: var(--secondary);
+            white-space: nowrap;
+        }
+        
+        .mini-card .name {
+            color: var(--text-primary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .more {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 0.25rem;
+        }
+        
+        /* ========================================
+           Pagination
+           ======================================== */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 0.25rem;
+            padding: 1.5rem 0;
+            flex-wrap: wrap;
+        }
+        
+        .page-btn {
+            padding: 0.5rem 0.75rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.15s;
+            min-width: 40px;
+        }
+        
+        .page-btn:hover:not(:disabled) {
+            background: var(--bg-hover);
+            border-color: var(--primary);
+        }
+        
+        .page-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+        
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .page-dots {
+            padding: 0.5rem;
+            color: var(--text-muted);
+        }
+        
+        /* ========================================
+           Footer
+           ======================================== */
+        .skate-footer {
+            padding: 1.5rem;
+            text-align: center;
+            border-top: 1px solid var(--border);
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        
+        .skate-footer a {
+            color: var(--secondary);
+            text-decoration: none;
+        }
+        
+        .skate-footer a:hover {
+            text-decoration: underline;
+        }
+        
+        .skate-footer p {
+            margin-bottom: 0.5rem;
+        }
+        
+        /* ========================================
+           States
+           ======================================== */
+        .loading-spinner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 4rem;
+            color: var(--text-secondary);
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 1rem;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .no-results,
+        .error-message {
+            text-align: center;
+            padding: 4rem 2rem;
+        }
+        
+        .no-results .emoji,
+        .error-message .emoji {
+            font-size: 3rem;
+            display: block;
+            margin-bottom: 1rem;
+        }
+        
+        .no-results h3,
+        .error-message h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .no-results p,
+        .error-message p {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+        
+        /* ========================================
+           Responsive
+           ======================================== */
+        @media (max-width: 768px) {
+            .skate-controls {
+                gap: 0.75rem;
+            }
+            
+            .quick-filters {
+                overflow-x: auto;
+                flex-wrap: nowrap;
+                padding-bottom: 0.5rem;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .filter-chip {
+                flex-shrink: 0;
+            }
+            
+            .program-cards {
+                grid-template-columns: 1fr;
+            }
+            
+            .filter-panel {
+                grid-template-columns: 1fr;
+            }
+            
+            .program-table {
+                font-size: 0.8rem;
+            }
+            
+            .program-table th,
+            .program-table td {
+                padding: 0.5rem;
+            }
+            
+            /* Hide less important columns on mobile */
+            .program-table th:nth-child(5),
+            .program-table td:nth-child(5),
+            .program-table th:nth-child(6),
+            .program-table td:nth-child(6) {
+                display: none;
+            }
+        }
+        
+        /* ========================================
+           Accessibility
+           ======================================== */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+        
+        :focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+        }
+        
+        /* ========================================
+           Scrollbar
+           ======================================== */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <div id="skate-app">
+        <!-- App loads here -->
+        <div class="skate-app">
+            <div class="loading-spinner" style="min-height: 100vh; justify-content: center;">
+                <div class="spinner"></div>
+                <p>Initializing...</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Load modules in order -->
+    <script src="projects/js/skate_modules/storage.js"></script>
+    <script src="projects/js/skate_modules/api.js"></script>
+    <script src="projects/js/skate_modules/filters.js"></script>
+    <script src="projects/js/skate_modules/utils.js"></script>
+    <script src="projects/js/skate_modules/ui.js"></script>
+    
+    <script>
+        /**
+         * Main Application Entry Point
+         * Initializes the skating portal
+         * 
+         * Data sources (in order of priority):
+         * 1. Firebase Storage (auto-updated weekly via Cloud Functions)
+         * 2. Local static JSON files (fallback)
+         * 
+         * Setup Firebase (optional - for auto-updates):
+         * 1. Deploy functions: cd functions && npm install && firebase deploy --only functions
+         * 2. Set FIREBASE_STORAGE_URL below to your bucket URL
+         */
+        (async function() {
+            'use strict';
+            
+            console.log('[SkateApp] Initializing...');
+            
+            // ========================================
+            // CONFIGURATION - Update after deploying Firebase Functions
+            // ========================================
+            // Uncomment and set this after deploying your Cloud Function:
+            // SkateAPI.configure({
+            //     storageUrl: 'https://storage.googleapis.com/YOUR-PROJECT-ID.appspot.com/skating-data/skating-programs.json'
+            // });
+            // ========================================
+            
+            // Wait for DOM
+            if (document.readyState === 'loading') {
+                await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
+            }
+            
+            // Initialize UI
+            SkateUI.init('#skate-app');
+            SkateUI.showLoading('Loading skating programs...');
+            
+            try {
+                // Load programs (from Firebase Storage or local files)
+                console.log('[SkateApp] Loading data...');
+                const programs = await SkateAPI.getSkatingPrograms();
+                
+                if (!programs || programs.length === 0) {
+                    throw new Error('No skating programs found. Check Firebase Storage or run "node fetch-skate-data.js"');
+                }
+                
+                console.log(`[SkateApp] Loaded ${programs.length} skating programs`);
+                SkateUI.setPrograms(programs);
+                SkateUI.updateCacheStatus();
+                
+                // Check if data needs refresh
+                if (SkateAPI.needsRefresh()) {
+                    console.log('[SkateApp] ⚠️ Data is more than 7 days old');
+                }
+                
+            } catch (error) {
+                console.error('[SkateApp] Error:', error);
+                SkateUI.showError(error.message || 'Failed to load skating programs.');
+            }
+            
+        })();
+    </script>
+</body>
+</html>

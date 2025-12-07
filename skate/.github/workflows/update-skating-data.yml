@@ -1,0 +1,30 @@
+name: Update Skating Data
+
+on:
+  schedule:
+    - cron: '0 14 * * 0'  # Sunday 9 AM EST (14:00 UTC)
+  workflow_dispatch:       # Manual trigger
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Fetch skating data
+        run: node fetch-skate-data.js
+      
+      - name: Commit updated data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add projects/data/*.json
+          git diff --staged --quiet || git commit -m "🛼 Update skating data"
+          git push
