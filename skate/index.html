@@ -11,24 +11,49 @@
     <meta http-equiv="Expires" content="0">
     
     <style>
-        /* Craigslist-inspired minimal styling */
+        /* ========== RESET & BASE ========== */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
             font-family: Arial, sans-serif;
             font-size: 14px;
             line-height: 1.4;
-            background: #f7f7f7;
+            background: #f5f5f5;
             color: #222;
-            padding: 10px;
-            max-width: 900px;
-            margin: 0 auto;
         }
         
         a { color: #00c; }
-        a:visited { color: #551a8b; }
         
+        /* ========== TWO-COLUMN LAYOUT ========== */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        .main-panel {
+            flex: 1;
+            padding: 15px;
+            max-width: 700px;
+            overflow-y: auto;
+        }
+        
+        .chat-panel {
+            width: 320px;
+            background: #fff;
+            border-left: 1px solid #ccc;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chat-panel.collapsed {
+            width: 50px;
+        }
+        
+        /* ========== HEADER ========== */
         header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             border-bottom: 2px solid #ccc;
             padding-bottom: 8px;
             margin-bottom: 10px;
@@ -40,6 +65,21 @@
             color: #555;
         }
         
+        .header-actions button {
+            background: #4a9;
+            color: #fff;
+            border: none;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 13px;
+            border-radius: 3px;
+        }
+        
+        .header-actions button:hover {
+            background: #3a8;
+        }
+        
+        /* ========== CONTROLS ========== */
         .controls {
             background: #eee;
             padding: 10px;
@@ -60,7 +100,7 @@
             font-size: 14px;
         }
         
-        input[type="text"] { flex: 1; min-width: 200px; }
+        input[type="text"] { flex: 1; min-width: 150px; }
         
         button {
             padding: 4px 12px;
@@ -85,8 +125,6 @@
             gap: 5px;
         }
         
-        .filter-group label { color: #555; }
-        
         .quick-filters {
             margin-bottom: 8px;
         }
@@ -110,29 +148,30 @@
             margin-bottom: 5px;
         }
         
-        /* Program list - ultra simple */
+        /* ========== PROGRAM LIST ========== */
         .program-list {
             list-style: none;
         }
         
         .program-item {
-            padding: 8px 0;
+            padding: 8px;
             border-bottom: 1px solid #ddd;
-            display: grid;
-            grid-template-columns: 1fr auto;
+            display: flex;
             gap: 10px;
+            align-items: flex-start;
         }
         
         .program-item:hover { background: #ffffd0; }
         
-        .program-main {
-            min-width: 0;
-        }
+        .program-main { flex: 1; min-width: 0; }
         
         .program-title {
             font-weight: bold;
             color: #00c;
+            cursor: pointer;
         }
+        
+        .program-title:hover { text-decoration: underline; }
         
         .program-location {
             color: #666;
@@ -148,6 +187,34 @@
         
         .program-date { font-weight: bold; }
         
+        .program-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .program-actions button {
+            padding: 3px 8px;
+            font-size: 11px;
+            background: #e8f4e8;
+            border-color: #8c8;
+        }
+        
+        .program-actions button:hover {
+            background: #d0ecd0;
+        }
+        
+        .program-actions button.voted {
+            background: #4a9;
+            color: #fff;
+        }
+        
+        .vote-count {
+            font-size: 10px;
+            color: #666;
+            text-align: center;
+        }
+        
         .tag {
             display: inline-block;
             background: #ddd;
@@ -161,24 +228,7 @@
         .tag.figure { background: #ddf; }
         .tag.speed { background: #ffd; }
         
-        footer {
-            margin-top: 20px;
-            padding-top: 10px;
-            border-top: 1px solid #ccc;
-            font-size: 12px;
-            color: #666;
-        }
-        
-        footer a { margin-right: 10px; }
-        
-        .loading, .error, .empty {
-            padding: 40px;
-            text-align: center;
-            color: #666;
-        }
-        
-        .error { color: #c00; }
-        
+        /* ========== PAGINATION ========== */
         .pagination {
             padding: 10px 0;
             text-align: center;
@@ -193,80 +243,398 @@
             background: #555;
             color: #fff;
         }
-
-        /* Mobile tweaks */
-        @media (max-width: 600px) {
-            .program-item {
-                grid-template-columns: 1fr;
+        
+        /* ========== FOOTER ========== */
+        footer {
+            margin-top: 20px;
+            padding-top: 10px;
+            border-top: 1px solid #ccc;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        /* ========== CHAT PANEL ========== */
+        .chat-header {
+            padding: 10px;
+            background: #4a9;
+            color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .chat-header h2 {
+            font-size: 14px;
+            font-weight: normal;
+        }
+        
+        .chat-header button {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 0 5px;
+        }
+        
+        .chat-status {
+            padding: 8px 10px;
+            background: #f0f0f0;
+            border-bottom: 1px solid #ddd;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        
+        .status-dot.online { background: #4a9; }
+        .status-dot.offline { background: #ccc; }
+        
+        .chat-create {
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .chat-create p {
+            margin-bottom: 15px;
+            color: #666;
+            font-size: 13px;
+        }
+        
+        .chat-create button.create-btn {
+            background: #4a9;
+            color: #fff;
+            border: none;
+            padding: 12px 24px;
+            font-size: 15px;
+            cursor: pointer;
+            border-radius: 5px;
+            width: 100%;
+        }
+        
+        .chat-create button.create-btn:hover {
+            background: #3a8;
+        }
+        
+        .share-box {
+            margin-top: 15px;
+            padding: 10px;
+            background: #ffe;
+            border: 1px dashed #cc9;
+            border-radius: 5px;
+            text-align: left;
+        }
+        
+        .share-box label {
+            font-size: 11px;
+            color: #666;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .share-box input {
+            width: 100%;
+            padding: 6px;
+            font-size: 12px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            margin-bottom: 8px;
+        }
+        
+        .share-box button {
+            width: 100%;
+            padding: 6px;
+            font-size: 12px;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            background: #fafafa;
+        }
+        
+        .chat-msg {
+            margin-bottom: 10px;
+            max-width: 90%;
+        }
+        
+        .chat-msg.mine {
+            margin-left: auto;
+            text-align: right;
+        }
+        
+        .chat-msg .sender {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 2px;
+        }
+        
+        .chat-msg .bubble {
+            display: inline-block;
+            padding: 6px 10px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            font-size: 13px;
+            text-align: left;
+        }
+        
+        .chat-msg.mine .bubble {
+            background: #dcf8c6;
+            border-color: #c5e1a5;
+        }
+        
+        .chat-msg.system {
+            text-align: center;
+            max-width: 100%;
+        }
+        
+        .chat-msg.system .bubble {
+            background: #f0f0f0;
+            color: #888;
+            font-size: 11px;
+            border: none;
+        }
+        
+        .chat-msg.shared .bubble {
+            background: #e3f2fd;
+            border-color: #90caf9;
+        }
+        
+        .chat-msg .subtext {
+            font-size: 11px;
+            color: #666;
+            margin-top: 3px;
+        }
+        
+        .chat-input {
+            padding: 10px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            gap: 8px;
+        }
+        
+        .chat-input input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 15px;
+            font-size: 13px;
+        }
+        
+        .chat-input button {
+            padding: 8px 15px;
+            background: #4a9;
+            color: #fff;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+        }
+        
+        .chat-members {
+            padding: 8px 10px;
+            background: #f5f5f5;
+            border-top: 1px solid #ddd;
+            font-size: 11px;
+            color: #666;
+        }
+        
+        /* ========== COLLAPSED CHAT ========== */
+        .chat-panel.collapsed .chat-header h2,
+        .chat-panel.collapsed .chat-status,
+        .chat-panel.collapsed .chat-create,
+        .chat-panel.collapsed .chat-messages,
+        .chat-panel.collapsed .chat-input,
+        .chat-panel.collapsed .chat-members {
+            display: none;
+        }
+        
+        .chat-panel.collapsed .chat-header {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            padding: 15px 8px;
+        }
+        
+        /* ========== STATES ========== */
+        .loading, .error, .empty {
+            padding: 40px;
+            text-align: center;
+            color: #666;
+        }
+        
+        .error { color: #c00; }
+        
+        /* ========== MOBILE ========== */
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column;
             }
-            .program-meta {
-                text-align: left;
+            
+            .main-panel {
+                max-width: 100%;
+            }
+            
+            .chat-panel {
+                width: 100%;
+                border-left: none;
+                border-top: 1px solid #ccc;
+                max-height: 50vh;
+            }
+            
+            .chat-panel.collapsed {
+                width: 100%;
+                max-height: 45px;
+            }
+            
+            .chat-panel.collapsed .chat-header {
+                writing-mode: horizontal-tb;
             }
         }
     </style>
 </head>
 <body>
-    <header>
-        <h1>🛼 Toronto Drop-in Skating</h1>
-    </header>
-    
-    <div class="controls">
-        <div class="search-row">
-            <input type="text" id="search" placeholder="Search activity or location...">
-            <button id="search-btn">Search</button>
-            <button id="clear-btn">Clear</button>
-            <button id="refresh-btn" title="Force reload data">↻ Refresh</button>
-        </div>
-        
-        <div class="quick-filters">
-            <button class="active" data-type="all">All</button>
-            <button data-type="leisure">Leisure</button>
-            <button data-type="shinny">Shinny</button>
-            <button data-type="figure">Figure</button>
-            <button data-type="speed">Speed</button>
-        </div>
-        
-        <div class="filters">
-            <div class="filter-group">
-                <label>Day:</label>
-                <select id="day-filter">
-                    <option value="">Any</option>
-                    <option>Sunday</option>
-                    <option>Monday</option>
-                    <option>Tuesday</option>
-                    <option>Wednesday</option>
-                    <option>Thursday</option>
-                    <option>Friday</option>
-                    <option>Saturday</option>
-                </select>
+    <div class="app-container">
+        <!-- ========== MAIN PANEL ========== -->
+        <div class="main-panel">
+            <header>
+                <h1>🛼 Toronto Drop-in Skating</h1>
+                <div class="header-actions">
+                    <button id="create-group-btn" title="Start a group to coordinate with friends">
+                        👥 Start Group
+                    </button>
+                </div>
+            </header>
+            
+            <div class="controls">
+                <div class="search-row">
+                    <input type="text" id="search" placeholder="Search activity or location...">
+                    <button id="search-btn">Search</button>
+                    <button id="clear-btn">Clear</button>
+                    <button id="refresh-btn" title="Force reload">↻</button>
+                </div>
+                
+                <div class="quick-filters">
+                    <button class="active" data-type="all">All</button>
+                    <button data-type="leisure">Leisure</button>
+                    <button data-type="shinny">Shinny</button>
+                    <button data-type="figure">Figure</button>
+                    <button data-type="speed">Speed</button>
+                </div>
+                
+                <div class="filters">
+                    <div class="filter-group">
+                        <label>Day:</label>
+                        <select id="day-filter">
+                            <option value="">Any</option>
+                            <option>Sunday</option>
+                            <option>Monday</option>
+                            <option>Tuesday</option>
+                            <option>Wednesday</option>
+                            <option>Thursday</option>
+                            <option>Friday</option>
+                            <option>Saturday</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Age:</label>
+                        <input type="number" id="age-filter" placeholder="Your age" style="width:60px">
+                    </div>
+                </div>
             </div>
-            <div class="filter-group">
-                <label>Age:</label>
-                <input type="number" id="age-filter" placeholder="Your age" style="width:60px">
+            
+            <div class="stats" id="stats">Loading...</div>
+            
+            <ul class="program-list" id="program-list">
+                <li class="loading">Loading skating programs...</li>
+            </ul>
+            
+            <div class="pagination" id="pagination"></div>
+            
+            <footer>
+                Data: <a href="https://open.toronto.ca" target="_blank">City of Toronto Open Data</a> |
+                <span id="cache-status">--</span>
+            </footer>
+        </div>
+        
+        <!-- ========== CHAT PANEL ========== -->
+        <div class="chat-panel" id="chat-panel">
+            <div class="chat-header">
+                <h2>👥 Group Chat</h2>
+                <button id="toggle-chat" title="Minimize">−</button>
+            </div>
+            
+            <div class="chat-status" id="chat-status" style="display:none;">
+                <span>
+                    <span class="status-dot" id="status-dot"></span>
+                    <span id="group-code">--</span>
+                </span>
+                <button id="leave-group" style="font-size:11px;padding:2px 8px;">Leave</button>
+            </div>
+            
+            <div class="chat-create" id="chat-create">
+                <p>🛼 Want to skate together?<br>Create a group and share with friends!</p>
+                <button class="create-btn" id="create-btn">Create Skating Group</button>
+                <div class="share-box" id="share-box" style="display:none;">
+                    <label>📋 Share this link:</label>
+                    <input type="text" id="share-link" readonly>
+                    <button id="copy-link">Copy Link</button>
+                </div>
+            </div>
+            
+            <div class="chat-messages" id="chat-messages" style="display:none;"></div>
+            
+            <div class="chat-input" id="chat-input" style="display:none;">
+                <input type="text" id="msg-input" placeholder="Type a message...">
+                <button id="send-btn">Send</button>
+            </div>
+            
+            <div class="chat-members" id="chat-members" style="display:none;">
+                <span id="member-count">0</span> in group
             </div>
         </div>
     </div>
-    
-    <div class="stats" id="stats">Loading...</div>
-    
-    <ul class="program-list" id="program-list">
-        <li class="loading">Loading skating programs...</li>
-    </ul>
-    
-    <div class="pagination" id="pagination"></div>
-    
-    <footer>
-        <div>
-            Data: <a href="https://open.toronto.ca" target="_blank">City of Toronto Open Data</a> |
-            <span id="cache-status">--</span>
-        </div>
-    </footer>
 
-    <!-- Scripts with cache-busting version -->
-    <script src="projects/js/storage.js?v=2"></script>
-    <script src="projects/js/api.js?v=2"></script>
-    <script src="projects/js/filters.js?v=2"></script>
-    <script src="projects/js/utils.js?v=2"></script>
+    <!-- Scripts with cache-busting -->
+    <!-- Try to load NostrTools for crypto, fallback to built-in if not available -->
+    <script src="../assets/js/nostr.bundle.js?v=3" onerror="console.log('NostrTools not loaded, using fallback')"></script>
+    <script>
+        // Fallback if NostrTools didn't load
+        if (typeof NostrTools === 'undefined') {
+            window.NostrTools = {
+                generateSecretKey: () => {
+                    const arr = new Uint8Array(32);
+                    crypto.getRandomValues(arr);
+                    return arr;
+                },
+                getPublicKey: (sk) => {
+                    let hash = 0;
+                    for (let i = 0; i < sk.length; i++) {
+                        hash = ((hash << 5) - hash) + sk[i];
+                        hash = hash & hash;
+                    }
+                    return Math.abs(hash).toString(16).padStart(64, '0');
+                },
+                finalizeEvent: (event, sk) => {
+                    event.sig = '';
+                    return event;
+                }
+            };
+        }
+    </script>
+    <script src="projects/js/storage.js?v=3"></script>
+    <script src="projects/js/api.js?v=3"></script>
+    <script src="projects/js/filters.js?v=3"></script>
+    <script src="projects/js/utils.js?v=3"></script>
+    <script src="projects/js/chat.js?v=3"></script>
     
     <script>
     (function() {
@@ -277,7 +645,7 @@
             programs: [],
             filtered: [],
             page: 1,
-            perPage: 50,
+            perPage: 30,
             type: 'all',
             search: '',
             day: '',
@@ -294,10 +662,18 @@
         const ageEl = $('age-filter');
         const cacheStatusEl = $('cache-status');
         
+        // Chat elements
+        const chatPanel = $('chat-panel');
+        const chatCreate = $('chat-create');
+        const chatStatus = $('chat-status');
+        const chatMessages = $('chat-messages');
+        const chatInput = $('chat-input');
+        const chatMembers = $('chat-members');
+        const shareBox = $('share-box');
+        
         // ========== INIT ==========
         async function init() {
             try {
-                // Clear old localStorage on load to ensure fresh data
                 cleanupStorage();
                 
                 const programs = await SkateAPI.getSkatingPrograms();
@@ -310,48 +686,117 @@
                 applyFilters();
                 bindEvents();
                 
+                // Init chat
+                initChat();
+                
             } catch (err) {
                 listEl.innerHTML = `<li class="error">Error: ${err.message}</li>`;
                 console.error(err);
             }
         }
         
+        // ========== CHAT INIT ==========
+        function initChat() {
+            // Initialize chat module
+            SkateChat.init();
+            
+            // Register update callback
+            SkateChat.onUpdate(updateChatUI);
+            
+            // Check if already in a group
+            const chatState = SkateChat.getState();
+            if (chatState.active) {
+                showChatActive(chatState);
+            }
+        }
+        
+        function updateChatUI(chatState) {
+            if (chatState.active) {
+                showChatActive(chatState);
+            } else {
+                showChatCreate();
+            }
+        }
+        
+        function showChatCreate() {
+            chatCreate.style.display = 'block';
+            shareBox.style.display = 'none';
+            chatStatus.style.display = 'none';
+            chatMessages.style.display = 'none';
+            chatInput.style.display = 'none';
+            chatMembers.style.display = 'none';
+        }
+        
+        function showChatActive(chatState) {
+            chatCreate.style.display = 'none';
+            chatStatus.style.display = 'flex';
+            chatMessages.style.display = 'block';
+            chatInput.style.display = 'flex';
+            chatMembers.style.display = 'block';
+            
+            // Update status
+            $('status-dot').className = 'status-dot ' + (chatState.connected ? 'online' : 'offline');
+            $('group-code').textContent = 'Group: ' + chatState.shortCode;
+            $('member-count').textContent = chatState.members.length;
+            
+            // Render messages
+            renderMessages(chatState.messages);
+        }
+        
+        function renderMessages(messages) {
+            if (!messages.length) {
+                chatMessages.innerHTML = '<div style="text-align:center;color:#999;padding:20px;font-size:12px;">No messages yet. Share a skating session!</div>';
+                return;
+            }
+            
+            chatMessages.innerHTML = messages.map(m => {
+                let classes = 'chat-msg';
+                if (m.mine) classes += ' mine';
+                if (m.system) classes += ' system';
+                if (m.shared) classes += ' shared';
+                
+                return `
+                    <div class="${classes}">
+                        ${!m.mine && !m.system ? `<div class="sender">${m.from}</div>` : ''}
+                        <div class="bubble">
+                            ${m.text}
+                            ${m.subtext ? `<div class="subtext">${m.subtext}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            // Scroll to bottom
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
         // ========== STORAGE CLEANUP ==========
         function cleanupStorage() {
-            // Aggressive cleanup - remove expired items
             const now = Date.now();
             const keysToRemove = [];
             
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (key?.startsWith('skate_')) {
-                    // Check if it's metadata
-                    if (key.endsWith('_meta')) {
-                        try {
-                            const meta = JSON.parse(localStorage.getItem(key));
-                            // Remove if older than 24 hours
-                            if (meta?.savedAt && now - meta.savedAt > 24 * 60 * 60 * 1000) {
-                                keysToRemove.push(key);
-                                keysToRemove.push(key.replace('_meta', ''));
-                            }
-                        } catch (e) {
+                if (key?.startsWith('skate_') && key.endsWith('_meta')) {
+                    try {
+                        const meta = JSON.parse(localStorage.getItem(key));
+                        if (meta?.savedAt && now - meta.savedAt > 24 * 60 * 60 * 1000) {
                             keysToRemove.push(key);
+                            keysToRemove.push(key.replace('_meta', ''));
                         }
+                    } catch (e) {
+                        keysToRemove.push(key);
                     }
                 }
             }
             
             keysToRemove.forEach(k => localStorage.removeItem(k));
-            if (keysToRemove.length > 0) {
-                console.log(`[Cleanup] Removed ${keysToRemove.length} stale cache entries`);
-            }
         }
         
         // ========== FILTERING ==========
         function applyFilters() {
             let result = state.programs;
             
-            // Type filter
             if (state.type !== 'all') {
                 result = result.filter(p => {
                     const activity = (p.Activity || p['Activity Title'] || '').toLowerCase();
@@ -359,7 +804,6 @@
                 });
             }
             
-            // Search filter
             if (state.search) {
                 const term = state.search.toLowerCase();
                 result = result.filter(p => {
@@ -369,12 +813,10 @@
                 });
             }
             
-            // Day filter
             if (state.day) {
                 result = result.filter(p => p['Day of Week'] === state.day);
             }
             
-            // Age filter
             if (state.age !== null) {
                 result = result.filter(p => {
                     const min = p['Age Min'] || 0;
@@ -383,15 +825,13 @@
                 });
             }
             
-            // Filter to upcoming only and sort by date
             const now = new Date();
             now.setHours(0, 0, 0, 0);
             
             result = result.filter(p => {
                 const dateStr = p['Start Date Time'] || p['Start Date'];
-                if (!dateStr) return true; // Keep if no date
-                const date = new Date(dateStr);
-                return date >= now;
+                if (!dateStr) return true;
+                return new Date(dateStr) >= now;
             });
             
             result.sort((a, b) => {
@@ -412,21 +852,20 @@
             const start = (page - 1) * perPage;
             const pageItems = filtered.slice(start, start + perPage);
             
-            // Stats
             statsEl.textContent = `${total} programs found`;
             
-            // List
             if (total === 0) {
                 listEl.innerHTML = '<li class="empty">No programs match your filters</li>';
                 paginationEl.innerHTML = '';
                 return;
             }
             
-            listEl.innerHTML = pageItems.map(p => renderItem(p)).join('');
+            const chatState = SkateChat.getState();
+            listEl.innerHTML = pageItems.map((p, idx) => renderItem(p, start + idx, chatState)).join('');
             renderPagination(total);
         }
         
-        function renderItem(p) {
+        function renderItem(p, globalIdx, chatState) {
             const activity = p.Activity || p['Activity Title'] || 'Unknown';
             const location = p.LocationName || p['Location Name'] || '';
             const dateStr = p['Start Date Time'] || p['Start Date'] || '';
@@ -451,7 +890,6 @@
                 else ageDisplay = `Under ${ageMax}`;
             }
             
-            // Tag
             const actLower = activity.toLowerCase();
             let tag = '';
             if (actLower.includes('shinny') || actLower.includes('hockey') || actLower.includes('stick')) {
@@ -460,6 +898,27 @@
                 tag = '<span class="tag figure">Figure</span>';
             } else if (actLower.includes('speed')) {
                 tag = '<span class="tag speed">Speed</span>';
+            }
+            
+            // Vote count if in group
+            let voteCount = 0;
+            let hasVoted = false;
+            if (chatState.active && chatState.votes[globalIdx]) {
+                voteCount = chatState.votes[globalIdx].length;
+                hasVoted = chatState.votes[globalIdx].includes(sessionStorage.getItem('skate_chat_name'));
+            }
+            
+            // Action buttons (only if in group)
+            let actions = '';
+            if (chatState.active) {
+                actions = `
+                    <div class="program-actions">
+                        <button onclick="shareProgram(${globalIdx})" title="Share to group">📤</button>
+                        <button class="${hasVoted ? 'voted' : ''}" onclick="voteTime(${globalIdx})" title="Vote for this time">
+                            👍 ${voteCount || ''}
+                        </button>
+                    </div>
+                `;
             }
             
             return `
@@ -473,6 +932,7 @@
                         <div>${timeDisplay}</div>
                         <div>${ageDisplay}</div>
                     </div>
+                    ${actions}
                 </li>
             `;
         }
@@ -484,12 +944,8 @@
                 return;
             }
             
-            let html = '';
+            let html = `<button ${state.page === 1 ? 'disabled' : ''} data-p="${state.page - 1}">‹</button>`;
             
-            // Prev
-            html += `<button ${state.page === 1 ? 'disabled' : ''} data-p="${state.page - 1}">‹</button>`;
-            
-            // Pages
             const range = 2;
             for (let i = 1; i <= totalPages; i++) {
                 if (i === 1 || i === totalPages || (i >= state.page - range && i <= state.page + range)) {
@@ -499,9 +955,7 @@
                 }
             }
             
-            // Next
             html += `<button ${state.page === totalPages ? 'disabled' : ''} data-p="${state.page + 1}">›</button>`;
-            
             paginationEl.innerHTML = html;
         }
         
@@ -509,8 +963,7 @@
             try {
                 const meta = SkateAPI.getMetadata?.();
                 if (meta?.lastUpdated) {
-                    const date = new Date(meta.lastUpdated).toLocaleDateString('en-CA');
-                    cacheStatusEl.textContent = `Updated: ${date}`;
+                    cacheStatusEl.textContent = `Updated: ${new Date(meta.lastUpdated).toLocaleDateString('en-CA')}`;
                 } else {
                     cacheStatusEl.textContent = 'Live data';
                 }
@@ -518,6 +971,20 @@
                 cacheStatusEl.textContent = '';
             }
         }
+        
+        // ========== GLOBAL FUNCTIONS FOR ONCLICK ==========
+        window.shareProgram = function(idx) {
+            const program = state.filtered[idx];
+            if (program) {
+                SkateChat.shareProgram(program);
+            }
+        };
+        
+        window.voteTime = function(idx) {
+            SkateChat.voteTime(idx);
+            // Re-render to update vote display
+            setTimeout(render, 100);
+        };
         
         // ========== EVENTS ==========
         function bindEvents() {
@@ -548,18 +1015,13 @@
                 applyFilters();
             };
             
-            // Refresh - force clean reload
-            $('refresh-btn').onclick = async () => {
-                // Clear ALL skate storage
+            // Refresh
+            $('refresh-btn').onclick = () => {
                 for (let i = localStorage.length - 1; i >= 0; i--) {
                     const key = localStorage.key(i);
                     if (key?.startsWith('skate_')) localStorage.removeItem(key);
                 }
-                
-                // Clear API cache
                 SkateAPI.clearCache?.();
-                
-                // Reload page with cache bust
                 location.href = location.pathname + '?t=' + Date.now();
             };
             
@@ -593,6 +1055,62 @@
                     window.scrollTo(0, 0);
                 }
             };
+            
+            // ========== CHAT EVENTS ==========
+            
+            // Toggle chat panel
+            $('toggle-chat').onclick = () => {
+                chatPanel.classList.toggle('collapsed');
+                $('toggle-chat').textContent = chatPanel.classList.contains('collapsed') ? '+' : '−';
+            };
+            
+            // Create group (both buttons)
+            $('create-btn').onclick = createGroup;
+            $('create-group-btn').onclick = createGroup;
+            
+            function createGroup() {
+                const result = SkateChat.createGroup();
+                
+                // Show share link
+                shareBox.style.display = 'block';
+                $('share-link').value = result.shareUrl;
+                
+                // Expand chat if collapsed
+                chatPanel.classList.remove('collapsed');
+                $('toggle-chat').textContent = '−';
+            }
+            
+            // Copy link
+            $('copy-link').onclick = () => {
+                $('share-link').select();
+                document.execCommand('copy');
+                $('copy-link').textContent = '✓ Copied!';
+                setTimeout(() => $('copy-link').textContent = 'Copy Link', 2000);
+            };
+            
+            // Leave group
+            $('leave-group').onclick = () => {
+                if (confirm('Leave this group?')) {
+                    SkateChat.leaveGroup();
+                    showChatCreate();
+                    render(); // Re-render to remove vote buttons
+                }
+            };
+            
+            // Send message
+            $('send-btn').onclick = sendMessage;
+            $('msg-input').onkeypress = e => {
+                if (e.key === 'Enter') sendMessage();
+            };
+            
+            function sendMessage() {
+                const input = $('msg-input');
+                const text = input.value.trim();
+                if (text) {
+                    SkateChat.sendMessage(text);
+                    input.value = '';
+                }
+            }
         }
         
         // Go!
