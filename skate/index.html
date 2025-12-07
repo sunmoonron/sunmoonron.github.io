@@ -3,802 +3,601 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Toronto Drop-in Skating | Find Skating Near You</title>
-    <meta name="description" content="Find drop-in skating, shinny hockey, figure skating, and more across Toronto. Real-time data from City of Toronto.">
-    <meta name="theme-color" content="#1a1a2e">
+    <title>Toronto Drop-in Skating</title>
+    
+    <!-- Force no caching -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     
     <style>
-        /* ========================================
-           CSS Variables & Reset
-           ======================================== */
-        :root {
-            --primary: #6366f1;
-            --primary-dark: #4f46e5;
-            --secondary: #22d3ee;
-            --accent: #f472b6;
-            --bg-dark: #0f172a;
-            --bg-card: #1e293b;
-            --bg-hover: #334155;
-            --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
-            --border: #334155;
-            --success: #22c55e;
-            --warning: #f59e0b;
-            --error: #ef4444;
-            
-            /* Activity type colors */
-            --leisure-color: #22d3ee;
-            --shinny-color: #f472b6;
-            --figure-color: #a78bfa;
-            --speed-color: #fb923c;
-            
-            --radius: 12px;
-            --radius-sm: 8px;
-            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
-            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
-            
-            --header-height: 180px;
-            --footer-height: 80px;
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        /* Craigslist-inspired minimal styling */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: var(--bg-dark);
-            color: var(--text-primary);
-            min-height: 100vh;
-            line-height: 1.5;
-        }
-        
-        /* ========================================
-           Layout
-           ======================================== */
-        .skate-app {
-            max-width: 1400px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.4;
+            background: #f7f7f7;
+            color: #222;
+            padding: 10px;
+            max-width: 900px;
             margin: 0 auto;
-            padding: 0 1rem;
-            min-height: 100vh;
+        }
+        
+        a { color: #00c; }
+        a:visited { color: #551a8b; }
+        
+        header {
+            border-bottom: 2px solid #ccc;
+            padding-bottom: 8px;
+            margin-bottom: 10px;
+        }
+        
+        h1 {
+            font-size: 18px;
+            font-weight: normal;
+            color: #555;
+        }
+        
+        .controls {
+            background: #eee;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+        }
+        
+        .search-row {
             display: flex;
-            flex-direction: column;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
         }
         
-        .skate-header {
-            text-align: center;
-            padding: 2rem 1rem;
-            border-bottom: 1px solid var(--border);
+        input[type="text"], input[type="number"], select {
+            padding: 4px 6px;
+            border: 1px solid #999;
+            font-size: 14px;
         }
         
-        .skate-header h1 {
-            font-size: clamp(1.5rem, 5vw, 2.5rem);
-            background: linear-gradient(135deg, var(--secondary), var(--primary), var(--accent));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 0.5rem;
-        }
+        input[type="text"] { flex: 1; min-width: 200px; }
         
-        .skate-header .subtitle {
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-        }
-        
-        .cache-status {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            margin-top: 0.5rem;
-        }
-        
-        /* ========================================
-           Controls Section
-           ======================================== */
-        .skate-controls {
-            padding: 1.5rem 0;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            position: sticky;
-            top: 0;
-            background: var(--bg-dark);
-            z-index: 100;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .search-bar {
-            display: flex;
-            gap: 0.5rem;
-        }
-        
-        .search-bar input {
-            flex: 1;
-            padding: 0.75rem 1rem;
-            border-radius: var(--radius);
-            border: 1px solid var(--border);
-            background: var(--bg-card);
-            color: var(--text-primary);
-            font-size: 1rem;
-        }
-        
-        .search-bar input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
-        }
-        
-        /* Buttons */
-        .btn {
-            padding: 0.75rem 1.25rem;
-            border-radius: var(--radius-sm);
-            border: none;
+        button {
+            padding: 4px 12px;
+            background: #eee;
+            border: 1px solid #999;
             cursor: pointer;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: all 0.2s;
-            display: inline-flex;
+            font-size: 14px;
+        }
+        
+        button:hover { background: #ddd; }
+        
+        .filters {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            font-size: 13px;
+        }
+        
+        .filter-group {
+            display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 5px;
         }
         
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-        }
+        .filter-group label { color: #555; }
         
-        .btn-primary:hover {
-            background: var(--primary-dark);
-            transform: translateY(-1px);
-        }
-        
-        .btn-secondary {
-            background: var(--bg-card);
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-        }
-        
-        .btn-secondary:hover {
-            background: var(--bg-hover);
-        }
-        
-        .btn-link {
-            background: none;
-            color: var(--text-secondary);
-            padding: 0.5rem;
-        }
-        
-        .btn-link:hover {
-            color: var(--secondary);
-        }
-        
-        /* Quick Filters */
         .quick-filters {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
+            margin-bottom: 8px;
         }
         
-        .filter-chip {
-            padding: 0.5rem 1rem;
-            border-radius: 50px;
-            border: 1px solid var(--border);
-            background: var(--bg-card);
-            color: var(--text-secondary);
-            cursor: pointer;
-            font-size: 0.85rem;
-            transition: all 0.2s;
+        .quick-filters button {
+            padding: 2px 8px;
+            font-size: 12px;
+            margin-right: 4px;
         }
         
-        .filter-chip:hover {
-            border-color: var(--primary);
-            color: var(--text-primary);
+        .quick-filters button.active {
+            background: #555;
+            color: #fff;
         }
         
-        .filter-chip.active {
-            background: var(--primary);
-            border-color: var(--primary);
-            color: white;
+        .stats {
+            font-size: 12px;
+            color: #666;
+            padding: 5px 0;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 5px;
         }
         
-        /* Advanced Filters */
-        .advanced-filters {
-            position: relative;
+        /* Program list - ultra simple */
+        .program-list {
+            list-style: none;
         }
         
-        .filter-count {
-            background: var(--accent);
-            color: white;
-            font-size: 0.7rem;
-            padding: 0.15rem 0.4rem;
-            border-radius: 50px;
-            margin-left: 0.25rem;
-        }
-        
-        .filter-panel {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 1.5rem;
-            margin-top: 0.5rem;
-            z-index: 50;
-            box-shadow: var(--shadow-lg);
+        .program-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #ddd;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
         }
         
-        .filter-panel.hidden {
-            display: none;
+        .program-item:hover { background: #ffffd0; }
+        
+        .program-main {
+            min-width: 0;
         }
         
-        .filter-group label {
-            display: block;
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            margin-bottom: 0.5rem;
+        .program-title {
+            font-weight: bold;
+            color: #00c;
         }
         
-        .filter-group input,
-        .filter-group select {
-            width: 100%;
-            padding: 0.5rem;
-            border-radius: var(--radius-sm);
-            border: 1px solid var(--border);
-            background: var(--bg-dark);
-            color: var(--text-primary);
+        .program-location {
+            color: #666;
+            font-size: 13px;
         }
         
-        .filter-group select[multiple] {
-            height: 100px;
-        }
-        
-        .time-range {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .time-range span {
-            color: var(--text-muted);
-        }
-        
-        .day-buttons {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.25rem;
-        }
-        
-        .day-btn {
-            padding: 0.35rem 0.6rem;
-            border-radius: var(--radius-sm);
-            border: 1px solid var(--border);
-            background: var(--bg-dark);
-            color: var(--text-secondary);
-            cursor: pointer;
-            font-size: 0.75rem;
-            transition: all 0.15s;
-        }
-        
-        .day-btn.active {
-            background: var(--primary);
-            border-color: var(--primary);
-            color: white;
-        }
-        
-        .filter-actions {
-            grid-column: 1 / -1;
-            display: flex;
-            gap: 0.5rem;
-            justify-content: flex-end;
-        }
-        
-        /* View Controls */
-        .view-controls {
-            display: flex;
-            gap: 0.25rem;
-            margin-left: auto;
-        }
-        
-        .view-btn {
-            padding: 0.5rem 0.75rem;
-            border-radius: var(--radius-sm);
-            border: 1px solid var(--border);
-            background: var(--bg-card);
-            cursor: pointer;
-            font-size: 1.1rem;
-            transition: all 0.2s;
-        }
-        
-        .view-btn.active {
-            background: var(--primary);
-            border-color: var(--primary);
-        }
-        
-        /* ========================================
-           Stats Bar
-           ======================================== */
-        .skate-stats {
-            display: flex;
-            gap: 1.5rem;
-            padding: 0.75rem 0;
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-        }
-        
-        .stat strong {
-            color: var(--secondary);
-        }
-        
-        /* ========================================
-           Content Area
-           ======================================== */
-        .skate-content {
-            flex: 1;
-            padding: 1rem 0;
-        }
-        
-        /* Card View */
-        .program-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 1rem;
-        }
-        
-        .program-card {
-            background: var(--bg-card);
-            border-radius: var(--radius);
-            padding: 1.25rem;
-            border: 1px solid var(--border);
-            transition: all 0.2s;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .program-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: var(--leisure-color);
-        }
-        
-        .program-card.shinny::before { background: var(--shinny-color); }
-        .program-card.figure::before { background: var(--figure-color); }
-        .program-card.speed::before { background: var(--speed-color); }
-        
-        .program-card:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
-            border-color: var(--primary);
-        }
-        
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.75rem;
-        }
-        
-        .activity-type {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-        }
-        
-        .facility-badge {
-            font-size: 0.7rem;
-            padding: 0.2rem 0.5rem;
-            background: var(--bg-dark);
-            border-radius: 50px;
-            color: var(--text-secondary);
-        }
-        
-        .card-title {
-            font-size: 1rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: var(--text-primary);
-        }
-        
-        .card-location {
-            font-size: 0.85rem;
-            color: var(--secondary);
-            margin-bottom: 1rem;
-        }
-        
-        .card-details {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-        
-        .detail {
-            display: flex;
-            align-items: center;
-            gap: 0.35rem;
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-        }
-        
-        .detail .icon {
-            font-size: 0.9rem;
-        }
-        
-        /* List View */
-        .program-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9rem;
-        }
-        
-        .program-table th,
-        .program-table td {
-            padding: 0.75rem 1rem;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .program-table th {
-            background: var(--bg-card);
-            color: var(--text-secondary);
-            font-weight: 500;
-            position: sticky;
-            top: 0;
-        }
-        
-        .program-table tr:hover {
-            background: var(--bg-card);
-        }
-        
-        /* Calendar View */
-        .calendar-view {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 0.5rem;
-        }
-        
-        @media (max-width: 900px) {
-            .calendar-view {
-                grid-template-columns: repeat(3, 1fr);
-            }
-        }
-        
-        @media (max-width: 500px) {
-            .calendar-view {
-                grid-template-columns: 1fr;
-            }
-        }
-        
-        .calendar-day {
-            background: var(--bg-card);
-            border-radius: var(--radius-sm);
-            padding: 0.75rem;
-            min-height: 150px;
-        }
-        
-        .calendar-day h4 {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            margin-bottom: 0.5rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .mini-card {
-            background: var(--bg-dark);
-            padding: 0.4rem 0.5rem;
-            border-radius: var(--radius-sm);
-            margin-bottom: 0.35rem;
-            font-size: 0.75rem;
-            display: flex;
-            gap: 0.5rem;
-        }
-        
-        .mini-card .time {
-            color: var(--secondary);
+        .program-meta {
+            text-align: right;
+            font-size: 12px;
+            color: #555;
             white-space: nowrap;
         }
         
-        .mini-card .name {
-            color: var(--text-primary);
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+        .program-date { font-weight: bold; }
+        
+        .tag {
+            display: inline-block;
+            background: #ddd;
+            padding: 1px 5px;
+            font-size: 11px;
+            border-radius: 2px;
+            margin-left: 5px;
         }
         
-        .more {
-            font-size: 0.75rem;
-            color: var(--text-muted);
+        .tag.shinny { background: #fdd; }
+        .tag.figure { background: #ddf; }
+        .tag.speed { background: #ffd; }
+        
+        footer {
+            margin-top: 20px;
+            padding-top: 10px;
+            border-top: 1px solid #ccc;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        footer a { margin-right: 10px; }
+        
+        .loading, .error, .empty {
+            padding: 40px;
             text-align: center;
-            padding: 0.25rem;
+            color: #666;
         }
         
-        /* ========================================
-           Pagination
-           ======================================== */
+        .error { color: #c00; }
+        
         .pagination {
-            display: flex;
-            justify-content: center;
-            gap: 0.25rem;
-            padding: 1.5rem 0;
-            flex-wrap: wrap;
-        }
-        
-        .page-btn {
-            padding: 0.5rem 0.75rem;
-            border-radius: var(--radius-sm);
-            border: 1px solid var(--border);
-            background: var(--bg-card);
-            color: var(--text-primary);
-            cursor: pointer;
-            transition: all 0.15s;
-            min-width: 40px;
-        }
-        
-        .page-btn:hover:not(:disabled) {
-            background: var(--bg-hover);
-            border-color: var(--primary);
-        }
-        
-        .page-btn.active {
-            background: var(--primary);
-            border-color: var(--primary);
-            color: white;
-        }
-        
-        .page-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
-        .page-dots {
-            padding: 0.5rem;
-            color: var(--text-muted);
-        }
-        
-        /* ========================================
-           Footer
-           ======================================== */
-        .skate-footer {
-            padding: 1.5rem;
+            padding: 10px 0;
             text-align: center;
-            border-top: 1px solid var(--border);
-            font-size: 0.85rem;
-            color: var(--text-muted);
         }
         
-        .skate-footer a {
-            color: var(--secondary);
-            text-decoration: none;
+        .pagination button {
+            margin: 0 2px;
+            min-width: 30px;
         }
         
-        .skate-footer a:hover {
-            text-decoration: underline;
+        .pagination button.active {
+            background: #555;
+            color: #fff;
         }
-        
-        .skate-footer p {
-            margin-bottom: 0.5rem;
-        }
-        
-        /* ========================================
-           States
-           ======================================== */
-        .loading-spinner {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 4rem;
-            color: var(--text-secondary);
-        }
-        
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid var(--border);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin-bottom: 1rem;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        .no-results,
-        .error-message {
-            text-align: center;
-            padding: 4rem 2rem;
-        }
-        
-        .no-results .emoji,
-        .error-message .emoji {
-            font-size: 3rem;
-            display: block;
-            margin-bottom: 1rem;
-        }
-        
-        .no-results h3,
-        .error-message h3 {
-            font-size: 1.25rem;
-            margin-bottom: 0.5rem;
-        }
-        
-        .no-results p,
-        .error-message p {
-            color: var(--text-secondary);
-            margin-bottom: 1rem;
-        }
-        
-        /* ========================================
-           Responsive
-           ======================================== */
-        @media (max-width: 768px) {
-            .skate-controls {
-                gap: 0.75rem;
-            }
-            
-            .quick-filters {
-                overflow-x: auto;
-                flex-wrap: nowrap;
-                padding-bottom: 0.5rem;
-                -webkit-overflow-scrolling: touch;
-            }
-            
-            .filter-chip {
-                flex-shrink: 0;
-            }
-            
-            .program-cards {
+
+        /* Mobile tweaks */
+        @media (max-width: 600px) {
+            .program-item {
                 grid-template-columns: 1fr;
             }
-            
-            .filter-panel {
-                grid-template-columns: 1fr;
+            .program-meta {
+                text-align: left;
             }
-            
-            .program-table {
-                font-size: 0.8rem;
-            }
-            
-            .program-table th,
-            .program-table td {
-                padding: 0.5rem;
-            }
-            
-            /* Hide less important columns on mobile */
-            .program-table th:nth-child(5),
-            .program-table td:nth-child(5),
-            .program-table th:nth-child(6),
-            .program-table td:nth-child(6) {
-                display: none;
-            }
-        }
-        
-        /* ========================================
-           Accessibility
-           ======================================== */
-        @media (prefers-reduced-motion: reduce) {
-            * {
-                animation: none !important;
-                transition: none !important;
-            }
-        }
-        
-        :focus-visible {
-            outline: 2px solid var(--primary);
-            outline-offset: 2px;
-        }
-        
-        /* ========================================
-           Scrollbar
-           ======================================== */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: var(--bg-dark);
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--text-muted);
         }
     </style>
 </head>
 <body>
-    <div id="skate-app">
-        <!-- App loads here -->
-        <div class="skate-app">
-            <div class="loading-spinner" style="min-height: 100vh; justify-content: center;">
-                <div class="spinner"></div>
-                <p>Initializing...</p>
+    <header>
+        <h1>🛼 Toronto Drop-in Skating</h1>
+    </header>
+    
+    <div class="controls">
+        <div class="search-row">
+            <input type="text" id="search" placeholder="Search activity or location...">
+            <button id="search-btn">Search</button>
+            <button id="clear-btn">Clear</button>
+            <button id="refresh-btn" title="Force reload data">↻ Refresh</button>
+        </div>
+        
+        <div class="quick-filters">
+            <button class="active" data-type="all">All</button>
+            <button data-type="leisure">Leisure</button>
+            <button data-type="shinny">Shinny</button>
+            <button data-type="figure">Figure</button>
+            <button data-type="speed">Speed</button>
+        </div>
+        
+        <div class="filters">
+            <div class="filter-group">
+                <label>Day:</label>
+                <select id="day-filter">
+                    <option value="">Any</option>
+                    <option>Sunday</option>
+                    <option>Monday</option>
+                    <option>Tuesday</option>
+                    <option>Wednesday</option>
+                    <option>Thursday</option>
+                    <option>Friday</option>
+                    <option>Saturday</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Age:</label>
+                <input type="number" id="age-filter" placeholder="Your age" style="width:60px">
             </div>
         </div>
     </div>
     
-    <!-- Load modules in order -->
-    <script src="projects/js/storage.js"></script>
-    <script src="projects/js/api.js"></script>
-    <script src="projects/js/filters.js"></script>
-    <script src="projects/js/utils.js"></script>
-    <script src="projects/js/ui.js"></script>
+    <div class="stats" id="stats">Loading...</div>
+    
+    <ul class="program-list" id="program-list">
+        <li class="loading">Loading skating programs...</li>
+    </ul>
+    
+    <div class="pagination" id="pagination"></div>
+    
+    <footer>
+        <div>
+            Data: <a href="https://open.toronto.ca" target="_blank">City of Toronto Open Data</a> |
+            <span id="cache-status">--</span>
+        </div>
+    </footer>
+
+    <!-- Scripts with cache-busting version -->
+    <script src="projects/js/storage.js?v=2"></script>
+    <script src="projects/js/api.js?v=2"></script>
+    <script src="projects/js/filters.js?v=2"></script>
+    <script src="projects/js/utils.js?v=2"></script>
     
     <script>
-        /**
-         * Main Application Entry Point
-         * Initializes the skating portal
-         * 
-         * Data sources (in order of priority):
-         * 1. Firebase Storage (auto-updated weekly via Cloud Functions)
-         * 2. Local static JSON files (fallback)
-         * 
-         * Setup Firebase (optional - for auto-updates):
-         * 1. Deploy functions: cd functions && npm install && firebase deploy --only functions
-         * 2. Set FIREBASE_STORAGE_URL below to your bucket URL
-         */
-        (async function() {
-            'use strict';
-            
-            console.log('[SkateApp] Initializing...');
-            
-            // ========================================
-            // CONFIGURATION - Update after deploying Firebase Functions
-            // ========================================
-            // Uncomment and set this after deploying your Cloud Function:
-            // SkateAPI.configure({
-            //     storageUrl: 'https://storage.googleapis.com/YOUR-PROJECT-ID.appspot.com/skating-data/skating-programs.json'
-            // });
-            // ========================================
-            
-            // Wait for DOM
-            if (document.readyState === 'loading') {
-                await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
-            }
-            
-            // Initialize UI
-            SkateUI.init('#skate-app');
-            SkateUI.showLoading('Loading skating programs...');
-            
+    (function() {
+        'use strict';
+        
+        // ========== STATE ==========
+        const state = {
+            programs: [],
+            filtered: [],
+            page: 1,
+            perPage: 50,
+            type: 'all',
+            search: '',
+            day: '',
+            age: null
+        };
+        
+        // ========== DOM ==========
+        const $ = id => document.getElementById(id);
+        const listEl = $('program-list');
+        const statsEl = $('stats');
+        const paginationEl = $('pagination');
+        const searchEl = $('search');
+        const dayEl = $('day-filter');
+        const ageEl = $('age-filter');
+        const cacheStatusEl = $('cache-status');
+        
+        // ========== INIT ==========
+        async function init() {
             try {
-                // Load programs (from Firebase Storage or local files)
-                console.log('[SkateApp] Loading data...');
+                // Clear old localStorage on load to ensure fresh data
+                cleanupStorage();
+                
                 const programs = await SkateAPI.getSkatingPrograms();
+                if (!programs?.length) throw new Error('No programs found');
                 
-                if (!programs || programs.length === 0) {
-                    throw new Error('No skating programs found. Check Firebase Storage or run "node fetch-skate-data.js"');
+                state.programs = programs;
+                state.filtered = programs;
+                
+                updateCacheStatus();
+                applyFilters();
+                bindEvents();
+                
+            } catch (err) {
+                listEl.innerHTML = `<li class="error">Error: ${err.message}</li>`;
+                console.error(err);
+            }
+        }
+        
+        // ========== STORAGE CLEANUP ==========
+        function cleanupStorage() {
+            // Aggressive cleanup - remove expired items
+            const now = Date.now();
+            const keysToRemove = [];
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key?.startsWith('skate_')) {
+                    // Check if it's metadata
+                    if (key.endsWith('_meta')) {
+                        try {
+                            const meta = JSON.parse(localStorage.getItem(key));
+                            // Remove if older than 24 hours
+                            if (meta?.savedAt && now - meta.savedAt > 24 * 60 * 60 * 1000) {
+                                keysToRemove.push(key);
+                                keysToRemove.push(key.replace('_meta', ''));
+                            }
+                        } catch (e) {
+                            keysToRemove.push(key);
+                        }
+                    }
                 }
-                
-                console.log(`[SkateApp] Loaded ${programs.length} skating programs`);
-                SkateUI.setPrograms(programs);
-                SkateUI.updateCacheStatus();
-                
-                // Check if data needs refresh
-                if (SkateAPI.needsRefresh()) {
-                    console.log('[SkateApp] ⚠️ Data is more than 7 days old');
-                }
-                
-            } catch (error) {
-                console.error('[SkateApp] Error:', error);
-                SkateUI.showError(error.message || 'Failed to load skating programs.');
             }
             
-        })();
+            keysToRemove.forEach(k => localStorage.removeItem(k));
+            if (keysToRemove.length > 0) {
+                console.log(`[Cleanup] Removed ${keysToRemove.length} stale cache entries`);
+            }
+        }
+        
+        // ========== FILTERING ==========
+        function applyFilters() {
+            let result = state.programs;
+            
+            // Type filter
+            if (state.type !== 'all') {
+                result = result.filter(p => {
+                    const activity = (p.Activity || p['Activity Title'] || '').toLowerCase();
+                    return activity.includes(state.type);
+                });
+            }
+            
+            // Search filter
+            if (state.search) {
+                const term = state.search.toLowerCase();
+                result = result.filter(p => {
+                    const activity = (p.Activity || p['Activity Title'] || '').toLowerCase();
+                    const location = (p.LocationName || p['Location Name'] || '').toLowerCase();
+                    return activity.includes(term) || location.includes(term);
+                });
+            }
+            
+            // Day filter
+            if (state.day) {
+                result = result.filter(p => p['Day of Week'] === state.day);
+            }
+            
+            // Age filter
+            if (state.age !== null) {
+                result = result.filter(p => {
+                    const min = p['Age Min'] || 0;
+                    const max = p['Age Max'] || 999;
+                    return state.age >= min && state.age <= max;
+                });
+            }
+            
+            // Filter to upcoming only and sort by date
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            
+            result = result.filter(p => {
+                const dateStr = p['Start Date Time'] || p['Start Date'];
+                if (!dateStr) return true; // Keep if no date
+                const date = new Date(dateStr);
+                return date >= now;
+            });
+            
+            result.sort((a, b) => {
+                const dateA = new Date(a['Start Date Time'] || a['Start Date'] || '9999');
+                const dateB = new Date(b['Start Date Time'] || b['Start Date'] || '9999');
+                return dateA - dateB;
+            });
+            
+            state.filtered = result;
+            state.page = 1;
+            render();
+        }
+        
+        // ========== RENDERING ==========
+        function render() {
+            const { filtered, page, perPage } = state;
+            const total = filtered.length;
+            const start = (page - 1) * perPage;
+            const pageItems = filtered.slice(start, start + perPage);
+            
+            // Stats
+            statsEl.textContent = `${total} programs found`;
+            
+            // List
+            if (total === 0) {
+                listEl.innerHTML = '<li class="empty">No programs match your filters</li>';
+                paginationEl.innerHTML = '';
+                return;
+            }
+            
+            listEl.innerHTML = pageItems.map(p => renderItem(p)).join('');
+            renderPagination(total);
+        }
+        
+        function renderItem(p) {
+            const activity = p.Activity || p['Activity Title'] || 'Unknown';
+            const location = p.LocationName || p['Location Name'] || '';
+            const dateStr = p['Start Date Time'] || p['Start Date'] || '';
+            const startTime = p['Start Time'] || '';
+            const endTime = p['End Time'] || '';
+            const day = p['Day of Week'] || '';
+            const ageMin = p['Age Min'];
+            const ageMax = p['Age Max'];
+            
+            let dateDisplay = day;
+            if (dateStr) {
+                const d = new Date(dateStr);
+                dateDisplay = d.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
+            }
+            
+            const timeDisplay = startTime + (endTime ? `-${endTime}` : '');
+            
+            let ageDisplay = 'All ages';
+            if (ageMin || ageMax) {
+                if (ageMin && ageMax) ageDisplay = `${ageMin}-${ageMax}`;
+                else if (ageMin) ageDisplay = `${ageMin}+`;
+                else ageDisplay = `Under ${ageMax}`;
+            }
+            
+            // Tag
+            const actLower = activity.toLowerCase();
+            let tag = '';
+            if (actLower.includes('shinny') || actLower.includes('hockey') || actLower.includes('stick')) {
+                tag = '<span class="tag shinny">Shinny</span>';
+            } else if (actLower.includes('figure')) {
+                tag = '<span class="tag figure">Figure</span>';
+            } else if (actLower.includes('speed')) {
+                tag = '<span class="tag speed">Speed</span>';
+            }
+            
+            return `
+                <li class="program-item">
+                    <div class="program-main">
+                        <span class="program-title">${activity}</span>${tag}
+                        <div class="program-location">📍 ${location}</div>
+                    </div>
+                    <div class="program-meta">
+                        <div class="program-date">${dateDisplay}</div>
+                        <div>${timeDisplay}</div>
+                        <div>${ageDisplay}</div>
+                    </div>
+                </li>
+            `;
+        }
+        
+        function renderPagination(total) {
+            const totalPages = Math.ceil(total / state.perPage);
+            if (totalPages <= 1) {
+                paginationEl.innerHTML = '';
+                return;
+            }
+            
+            let html = '';
+            
+            // Prev
+            html += `<button ${state.page === 1 ? 'disabled' : ''} data-p="${state.page - 1}">‹</button>`;
+            
+            // Pages
+            const range = 2;
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= state.page - range && i <= state.page + range)) {
+                    html += `<button class="${i === state.page ? 'active' : ''}" data-p="${i}">${i}</button>`;
+                } else if (i === state.page - range - 1 || i === state.page + range + 1) {
+                    html += `<span>...</span>`;
+                }
+            }
+            
+            // Next
+            html += `<button ${state.page === totalPages ? 'disabled' : ''} data-p="${state.page + 1}">›</button>`;
+            
+            paginationEl.innerHTML = html;
+        }
+        
+        function updateCacheStatus() {
+            try {
+                const meta = SkateAPI.getMetadata?.();
+                if (meta?.lastUpdated) {
+                    const date = new Date(meta.lastUpdated).toLocaleDateString('en-CA');
+                    cacheStatusEl.textContent = `Updated: ${date}`;
+                } else {
+                    cacheStatusEl.textContent = 'Live data';
+                }
+            } catch (e) {
+                cacheStatusEl.textContent = '';
+            }
+        }
+        
+        // ========== EVENTS ==========
+        function bindEvents() {
+            // Search
+            $('search-btn').onclick = () => {
+                state.search = searchEl.value.trim();
+                applyFilters();
+            };
+            
+            searchEl.onkeypress = e => {
+                if (e.key === 'Enter') {
+                    state.search = searchEl.value.trim();
+                    applyFilters();
+                }
+            };
+            
+            // Clear
+            $('clear-btn').onclick = () => {
+                searchEl.value = '';
+                dayEl.value = '';
+                ageEl.value = '';
+                state.search = '';
+                state.day = '';
+                state.age = null;
+                state.type = 'all';
+                document.querySelectorAll('.quick-filters button').forEach(b => b.classList.remove('active'));
+                document.querySelector('[data-type="all"]').classList.add('active');
+                applyFilters();
+            };
+            
+            // Refresh - force clean reload
+            $('refresh-btn').onclick = async () => {
+                // Clear ALL skate storage
+                for (let i = localStorage.length - 1; i >= 0; i--) {
+                    const key = localStorage.key(i);
+                    if (key?.startsWith('skate_')) localStorage.removeItem(key);
+                }
+                
+                // Clear API cache
+                SkateAPI.clearCache?.();
+                
+                // Reload page with cache bust
+                location.href = location.pathname + '?t=' + Date.now();
+            };
+            
+            // Quick filters
+            document.querySelectorAll('.quick-filters button').forEach(btn => {
+                btn.onclick = () => {
+                    document.querySelectorAll('.quick-filters button').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    state.type = btn.dataset.type;
+                    applyFilters();
+                };
+            });
+            
+            // Day filter
+            dayEl.onchange = () => {
+                state.day = dayEl.value;
+                applyFilters();
+            };
+            
+            // Age filter
+            ageEl.onchange = () => {
+                state.age = ageEl.value ? parseInt(ageEl.value) : null;
+                applyFilters();
+            };
+            
+            // Pagination
+            paginationEl.onclick = e => {
+                if (e.target.tagName === 'BUTTON' && !e.target.disabled) {
+                    state.page = parseInt(e.target.dataset.p);
+                    render();
+                    window.scrollTo(0, 0);
+                }
+            };
+        }
+        
+        // Go!
+        init();
+    })();
     </script>
 </body>
 </html>

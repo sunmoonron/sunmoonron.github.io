@@ -1,14 +1,17 @@
 /**
- * Storage Module - Smart localStorage management
- * Handles caching with expiration to avoid DDOS-ing City of Toronto API
- * City updates data daily at 8:00 AM EST
+ * Storage Module - Lean localStorage management
+ * Minimal caching to keep memory low
+ * Auto-expires after 1 hour to ensure fresh data
  */
 
 const SkateStorage = {
     PREFIX: 'skate_',
     
-    // Cache duration - 4 hours (data updates at 8 AM, so we refresh a few times daily)
-    CACHE_DURATION_MS: 4 * 60 * 60 * 1000,
+    // Cache duration - 1 hour (short to ensure fresh data, reduces memory bloat)
+    CACHE_DURATION_MS: 1 * 60 * 60 * 1000,
+    
+    // Max storage size in KB (keep it lean)
+    MAX_SIZE_KB: 2000,
     
     /**
      * Get next 8 AM EST timestamp
@@ -54,15 +57,19 @@ const SkateStorage = {
      */
     set(key, data) {
         try {
+            // First cleanup old data
+            this.cleanup();
+            
             const fullKey = this.PREFIX + key;
             const dataStr = JSON.stringify(data);
             
-            // Check size before saving (localStorage limit ~5MB)
-            const sizeKB = (dataStr.length * 2) / 1024; // UTF-16 = 2 bytes per char
+            // Check size before saving
+            const sizeKB = (dataStr.length * 2) / 1024;
             console.log(`[SkateStorage] Saving ${key}: ${sizeKB.toFixed(2)} KB`);
             
-            if (sizeKB > 4000) {
-                console.warn(`[SkateStorage] Data too large for ${key}, skipping cache`);
+            // Reject if too large
+            if (sizeKB > this.MAX_SIZE_KB) {
+                console.warn(`[SkateStorage] Data too large (${sizeKB.toFixed(0)}KB > ${this.MAX_SIZE_KB}KB), skipping cache`);
                 return false;
             }
             
@@ -124,6 +131,35 @@ const SkateStorage = {
     },
     
     /**
+     * Cleanup expired entries (garbage collection)
+     */
+    cleanup() {
+        const now = Date.now();
+        const keysToRemove = [];
+        
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(this.PREFIX) && key.endsWith('_meta')) {
+                try {
+                    const meta = JSON.parse(localStorage.getItem(key));
+                    // Remove if expired or older than 24 hours
+                    if (meta?.expires < now || (meta?.savedAt && now - meta.savedAt > 24 * 60 * 60 * 1000)) {
+                        keysToRemove.push(key);
+                        keysToRemove.push(key.replace('_meta', ''));
+                    }
+                } catch (e) {
+                    keysToRemove.push(key);
+                }
+            }
+        }
+        
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+        if (keysToRemove.length > 0) {
+            console.log(`[SkateStorage] Garbage collected ${keysToRemove.length} expired entries`);
+        }
+    },
+    
+    /**
      * Get storage stats
      */
     getStats() {
@@ -145,6 +181,9 @@ const SkateStorage = {
         };
     }
 };
+
+// Run cleanup on load
+SkateStorage.cleanup();
 
 // Export for ES modules
 if (typeof window !== 'undefined') {
