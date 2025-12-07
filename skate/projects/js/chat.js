@@ -22,10 +22,10 @@ const SkateChat = (() => {
         MAX_GROUPS: 10,  // Only counts private groups, not public rooms
         MAX_MESSAGES: 500,
         MAX_MESSAGE_LENGTH: 500,
-        STORAGE_KEY: 'skate_groups_v5',
-        SESSION_KEY: 'skate_session_v5',
-        FAVORITES_KEY: 'skate_favorites_v1',
-        PUBLIC_ROOMS_KEY: 'skate_public_rooms_v1',
+        STORAGE_KEY: 'skate_groups_v6',
+        SESSION_KEY: 'skate_session_v6',
+        FAVORITES_KEY: 'skate_favorites_v2',
+        PUBLIC_ROOMS_KEY: 'skate_public_rooms_v2',
         PRESENCE_INTERVAL: 30000
     };
     
