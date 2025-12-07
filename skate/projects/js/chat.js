@@ -547,6 +547,11 @@ const SkateChat = (() => {
         group.messages.push(msg);
         if (group.messages.length > CONFIG.MAX_MESSAGES) group.messages = group.messages.slice(-CONFIG.MAX_MESSAGES);
         group.messages.sort((a, b) => a.ts - b.ts);
+        
+        // Track unread if not my message and not viewing this group
+        if (!msg.mine && !msg.system && state.activeGroupId !== groupId) {
+            group.unread = (group.unread || 0) + 1;
+        }
     }
     
     function startPresence(groupId) {
@@ -770,11 +775,13 @@ const SkateChat = (() => {
             state.activeGroupId = groupId;
             state.activeIsPublic = false;
             state.activeDmRecipient = null;
+            state.groups[groupId].unread = 0; // Clear unread
             saveState(); notifyUpdate();
         } else if (state.publicRooms[groupId]) {
             state.activeGroupId = groupId;
             state.activeIsPublic = true;
             state.activeDmRecipient = null;
+            state.publicRooms[groupId].unread = 0; // Clear unread
             saveState(); notifyUpdate();
         }
     }
@@ -868,11 +875,16 @@ const SkateChat = (() => {
         const activeDmThread = state.activeDmRecipient ? state.dmThreads[state.activeDmRecipient] : null;
         
         // Count total unread DMs
-        let totalUnread = 0;
-        Object.values(state.dmThreads).forEach(t => { totalUnread += t.unread || 0; });
+        let totalDmUnread = 0;
+        Object.values(state.dmThreads).forEach(t => { totalDmUnread += t.unread || 0; });
         
-        // Update page title with unread count
-        Notify.updateTitle(totalUnread);
+        // Count total unread group messages (both private and public)
+        let totalGroupUnread = 0;
+        Object.values(state.groups).forEach(g => { totalGroupUnread += g.unread || 0; });
+        Object.values(state.publicRooms).forEach(g => { totalGroupUnread += g.unread || 0; });
+        
+        // Update page title with total unread count
+        Notify.updateTitle(totalDmUnread + totalGroupUnread);
         
         // Combine all groups for the UI (so it can display both)
         const allGroups = { ...state.groups, ...state.publicRooms };
@@ -889,7 +901,8 @@ const SkateChat = (() => {
             dmThreads: state.dmThreads,
             activeDmRecipient: state.activeDmRecipient,
             activeDmThread,
-            totalUnread,
+            totalDmUnread,
+            totalGroupUnread,
             viewMode: state.activeDmRecipient ? 'dm' : 'group',
             favoritesCount: state.favorites.size,
             publicRoomSecrets: state.publicRoomSecrets

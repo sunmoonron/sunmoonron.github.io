@@ -383,17 +383,17 @@
             renderGroups(chatState);
             renderChat(chatState);
             
-            // Groups badge - only count private groups, not public rooms
-            const privateCount = Object.keys(chatState.privateGroups || {}).length;
-            $('groups-badge').textContent = privateCount;
-            $('groups-badge').classList.toggle('hidden', privateCount === 0);
+            // Groups badge - show unread group messages (both public + private)
+            const groupUnread = chatState.totalGroupUnread || 0;
+            $('groups-badge').textContent = groupUnread;
+            $('groups-badge').classList.toggle('hidden', groupUnread === 0);
             
             // Show user name
             $('user-name').textContent = `👤 ${chatState.myName || 'Guest'}`;
             
             // DM unread badge
-            $('dm-badge').textContent = chatState.totalUnread;
-            $('dm-badge').classList.toggle('hidden', chatState.totalUnread === 0);
+            $('dm-badge').textContent = chatState.totalDmUnread || 0;
+            $('dm-badge').classList.toggle('hidden', (chatState.totalDmUnread || 0) === 0);
             
             // Show DM inbox button if has any DMs
             const hasDms = Object.keys(chatState.dmThreads).length > 0;
