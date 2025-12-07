@@ -2,9 +2,10 @@
  * SkateChat - Encrypted group chat using Nostr protocol
  * 
  * Features:
+ * - NIP-44 encryption (ChaCha20-Poly1305 AEAD)
  * - Nostr ephemeral events for messaging
  * - Group encryption with shared secret
- * - DM support with derived keys
+ * - DM support with proper ECDH key derivation
  * - Profanity filtering
  * - Unread DM tracking
  */
@@ -19,8 +20,8 @@ const SkateChat = (() => {
         MAX_GROUPS: 5,
         MAX_MESSAGES: 100,
         MAX_MESSAGE_LENGTH: 500,
-        STORAGE_KEY: 'skate_groups_v3',
-        SESSION_KEY: 'skate_session_v3',
+        STORAGE_KEY: 'skate_groups_v4',
+        SESSION_KEY: 'skate_session_v4',
         PRESENCE_INTERVAL: 30000
     };
     
@@ -63,52 +64,81 @@ const SkateChat = (() => {
         }
     };
     
-    // ========== CRYPTO ==========
+    // ========== CRYPTO (using NostrTools NIP-44) ==========
     const Crypto = {
+        // Generate random bytes as hex
         randomHex(bytes = 32) {
             const arr = new Uint8Array(bytes);
             crypto.getRandomValues(arr);
             return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
         },
         
-        hash(str) {
-            let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+        // SHA-256 hash (using SubtleCrypto)
+        async sha256(data) {
+            const encoder = new TextEncoder();
+            const buffer = await crypto.subtle.digest('SHA-256', encoder.encode(data));
+            return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+        },
+        
+        // Synchronous hash for IDs (simpler, still secure enough for IDs)
+        hashSync(str) {
+            // Use a proper mixing function for group IDs
+            let hash = 0x811c9dc5;
             for (let i = 0; i < str.length; i++) {
-                const ch = str.charCodeAt(i);
-                h1 = Math.imul(h1 ^ ch, 2654435761);
-                h2 = Math.imul(h2 ^ ch, 1597334677);
+                hash ^= str.charCodeAt(i);
+                hash = Math.imul(hash, 0x01000193);
             }
-            h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
-            h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-            h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
-            h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-            return ((h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0')).repeat(4);
+            // Generate a longer ID by running multiple rounds
+            let result = '';
+            for (let round = 0; round < 4; round++) {
+                hash = Math.imul(hash ^ (hash >>> 16), 0x85ebca6b);
+                hash = Math.imul(hash ^ (hash >>> 13), 0xc2b2ae35);
+                hash ^= hash >>> 16;
+                result += (hash >>> 0).toString(16).padStart(8, '0');
+            }
+            return result;
         },
         
-        deriveKey(secret, salt = '') { return this.hash(secret + salt); },
-        deriveGroupId(secret) { return this.hash(secret).slice(0, 12); },
-        deriveDmKey(groupSecret, pk1, pk2) { return this.hash(groupSecret + [pk1, pk2].sort().join('')); },
+        deriveGroupId(secret) { return this.hashSync(secret).slice(0, 12); },
         
-        encrypt(plaintext, keyHex) {
-            const keyBytes = this.hexToBytes(keyHex);
-            const textBytes = new TextEncoder().encode(plaintext);
-            const encrypted = new Uint8Array(textBytes.length);
-            for (let i = 0; i < textBytes.length; i++) {
-                encrypted[i] = textBytes[i] ^ keyBytes[i % keyBytes.length];
-            }
-            return btoa(String.fromCharCode(...encrypted));
+        // NIP-44 encryption using NostrTools (real crypto!)
+        // For group messages: we use a shared secret key derived from the group secret
+        encryptForGroup(plaintext, groupSecretHex) {
+            // Create a deterministic keypair from the group secret for symmetric encryption
+            // We use the first 32 bytes as private key, derive pubkey
+            const secretBytes = this.hexToBytes(groupSecretHex.slice(0, 64));
+            const pubkey = NostrTools.getPublicKey(secretBytes);
+            // Use NIP-44 v2 encryption
+            const conversationKey = NostrTools.nip44.getConversationKey(secretBytes, pubkey);
+            return NostrTools.nip44.encrypt(plaintext, conversationKey);
         },
         
-        decrypt(ciphertext, keyHex) {
+        decryptForGroup(ciphertext, groupSecretHex) {
             try {
-                const keyBytes = this.hexToBytes(keyHex);
-                const encrypted = Uint8Array.from(atob(ciphertext), c => c.charCodeAt(0));
-                const decrypted = new Uint8Array(encrypted.length);
-                for (let i = 0; i < encrypted.length; i++) {
-                    decrypted[i] = encrypted[i] ^ keyBytes[i % keyBytes.length];
-                }
-                return new TextDecoder().decode(decrypted);
-            } catch { return null; }
+                const secretBytes = this.hexToBytes(groupSecretHex.slice(0, 64));
+                const pubkey = NostrTools.getPublicKey(secretBytes);
+                const conversationKey = NostrTools.nip44.getConversationKey(secretBytes, pubkey);
+                return NostrTools.nip44.decrypt(ciphertext, conversationKey);
+            } catch (e) { 
+                console.warn('[SkateChat] Decrypt error:', e);
+                return null; 
+            }
+        },
+        
+        // DM encryption using proper ECDH (NIP-44)
+        encryptDm(plaintext, senderSecretKey, recipientPubkey) {
+            const conversationKey = NostrTools.nip44.getConversationKey(senderSecretKey, recipientPubkey);
+            return NostrTools.nip44.encrypt(plaintext, conversationKey);
+        },
+        
+        decryptDm(ciphertext, recipientSecretKey, senderPubkey) {
+            try {
+                const conversationKey = NostrTools.nip44.getConversationKey(recipientSecretKey, senderPubkey);
+                return NostrTools.nip44.decrypt(ciphertext, conversationKey);
+            } catch (e) { 
+                console.warn('[SkateChat] DM decrypt error:', e);
+                return null; 
+            }
         },
         
         hexToBytes(hex) {
@@ -235,8 +265,8 @@ const SkateChat = (() => {
         if (!group || !state.mySecretKey) return false;
         
         try {
-            const key = Crypto.deriveKey(group.secret);
-            const encrypted = Crypto.encrypt(JSON.stringify(content), key);
+            // Use NIP-44 encryption (ChaCha20-Poly1305)
+            const encrypted = Crypto.encryptForGroup(JSON.stringify(content), group.secret);
             const event = NostrTools.finalizeEvent({
                 kind,
                 content: encrypted,
@@ -264,8 +294,8 @@ const SkateChat = (() => {
         
         try {
             if (!NostrTools.verifyEvent(event)) return;
-            const key = Crypto.deriveKey(group.secret);
-            const decrypted = Crypto.decrypt(event.content, key);
+            // Use NIP-44 decryption (ChaCha20-Poly1305)
+            const decrypted = Crypto.decryptForGroup(event.content, group.secret);
             if (!decrypted) return;
             
             const content = JSON.parse(decrypted);
@@ -335,9 +365,15 @@ const SkateChat = (() => {
         const isFromMe = event.pubkey === state.myPublicKey;
         if (!isForMe && !isFromMe) return;
         
-        const group = state.groups[groupId];
-        const dmKey = Crypto.deriveDmKey(group.secret, event.pubkey, recipientPubkey);
-        const dmContent = Crypto.decrypt(content.dmPayload, dmKey);
+        // DMs use proper NIP-44 ECDH encryption
+        // If it's for me, decrypt with my secret key + sender's pubkey
+        // If it's from me, decrypt with my secret key + recipient's pubkey
+        let dmContent;
+        if (isForMe) {
+            dmContent = Crypto.decryptDm(content.dmPayload, state.mySecretKey, event.pubkey);
+        } else {
+            dmContent = Crypto.decryptDm(content.dmPayload, state.mySecretKey, recipientPubkey);
+        }
         if (!dmContent) return;
         
         const dmData = JSON.parse(dmContent);
@@ -561,8 +597,8 @@ const SkateChat = (() => {
         if (!group || !thread) return false;
         
         const trimmed = text.trim().slice(0, CONFIG.MAX_MESSAGE_LENGTH);
-        const dmKey = Crypto.deriveDmKey(group.secret, state.myPublicKey, state.activeDmRecipient);
-        const dmPayload = Crypto.encrypt(JSON.stringify({ text: trimmed }), dmKey);
+        // Use proper NIP-44 ECDH encryption for DMs
+        const dmPayload = Crypto.encryptDm(JSON.stringify({ text: trimmed }), state.mySecretKey, state.activeDmRecipient);
         
         return publishEvent(state.activeGroupId, CONFIG.EVENT_KINDS.DM, {
             from: state.myName, toName: thread.name, dmPayload
