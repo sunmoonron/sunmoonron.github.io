@@ -58,10 +58,7 @@
                         <span id="stats-text">Loading...</span>
                         <span id="data-updated" class="data-updated"></span>
                     </div>
-                    <div class="stats-actions">
-                        <button class="btn-refresh" id="btn-refresh" title="Reload from cache">🔄</button>
-                        <a class="btn-update-data" id="btn-update-data" href="https://github.com/sunmoonron/sunmoonron.github.io/actions/workflows/update-skating-data.yml" target="_blank" title="Fetch fresh data from City of Toronto">⬇️ Update</a>
-                    </div>
+                    <button class="btn-refresh" id="btn-refresh" title="Reload programs">🔄</button>
                 </div>
                 <ul class="program-list" id="program-list"><li class="loading">Loading...</li></ul>
                 <div class="pagination" id="pagination"></div>
@@ -685,9 +682,9 @@
             };
             
             // Create group
-            $('btn-create-group').onclick = () => {
+            $('btn-create-group').onclick = async () => {
                 try {
-                    const result = SkateChat.createGroup({
+                    const result = await SkateChat.createGroup({
                         name: $('group-name-input').value.trim() || 'Skating Group',
                         password: $('group-password-input').value || null
                     });

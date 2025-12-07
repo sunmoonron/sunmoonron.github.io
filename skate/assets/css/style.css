@@ -232,12 +232,6 @@ input:focus, select:focus {
     gap: 2px;
 }
 
-.stats-actions {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-}
-
 .data-updated {
     font-size: 10px;
     color: var(--text-muted);
@@ -258,19 +252,6 @@ input:focus, select:focus {
 
 .btn-refresh:hover { background: var(--bg); }
 .btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.btn-update-data {
-    padding: 4px 8px;
-    font-size: 11px;
-    background: var(--primary);
-    color: white;
-    border: none;
-    border-radius: var(--radius);
-    text-decoration: none;
-    white-space: nowrap;
-}
-
-.btn-update-data:hover { background: var(--primary-dark); }
 
 .program-list {
     list-style: none;

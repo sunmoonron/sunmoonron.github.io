@@ -647,14 +647,15 @@ const SkateChat = (() => {
         return { groupId };
     }
     
-    function createGroup(options = {}) {
+    async function createGroup(options = {}) {
         // Only private groups count toward limit
         if (Object.keys(state.groups).length >= CONFIG.MAX_GROUPS) throw new Error(`Max ${CONFIG.MAX_GROUPS} private groups`);
         
         const name = options.name || 'Skating Group';
         if (Filter.check(name)) throw new Error('Group name contains inappropriate content');
         
-        const secret = options.password ? Crypto.hashSync(options.password) : Crypto.randomHex(32);
+        // Use SHA-256 for password hashing, random hex for no password
+        const secret = options.password ? await Crypto.sha256(options.password) : Crypto.randomHex(32);
         const groupId = Crypto.deriveGroupId(secret);
         
         if (state.groups[groupId]) {
@@ -688,7 +689,19 @@ const SkateChat = (() => {
         // Only private groups count toward limit
         if (Object.keys(state.groups).length >= CONFIG.MAX_GROUPS) throw new Error(`Max ${CONFIG.MAX_GROUPS} private groups`);
         
-        const actualSecret = password ? Crypto.hashSync(password) : secret;
+        // Ensure we have a proper 64-char hex secret
+        let actualSecret;
+        if (password) {
+            // If password provided, hash it to get a proper secret
+            actualSecret = await Crypto.sha256(password);
+        } else if (secret.length === 64 && /^[0-9a-f]+$/i.test(secret)) {
+            // Already a valid 64-char hex secret
+            actualSecret = secret.toLowerCase();
+        } else {
+            // Hash the secret to normalize it to 64-char hex
+            actualSecret = await Crypto.sha256(secret);
+        }
+        
         const groupId = Crypto.deriveGroupId(actualSecret);
         
         if (state.groups[groupId]) {
