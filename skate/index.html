@@ -13,7 +13,10 @@
         <div class="top-bar">
             <h1>Toronto Skating</h1>
             <div class="top-bar-actions">
-                <button class="btn-icon" id="btn-dark-mode" title="Toggle dark mode">🌙</button>
+                <label class="dark-mode-toggle" id="dark-mode-label">
+                    <button class="btn-icon" id="btn-dark-mode" title="Toggle dark mode">🌙</button>
+                    <span>Dark</span>
+                </label>
                 <span id="user-name" style="font-size:12px;color:var(--text-muted)"></span>
             </div>
         </div>
@@ -711,8 +714,8 @@
                 applyFilters();
             };
             
-            // Dark mode toggle
-            $('btn-dark-mode').onclick = () => {
+            // Dark mode toggle (clicking label or button)
+            $('dark-mode-label').onclick = () => {
                 app.darkMode = !app.darkMode;
                 document.body.classList.toggle('dark-mode', app.darkMode);
                 $('btn-dark-mode').textContent = app.darkMode ? '☀️' : '🌙';

@@ -38,7 +38,7 @@ body.dark-mode {
     --bubble-mine: #2d4a2d;
     --bubble-other: #333;
     --bubble-system: #2a2a2a;
-    --bubble-shared: #1e3a4a;
+    --bubble-shared: #1e3a4a;    
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -543,11 +543,12 @@ input:focus, select:focus {
     font-size: 14px;
     text-align: left;
     word-break: break-word;
+    color: var(--text);
 }
 
 .chat-msg.mine .bubble {
     background: var(--bubble-mine);
-    border-color: #c5e1a5;
+    border-color: var(--border);
 }
 
 .chat-msg.system {
@@ -565,7 +566,7 @@ input:focus, select:focus {
 
 .chat-msg.share .bubble {
     background: var(--bubble-shared);
-    border-color: #90caf9;
+    border-color: var(--border);
 }
 
 .chat-msg .subtext {
@@ -1097,6 +1098,22 @@ input:focus, select:focus {
     opacity: 0.8;
 }
 .btn-icon:hover { opacity: 1; }
+
+.dark-mode-toggle {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+.dark-mode-toggle .btn-icon {
+    padding: 2px 4px;
+    font-size: 16px;
+}
+.dark-mode-toggle span {
+    margin-right: 8px;
+}
 
 .toggle-past {
     display: flex;
