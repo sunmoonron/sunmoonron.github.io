@@ -8,6 +8,8 @@
  * - DM support with proper ECDH key derivation
  * - Profanity filtering
  * - Unread DM tracking
+ * - Browser & toast notifications
+ * - Public rooms for community
  */
 
 const SkateChat = (() => {
@@ -22,7 +24,16 @@ const SkateChat = (() => {
         MAX_MESSAGE_LENGTH: 500,
         STORAGE_KEY: 'skate_groups_v4',
         SESSION_KEY: 'skate_session_v4',
+        FAVORITES_KEY: 'skate_favorites_v1',
         PRESENCE_INTERVAL: 30000
+    };
+    
+    // Public rooms with fixed secrets (anyone can join)
+    const PUBLIC_ROOMS = {
+        leisure: { name: '🏂 Leisure Skating', secret: 'toronto-leisure-skate-public-2025', emoji: '🏂', desc: 'Casual skating & fun' },
+        shinny: { name: '🏒 Shinny Hockey', secret: 'toronto-shinny-hockey-public-2025', emoji: '🏒', desc: 'Drop-in hockey games' },
+        figure: { name: '⛸️ Figure Skating', secret: 'toronto-figure-skate-public-2025', emoji: '⛸️', desc: 'Spins, jumps & grace' },
+        general: { name: '💬 General Chat', secret: 'toronto-skating-general-public-2025', emoji: '💬', desc: 'Help, tips & chill' }
     };
     
     const ADJECTIVES = ['Swift', 'Gliding', 'Frozen', 'Quick', 'Cool', 'Icy', 'Smooth', 'Fast', 'Chill', 'Frosty'];
@@ -39,7 +50,107 @@ const SkateChat = (() => {
         activeDmRecipient: null,
         connections: new Map(),
         callbacks: [],
-        presenceTimers: new Map()
+        presenceTimers: new Map(),
+        favorites: new Set(),   // Set of program IDs (hash of activity+location+date)
+        notificationsEnabled: false
+    };
+    
+    // ========== NOTIFICATIONS ==========
+    const Notify = {
+        // Request permission on first interaction
+        async requestPermission() {
+            if (!('Notification' in window)) return false;
+            if (Notification.permission === 'granted') {
+                state.notificationsEnabled = true;
+                return true;
+            }
+            if (Notification.permission !== 'denied') {
+                const permission = await Notification.requestPermission();
+                state.notificationsEnabled = permission === 'granted';
+                return state.notificationsEnabled;
+            }
+            return false;
+        },
+        
+        // Show browser notification
+        browser(title, body, onClick = null) {
+            if (!state.notificationsEnabled || document.hasFocus()) return;
+            try {
+                const notif = new Notification(title, { 
+                    body, 
+                    icon: '⛸️',
+                    tag: 'skate-chat',
+                    silent: false
+                });
+                if (onClick) notif.onclick = onClick;
+                setTimeout(() => notif.close(), 5000);
+            } catch (e) { console.warn('[Notify] Browser notification failed:', e); }
+        },
+        
+        // Show in-app toast
+        toast(message, type = 'info', duration = 4000) {
+            const container = document.getElementById('toast-container') || this._createContainer();
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `<span>${message}</span><button onclick="this.parentElement.remove()">✕</button>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, duration);
+        },
+        
+        _createContainer() {
+            const c = document.createElement('div');
+            c.id = 'toast-container';
+            document.body.appendChild(c);
+            return c;
+        },
+        
+        // Update page title with unread count
+        updateTitle(unread) {
+            const base = '⛸️ Toronto Skating';
+            document.title = unread > 0 ? `(${unread}) ${base}` : base;
+        }
+    };
+    
+    // ========== FAVORITES ==========
+    const Favorites = {
+        load() {
+            try {
+                const saved = localStorage.getItem(CONFIG.FAVORITES_KEY);
+                if (saved) state.favorites = new Set(JSON.parse(saved));
+            } catch (e) { console.warn('[Favorites] Load error:', e); }
+        },
+        
+        save() {
+            try {
+                localStorage.setItem(CONFIG.FAVORITES_KEY, JSON.stringify([...state.favorites]));
+            } catch (e) { console.warn('[Favorites] Save error:', e); }
+        },
+        
+        // Generate a unique ID for a program
+        getId(program) {
+            const activity = program.Activity || program['Activity Title'] || '';
+            const location = program.LocationName || program['Location Name'] || '';
+            const date = program['Start Date Time'] || program['Start Date'] || '';
+            return Crypto.hashSync(`${activity}|${location}|${date}`).slice(0, 16);
+        },
+        
+        toggle(program) {
+            const id = this.getId(program);
+            if (state.favorites.has(id)) {
+                state.favorites.delete(id);
+                Notify.toast('Removed from favorites', 'info', 2000);
+            } else {
+                state.favorites.add(id);
+                Notify.toast('Added to favorites ❤️', 'success', 2000);
+            }
+            this.save();
+            return state.favorites.has(id);
+        },
+        
+        has(program) { return state.favorites.has(this.getId(program)); },
+        getAll() { return [...state.favorites]; },
+        count() { return state.favorites.size; }
     };
     
     // ========== PROFANITY FILTER ==========
@@ -309,6 +420,13 @@ const SkateChat = (() => {
                         system: content.system, ts: event.created_at * 1000
                     });
                     trackMember(groupId, content.from, event.pubkey);
+                    // Notify for non-system messages from others
+                    if (!isMine && !content.system) {
+                        Notify.browser(`${content.from} in ${group.name || 'Group'}`, content.text);
+                        if (state.activeGroupId !== groupId) {
+                            Notify.toast(`💬 ${content.from}: ${content.text.slice(0, 50)}...`, 'info');
+                        }
+                    }
                     break;
                     
                 case CONFIG.EVENT_KINDS.SHARE:
@@ -317,6 +435,10 @@ const SkateChat = (() => {
                         from: content.from, fromPubkey: event.pubkey, mine: isMine,
                         ts: event.created_at * 1000, data: content.data
                     });
+                    // Notify for shares from others
+                    if (!isMine) {
+                        Notify.browser(`${content.from} shared a program`, content.data?.activity || 'Skating program');
+                    }
                     trackMember(groupId, content.from, event.pubkey);
                     break;
                     
@@ -398,6 +520,9 @@ const SkateChat = (() => {
             // Track unread if not viewing this DM
             if (!isFromMe && state.activeDmRecipient !== otherPubkey) {
                 thread.unread = (thread.unread || 0) + 1;
+                // Notify for DMs
+                Notify.browser(`DM from ${content.from}`, dmData.text);
+                Notify.toast(`📩 ${content.from}: ${dmData.text.slice(0, 40)}...`, 'info');
             }
         }
     }
@@ -428,6 +553,10 @@ const SkateChat = (() => {
         if (typeof NostrTools === 'undefined') { console.error('[SkateChat] NostrTools not loaded!'); return; }
         loadState();
         initIdentity();
+        Favorites.load();
+        
+        // Request notification permission (won't prompt until user interacts)
+        Notify.requestPermission();
         
         const hash = window.location.hash.slice(1);
         if (hash && hash.length >= 32) {
@@ -441,8 +570,14 @@ const SkateChat = (() => {
             startPresence(gid);
         }
         
-        console.log('[SkateChat] Initialized');
+        console.log('[SkateChat] Initialized with NIP-44 encryption');
         notifyUpdate();
+    }
+    
+    function joinPublicRoom(roomKey) {
+        const room = PUBLIC_ROOMS[roomKey];
+        if (!room) throw new Error('Unknown room');
+        return joinGroup(room.secret, null, room.name);
     }
     
     function createGroup(options = {}) {
@@ -451,7 +586,7 @@ const SkateChat = (() => {
         const name = options.name || 'Skating Group';
         if (Filter.check(name)) throw new Error('Group name contains inappropriate content');
         
-        const secret = options.password ? Crypto.hash(options.password) : Crypto.randomHex(32);
+        const secret = options.password ? Crypto.hashSync(options.password) : Crypto.randomHex(32);
         const groupId = Crypto.deriveGroupId(secret);
         
         if (state.groups[groupId]) {
@@ -479,20 +614,22 @@ const SkateChat = (() => {
         return { groupId, shareUrl: getShareUrl() };
     }
     
-    function joinGroup(secret, password = null) {
+    function joinGroup(secret, password = null, customName = null) {
         if (Object.keys(state.groups).length >= CONFIG.MAX_GROUPS) throw new Error(`Max ${CONFIG.MAX_GROUPS} groups`);
         
-        const actualSecret = password ? Crypto.hash(password) : secret;
+        const actualSecret = password ? Crypto.hashSync(password) : secret;
         const groupId = Crypto.deriveGroupId(actualSecret);
         
         if (state.groups[groupId]) {
             state.activeGroupId = groupId;
             saveState(); notifyUpdate();
+            Notify.toast(`Switched to ${state.groups[groupId].name}`, 'info', 2000);
             return { groupId, alreadyJoined: true };
         }
         
+        const groupName = customName || 'Skating Group';
         state.groups[groupId] = {
-            id: groupId, name: 'Skating Group', secret: actualSecret, hasPassword: !!password,
+            id: groupId, name: groupName, secret: actualSecret, hasPassword: !!password,
             members: [state.myName], memberPubkeys: { [state.myName]: state.myPublicKey },
             messages: [], votes: {}, connected: false, createdAt: Date.now()
         };
@@ -506,6 +643,7 @@ const SkateChat = (() => {
             startPresence(groupId);
         }, 1000);
         
+        Notify.toast(`Joined ${groupName}! 🎉`, 'success');
         notifyUpdate();
         return { groupId };
     }
@@ -617,6 +755,9 @@ const SkateChat = (() => {
         let totalUnread = 0;
         Object.values(state.dmThreads).forEach(t => { totalUnread += t.unread || 0; });
         
+        // Update page title with unread count
+        Notify.updateTitle(totalUnread);
+        
         return {
             myName: state.myName,
             myPublicKey: state.myPublicKey,
@@ -627,7 +768,8 @@ const SkateChat = (() => {
             activeDmRecipient: state.activeDmRecipient,
             activeDmThread,
             totalUnread,
-            viewMode: state.activeDmRecipient ? 'dm' : 'group'
+            viewMode: state.activeDmRecipient ? 'dm' : 'group',
+            favoritesCount: state.favorites.size
         };
     }
     
@@ -648,11 +790,13 @@ const SkateChat = (() => {
         })).sort((a, b) => (b.lastMessage?.ts || 0) - (a.lastMessage?.ts || 0));
     }
     
+    function getPublicRooms() { return PUBLIC_ROOMS; }
+    
     return {
-        init, createGroup, joinGroup, leaveGroup, switchGroup,
+        init, createGroup, joinGroup, joinPublicRoom, leaveGroup, switchGroup,
         sendMessage, shareProgram, voteTime,
         startDm, sendDm, closeDm, getDmThreadsList,
-        onUpdate, getState, getShareUrl, getConnectionStatus,
-        Crypto, Filter
+        onUpdate, getState, getShareUrl, getConnectionStatus, getPublicRooms,
+        Notify, Favorites, Crypto, Filter
     };
 })();

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Toronto Ice Skating</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <link rel="stylesheet" href="assets/css/style.css?v=7">
+    <link rel="stylesheet" href="assets/css/style.css?v=8">
 </head>
 <body>
     <div class="app" id="app">
@@ -13,7 +13,7 @@
         <div class="top-bar">
             <h1>⛸️ Toronto Skating</h1>
             <div class="top-bar-actions">
-                <button class="btn-primary" id="btn-new-group">+ Group</button>
+                <span id="user-name" style="font-size:12px;color:var(--text-muted)"></span>
             </div>
         </div>
         
@@ -35,6 +35,7 @@
                 
                 <div class="filter-row" id="type-filters">
                     <button class="filter-chip active" data-type="all">All</button>
+                    <button class="filter-chip" data-type="favorites">❤️ Saved</button>
                     <button class="filter-chip" data-type="leisure">Leisure</button>
                     <button class="filter-chip" data-type="shinny">Shinny</button>
                     <button class="filter-chip" data-type="figure">Figure</button>
@@ -57,24 +58,34 @@
             
             <!-- Groups Panel -->
             <div class="view-panel groups-panel-view" id="groups-panel">
-                <div class="create-group-card">
-                    <h3>⛸️ Start a Skating Group</h3>
-                    <p>Create a group and invite friends!</p>
+                <!-- Public Rooms Section -->
+                <div class="public-rooms">
+                    <h3>🌐 Public Rooms</h3>
+                    <div id="public-rooms-list"></div>
+                </div>
+                
+                <!-- Divider -->
+                <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--border);">
+                
+                <!-- Create Private Group -->
+                <div class="create-group-card" style="margin: 0 16px;">
+                    <h3>🔒 Create Private Group</h3>
+                    <p style="font-size:12px;color:var(--text-muted)">Invite-only group for friends</p>
                     <div class="create-options">
-                        <input type="text" id="group-name-input" placeholder="Group name (optional)" maxlength="30">
+                        <input type="text" id="group-name-input" placeholder="Group name" maxlength="30">
                         <input type="password" id="group-password-input" placeholder="Password (optional)">
-                        <button class="btn-primary" id="btn-create-group">Create Group</button>
+                        <button class="btn-primary" id="btn-create-group">Create</button>
                     </div>
                 </div>
                 
-                <div class="share-card hidden" id="share-card">
-                    <label>🔗 Invite friends with this link:</label>
+                <div class="share-card hidden" id="share-card" style="margin: 16px;">
+                    <label>🔗 Invite friends:</label>
                     <input type="text" id="share-url-input" readonly>
                     <button id="btn-copy-url" style="width:100%">📋 Copy Invite Link</button>
                 </div>
                 
-                <h4 style="margin:16px 0 8px;font-size:13px;color:var(--text-muted)">Your Groups</h4>
-                <ul class="groups-list" id="groups-list">
+                <h4 style="margin:16px 16px 8px;font-size:13px;color:var(--text-muted)">Your Groups</h4>
+                <ul class="groups-list" id="groups-list" style="margin:0 16px;">
                     <li style="text-align:center;padding:20px;color:var(--text-muted)">No groups yet</li>
                 </ul>
             </div>
@@ -132,9 +143,9 @@
     <!-- Scripts -->
     <script src="../assets/js/nostr.bundle.js"></script>
     <script src="projects/js/profanity-list.js"></script>
-    <script src="projects/js/storage.js?v=7"></script>
-    <script src="projects/js/api.js?v=7"></script>
-    <script src="projects/js/chat.js?v=7"></script>
+    <script src="projects/js/storage.js?v=8"></script>
+    <script src="projects/js/api.js?v=8"></script>
+    <script src="projects/js/chat.js?v=8"></script>
     
     <script>
     (function() {
@@ -187,7 +198,12 @@
         function applyFilters() {
             let result = app.programs;
             
-            if (app.type !== 'all') result = result.filter(p => (p.Activity || p['Activity Title'] || '').toLowerCase().includes(app.type));
+            // Favorites filter
+            if (app.type === 'favorites') {
+                result = result.filter(p => SkateChat.Favorites.has(p));
+            } else if (app.type !== 'all') {
+                result = result.filter(p => (p.Activity || p['Activity Title'] || '').toLowerCase().includes(app.type));
+            }
             if (app.search) {
                 const term = app.search.toLowerCase();
                 result = result.filter(p => 
@@ -212,11 +228,15 @@
             const start = (page - 1) * perPage;
             const items = filtered.slice(start, start + perPage);
             const chatState = SkateChat.getState();
+            const now = new Date();
             
             $('stats-row').textContent = `${filtered.length} programs found`;
             
             if (filtered.length === 0) {
-                $('program-list').innerHTML = '<li class="loading">No matching programs</li>';
+                const emptyMsg = app.type === 'favorites' ? 
+                    'No saved programs yet. Click ❤️ on any program to save it!' :
+                    'No matching programs found';
+                $('program-list').innerHTML = `<li class="loading">${emptyMsg}</li>`;
                 $('pagination').innerHTML = '';
                 return;
             }
@@ -231,34 +251,58 @@
                 const ageMin = p['Age Min'], ageMax = p['Age Max'];
                 
                 let dateDisplay = '';
+                let programDate = null;
                 if (dateStr) {
-                    const d = new Date(dateStr);
-                    dateDisplay = d.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
+                    programDate = new Date(dateStr);
+                    dateDisplay = programDate.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
                 }
                 
-                let ageDisplay = 'All ages';
-                if (ageMin && ageMax) ageDisplay = `${ageMin}-${ageMax}`;
-                else if (ageMin) ageDisplay = `${ageMin}+`;
-                else if (ageMax) ageDisplay = `Under ${ageMax}`;
+                // Check if happening soon (within 2 hours)
+                let happeningSoon = false;
+                if (programDate && time) {
+                    const [hours, mins] = time.split(':').map(Number);
+                    const eventTime = new Date(programDate);
+                    eventTime.setHours(hours || 0, mins || 0, 0, 0);
+                    const diffMs = eventTime - now;
+                    happeningSoon = diffMs > 0 && diffMs < 2 * 60 * 60 * 1000; // within 2 hours
+                }
                 
+                // Age badge with better visibility
+                let ageBadge = '<span class="age-badge all-ages">All Ages</span>';
+                if (ageMin && ageMax) ageBadge = `<span class="age-badge">Ages ${ageMin}-${ageMax}</span>`;
+                else if (ageMin) ageBadge = `<span class="age-badge">Ages ${ageMin}+</span>`;
+                else if (ageMax) ageBadge = `<span class="age-badge">Under ${ageMax}</span>`;
+                
+                // Activity type tag
                 const actLower = activity.toLowerCase();
                 let tag = '';
-                if (actLower.includes('shinny') || actLower.includes('hockey')) tag = '<span class="tag shinny">Shinny</span>';
-                else if (actLower.includes('figure')) tag = '<span class="tag figure">Figure</span>';
-                else if (actLower.includes('speed')) tag = '<span class="tag speed">Speed</span>';
+                if (actLower.includes('shinny') || actLower.includes('hockey')) tag = '<span class="tag shinny">🏒 Shinny</span>';
+                else if (actLower.includes('figure')) tag = '<span class="tag figure">⛸️ Figure</span>';
+                else if (actLower.includes('speed')) tag = '<span class="tag speed">⚡ Speed</span>';
+                else if (actLower.includes('leisure')) tag = '<span class="tag leisure">🏂 Leisure</span>';
                 
+                // Happening now indicator
+                const happeningBadge = happeningSoon ? '<span class="happening-now">Starting Soon</span>' : '';
+                
+                // Vote count
                 let voteCount = 0, hasVoted = false;
                 if (chatState.activeGroup?.votes?.[idx]) {
                     voteCount = chatState.activeGroup.votes[idx].length;
                     hasVoted = chatState.activeGroup.votes[idx].includes(chatState.myName);
                 }
                 
-                const actions = chatState.activeGroup ? `
-                    <div class="program-actions">
-                        <button class="btn-share-program" onclick="shareProgram(${idx})">📤 Share</button>
-                        <button class="btn-vote ${hasVoted ? 'voted' : ''}" onclick="voteTime(${idx})">👍 ${voteCount || ''}</button>
-                    </div>
+                // Favorite button
+                const isFavorite = SkateChat.Favorites.has(p);
+                const favBtn = `<button class="btn-favorite ${isFavorite ? 'active' : ''}" onclick="toggleFavorite(${idx})" title="${isFavorite ? 'Remove from saved' : 'Save this program'}">${isFavorite ? '❤️' : '🤍'}</button>`;
+                
+                // Actions (share/vote only if in a group)
+                const groupActions = chatState.activeGroup ? `
+                    <button class="btn-share-program" onclick="shareProgram(${idx})" title="Share to ${chatState.activeGroup.name}">📤 Share</button>
+                    <button class="btn-vote ${hasVoted ? 'voted' : ''}" onclick="voteTime(${idx})" title="Vote for this time">👍 ${voteCount || ''}</button>
                 ` : '';
+                
+                // Copy button
+                const copyBtn = `<button class="btn-copy" onclick="copyProgram(${idx})" title="Copy details">📋</button>`;
                 
                 // Make location clickable for maps
                 const locationHtml = location ? 
@@ -266,20 +310,28 @@
                     '';
                 
                 return `
-                    <li class="program-item">
+                    <li class="program-item ${happeningSoon ? 'happening-soon' : ''}">
                         <div class="program-header">
                             <div>
                                 <div class="program-title">${escapeHtml(activity)}</div>
                                 ${locationHtml}
                             </div>
                             <div class="program-meta">
+                                ${happeningBadge}
                                 <div class="program-date">${dateDisplay}</div>
                                 <div>${time}${endTime ? '-' + endTime : ''}</div>
                             </div>
                         </div>
                         <div class="program-footer">
-                            <div>${tag} <span style="color:var(--text-muted);font-size:12px">${ageDisplay}</span></div>
-                            ${actions}
+                            <div class="program-badges">
+                                ${tag}
+                                ${ageBadge}
+                            </div>
+                            <div class="program-actions">
+                                ${favBtn}
+                                ${copyBtn}
+                                ${groupActions}
+                            </div>
                         </div>
                     </li>
                 `;
@@ -309,6 +361,9 @@
             $('groups-badge').textContent = count;
             $('groups-badge').classList.toggle('hidden', count === 0);
             
+            // Show user name
+            $('user-name').textContent = `👤 ${chatState.myName || 'Guest'}`;
+            
             // DM unread badge
             $('dm-badge').textContent = chatState.totalUnread;
             $('dm-badge').classList.toggle('hidden', chatState.totalUnread === 0);
@@ -317,19 +372,46 @@
             const hasDms = Object.keys(chatState.dmThreads).length > 0;
             $('btn-dm-inbox').classList.toggle('hidden', !hasDms && !chatState.activeGroup);
             
+            renderPublicRooms(chatState);
             renderPrograms();
+        }
+        
+        function renderPublicRooms(chatState) {
+            const rooms = SkateChat.getPublicRooms();
+            const joinedIds = Object.keys(chatState.groups);
+            
+            $('public-rooms-list').innerHTML = Object.entries(rooms).map(([key, room]) => {
+                const roomId = SkateChat.Crypto.deriveGroupId(room.secret);
+                const isJoined = joinedIds.includes(roomId);
+                const group = chatState.groups[roomId];
+                const memberCount = group?.members?.length || 0;
+                
+                return `
+                    <div class="room-card ${isJoined ? 'joined' : ''}" onclick="joinPublicRoom('${key}')">
+                        <span class="room-emoji">${room.emoji}</span>
+                        <div class="room-info">
+                            <div class="room-name">${escapeHtml(room.name)}</div>
+                            <div class="room-desc">${escapeHtml(room.desc)}</div>
+                            ${isJoined ? `<div class="room-members">✓ Joined • ${memberCount} online</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
         
         function renderGroups(chatState) {
             const groups = Object.values(chatState.groups);
+            // Filter out public rooms from "Your Groups" list
+            const publicSecrets = Object.values(SkateChat.getPublicRooms()).map(r => r.secret);
+            const privateGroups = groups.filter(g => !publicSecrets.includes(g.secret));
             
-            if (groups.length === 0) {
-                $('groups-list').innerHTML = '<li style="text-align:center;padding:20px;color:var(--text-muted)">No groups yet</li>';
+            if (privateGroups.length === 0) {
+                $('groups-list').innerHTML = '<li style="text-align:center;padding:12px;color:var(--text-muted);font-size:12px">No private groups yet</li>';
                 $('share-card').classList.add('hidden');
                 return;
             }
             
-            $('groups-list').innerHTML = groups.map(g => `
+            $('groups-list').innerHTML = privateGroups.map(g => `
                 <li class="group-item ${g.id === chatState.activeGroupId ? 'active' : ''}">
                     <div class="group-info">
                         <h3>${escapeHtml(g.name || 'Skating Group')}</h3>
@@ -343,9 +425,11 @@
                 </li>
             `).join('');
             
-            if (chatState.activeGroup) {
+            if (chatState.activeGroup && !publicSecrets.includes(chatState.activeGroup.secret)) {
                 $('share-card').classList.remove('hidden');
                 $('share-url-input').value = SkateChat.getShareUrl();
+            } else {
+                $('share-card').classList.add('hidden');
             }
         }
         
@@ -488,6 +572,39 @@
             if (thread) { SkateChat.startDm(thread.name); app.showInbox = false; $('dm-inbox').classList.add('hidden'); }
         };
         
+        // Join public room
+        window.joinPublicRoom = key => {
+            try {
+                SkateChat.joinPublicRoom(key);
+                if (window.innerWidth < 768) switchView('chat');
+            } catch (e) { alert(e.message); }
+        };
+        
+        // Favorites
+        window.toggleFavorite = idx => {
+            const p = app.filtered[idx];
+            if (p) { SkateChat.Favorites.toggle(p); renderPrograms(); }
+        };
+        
+        // Copy program details
+        window.copyProgram = idx => {
+            const p = app.filtered[idx];
+            if (!p) return;
+            const activity = p.Activity || p['Activity Title'] || '';
+            const location = p.LocationName || p['Location Name'] || '';
+            const dateStr = p['Start Date Time'] || p['Start Date'] || '';
+            const time = p['Start Time'] || '';
+            const date = dateStr ? new Date(dateStr).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' }) : '';
+            
+            const text = `⛸️ ${activity}\n📍 ${location}\n🗓️ ${date} ${time ? 'at ' + time : ''}\n\nFound on Toronto Skating: ${window.location.origin}${window.location.pathname}`;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                SkateChat.Notify.toast('Copied to clipboard! 📋', 'success', 2000);
+            }).catch(() => {
+                SkateChat.Notify.toast('Could not copy', 'error', 2000);
+            });
+        };
+        
         // ========== EVENTS ==========
         function bindEvents() {
             $$('.view-tab').forEach(t => t.onclick = () => switchView(t.dataset.view));
@@ -530,11 +647,9 @@
                     $('group-password-input').value = '';
                     if (window.innerWidth < 768) switchView('chat');
                 } catch (e) {
-                    alert(e.message);
+                    SkateChat.Notify.toast(e.message, 'error');
                 }
             };
-            
-            $('btn-new-group').onclick = () => switchView('groups');
             
             // Copy invite link
             $('btn-copy-url').onclick = () => {
@@ -569,7 +684,7 @@
                 }
                 
                 if (!sent && SkateChat.Filter.check(text)) {
-                    alert('Message blocked: contains inappropriate content');
+                    SkateChat.Notify.toast('Message blocked: inappropriate content', 'error');
                 }
                 $('chat-input').value = '';
             };
@@ -578,6 +693,26 @@
             
             // Back button (from DM or inbox)
             $('btn-back').onclick = () => { SkateChat.closeDm(); };
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', e => {
+                // Escape to close DM or inbox
+                if (e.key === 'Escape') {
+                    if (app.showInbox) { app.showInbox = false; $('dm-inbox').classList.add('hidden'); }
+                    else if (SkateChat.getState().viewMode === 'dm') { SkateChat.closeDm(); }
+                }
+                // Ctrl/Cmd + 1/2/3 to switch views
+                if ((e.ctrlKey || e.metaKey) && ['1', '2', '3'].includes(e.key)) {
+                    e.preventDefault();
+                    const views = ['programs', 'groups', 'chat'];
+                    switchView(views[parseInt(e.key) - 1]);
+                }
+            });
+            
+            // Request notification permission on first user interaction
+            document.body.addEventListener('click', () => {
+                SkateChat.Notify.requestPermission();
+            }, { once: true });
         }
         
         // GO!
