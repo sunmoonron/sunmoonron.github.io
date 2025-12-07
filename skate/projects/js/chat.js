@@ -475,7 +475,7 @@ const SkateChat = (() => {
                 case CONFIG.EVENT_KINDS.PRESENCE:
                     trackMember(groupId, content.from, event.pubkey);
                     if (!group.lastSeen) group.lastSeen = {};
-                    group.lastSeen[content.from] = event.created_at * 1000;
+                    group.lastSeen[content.from] = event.created_at * 1000; 
                     break;
             }
             

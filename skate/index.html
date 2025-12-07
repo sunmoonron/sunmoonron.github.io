@@ -383,10 +383,10 @@
             renderGroups(chatState);
             renderChat(chatState);
             
-            // Groups badge
-            const count = Object.keys(chatState.groups).length;
-            $('groups-badge').textContent = count;
-            $('groups-badge').classList.toggle('hidden', count === 0);
+            // Groups badge - only count private groups, not public rooms
+            const privateCount = Object.keys(chatState.privateGroups || {}).length;
+            $('groups-badge').textContent = privateCount;
+            $('groups-badge').classList.toggle('hidden', privateCount === 0);
             
             // Show user name
             $('user-name').textContent = `👤 ${chatState.myName || 'Guest'}`;
@@ -755,11 +755,6 @@
                     switchView(views[parseInt(e.key) - 1]);
                 }
             });
-            
-            // Request notification permission on first user interaction
-            document.body.addEventListener('click', () => {
-                SkateChat.Notify.requestPermission();
-            }, { once: true });
         }
         
         // GO!
