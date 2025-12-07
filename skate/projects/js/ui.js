@@ -40,7 +40,7 @@ const SkateUI = {
         this.elements.container.innerHTML = `
             <div class="skate-app">
                 <header class="skate-header">
-                    <h1>🛼 Toronto Drop-in Skating</h1>
+                    <h1>Toronto Drop-in Skate & More</h1>
                     <p class="subtitle">Find skating, shinny & hockey near you</p>
                     <div class="cache-status" id="cache-status"></div>
                 </header>
