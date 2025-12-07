@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Toronto Ice Skating</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <link rel="stylesheet" href="assets/css/style.css?v=6">
+    <link rel="stylesheet" href="assets/css/style.css?v=7">
 </head>
 <body>
     <div class="app" id="app">
@@ -13,7 +13,6 @@
         <div class="top-bar">
             <h1>⛸️ Toronto Skating</h1>
             <div class="top-bar-actions">
-                <button class="btn-icon" id="btn-share" title="Share">📤</button>
                 <button class="btn-primary" id="btn-new-group">+ Group</button>
             </div>
         </div>
@@ -22,7 +21,7 @@
         <div class="view-tabs">
             <button class="view-tab active" data-view="programs">⛸️ Programs</button>
             <button class="view-tab" data-view="groups">👥 Groups <span class="badge hidden" id="groups-badge">0</span></button>
-            <button class="view-tab" data-view="chat">💬 Chat</button>
+            <button class="view-tab" data-view="chat">💬 Chat <span class="badge hidden" id="dm-badge">0</span></button>
         </div>
         
         <!-- Main Content -->
@@ -62,16 +61,16 @@
                     <h3>⛸️ Start a Skating Group</h3>
                     <p>Create a group and invite friends!</p>
                     <div class="create-options">
-                        <input type="text" id="group-name-input" placeholder="Group name (optional)">
+                        <input type="text" id="group-name-input" placeholder="Group name (optional)" maxlength="30">
                         <input type="password" id="group-password-input" placeholder="Password (optional)">
                         <button class="btn-primary" id="btn-create-group">Create Group</button>
                     </div>
                 </div>
                 
                 <div class="share-card hidden" id="share-card">
-                    <label>📋 Share link:</label>
+                    <label>🔗 Invite friends with this link:</label>
                     <input type="text" id="share-url-input" readonly>
-                    <button id="btn-copy-url" style="width:100%">Copy Link</button>
+                    <button id="btn-copy-url" style="width:100%">📋 Copy Invite Link</button>
                 </div>
                 
                 <h4 style="margin:16px 0 8px;font-size:13px;color:var(--text-muted)">Your Groups</h4>
@@ -86,7 +85,7 @@
                     <!-- Chat Header -->
                     <div class="chat-header">
                         <div class="chat-header-info">
-                            <button class="btn-icon hidden" id="btn-back-to-group" style="margin-right:8px">←</button>
+                            <button class="btn-icon hidden" id="btn-back" style="margin-right:8px">←</button>
                             <div>
                                 <h3 id="chat-title">No group selected</h3>
                                 <div class="status">
@@ -95,7 +94,18 @@
                                 </div>
                             </div>
                         </div>
-                        <button class="btn-icon" id="btn-chat-share" title="Share">📤</button>
+                        <button class="btn-icon hidden" id="btn-dm-inbox" title="Messages">💬</button>
+                    </div>
+                    
+                    <!-- DM Inbox (toggleable) -->
+                    <div class="dm-inbox hidden" id="dm-inbox">
+                        <div class="dm-inbox-header">
+                            <h4>💬 Direct Messages</h4>
+                            <button class="btn-icon" id="btn-close-inbox">✕</button>
+                        </div>
+                        <ul class="dm-list" id="dm-list">
+                            <li style="text-align:center;padding:20px;color:var(--text-muted)">No messages yet</li>
+                        </ul>
                     </div>
                     
                     <!-- Messages Area -->
@@ -103,7 +113,7 @@
                         <div class="chat-empty"><p>👥 Join or create a group to start chatting!</p></div>
                     </div>
                     
-                    <!-- Members Bar (clickable for DM) -->
+                    <!-- Members Bar -->
                     <div class="members-bar hidden" id="members-bar">
                         <span style="margin-right:4px">👥</span>
                         <span id="members-list"></span>
@@ -111,7 +121,7 @@
                     
                     <!-- Input Bar -->
                     <div class="chat-input-bar hidden" id="chat-input-bar">
-                        <input type="text" id="chat-input" placeholder="Type a message...">
+                        <input type="text" id="chat-input" placeholder="Type a message..." maxlength="500">
                         <button id="btn-send">➤</button>
                     </div>
                 </div>
@@ -121,30 +131,31 @@
 
     <!-- Scripts -->
     <script src="../assets/js/nostr.bundle.js"></script>
-    <script src="projects/js/storage.js?v=6"></script>
-    <script src="projects/js/api.js?v=6"></script>
-    <script src="projects/js/chat.js?v=6"></script>
+    <script src="projects/js/profanity-list.js"></script>
+    <script src="projects/js/storage.js?v=7"></script>
+    <script src="projects/js/api.js?v=7"></script>
+    <script src="projects/js/chat.js?v=7"></script>
     
     <script>
     (function() {
         'use strict';
         
-        // ========== APP STATE ==========
-        const app = {
-            programs: [],
-            filtered: [],
-            page: 1,
-            perPage: 25,
-            type: 'all',
-            search: '',
-            day: '',
-            age: null,
-            view: 'programs'
-        };
+        // ========== STATE ==========
+        const app = { programs: [], filtered: [], page: 1, perPage: 25, type: 'all', search: '', day: '', age: null, view: 'programs', showInbox: false };
         
         // ========== HELPERS ==========
         const $ = id => document.getElementById(id);
         const $$ = sel => document.querySelectorAll(sel);
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function mapsUrl(location) {
+            return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location + ', Toronto, ON')}`;
+        }
         
         // ========== INIT ==========
         async function init() {
@@ -165,6 +176,8 @@
         // ========== VIEW ==========
         function switchView(view) {
             app.view = view;
+            app.showInbox = false;
+            $('dm-inbox').classList.add('hidden');
             $$('.view-tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
             $$('.view-panel').forEach(p => p.classList.remove('active'));
             $(`${view}-panel`).classList.add('active');
@@ -174,9 +187,7 @@
         function applyFilters() {
             let result = app.programs;
             
-            if (app.type !== 'all') {
-                result = result.filter(p => (p.Activity || p['Activity Title'] || '').toLowerCase().includes(app.type));
-            }
+            if (app.type !== 'all') result = result.filter(p => (p.Activity || p['Activity Title'] || '').toLowerCase().includes(app.type));
             if (app.search) {
                 const term = app.search.toLowerCase();
                 result = result.filter(p => 
@@ -184,20 +195,11 @@
                     (p.LocationName || p['Location Name'] || '').toLowerCase().includes(term)
                 );
             }
-            if (app.day) {
-                result = result.filter(p => p['Day of Week'] === app.day);
-            }
-            if (app.age !== null) {
-                result = result.filter(p => app.age >= (p['Age Min'] || 0) && app.age <= (p['Age Max'] || 999));
-            }
+            if (app.day) result = result.filter(p => p['Day of Week'] === app.day);
+            if (app.age !== null) result = result.filter(p => app.age >= (p['Age Min'] || 0) && app.age <= (p['Age Max'] || 999));
             
-            // Upcoming only
             const now = new Date(); now.setHours(0,0,0,0);
-            result = result.filter(p => {
-                const d = p['Start Date Time'] || p['Start Date'];
-                return !d || new Date(d) >= now;
-            });
-            
+            result = result.filter(p => { const d = p['Start Date Time'] || p['Start Date']; return !d || new Date(d) >= now; });
             result.sort((a, b) => new Date(a['Start Date Time'] || a['Start Date'] || '9999') - new Date(b['Start Date Time'] || b['Start Date'] || '9999'));
             
             app.filtered = result;
@@ -228,7 +230,7 @@
                 const endTime = p['End Time'] || '';
                 const ageMin = p['Age Min'], ageMax = p['Age Max'];
                 
-                let dateDisplay = p['Day of Week'] || '';
+                let dateDisplay = '';
                 if (dateStr) {
                     const d = new Date(dateStr);
                     dateDisplay = d.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -245,7 +247,6 @@
                 else if (actLower.includes('figure')) tag = '<span class="tag figure">Figure</span>';
                 else if (actLower.includes('speed')) tag = '<span class="tag speed">Speed</span>';
                 
-                // Votes from group
                 let voteCount = 0, hasVoted = false;
                 if (chatState.activeGroup?.votes?.[idx]) {
                     voteCount = chatState.activeGroup.votes[idx].length;
@@ -254,17 +255,22 @@
                 
                 const actions = chatState.activeGroup ? `
                     <div class="program-actions">
-                        <button onclick="shareProgram(${idx})" title="Share to group">📤</button>
+                        <button class="btn-share-program" onclick="shareProgram(${idx})">📤 Share</button>
                         <button class="btn-vote ${hasVoted ? 'voted' : ''}" onclick="voteTime(${idx})">👍 ${voteCount || ''}</button>
                     </div>
                 ` : '';
+                
+                // Make location clickable for maps
+                const locationHtml = location ? 
+                    `<a href="${mapsUrl(location)}" target="_blank" rel="noopener" class="program-location">📍 ${escapeHtml(location)} ↗</a>` :
+                    '';
                 
                 return `
                     <li class="program-item">
                         <div class="program-header">
                             <div>
-                                <div class="program-title">${activity}</div>
-                                <div class="program-location">📍 ${location}</div>
+                                <div class="program-title">${escapeHtml(activity)}</div>
+                                ${locationHtml}
                             </div>
                             <div class="program-meta">
                                 <div class="program-date">${dateDisplay}</div>
@@ -298,12 +304,19 @@
             renderGroups(chatState);
             renderChat(chatState);
             
-            // Badge
+            // Groups badge
             const count = Object.keys(chatState.groups).length;
             $('groups-badge').textContent = count;
             $('groups-badge').classList.toggle('hidden', count === 0);
             
-            // Re-render programs for vote counts
+            // DM unread badge
+            $('dm-badge').textContent = chatState.totalUnread;
+            $('dm-badge').classList.toggle('hidden', chatState.totalUnread === 0);
+            
+            // Show DM inbox button if has any DMs
+            const hasDms = Object.keys(chatState.dmThreads).length > 0;
+            $('btn-dm-inbox').classList.toggle('hidden', !hasDms && !chatState.activeGroup);
+            
             renderPrograms();
         }
         
@@ -319,7 +332,7 @@
             $('groups-list').innerHTML = groups.map(g => `
                 <li class="group-item ${g.id === chatState.activeGroupId ? 'active' : ''}">
                     <div class="group-info">
-                        <h3>${g.name || 'Skating Group'}</h3>
+                        <h3>${escapeHtml(g.name || 'Skating Group')}</h3>
                         <div class="group-code">#${g.id.slice(0, 6).toUpperCase()}</div>
                         <div class="group-members">${g.members?.length || 1} members</div>
                     </div>
@@ -336,17 +349,48 @@
             }
         }
         
+        function renderDmInbox(chatState) {
+            const threads = SkateChat.getDmThreadsList();
+            
+            if (threads.length === 0) {
+                $('dm-list').innerHTML = '<li style="text-align:center;padding:20px;color:var(--text-muted)">No messages yet</li>';
+                return;
+            }
+            
+            $('dm-list').innerHTML = threads.map(t => {
+                const preview = t.lastMessage ? t.lastMessage.text.slice(0, 30) + (t.lastMessage.text.length > 30 ? '...' : '') : 'No messages';
+                const time = t.lastMessage ? new Date(t.lastMessage.ts).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' }) : '';
+                return `
+                    <li class="dm-item ${t.unread > 0 ? 'unread' : ''}" onclick="openDm('${t.pubkey}')">
+                        <div class="dm-info">
+                            <strong>${escapeHtml(t.name)}</strong>
+                            <span class="dm-preview">${escapeHtml(preview)}</span>
+                        </div>
+                        <div class="dm-meta">
+                            <span class="dm-time">${time}</span>
+                            ${t.unread > 0 ? `<span class="dm-unread-badge">${t.unread}</span>` : ''}
+                        </div>
+                    </li>
+                `;
+            }).join('');
+        }
+        
         function renderChat(chatState) {
             const { activeGroup, viewMode, activeDmThread, myName } = chatState;
             const msgs = $('chat-messages');
             const input = $('chat-input-bar');
             const members = $('members-bar');
-            const backBtn = $('btn-back-to-group');
+            const backBtn = $('btn-back');
+            
+            // Render DM inbox if open
+            if (app.showInbox) {
+                renderDmInbox(chatState);
+            }
             
             // DM mode
             if (viewMode === 'dm' && activeDmThread) {
                 backBtn.classList.remove('hidden');
-                $('chat-title').textContent = `DM: ${activeDmThread.name}`;
+                $('chat-title').textContent = `💬 ${activeDmThread.name}`;
                 $('chat-status-dot').className = 'status-dot online';
                 $('chat-status-text').textContent = 'Private message';
                 
@@ -355,8 +399,8 @@
                 } else {
                     msgs.innerHTML = activeDmThread.messages.map(m => `
                         <div class="chat-msg ${m.mine ? 'mine' : ''}">
-                            ${!m.mine ? `<div class="sender">${m.from}</div>` : ''}
-                            <div class="bubble">${m.text}</div>
+                            ${!m.mine ? `<div class="sender">${escapeHtml(m.from)}</div>` : ''}
+                            <div class="bubble">${escapeHtml(m.text)}</div>
                         </div>
                     `).join('');
                     msgs.scrollTop = msgs.scrollHeight;
@@ -381,7 +425,7 @@
                 return;
             }
             
-            $('chat-title').textContent = activeGroup.name || 'Skating Group';
+            $('chat-title').textContent = escapeHtml(activeGroup.name || 'Skating Group');
             const status = SkateChat.getConnectionStatus();
             $('chat-status-dot').className = `status-dot ${status === 'connected' ? 'online' : 'offline'}`;
             $('chat-status-text').textContent = `#${activeGroup.id.slice(0, 6).toUpperCase()} • ${status}`;
@@ -396,14 +440,20 @@
                     if (m.system) cls += ' system';
                     if (m.type === 'share') cls += ' share';
                     
-                    let content = m.text || '';
+                    let content = escapeHtml(m.text || '');
                     if (m.type === 'share' && m.data) {
-                        content = `⛸️ <strong>${m.data.activity}</strong><br>📍 ${m.data.location}<br>🕐 ${m.data.time || ''}`;
+                        const loc = m.data.location;
+                        const locLink = loc ? `<a href="${mapsUrl(loc)}" target="_blank" rel="noopener">📍 ${escapeHtml(loc)} ↗</a>` : '';
+                        content = `
+                            <strong>⛸️ ${escapeHtml(m.data.activity)}</strong><br>
+                            ${locLink}<br>
+                            🗓️ ${escapeHtml(m.data.date || '')} ${m.data.time ? '• ' + m.data.time : ''}${m.data.endTime ? '-' + m.data.endTime : ''}
+                        `;
                     }
                     
                     return `
                         <div class="${cls}">
-                            ${!m.mine && !m.system ? `<div class="sender">${m.from}</div>` : ''}
+                            ${!m.mine && !m.system ? `<div class="sender">${escapeHtml(m.from)}</div>` : ''}
                             <div class="bubble">${content}</div>
                         </div>
                     `;
@@ -414,11 +464,11 @@
             // Members (clickable for DM)
             if (activeGroup.members?.length > 0) {
                 members.classList.remove('hidden');
-                $('members-list').innerHTML = activeGroup.members
-                    .filter(m => m !== myName)
-                    .slice(0, 8)
-                    .map(m => `<span class="member-chip" onclick="startDm('${m}')">${m}</span>`)
-                    .join('') || '<span style="color:var(--text-muted)">Just you</span>';
+                const others = activeGroup.members.filter(m => m !== myName);
+                $('members-list').innerHTML = others.length > 0 ?
+                    others.slice(0, 8).map(m => `<span class="member-chip" onclick="startDm('${escapeHtml(m)}')" title="Message ${escapeHtml(m)}">${escapeHtml(m)}</span>`).join('') +
+                    (others.length > 8 ? ` +${others.length - 8}` : '') :
+                    '<span style="color:var(--text-muted)">Just you so far</span>';
             } else {
                 members.classList.add('hidden');
             }
@@ -428,31 +478,18 @@
         }
         
         // ========== GLOBAL ACTIONS ==========
-        window.shareProgram = idx => {
-            const p = app.filtered[idx];
-            if (p) SkateChat.shareProgram(p);
-        };
-        
+        window.shareProgram = idx => { const p = app.filtered[idx]; if (p) SkateChat.shareProgram(p); };
         window.voteTime = idx => SkateChat.voteTime(idx);
-        
-        window.selectGroup = id => {
-            SkateChat.switchGroup(id);
-            if (window.innerWidth < 768) switchView('chat');
-        };
-        
-        window.leaveGroup = id => {
-            if (confirm('Leave this group?')) SkateChat.leaveGroup(id);
-        };
-        
-        window.startDm = name => {
-            if (SkateChat.startDm(name)) {
-                if (window.innerWidth < 768) switchView('chat');
-            }
+        window.selectGroup = id => { SkateChat.switchGroup(id); if (window.innerWidth < 768) switchView('chat'); };
+        window.leaveGroup = id => { if (confirm('Leave this group?')) SkateChat.leaveGroup(id); };
+        window.startDm = name => { if (SkateChat.startDm(name)) { app.showInbox = false; $('dm-inbox').classList.add('hidden'); }};
+        window.openDm = pubkey => {
+            const thread = SkateChat.getState().dmThreads[pubkey];
+            if (thread) { SkateChat.startDm(thread.name); app.showInbox = false; $('dm-inbox').classList.add('hidden'); }
         };
         
         // ========== EVENTS ==========
         function bindEvents() {
-            // Tabs
             $$('.view-tab').forEach(t => t.onclick = () => switchView(t.dataset.view));
             
             // Search
@@ -499,29 +536,24 @@
             
             $('btn-new-group').onclick = () => switchView('groups');
             
-            // Copy
+            // Copy invite link
             $('btn-copy-url').onclick = () => {
                 $('share-url-input').select();
                 document.execCommand('copy');
                 $('btn-copy-url').textContent = '✓ Copied!';
-                setTimeout(() => $('btn-copy-url').textContent = 'Copy Link', 2000);
+                setTimeout(() => $('btn-copy-url').textContent = '📋 Copy Invite Link', 2000);
             };
             
-            // Share
-            const doShare = () => {
-                const url = SkateChat.getShareUrl();
-                if (url && navigator.share) {
-                    navigator.share({ title: 'Join skating group!', url });
-                } else if (url) {
-                    $('share-url-input').value = url;
-                    $('share-card').classList.remove('hidden');
-                    switchView('groups');
-                } else {
-                    switchView('groups');
-                }
+            // DM Inbox toggle
+            $('btn-dm-inbox').onclick = () => {
+                app.showInbox = !app.showInbox;
+                $('dm-inbox').classList.toggle('hidden', !app.showInbox);
+                if (app.showInbox) renderDmInbox(SkateChat.getState());
             };
-            $('btn-share').onclick = doShare;
-            $('btn-chat-share').onclick = doShare;
+            $('btn-close-inbox').onclick = () => {
+                app.showInbox = false;
+                $('dm-inbox').classList.add('hidden');
+            };
             
             // Send message
             const sendMsg = () => {
@@ -529,18 +561,23 @@
                 if (!text) return;
                 
                 const state = SkateChat.getState();
+                let sent = false;
                 if (state.viewMode === 'dm') {
-                    SkateChat.sendDm(text);
+                    sent = SkateChat.sendDm(text);
                 } else {
-                    SkateChat.sendMessage(text);
+                    sent = SkateChat.sendMessage(text);
+                }
+                
+                if (!sent && SkateChat.Filter.check(text)) {
+                    alert('Message blocked: contains inappropriate content');
                 }
                 $('chat-input').value = '';
             };
             $('btn-send').onclick = sendMsg;
             $('chat-input').onkeypress = e => { if (e.key === 'Enter') sendMsg(); };
             
-            // Back from DM
-            $('btn-back-to-group').onclick = () => SkateChat.closeDm();
+            // Back button (from DM or inbox)
+            $('btn-back').onclick = () => { SkateChat.closeDm(); };
         }
         
         // GO!
