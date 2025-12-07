@@ -30,10 +30,10 @@ const SkateChat = (() => {
     
     // Public rooms with fixed secrets (anyone can join)
     const PUBLIC_ROOMS = {
-        leisure: { name: '🏂 Leisure Skating', secret: 'toronto-leisure-skate-public-2025', emoji: '🏂', desc: 'Casual skating & fun' },
-        shinny: { name: '🏒 Shinny Hockey', secret: 'toronto-shinny-hockey-public-2025', emoji: '🏒', desc: 'Drop-in hockey games' },
-        figure: { name: '⛸️ Figure Skating', secret: 'toronto-figure-skate-public-2025', emoji: '⛸️', desc: 'Spins, jumps & grace' },
-        general: { name: '💬 General Chat', secret: 'toronto-skating-general-public-2025', emoji: '💬', desc: 'Help, tips & chill' }
+        leisure: { name: 'Leisure Skating', secret: 'toronto-leisure-skate-public-2025', emoji: '🏂', desc: 'Casual skating & fun' },
+        shinny: { name: 'Shinny Hockey', secret: 'toronto-shinny-hockey-public-2025', emoji: '🏒', desc: 'Drop-in hockey games' },
+        figure: { name: 'Figure Skating', secret: 'toronto-figure-skate-public-2025', emoji: '⛸️', desc: 'Spins, jumps & grace' },
+        general: { name: 'General Chat', secret: 'toronto-skating-general-public-2025', emoji: '💬', desc: 'Help, tips & chill' }
     };
     
     const ADJECTIVES = ['Swift', 'Gliding', 'Frozen', 'Quick', 'Cool', 'Icy', 'Smooth', 'Fast', 'Chill', 'Frosty'];
@@ -107,7 +107,7 @@ const SkateChat = (() => {
         
         // Update page title with unread count
         updateTitle(unread) {
-            const base = '⛸️ Toronto Skating';
+            const base = 'Toronto Skating';
             document.title = unread > 0 ? `(${unread}) ${base}` : base;
         }
     };
