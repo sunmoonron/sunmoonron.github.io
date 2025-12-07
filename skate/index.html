@@ -13,6 +13,7 @@
         <div class="top-bar">
             <h1>Toronto Skating</h1>
             <div class="top-bar-actions">
+                <button class="btn-icon" id="btn-dark-mode" title="Toggle dark mode">🌙</button>
                 <span id="user-name" style="font-size:12px;color:var(--text-muted)"></span>
             </div>
         </div>
@@ -58,8 +59,13 @@
                         <span id="stats-text">Loading...</span>
                         <span id="data-updated" class="data-updated"></span>
                     </div>
+                    <label class="toggle-past" title="Show events that already happened">
+                        <input type="checkbox" id="show-past-toggle">
+                        <span>Past</span>
+                    </label>
                     <button class="btn-refresh" id="btn-refresh" title="Reload programs">🔄</button>
                 </div>
+                <div class="pagination pagination-top" id="pagination-top"></div>
                 <ul class="program-list" id="program-list"><li class="loading">Loading...</li></ul>
                 <div class="pagination" id="pagination"></div>
             </div>
@@ -160,11 +166,23 @@
         'use strict';
         
         // ========== STATE ==========
-        const app = { programs: [], filtered: [], page: 1, perPage: 25, type: 'all', search: '', day: '', age: null, view: 'programs', showInbox: false };
+        const app = { programs: [], filtered: [], page: 1, perPage: 25, type: 'all', search: '', day: '', age: null, view: 'programs', showInbox: false, showPast: false, darkMode: localStorage.getItem('darkMode') === 'true' };
         
         // ========== HELPERS ==========
         const $ = id => document.getElementById(id);
         const $$ = sel => document.querySelectorAll(sel);
+        
+        // Parse date string as local time (not UTC) to avoid off-by-one day issues
+        function parseLocalDate(dateStr) {
+            if (!dateStr) return null;
+            // If it's a YYYY-MM-DD format, parse as local date
+            if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                const [year, month, day] = dateStr.split('-').map(Number);
+                return new Date(year, month - 1, day);
+            }
+            // Otherwise use standard parsing
+            return new Date(dateStr);
+        }
         
         function escapeHtml(text) {
             const div = document.createElement('div');
@@ -228,9 +246,21 @@
             if (app.day) result = result.filter(p => p['Day of Week'] === app.day);
             if (app.age !== null) result = result.filter(p => app.age >= (p['Age Min'] || 0) && app.age <= (p['Age Max'] || 999));
             
+            // Filter out past events (use local date parsing)
             const now = new Date(); now.setHours(0,0,0,0);
-            result = result.filter(p => { const d = p['Start Date Time'] || p['Start Date']; return !d || new Date(d) >= now; });
-            result.sort((a, b) => new Date(a['Start Date Time'] || a['Start Date'] || '9999') - new Date(b['Start Date Time'] || b['Start Date'] || '9999'));
+            if (!app.showPast) {
+                result = result.filter(p => {
+                    const d = p['Start Date Time'] || p['Start Date'];
+                    if (!d) return true;
+                    const programDate = parseLocalDate(d);
+                    return programDate >= now;
+                });
+            }
+            result.sort((a, b) => {
+                const dateA = parseLocalDate(a['Start Date Time'] || a['Start Date'] || '9999');
+                const dateB = parseLocalDate(b['Start Date Time'] || b['Start Date'] || '9999');
+                return dateA - dateB;
+            });
             
             app.filtered = result;
             app.page = 1;
@@ -263,6 +293,7 @@
                     'No matching programs found';
                 $('program-list').innerHTML = `<li class="loading">${emptyMsg}</li>`;
                 $('pagination').innerHTML = '';
+                $('pagination-top').innerHTML = '';
                 return;
             }
             
@@ -278,7 +309,7 @@
                 let dateDisplay = '';
                 let programDate = null;
                 if (dateStr) {
-                    programDate = new Date(dateStr);
+                    programDate = parseLocalDate(dateStr);
                     dateDisplay = programDate.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
                 }
                 
@@ -364,10 +395,11 @@
                 `;
             }).join('');
             
-            // Pagination
+            // Pagination (top and bottom)
             const totalPages = Math.ceil(filtered.length / perPage);
             if (totalPages <= 1) {
                 $('pagination').innerHTML = '';
+                $('pagination-top').innerHTML = '';
             } else {
                 let html = `<button ${page === 1 ? 'disabled' : ''} data-p="${page - 1}">‹</button>`;
                 for (let i = Math.max(1, page - 2); i <= Math.min(totalPages, page + 2); i++) {
@@ -375,6 +407,7 @@
                 }
                 html += `<button ${page === totalPages ? 'disabled' : ''} data-p="${page + 1}">›</button>`;
                 $('pagination').innerHTML = html;
+                $('pagination-top').innerHTML = html;
             }
         }
         
@@ -672,8 +705,35 @@
             $('day-filter').onchange = () => { app.day = $('day-filter').value; applyFilters(); };
             $('age-filter').onchange = () => { app.age = $('age-filter').value ? parseInt($('age-filter').value) : null; applyFilters(); };
             
-            // Pagination
+            // Show past events toggle
+            $('show-past-toggle').onchange = () => {
+                app.showPast = $('show-past-toggle').checked;
+                applyFilters();
+            };
+            
+            // Dark mode toggle
+            $('btn-dark-mode').onclick = () => {
+                app.darkMode = !app.darkMode;
+                document.body.classList.toggle('dark-mode', app.darkMode);
+                $('btn-dark-mode').textContent = app.darkMode ? '☀️' : '🌙';
+                localStorage.setItem('darkMode', app.darkMode);
+            };
+            // Apply saved dark mode on load
+            if (app.darkMode) {
+                document.body.classList.add('dark-mode');
+                $('btn-dark-mode').textContent = '☀️';
+            }
+            
+            // Pagination (bottom)
             $('pagination').onclick = e => {
+                if (e.target.tagName === 'BUTTON' && !e.target.disabled) {
+                    app.page = parseInt(e.target.dataset.p);
+                    renderPrograms();
+                    $('programs-panel').scrollTop = 0;
+                }
+            };
+            // Pagination (top)
+            $('pagination-top').onclick = e => {
                 if (e.target.tagName === 'BUTTON' && !e.target.disabled) {
                     app.page = parseInt(e.target.dataset.p);
                     renderPrograms();

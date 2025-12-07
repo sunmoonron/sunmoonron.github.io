@@ -25,6 +25,22 @@
     --happening-now: #ff6b35;
 }
 
+/* Dark mode */
+body.dark-mode {
+    --primary: #5cb;
+    --primary-dark: #4ba;
+    --text: #e8e8e8;
+    --text-muted: #999;
+    --bg: #1a1a1a;
+    --bg-white: #252525;
+    --border: #404040;
+    --border-dark: #555;
+    --bubble-mine: #2d4a2d;
+    --bubble-other: #333;
+    --bubble-system: #2a2a2a;
+    --bubble-shared: #1e3a4a;
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body {
@@ -1069,5 +1085,35 @@ input:focus, select:focus {
     flex-wrap: wrap;
     gap: 6px;
     align-items: center;
+}
+
+/* ========== DARK MODE & TOGGLES ========== */
+.btn-icon {
+    background: transparent;
+    border: none;
+    font-size: 18px;
+    padding: 4px 8px;
+    cursor: pointer;
+    opacity: 0.8;
+}
+.btn-icon:hover { opacity: 1; }
+
+.toggle-past {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+}
+.toggle-past input {
+    margin: 0;
+    cursor: pointer;
+}
+.toggle-past:hover { color: var(--text); }
+
+.pagination-top {
+    margin-bottom: 8px;
 }
 
