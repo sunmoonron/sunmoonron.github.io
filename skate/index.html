@@ -4,14 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Toronto Ice Skating</title>
-    
-    <!-- No caching -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    
-    <!-- Styles -->
-    <link rel="stylesheet" href="assets/css/style.css?v=5">
+    <link rel="stylesheet" href="assets/css/style.css?v=6">
 </head>
 <body>
     <div class="app" id="app">
@@ -19,7 +13,7 @@
         <div class="top-bar">
             <h1>⛸️ Toronto Skating</h1>
             <div class="top-bar-actions">
-                <button class="btn-icon" id="btn-share" title="Share Group">📤</button>
+                <button class="btn-icon" id="btn-share" title="Share">📤</button>
                 <button class="btn-primary" id="btn-new-group">+ Group</button>
             </div>
         </div>
@@ -28,7 +22,7 @@
         <div class="view-tabs">
             <button class="view-tab active" data-view="programs">⛸️ Programs</button>
             <button class="view-tab" data-view="groups">👥 Groups <span class="badge hidden" id="groups-badge">0</span></button>
-            <button class="view-tab" data-view="chat">💬 Chat <span class="badge hidden" id="chat-badge">0</span></button>
+            <button class="view-tab" data-view="chat">💬 Chat</button>
         </div>
         
         <!-- Main Content -->
@@ -51,31 +45,22 @@
                 <div class="filter-selects">
                     <select id="day-filter">
                         <option value="">Any Day</option>
-                        <option>Sunday</option>
-                        <option>Monday</option>
-                        <option>Tuesday</option>
-                        <option>Wednesday</option>
-                        <option>Thursday</option>
-                        <option>Friday</option>
-                        <option>Saturday</option>
+                        <option>Sunday</option><option>Monday</option><option>Tuesday</option>
+                        <option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option>
                     </select>
                     <input type="number" id="age-filter" placeholder="Age" style="max-width:80px">
                 </div>
                 
                 <div class="stats-row" id="stats-row">Loading...</div>
-                
-                <ul class="program-list" id="program-list">
-                    <li class="loading">Loading programs...</li>
-                </ul>
-                
+                <ul class="program-list" id="program-list"><li class="loading">Loading...</li></ul>
                 <div class="pagination" id="pagination"></div>
             </div>
             
             <!-- Groups Panel -->
             <div class="view-panel groups-panel-view" id="groups-panel">
-                <div class="create-group-card" id="create-group-card">
+                <div class="create-group-card">
                     <h3>⛸️ Start a Skating Group</h3>
-                    <p>Create a group and invite friends to coordinate skating times!</p>
+                    <p>Create a group and invite friends!</p>
                     <div class="create-options">
                         <input type="text" id="group-name-input" placeholder="Group name (optional)">
                         <input type="password" id="group-password-input" placeholder="Password (optional)">
@@ -84,7 +69,7 @@
                 </div>
                 
                 <div class="share-card hidden" id="share-card">
-                    <label>📋 Share this link with friends:</label>
+                    <label>📋 Share link:</label>
                     <input type="text" id="share-url-input" readonly>
                     <button id="btn-copy-url" style="width:100%">Copy Link</button>
                 </div>
@@ -97,28 +82,34 @@
             
             <!-- Chat Panel -->
             <div class="view-panel chat-panel-view" id="chat-panel">
-                <div class="chat-container" id="chat-container">
+                <div class="chat-container">
+                    <!-- Chat Header -->
                     <div class="chat-header">
                         <div class="chat-header-info">
-                            <h3 id="chat-group-name">No group selected</h3>
-                            <div class="status">
-                                <span class="status-dot" id="chat-status-dot"></span>
-                                <span id="chat-status-text">--</span>
+                            <button class="btn-icon hidden" id="btn-back-to-group" style="margin-right:8px">←</button>
+                            <div>
+                                <h3 id="chat-title">No group selected</h3>
+                                <div class="status">
+                                    <span class="status-dot" id="chat-status-dot"></span>
+                                    <span id="chat-status-text">--</span>
+                                </div>
                             </div>
                         </div>
-                        <button class="btn-icon" id="btn-chat-share" title="Share Group">📤</button>
+                        <button class="btn-icon" id="btn-chat-share" title="Share">📤</button>
                     </div>
                     
+                    <!-- Messages Area -->
                     <div class="chat-messages" id="chat-messages">
-                        <div class="chat-empty">
-                            <p>👥 Join or create a group to start chatting!</p>
-                        </div>
+                        <div class="chat-empty"><p>👥 Join or create a group to start chatting!</p></div>
                     </div>
                     
+                    <!-- Members Bar (clickable for DM) -->
                     <div class="members-bar hidden" id="members-bar">
+                        <span style="margin-right:4px">👥</span>
                         <span id="members-list"></span>
                     </div>
                     
+                    <!-- Input Bar -->
                     <div class="chat-input-bar hidden" id="chat-input-bar">
                         <input type="text" id="chat-input" placeholder="Type a message...">
                         <button id="btn-send">➤</button>
@@ -127,32 +118,19 @@
             </div>
         </div>
     </div>
-    
-    <!-- Password Modal -->
-    <div class="modal-overlay hidden" id="password-modal">
-        <div class="modal">
-            <h3>🔒 Password Required</h3>
-            <p>This group requires a password to join.</p>
-            <input type="password" id="modal-password-input" placeholder="Enter password">
-            <div class="modal-actions">
-                <button id="btn-modal-cancel">Cancel</button>
-                <button class="btn-primary" id="btn-modal-join">Join</button>
-            </div>
-        </div>
-    </div>
 
-    <!-- Scripts: NostrTools first, then app modules -->
+    <!-- Scripts -->
     <script src="../assets/js/nostr.bundle.js"></script>
-    <script src="projects/js/storage.js?v=5"></script>
-    <script src="projects/js/api.js?v=5"></script>
-    <script src="projects/js/chat.js?v=5"></script>
+    <script src="projects/js/storage.js?v=6"></script>
+    <script src="projects/js/api.js?v=6"></script>
+    <script src="projects/js/chat.js?v=6"></script>
     
     <script>
     (function() {
         'use strict';
         
-        // ========== STATE ==========
-        const appState = {
+        // ========== APP STATE ==========
+        const app = {
             programs: [],
             filtered: [],
             page: 1,
@@ -161,39 +139,32 @@
             search: '',
             day: '',
             age: null,
-            activeView: 'programs'
+            view: 'programs'
         };
         
-        // ========== DOM REFS ==========
+        // ========== HELPERS ==========
         const $ = id => document.getElementById(id);
         const $$ = sel => document.querySelectorAll(sel);
         
         // ========== INIT ==========
         async function init() {
             try {
-                // Load programs
                 const programs = await SkateAPI.getSkatingPrograms();
-                if (!programs?.length) throw new Error('No programs found');
-                
-                appState.programs = programs;
-                appState.filtered = programs;
-                
+                app.programs = programs || [];
+                app.filtered = app.programs;
                 applyFilters();
                 bindEvents();
                 
-                // Init chat
                 SkateChat.init();
-                SkateChat.onUpdate(updateChatUI);
-                
+                SkateChat.onUpdate(renderChatUI);
             } catch (err) {
                 $('program-list').innerHTML = `<li class="error">Error: ${err.message}</li>`;
-                console.error(err);
             }
         }
         
-        // ========== VIEW SWITCHING ==========
+        // ========== VIEW ==========
         function switchView(view) {
-            appState.activeView = view;
+            app.view = view;
             $$('.view-tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
             $$('.view-panel').forEach(p => p.classList.remove('active'));
             $(`${view}-panel`).classList.add('active');
@@ -201,251 +172,229 @@
         
         // ========== PROGRAMS ==========
         function applyFilters() {
-            let result = appState.programs;
+            let result = app.programs;
             
-            if (appState.type !== 'all') {
-                result = result.filter(p => {
-                    const act = (p.Activity || p['Activity Title'] || '').toLowerCase();
-                    return act.includes(appState.type);
-                });
+            if (app.type !== 'all') {
+                result = result.filter(p => (p.Activity || p['Activity Title'] || '').toLowerCase().includes(app.type));
             }
-            
-            if (appState.search) {
-                const term = appState.search.toLowerCase();
-                result = result.filter(p => {
-                    const act = (p.Activity || p['Activity Title'] || '').toLowerCase();
-                    const loc = (p.LocationName || p['Location Name'] || '').toLowerCase();
-                    return act.includes(term) || loc.includes(term);
-                });
+            if (app.search) {
+                const term = app.search.toLowerCase();
+                result = result.filter(p => 
+                    (p.Activity || p['Activity Title'] || '').toLowerCase().includes(term) ||
+                    (p.LocationName || p['Location Name'] || '').toLowerCase().includes(term)
+                );
             }
-            
-            if (appState.day) {
-                result = result.filter(p => p['Day of Week'] === appState.day);
+            if (app.day) {
+                result = result.filter(p => p['Day of Week'] === app.day);
             }
-            
-            if (appState.age !== null) {
-                result = result.filter(p => {
-                    const min = p['Age Min'] || 0;
-                    const max = p['Age Max'] || 999;
-                    return appState.age >= min && appState.age <= max;
-                });
+            if (app.age !== null) {
+                result = result.filter(p => app.age >= (p['Age Min'] || 0) && app.age <= (p['Age Max'] || 999));
             }
             
             // Upcoming only
-            const now = new Date();
-            now.setHours(0, 0, 0, 0);
-            
+            const now = new Date(); now.setHours(0,0,0,0);
             result = result.filter(p => {
-                const dateStr = p['Start Date Time'] || p['Start Date'];
-                if (!dateStr) return true;
-                return new Date(dateStr) >= now;
+                const d = p['Start Date Time'] || p['Start Date'];
+                return !d || new Date(d) >= now;
             });
             
-            result.sort((a, b) => {
-                const da = new Date(a['Start Date Time'] || a['Start Date'] || '9999');
-                const db = new Date(b['Start Date Time'] || b['Start Date'] || '9999');
-                return da - db;
-            });
+            result.sort((a, b) => new Date(a['Start Date Time'] || a['Start Date'] || '9999') - new Date(b['Start Date Time'] || b['Start Date'] || '9999'));
             
-            appState.filtered = result;
-            appState.page = 1;
+            app.filtered = result;
+            app.page = 1;
             renderPrograms();
         }
         
         function renderPrograms() {
-            const { filtered, page, perPage } = appState;
-            const total = filtered.length;
+            const { filtered, page, perPage } = app;
             const start = (page - 1) * perPage;
             const items = filtered.slice(start, start + perPage);
+            const chatState = SkateChat.getState();
             
-            $('stats-row').textContent = `${total} programs found`;
+            $('stats-row').textContent = `${filtered.length} programs found`;
             
-            if (total === 0) {
-                $('program-list').innerHTML = '<li class="loading">No programs match your filters</li>';
+            if (filtered.length === 0) {
+                $('program-list').innerHTML = '<li class="loading">No matching programs</li>';
                 $('pagination').innerHTML = '';
                 return;
             }
             
-            const chatState = SkateChat.getState();
-            $('program-list').innerHTML = items.map((p, i) => renderProgram(p, start + i, chatState)).join('');
-            renderPagination(total);
-        }
-        
-        function renderProgram(p, idx, chatState) {
-            const activity = p.Activity || p['Activity Title'] || 'Unknown';
-            const location = p.LocationName || p['Location Name'] || '';
-            const dateStr = p['Start Date Time'] || p['Start Date'] || '';
-            const startTime = p['Start Time'] || '';
-            const endTime = p['End Time'] || '';
-            const ageMin = p['Age Min'];
-            const ageMax = p['Age Max'];
-            
-            let dateDisplay = p['Day of Week'] || '';
-            if (dateStr) {
-                const d = new Date(dateStr);
-                dateDisplay = d.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
-            }
-            
-            const timeDisplay = startTime + (endTime ? `-${endTime}` : '');
-            
-            let ageDisplay = 'All ages';
-            if (ageMin || ageMax) {
+            $('program-list').innerHTML = items.map((p, i) => {
+                const idx = start + i;
+                const activity = p.Activity || p['Activity Title'] || 'Unknown';
+                const location = p.LocationName || p['Location Name'] || '';
+                const dateStr = p['Start Date Time'] || p['Start Date'] || '';
+                const time = p['Start Time'] || '';
+                const endTime = p['End Time'] || '';
+                const ageMin = p['Age Min'], ageMax = p['Age Max'];
+                
+                let dateDisplay = p['Day of Week'] || '';
+                if (dateStr) {
+                    const d = new Date(dateStr);
+                    dateDisplay = d.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
+                }
+                
+                let ageDisplay = 'All ages';
                 if (ageMin && ageMax) ageDisplay = `${ageMin}-${ageMax}`;
                 else if (ageMin) ageDisplay = `${ageMin}+`;
-                else ageDisplay = `Under ${ageMax}`;
-            }
-            
-            const actLower = activity.toLowerCase();
-            let tag = '';
-            if (actLower.includes('shinny') || actLower.includes('hockey') || actLower.includes('stick')) {
-                tag = '<span class="tag shinny">Shinny</span>';
-            } else if (actLower.includes('figure')) {
-                tag = '<span class="tag figure">Figure</span>';
-            } else if (actLower.includes('speed')) {
-                tag = '<span class="tag speed">Speed</span>';
-            }
-            
-            // Votes
-            let voteCount = 0;
-            let hasVoted = false;
-            if (chatState.activeGroup?.votes?.[idx]) {
-                voteCount = chatState.activeGroup.votes[idx].length;
-                hasVoted = chatState.activeGroup.votes[idx].includes(chatState.myName);
-            }
-            
-            const actions = chatState.activeGroup ? `
-                <div class="program-actions">
-                    <button onclick="window.shareProgram(${idx})" title="Share">📤</button>
-                    <button class="btn-vote ${hasVoted ? 'voted' : ''}" onclick="window.voteTime(${idx})">
-                        👍 ${voteCount || ''}
-                    </button>
-                </div>
-            ` : '';
-            
-            return `
-                <li class="program-item">
-                    <div class="program-header">
-                        <div>
-                            <div class="program-title">${activity}</div>
-                            <div class="program-location">📍 ${location}</div>
-                        </div>
-                        <div class="program-meta">
-                            <div class="program-date">${dateDisplay}</div>
-                            <div>${timeDisplay}</div>
-                        </div>
+                else if (ageMax) ageDisplay = `Under ${ageMax}`;
+                
+                const actLower = activity.toLowerCase();
+                let tag = '';
+                if (actLower.includes('shinny') || actLower.includes('hockey')) tag = '<span class="tag shinny">Shinny</span>';
+                else if (actLower.includes('figure')) tag = '<span class="tag figure">Figure</span>';
+                else if (actLower.includes('speed')) tag = '<span class="tag speed">Speed</span>';
+                
+                // Votes from group
+                let voteCount = 0, hasVoted = false;
+                if (chatState.activeGroup?.votes?.[idx]) {
+                    voteCount = chatState.activeGroup.votes[idx].length;
+                    hasVoted = chatState.activeGroup.votes[idx].includes(chatState.myName);
+                }
+                
+                const actions = chatState.activeGroup ? `
+                    <div class="program-actions">
+                        <button onclick="shareProgram(${idx})" title="Share to group">📤</button>
+                        <button class="btn-vote ${hasVoted ? 'voted' : ''}" onclick="voteTime(${idx})">👍 ${voteCount || ''}</button>
                     </div>
-                    <div class="program-footer">
-                        <div>${tag} <span style="color:var(--text-muted);font-size:12px">${ageDisplay}</span></div>
-                        ${actions}
-                    </div>
-                </li>
-            `;
-        }
-        
-        function renderPagination(total) {
-            const totalPages = Math.ceil(total / appState.perPage);
+                ` : '';
+                
+                return `
+                    <li class="program-item">
+                        <div class="program-header">
+                            <div>
+                                <div class="program-title">${activity}</div>
+                                <div class="program-location">📍 ${location}</div>
+                            </div>
+                            <div class="program-meta">
+                                <div class="program-date">${dateDisplay}</div>
+                                <div>${time}${endTime ? '-' + endTime : ''}</div>
+                            </div>
+                        </div>
+                        <div class="program-footer">
+                            <div>${tag} <span style="color:var(--text-muted);font-size:12px">${ageDisplay}</span></div>
+                            ${actions}
+                        </div>
+                    </li>
+                `;
+            }).join('');
+            
+            // Pagination
+            const totalPages = Math.ceil(filtered.length / perPage);
             if (totalPages <= 1) {
                 $('pagination').innerHTML = '';
-                return;
-            }
-            
-            let html = `<button ${appState.page === 1 ? 'disabled' : ''} data-p="${appState.page - 1}">‹</button>`;
-            
-            for (let i = 1; i <= Math.min(totalPages, 5); i++) {
-                const p = appState.page <= 3 ? i : 
-                          appState.page >= totalPages - 2 ? totalPages - 5 + i :
-                          appState.page - 3 + i;
-                if (p >= 1 && p <= totalPages) {
-                    html += `<button class="${p === appState.page ? 'active' : ''}" data-p="${p}">${p}</button>`;
+            } else {
+                let html = `<button ${page === 1 ? 'disabled' : ''} data-p="${page - 1}">‹</button>`;
+                for (let i = Math.max(1, page - 2); i <= Math.min(totalPages, page + 2); i++) {
+                    html += `<button class="${i === page ? 'active' : ''}" data-p="${i}">${i}</button>`;
                 }
+                html += `<button ${page === totalPages ? 'disabled' : ''} data-p="${page + 1}">›</button>`;
+                $('pagination').innerHTML = html;
             }
-            
-            html += `<button ${appState.page === totalPages ? 'disabled' : ''} data-p="${appState.page + 1}">›</button>`;
-            $('pagination').innerHTML = html;
         }
         
         // ========== CHAT UI ==========
-        function updateChatUI(chatState) {
+        function renderChatUI(chatState) {
             renderGroups(chatState);
             renderChat(chatState);
             
-            // Update badges
-            const groupCount = Object.keys(chatState.groups).length;
-            const groupsBadge = $('groups-badge');
-            if (groupCount > 0) {
-                groupsBadge.textContent = groupCount;
-                groupsBadge.classList.remove('hidden');
-            } else {
-                groupsBadge.classList.add('hidden');
-            }
+            // Badge
+            const count = Object.keys(chatState.groups).length;
+            $('groups-badge').textContent = count;
+            $('groups-badge').classList.toggle('hidden', count === 0);
             
+            // Re-render programs for vote counts
             renderPrograms();
         }
         
         function renderGroups(chatState) {
             const groups = Object.values(chatState.groups);
-            const shareCard = $('share-card');
-            const shareUrlInput = $('share-url-input');
             
             if (groups.length === 0) {
                 $('groups-list').innerHTML = '<li style="text-align:center;padding:20px;color:var(--text-muted)">No groups yet</li>';
-                shareCard.classList.add('hidden');
+                $('share-card').classList.add('hidden');
                 return;
             }
             
             $('groups-list').innerHTML = groups.map(g => `
-                <li class="group-item ${g.id === chatState.activeGroupId ? 'active' : ''}" data-id="${g.id}">
+                <li class="group-item ${g.id === chatState.activeGroupId ? 'active' : ''}">
                     <div class="group-info">
                         <h3>${g.name || 'Skating Group'}</h3>
                         <div class="group-code">#${g.id.slice(0, 6).toUpperCase()}</div>
-                        <div class="group-members">${g.members?.length || 0} members</div>
+                        <div class="group-members">${g.members?.length || 1} members</div>
                     </div>
                     <div class="group-actions">
-                        <button class="btn-icon" onclick="window.selectGroup('${g.id}')" title="Select">
-                            ${g.id === chatState.activeGroupId ? '✓' : '→'}
-                        </button>
-                        <button class="btn-icon" onclick="window.leaveGroup('${g.id}')" title="Leave">✕</button>
+                        <button class="btn-icon" onclick="selectGroup('${g.id}')">${g.id === chatState.activeGroupId ? '✓' : '→'}</button>
+                        <button class="btn-icon" onclick="leaveGroup('${g.id}')">✕</button>
                     </div>
                 </li>
             `).join('');
             
-            // Update share card
             if (chatState.activeGroup) {
-                shareCard.classList.remove('hidden');
-                shareUrlInput.value = SkateChat.getShareUrl();
+                $('share-card').classList.remove('hidden');
+                $('share-url-input').value = SkateChat.getShareUrl();
             }
         }
         
         function renderChat(chatState) {
-            const group = chatState.activeGroup;
-            const chatMessages = $('chat-messages');
-            const chatInputBar = $('chat-input-bar');
-            const membersBar = $('members-bar');
+            const { activeGroup, viewMode, activeDmThread, myName } = chatState;
+            const msgs = $('chat-messages');
+            const input = $('chat-input-bar');
+            const members = $('members-bar');
+            const backBtn = $('btn-back-to-group');
             
-            if (!group) {
-                $('chat-group-name').textContent = 'No group selected';
-                $('chat-status-dot').className = 'status-dot offline';
-                $('chat-status-text').textContent = 'Not connected';
-                chatMessages.innerHTML = '<div class="chat-empty"><p>👥 Join or create a group to start chatting!</p></div>';
-                chatInputBar.classList.add('hidden');
-                membersBar.classList.add('hidden');
+            // DM mode
+            if (viewMode === 'dm' && activeDmThread) {
+                backBtn.classList.remove('hidden');
+                $('chat-title').textContent = `DM: ${activeDmThread.name}`;
+                $('chat-status-dot').className = 'status-dot online';
+                $('chat-status-text').textContent = 'Private message';
+                
+                if (!activeDmThread.messages?.length) {
+                    msgs.innerHTML = '<div class="chat-empty"><p>Start a private conversation</p></div>';
+                } else {
+                    msgs.innerHTML = activeDmThread.messages.map(m => `
+                        <div class="chat-msg ${m.mine ? 'mine' : ''}">
+                            ${!m.mine ? `<div class="sender">${m.from}</div>` : ''}
+                            <div class="bubble">${m.text}</div>
+                        </div>
+                    `).join('');
+                    msgs.scrollTop = msgs.scrollHeight;
+                }
+                
+                members.classList.add('hidden');
+                input.classList.remove('hidden');
+                $('chat-input').placeholder = `Message ${activeDmThread.name}...`;
                 return;
             }
             
-            $('chat-group-name').textContent = group.name || 'Skating Group';
-            const status = SkateChat.getConnectionStatus(group.id);
+            // Group mode
+            backBtn.classList.add('hidden');
+            
+            if (!activeGroup) {
+                $('chat-title').textContent = 'No group selected';
+                $('chat-status-dot').className = 'status-dot offline';
+                $('chat-status-text').textContent = 'Not connected';
+                msgs.innerHTML = '<div class="chat-empty"><p>👥 Join or create a group!</p></div>';
+                input.classList.add('hidden');
+                members.classList.add('hidden');
+                return;
+            }
+            
+            $('chat-title').textContent = activeGroup.name || 'Skating Group';
+            const status = SkateChat.getConnectionStatus();
             $('chat-status-dot').className = `status-dot ${status === 'connected' ? 'online' : 'offline'}`;
-            $('chat-status-text').textContent = `#${group.id.slice(0, 6).toUpperCase()} • ${status}`;
+            $('chat-status-text').textContent = `#${activeGroup.id.slice(0, 6).toUpperCase()} • ${status}`;
             
             // Messages
-            if (!group.messages || group.messages.length === 0) {
-                chatMessages.innerHTML = '<div class="chat-empty"><p>No messages yet. Share a skating session!</p></div>';
+            if (!activeGroup.messages?.length) {
+                msgs.innerHTML = '<div class="chat-empty"><p>No messages yet. Say hi! 👋</p></div>';
             } else {
-                chatMessages.innerHTML = group.messages.map(m => {
-                    let classes = 'chat-msg';
-                    if (m.mine) classes += ' mine';
-                    if (m.system) classes += ' system';
-                    if (m.type === 'share') classes += ' share';
+                msgs.innerHTML = activeGroup.messages.map(m => {
+                    let cls = 'chat-msg';
+                    if (m.mine) cls += ' mine';
+                    if (m.system) cls += ' system';
+                    if (m.type === 'share') cls += ' share';
                     
                     let content = m.text || '';
                     if (m.type === 'share' && m.data) {
@@ -453,38 +402,38 @@
                     }
                     
                     return `
-                        <div class="${classes}">
+                        <div class="${cls}">
                             ${!m.mine && !m.system ? `<div class="sender">${m.from}</div>` : ''}
                             <div class="bubble">${content}</div>
                         </div>
                     `;
                 }).join('');
-                
-                chatMessages.scrollTop = chatMessages.scrollHeight;
+                msgs.scrollTop = msgs.scrollHeight;
             }
             
-            // Members - only show current group's members
-            if (group.members && group.members.length > 0) {
-                membersBar.classList.remove('hidden');
-                $('members-list').innerHTML = group.members.slice(0, 10).map(m => 
-                    `<span class="member-chip">${m}</span>`
-                ).join('') + (group.members.length > 10 ? ` +${group.members.length - 10}` : '');
+            // Members (clickable for DM)
+            if (activeGroup.members?.length > 0) {
+                members.classList.remove('hidden');
+                $('members-list').innerHTML = activeGroup.members
+                    .filter(m => m !== myName)
+                    .slice(0, 8)
+                    .map(m => `<span class="member-chip" onclick="startDm('${m}')">${m}</span>`)
+                    .join('') || '<span style="color:var(--text-muted)">Just you</span>';
             } else {
-                membersBar.classList.add('hidden');
+                members.classList.add('hidden');
             }
             
-            chatInputBar.classList.remove('hidden');
+            input.classList.remove('hidden');
+            $('chat-input').placeholder = 'Type a message...';
         }
         
-        // ========== GLOBAL HANDLERS ==========
+        // ========== GLOBAL ACTIONS ==========
         window.shareProgram = idx => {
-            const p = appState.filtered[idx];
+            const p = app.filtered[idx];
             if (p) SkateChat.shareProgram(p);
         };
         
-        window.voteTime = idx => {
-            SkateChat.voteTime(idx);
-        };
+        window.voteTime = idx => SkateChat.voteTime(idx);
         
         window.selectGroup = id => {
             SkateChat.switchGroup(id);
@@ -492,49 +441,40 @@
         };
         
         window.leaveGroup = id => {
-            if (confirm('Leave this group?')) {
-                SkateChat.leaveGroup(id);
+            if (confirm('Leave this group?')) SkateChat.leaveGroup(id);
+        };
+        
+        window.startDm = name => {
+            if (SkateChat.startDm(name)) {
+                if (window.innerWidth < 768) switchView('chat');
             }
         };
         
         // ========== EVENTS ==========
         function bindEvents() {
-            // View tabs
-            $$('.view-tab').forEach(tab => {
-                tab.onclick = () => switchView(tab.dataset.view);
-            });
+            // Tabs
+            $$('.view-tab').forEach(t => t.onclick = () => switchView(t.dataset.view));
             
             // Search
-            $('btn-search').onclick = () => {
-                appState.search = $('search-input').value.trim();
-                applyFilters();
-            };
+            $('btn-search').onclick = () => { app.search = $('search-input').value.trim(); applyFilters(); };
+            $('search-input').onkeypress = e => { if (e.key === 'Enter') { app.search = $('search-input').value.trim(); applyFilters(); }};
             
-            $('search-input').onkeypress = e => {
-                if (e.key === 'Enter') {
-                    appState.search = $('search-input').value.trim();
-                    applyFilters();
-                }
-            };
-            
-            // Type filters
+            // Filters
             $('type-filters').onclick = e => {
                 if (e.target.classList.contains('filter-chip')) {
                     $$('.filter-chip').forEach(c => c.classList.remove('active'));
                     e.target.classList.add('active');
-                    appState.type = e.target.dataset.type;
+                    app.type = e.target.dataset.type;
                     applyFilters();
                 }
             };
-            
-            // Day/Age filters
-            $('day-filter').onchange = () => { appState.day = $('day-filter').value; applyFilters(); };
-            $('age-filter').onchange = () => { appState.age = $('age-filter').value ? parseInt($('age-filter').value) : null; applyFilters(); };
+            $('day-filter').onchange = () => { app.day = $('day-filter').value; applyFilters(); };
+            $('age-filter').onchange = () => { app.age = $('age-filter').value ? parseInt($('age-filter').value) : null; applyFilters(); };
             
             // Pagination
             $('pagination').onclick = e => {
                 if (e.target.tagName === 'BUTTON' && !e.target.disabled) {
-                    appState.page = parseInt(e.target.dataset.p);
+                    app.page = parseInt(e.target.dataset.p);
                     renderPrograms();
                     $('programs-panel').scrollTop = 0;
                 }
@@ -542,17 +482,15 @@
             
             // Create group
             $('btn-create-group').onclick = () => {
-                const name = $('group-name-input').value.trim() || 'Skating Group';
-                const password = $('group-password-input').value || null;
-                
                 try {
-                    const result = SkateChat.createGroup({ name, password });
+                    const result = SkateChat.createGroup({
+                        name: $('group-name-input').value.trim() || 'Skating Group',
+                        password: $('group-password-input').value || null
+                    });
                     $('share-url-input').value = result.shareUrl;
                     $('share-card').classList.remove('hidden');
-                    
                     $('group-name-input').value = '';
                     $('group-password-input').value = '';
-                    
                     if (window.innerWidth < 768) switchView('chat');
                 } catch (e) {
                     alert(e.message);
@@ -561,7 +499,7 @@
             
             $('btn-new-group').onclick = () => switchView('groups');
             
-            // Copy URL
+            // Copy
             $('btn-copy-url').onclick = () => {
                 $('share-url-input').select();
                 document.execCommand('copy');
@@ -569,63 +507,43 @@
                 setTimeout(() => $('btn-copy-url').textContent = 'Copy Link', 2000);
             };
             
-            // Share buttons
-            $('btn-share').onclick = $('btn-chat-share').onclick = () => {
+            // Share
+            const doShare = () => {
                 const url = SkateChat.getShareUrl();
-                if (url) {
-                    if (navigator.share) {
-                        navigator.share({ title: 'Join my skating group!', url });
-                    } else {
-                        $('share-url-input').value = url;
-                        $('share-card').classList.remove('hidden');
-                        switchView('groups');
-                    }
+                if (url && navigator.share) {
+                    navigator.share({ title: 'Join skating group!', url });
+                } else if (url) {
+                    $('share-url-input').value = url;
+                    $('share-card').classList.remove('hidden');
+                    switchView('groups');
                 } else {
                     switchView('groups');
                 }
             };
+            $('btn-share').onclick = doShare;
+            $('btn-chat-share').onclick = doShare;
             
             // Send message
-            $('btn-send').onclick = () => {
+            const sendMsg = () => {
                 const text = $('chat-input').value.trim();
-                if (text) {
+                if (!text) return;
+                
+                const state = SkateChat.getState();
+                if (state.viewMode === 'dm') {
+                    SkateChat.sendDm(text);
+                } else {
                     SkateChat.sendMessage(text);
-                    $('chat-input').value = '';
                 }
+                $('chat-input').value = '';
             };
+            $('btn-send').onclick = sendMsg;
+            $('chat-input').onkeypress = e => { if (e.key === 'Enter') sendMsg(); };
             
-            $('chat-input').onkeypress = e => {
-                if (e.key === 'Enter') {
-                    const text = $('chat-input').value.trim();
-                    if (text) {
-                        SkateChat.sendMessage(text);
-                        $('chat-input').value = '';
-                    }
-                }
-            };
-            
-            // Password modal
-            $('btn-modal-cancel').onclick = () => {
-                $('password-modal').classList.add('hidden');
-                history.replaceState(null, '', window.location.pathname);
-            };
-            
-            $('btn-modal-join').onclick = () => {
-                const password = $('modal-password-input').value;
-                if (password) {
-                    try {
-                        SkateChat.joinGroup(window.location.hash.slice(1), password);
-                        $('password-modal').classList.add('hidden');
-                        $('modal-password-input').value = '';
-                        if (window.innerWidth < 768) switchView('chat');
-                    } catch (e) {
-                        alert('Failed to join: ' + e.message);
-                    }
-                }
-            };
+            // Back from DM
+            $('btn-back-to-group').onclick = () => SkateChat.closeDm();
         }
         
-        // Go!
+        // GO!
         init();
     })();
     </script>

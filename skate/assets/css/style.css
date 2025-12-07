@@ -663,3 +663,29 @@ input:focus, select:focus {
     padding: 40px;
     color: var(--danger);
 }
+
+/* ========== DM & MEMBER INTERACTIONS ========== */
+.member-chip {
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.member-chip:hover {
+    background: var(--primary);
+    color: #fff;
+}
+
+.chat-header-info {
+    display: flex;
+    align-items: center;
+}
+
+.chat-header-info h3 {
+    font-size: 14px;
+}
+
+/* DM bubble styling */
+.chat-msg.dm .bubble {
+    background: #fff3e0;
+    border-color: #ffcc80;
+}
