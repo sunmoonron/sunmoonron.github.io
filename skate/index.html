@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Toronto Ice Skating</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <link rel="stylesheet" href="assets/css/style.css?v=8">
+    <link rel="stylesheet" href="assets/css/style.css?v=9">
 </head>
 <body>
     <div class="app" id="app">
@@ -37,9 +37,11 @@
                     <button class="filter-chip active" data-type="all">All</button>
                     <button class="filter-chip" data-type="favorites">❤️ Saved</button>
                     <button class="filter-chip" data-type="leisure">Leisure</button>
-                    <button class="filter-chip" data-type="shinny">Shinny</button>
+                    <button class="filter-chip" data-type="hockey">Hockey</button>
                     <button class="filter-chip" data-type="figure">Figure</button>
                     <button class="filter-chip" data-type="speed">Speed</button>
+                    <button class="filter-chip" data-type="adapted">Adapted</button>
+                    <button class="filter-chip" data-type="ringette">Ringette</button>
                 </div>
                 
                 <div class="filter-selects">
@@ -51,7 +53,16 @@
                     <input type="number" id="age-filter" placeholder="Age" style="max-width:80px">
                 </div>
                 
-                <div class="stats-row" id="stats-row">Loading...</div>
+                <div class="stats-row" id="stats-row">
+                    <div class="stats-info">
+                        <span id="stats-text">Loading...</span>
+                        <span id="data-updated" class="data-updated"></span>
+                    </div>
+                    <div class="stats-actions">
+                        <button class="btn-refresh" id="btn-refresh" title="Reload from cache">🔄</button>
+                        <a class="btn-update-data" id="btn-update-data" href="https://github.com/sunmoonron/sunmoonron.github.io/actions/workflows/update-skating-data.yml" target="_blank" title="Fetch fresh data from City of Toronto">⬇️ Update</a>
+                    </div>
+                </div>
                 <ul class="program-list" id="program-list"><li class="loading">Loading...</li></ul>
                 <div class="pagination" id="pagination"></div>
             </div>
@@ -143,9 +154,9 @@
     <!-- Scripts -->
     <script src="../assets/js/nostr.bundle.js"></script>
     <script src="projects/js/profanity-list.js"></script>
-    <script src="projects/js/storage.js?v=8"></script>
-    <script src="projects/js/api.js?v=8"></script>
-    <script src="projects/js/chat.js?v=8"></script>
+    <script src="projects/js/storage.js?v=9"></script>
+    <script src="projects/js/api.js?v=9"></script>
+    <script src="projects/js/chat.js?v=9"></script>
     
     <script>
     (function() {
@@ -177,7 +188,7 @@
                 applyFilters();
                 bindEvents();
                 
-                SkateChat.init();
+                await SkateChat.init();
                 SkateChat.onUpdate(renderChatUI);
             } catch (err) {
                 $('program-list').innerHTML = `<li class="error">Error: ${err.message}</li>`;
@@ -201,6 +212,12 @@
             // Favorites filter
             if (app.type === 'favorites') {
                 result = result.filter(p => SkateChat.Favorites.has(p));
+            } else if (app.type === 'hockey') {
+                // Hockey includes shinny, ball hockey, etc.
+                result = result.filter(p => {
+                    const activity = (p.Activity || p['Activity Title'] || '').toLowerCase();
+                    return activity.includes('shinny') || activity.includes('hockey');
+                });
             } else if (app.type !== 'all') {
                 result = result.filter(p => (p.Activity || p['Activity Title'] || '').toLowerCase().includes(app.type));
             }
@@ -230,7 +247,18 @@
             const chatState = SkateChat.getState();
             const now = new Date();
             
-            $('stats-row').textContent = `${filtered.length} programs found`;
+            $('stats-text').textContent = `${filtered.length} programs found`;
+            
+            // Show last updated date
+            const metadata = SkateAPI.getMetadata();
+            if (metadata?.lastUpdated) {
+                const updated = new Date(metadata.lastUpdated);
+                const daysAgo = Math.floor((now - updated) / (1000 * 60 * 60 * 24));
+                const dateStr = updated.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
+                $('data-updated').textContent = daysAgo === 0 ? `Updated today` : 
+                    daysAgo === 1 ? `Updated yesterday` : `Updated ${dateStr}`;
+                $('data-updated').classList.toggle('stale', daysAgo > 7);
+            }
             
             if (filtered.length === 0) {
                 const emptyMsg = app.type === 'favorites' ? 
@@ -276,10 +304,12 @@
                 // Activity type tag
                 const actLower = activity.toLowerCase();
                 let tag = '';
-                if (actLower.includes('shinny') || actLower.includes('hockey')) tag = '<span class="tag shinny">🏒 Shinny</span>';
-                else if (actLower.includes('figure')) tag = '<span class="tag figure">Figure</span>';
-                else if (actLower.includes('speed')) tag = '<span class="tag speed">Speed</span>';
-                else if (actLower.includes('leisure')) tag = '<span class="tag leisure">Leisure</span>';
+                if (actLower.includes('shinny') || actLower.includes('hockey')) tag = '<span class="tag hockey">🏒 Hockey</span>';
+                else if (actLower.includes('figure')) tag = '<span class="tag figure">⛸️ Figure</span>';
+                else if (actLower.includes('speed')) tag = '<span class="tag speed">⛸️ Speed</span>';
+                else if (actLower.includes('leisure')) tag = '<span class="tag leisure">⛸️ Leisure</span>';
+                else if (actLower.includes('adapted')) tag = '<span class="tag adapted">♿ Adapted</span>';
+                else if (actLower.includes('ringette')) tag = '<span class="tag ringette">🥏 Ringette</span>';
                 
                 // Happening now indicator
                 const happeningBadge = happeningSoon ? '<span class="happening-now">Starting Soon</span>' : '';
@@ -378,13 +408,15 @@
         
         function renderPublicRooms(chatState) {
             const rooms = SkateChat.getPublicRooms();
-            const joinedIds = Object.keys(chatState.groups);
+            const joinedPublicRoomIds = Object.keys(chatState.publicRooms || {});
             
             $('public-rooms-list').innerHTML = Object.entries(rooms).map(([key, room]) => {
-                const roomId = SkateChat.Crypto.deriveGroupId(room.secret);
-                const isJoined = joinedIds.includes(roomId);
-                const group = chatState.groups[roomId];
-                const memberCount = group?.members?.length || 0;
+                // Use the cached secret if available, or derive from passphrase
+                const secret = chatState.publicRoomSecrets?.[key];
+                const roomId = secret ? SkateChat.Crypto.deriveGroupId(secret) : null;
+                const isJoined = roomId && joinedPublicRoomIds.includes(roomId);
+                const publicRoom = roomId ? chatState.publicRooms?.[roomId] : null;
+                const memberCount = publicRoom?.members?.length || 0;
                 
                 return `
                     <div class="room-card ${isJoined ? 'joined' : ''}" onclick="joinPublicRoom('${key}')">
@@ -400,10 +432,8 @@
         }
         
         function renderGroups(chatState) {
-            const groups = Object.values(chatState.groups);
-            // Filter out public rooms from "Your Groups" list
-            const publicSecrets = Object.values(SkateChat.getPublicRooms()).map(r => r.secret);
-            const privateGroups = groups.filter(g => !publicSecrets.includes(g.secret));
+            // Only show private groups in "Your Groups" list
+            const privateGroups = Object.values(chatState.privateGroups || {});
             
             if (privateGroups.length === 0) {
                 $('groups-list').innerHTML = '<li style="text-align:center;padding:12px;color:var(--text-muted);font-size:12px">No private groups yet</li>';
@@ -412,7 +442,7 @@
             }
             
             $('groups-list').innerHTML = privateGroups.map(g => `
-                <li class="group-item ${g.id === chatState.activeGroupId ? 'active' : ''}">
+                <li class="group-item ${g.id === chatState.activeGroupId && !chatState.activeIsPublic ? 'active' : ''}">
                     <div class="group-info">
                         <h3>${escapeHtml(g.name || 'Skating Group')}</h3>
                         <div class="group-code">#${g.id.slice(0, 6).toUpperCase()}</div>
@@ -573,9 +603,9 @@
         };
         
         // Join public room
-        window.joinPublicRoom = key => {
+        window.joinPublicRoom = async key => {
             try {
-                SkateChat.joinPublicRoom(key);
+                await SkateChat.joinPublicRoom(key);
                 if (window.innerWidth < 768) switchView('chat');
             } catch (e) { alert(e.message); }
         };
@@ -612,6 +642,25 @@
             // Search
             $('btn-search').onclick = () => { app.search = $('search-input').value.trim(); applyFilters(); };
             $('search-input').onkeypress = e => { if (e.key === 'Enter') { app.search = $('search-input').value.trim(); applyFilters(); }};
+            
+            // Refresh button
+            $('btn-refresh').onclick = async () => {
+                $('btn-refresh').disabled = true;
+                $('btn-refresh').textContent = '⏳';
+                try {
+                    SkateAPI._skatingPrograms = null; // Clear cache
+                    const programs = await SkateAPI.getSkatingPrograms();
+                    app.programs = programs || [];
+                    app.filtered = app.programs;
+                    applyFilters();
+                    SkateChat.Notify.toast('Programs refreshed!', 'success', 2000);
+                } catch (e) {
+                    SkateChat.Notify.toast('Failed to refresh: ' + e.message, 'error');
+                } finally {
+                    $('btn-refresh').disabled = false;
+                    $('btn-refresh').textContent = '🔄';
+                }
+            };
             
             // Filters
             $('type-filters').onclick = e => {

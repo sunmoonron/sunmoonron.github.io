@@ -19,21 +19,23 @@ const SkateChat = (() => {
     const CONFIG = {
         RELAYS: ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.nostr.band'],
         EVENT_KINDS: { GROUP_MSG: 20100, DM: 20101, VOTE: 20102, SHARE: 20103, PRESENCE: 20104 },
-        MAX_GROUPS: 5,
-        MAX_MESSAGES: 100,
+        MAX_GROUPS: 10,  // Only counts private groups, not public rooms
+        MAX_MESSAGES: 500,
         MAX_MESSAGE_LENGTH: 500,
-        STORAGE_KEY: 'skate_groups_v4',
-        SESSION_KEY: 'skate_session_v4',
+        STORAGE_KEY: 'skate_groups_v5',
+        SESSION_KEY: 'skate_session_v5',
         FAVORITES_KEY: 'skate_favorites_v1',
+        PUBLIC_ROOMS_KEY: 'skate_public_rooms_v1',
         PRESENCE_INTERVAL: 30000
     };
     
-    // Public rooms with fixed secrets (anyone can join)
+    // Public rooms - secrets will be hashed to proper 64-char hex using SHA-256
+    // These are community rooms that don't count toward MAX_GROUPS limit
     const PUBLIC_ROOMS = {
-        leisure: { name: 'Leisure Skating', secret: 'toronto-leisure-skate-public-2025', emoji: '🏂', desc: 'Casual skating & fun' },
-        shinny: { name: 'Shinny Hockey', secret: 'toronto-shinny-hockey-public-2025', emoji: '🏒', desc: 'Drop-in hockey games' },
-        figure: { name: 'Figure Skating', secret: 'toronto-figure-skate-public-2025', emoji: '⛸️', desc: 'Spins, jumps & grace' },
-        general: { name: 'General Chat', secret: 'toronto-skating-general-public-2025', emoji: '💬', desc: 'Help, tips & chill' }
+        leisure: { name: 'Leisure Skating', passphrase: 'toronto-leisure-skate-public-2025', emoji: '⛸️', desc: 'Casual skating & fun' },
+        shinny: { name: 'Shinny Hockey', passphrase: 'toronto-shinny-hockey-public-2025', emoji: '🏒', desc: 'Drop-in hockey games' },
+        figure: { name: 'Figure Skating', passphrase: 'toronto-figure-skate-public-2025', emoji: '⛸️', desc: 'Spins, jumps & grace' },
+        general: { name: 'General Chat', passphrase: 'toronto-skating-general-public-2025', emoji: '💬', desc: 'Help, tips & chill' }
     };
     
     const ADJECTIVES = ['Swift', 'Gliding', 'Frozen', 'Quick', 'Cool', 'Icy', 'Smooth', 'Fast', 'Chill', 'Frosty'];
@@ -44,15 +46,18 @@ const SkateChat = (() => {
         myName: null,
         mySecretKey: null,
         myPublicKey: null,
-        groups: {},
+        groups: {},           // Private groups only
+        publicRooms: {},      // Public rooms (separate, don't count toward limit)
         activeGroupId: null,
+        activeIsPublic: false, // Track if active group is a public room
         dmThreads: {},        // pubkey -> { name, groupId, messages[], unread }
         activeDmRecipient: null,
         connections: new Map(),
         callbacks: [],
         presenceTimers: new Map(),
         favorites: new Set(),   // Set of program IDs (hash of activity+location+date)
-        notificationsEnabled: false
+        notificationsEnabled: false,
+        publicRoomSecrets: {}  // Cache: roomKey -> 64-char hex secret
     };
     
     // ========== NOTIFICATIONS ==========
@@ -184,11 +189,16 @@ const SkateChat = (() => {
             return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
         },
         
-        // SHA-256 hash (using SubtleCrypto)
+        // SHA-256 hash (using SubtleCrypto) - returns 64-char hex
         async sha256(data) {
             const encoder = new TextEncoder();
             const buffer = await crypto.subtle.digest('SHA-256', encoder.encode(data));
             return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+        },
+        
+        // Derive a proper 64-char hex secret from a passphrase using SHA-256
+        async deriveSecret(passphrase) {
+            return this.sha256(passphrase);
         },
         
         // Synchronous hash for IDs (simpler, still secure enough for IDs)
@@ -285,7 +295,15 @@ const SkateChat = (() => {
                 const p = JSON.parse(saved);
                 state.groups = p.groups || {};
                 state.activeGroupId = p.activeGroupId || null;
+                state.activeIsPublic = p.activeIsPublic || false;
                 state.dmThreads = p.dmThreads || {};
+            }
+            // Load public rooms separately
+            const publicSaved = localStorage.getItem(CONFIG.PUBLIC_ROOMS_KEY);
+            if (publicSaved) {
+                const p = JSON.parse(publicSaved);
+                state.publicRooms = p.publicRooms || {};
+                state.publicRoomSecrets = p.publicRoomSecrets || {};
             }
             const session = sessionStorage.getItem(CONFIG.SESSION_KEY);
             if (session) {
@@ -304,7 +322,13 @@ const SkateChat = (() => {
             localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify({
                 groups: state.groups,
                 activeGroupId: state.activeGroupId,
+                activeIsPublic: state.activeIsPublic,
                 dmThreads: state.dmThreads
+            }));
+            // Save public rooms separately
+            localStorage.setItem(CONFIG.PUBLIC_ROOMS_KEY, JSON.stringify({
+                publicRooms: state.publicRooms,
+                publicRoomSecrets: state.publicRoomSecrets
             }));
         } catch (e) { console.error('[SkateChat] Save error:', e); }
     }
@@ -320,8 +344,12 @@ const SkateChat = (() => {
     }
     
     // ========== NETWORK ==========
-    function connectToRelays(groupId) {
-        const group = state.groups[groupId];
+    function getGroupOrRoom(groupId) {
+        return state.groups[groupId] || state.publicRooms[groupId] || null;
+    }
+    
+    function connectToRelays(groupId, isPublic = false) {
+        const group = isPublic ? state.publicRooms[groupId] : state.groups[groupId];
         if (!group) return;
         disconnectFromRelays(groupId);
         
@@ -343,16 +371,17 @@ const SkateChat = (() => {
                 ws.onmessage = (e) => {
                     try {
                         const data = JSON.parse(e.data);
-                        if (data[0] === 'EVENT' && data[2]) handleEvent(groupId, data[2]);
+                        if (data[0] === 'EVENT' && data[2]) handleEvent(groupId, data[2], isPublic);
                     } catch {}
                 };
                 ws.onclose = () => {
                     const idx = sockets.indexOf(ws);
                     if (idx > -1) sockets.splice(idx, 1);
-                    if (sockets.length === 0 && state.groups[groupId]) {
-                        state.groups[groupId].connected = false;
+                    const g = isPublic ? state.publicRooms[groupId] : state.groups[groupId];
+                    if (sockets.length === 0 && g) {
+                        g.connected = false;
                         notifyUpdate();
-                        setTimeout(() => state.groups[groupId] && connectToRelays(groupId), 5000);
+                        setTimeout(() => g && connectToRelays(groupId, isPublic), 5000);
                     }
                 };
                 sockets.push(ws);
@@ -372,7 +401,7 @@ const SkateChat = (() => {
     }
     
     function publishEvent(groupId, kind, content, extraTags = []) {
-        const group = state.groups[groupId];
+        const group = getGroupOrRoom(groupId);
         if (!group || !state.mySecretKey) return false;
         
         try {
@@ -395,8 +424,8 @@ const SkateChat = (() => {
         } catch (e) { console.error('[SkateChat] Publish error:', e); return false; }
     }
     
-    function handleEvent(groupId, event) {
-        const group = state.groups[groupId];
+    function handleEvent(groupId, event, isPublic = false) {
+        const group = isPublic ? state.publicRooms[groupId] : state.groups[groupId];
         if (!group) return;
         if (!group._processedIds) group._processedIds = new Set();
         if (group._processedIds.has(event.id)) return;
@@ -471,7 +500,7 @@ const SkateChat = (() => {
     }
     
     function trackMember(groupId, name, pubkey) {
-        const group = state.groups[groupId];
+        const group = getGroupOrRoom(groupId);
         if (!group) return;
         if (!group.members.includes(name)) group.members.push(name);
         if (!group.memberPubkeys) group.memberPubkeys = {};
@@ -528,7 +557,7 @@ const SkateChat = (() => {
     }
     
     function addMessage(groupId, msg) {
-        const group = state.groups[groupId];
+        const group = getGroupOrRoom(groupId);
         if (!group || group.messages.some(m => m.id === msg.id)) return;
         group.messages.push(msg);
         if (group.messages.length > CONFIG.MAX_MESSAGES) group.messages = group.messages.slice(-CONFIG.MAX_MESSAGES);
@@ -538,7 +567,7 @@ const SkateChat = (() => {
     function startPresence(groupId) {
         publishEvent(groupId, CONFIG.EVENT_KINDS.PRESENCE, { from: state.myName, status: 'online' });
         const timer = setInterval(() => {
-            if (state.groups[groupId]) publishEvent(groupId, CONFIG.EVENT_KINDS.PRESENCE, { from: state.myName, status: 'online' });
+            if (getGroupOrRoom(groupId)) publishEvent(groupId, CONFIG.EVENT_KINDS.PRESENCE, { from: state.myName, status: 'online' });
         }, CONFIG.PRESENCE_INTERVAL);
         state.presenceTimers.set(groupId, timer);
     }
@@ -549,11 +578,18 @@ const SkateChat = (() => {
     }
     
     // ========== PUBLIC API ==========
-    function init() {
+    async function init() {
         if (typeof NostrTools === 'undefined') { console.error('[SkateChat] NostrTools not loaded!'); return; }
         loadState();
         initIdentity();
         Favorites.load();
+        
+        // Pre-compute public room secrets using SHA-256
+        for (const [key, room] of Object.entries(PUBLIC_ROOMS)) {
+            if (!state.publicRoomSecrets[key]) {
+                state.publicRoomSecrets[key] = await Crypto.deriveSecret(room.passphrase);
+            }
+        }
         
         // Request notification permission (won't prompt until user interacts)
         Notify.requestPermission();
@@ -561,27 +597,77 @@ const SkateChat = (() => {
         const hash = window.location.hash.slice(1);
         if (hash && hash.length >= 32) {
             const groupId = Crypto.deriveGroupId(hash);
-            if (!state.groups[groupId]) joinGroup(hash);
+            if (!state.groups[groupId]) await joinGroup(hash);
             else state.activeGroupId = groupId;
         }
         
+        // Connect to private groups
         for (const gid of Object.keys(state.groups)) {
-            connectToRelays(gid);
+            connectToRelays(gid, false);
             startPresence(gid);
         }
         
-        console.log('[SkateChat] Initialized with NIP-44 encryption');
+        // Connect to any previously joined public rooms
+        for (const gid of Object.keys(state.publicRooms)) {
+            connectToRelays(gid, true);
+            startPresence(gid);
+        }
+        
+        console.log('[SkateChat] Initialized with NIP-44 encryption (ChaCha20-Poly1305)');
         notifyUpdate();
     }
     
-    function joinPublicRoom(roomKey) {
+    async function joinPublicRoom(roomKey) {
         const room = PUBLIC_ROOMS[roomKey];
         if (!room) throw new Error('Unknown room');
-        return joinGroup(room.secret, null, room.name);
+        
+        // Ensure we have the SHA-256 derived secret
+        if (!state.publicRoomSecrets[roomKey]) {
+            state.publicRoomSecrets[roomKey] = await Crypto.deriveSecret(room.passphrase);
+        }
+        const secret = state.publicRoomSecrets[roomKey];
+        const groupId = Crypto.deriveGroupId(secret);
+        
+        // Check if already in this public room
+        if (state.publicRooms[groupId]) {
+            state.activeGroupId = groupId;
+            state.activeIsPublic = true;
+            saveState(); 
+            notifyUpdate();
+            Notify.toast(`Switched to ${room.name}`, 'info', 2000);
+            return { groupId, alreadyJoined: true };
+        }
+        
+        // Create public room entry (no join announcement, no limit check)
+        state.publicRooms[groupId] = {
+            id: groupId, 
+            name: room.name, 
+            secret: secret,
+            emoji: room.emoji,
+            isPublic: true,
+            roomKey: roomKey,
+            members: [state.myName], 
+            memberPubkeys: { [state.myName]: state.myPublicKey },
+            messages: [], 
+            votes: {}, 
+            connected: false, 
+            createdAt: Date.now()
+        };
+        
+        state.activeGroupId = groupId;
+        state.activeIsPublic = true;
+        saveState();
+        connectToRelays(groupId, true);
+        startPresence(groupId);
+        
+        Notify.toast(`Joined ${room.name}! ⛸️`, 'success');
+        notifyUpdate();
+        return { groupId };
     }
     
     function createGroup(options = {}) {
-        if (Object.keys(state.groups).length >= CONFIG.MAX_GROUPS) throw new Error(`Max ${CONFIG.MAX_GROUPS} groups`);
+        // Only private groups count toward limit
+        if (Object.keys(state.groups).length >= CONFIG.MAX_GROUPS) throw new Error(`Max ${CONFIG.MAX_GROUPS} private groups`);
         
         const name = options.name || 'Skating Group';
         if (Filter.check(name)) throw new Error('Group name contains inappropriate content');
@@ -591,6 +677,7 @@ const SkateChat = (() => {
         
         if (state.groups[groupId]) {
             state.activeGroupId = groupId;
+            state.activeIsPublic = false;
             saveState(); notifyUpdate();
             return { groupId, shareUrl: getShareUrl(), exists: true };
         }
@@ -602,8 +689,9 @@ const SkateChat = (() => {
         };
         
         state.activeGroupId = groupId;
+        state.activeIsPublic = false;
         saveState();
-        connectToRelays(groupId);
+        connectToRelays(groupId, false);
         
         setTimeout(() => {
             publishEvent(groupId, CONFIG.EVENT_KINDS.GROUP_MSG, { text: `${state.myName} created the group`, from: state.myName, system: true });
@@ -614,14 +702,16 @@ const SkateChat = (() => {
         return { groupId, shareUrl: getShareUrl() };
     }
     
-    function joinGroup(secret, password = null, customName = null) {
-        if (Object.keys(state.groups).length >= CONFIG.MAX_GROUPS) throw new Error(`Max ${CONFIG.MAX_GROUPS} groups`);
+    async function joinGroup(secret, password = null, customName = null) {
+        // Only private groups count toward limit
+        if (Object.keys(state.groups).length >= CONFIG.MAX_GROUPS) throw new Error(`Max ${CONFIG.MAX_GROUPS} private groups`);
         
         const actualSecret = password ? Crypto.hashSync(password) : secret;
         const groupId = Crypto.deriveGroupId(actualSecret);
         
         if (state.groups[groupId]) {
             state.activeGroupId = groupId;
+            state.activeIsPublic = false;
             saveState(); notifyUpdate();
             Notify.toast(`Switched to ${state.groups[groupId].name}`, 'info', 2000);
             return { groupId, alreadyJoined: true };
@@ -635,8 +725,9 @@ const SkateChat = (() => {
         };
         
         state.activeGroupId = groupId;
+        state.activeIsPublic = false;
         saveState();
-        connectToRelays(groupId);
+        connectToRelays(groupId, false);
         
         setTimeout(() => {
             publishEvent(groupId, CONFIG.EVENT_KINDS.GROUP_MSG, { text: `${state.myName} joined the group`, from: state.myName, system: true });
@@ -649,18 +740,45 @@ const SkateChat = (() => {
     }
     
     function leaveGroup(groupId) {
-        const group = state.groups[groupId];
+        // Check if it's a public room or private group
+        const isPublic = !!state.publicRooms[groupId];
+        const group = isPublic ? state.publicRooms[groupId] : state.groups[groupId];
         if (!group) return;
-        publishEvent(groupId, CONFIG.EVENT_KINDS.GROUP_MSG, { text: `${state.myName} left the group`, from: state.myName, system: true });
+        
+        // Only announce leaving for private groups
+        if (!isPublic) {
+            publishEvent(groupId, CONFIG.EVENT_KINDS.GROUP_MSG, { text: `${state.myName} left the group`, from: state.myName, system: true });
+        }
+        
         disconnectFromRelays(groupId);
-        delete state.groups[groupId];
-        if (state.activeGroupId === groupId) state.activeGroupId = Object.keys(state.groups)[0] || null;
-        saveState(); notifyUpdate();
+        
+        if (isPublic) {
+            delete state.publicRooms[groupId];
+        } else {
+            delete state.groups[groupId];
+        }
+        
+        if (state.activeGroupId === groupId) {
+            // Switch to another group, preferring private ones
+            const nextPrivate = Object.keys(state.groups)[0];
+            const nextPublic = Object.keys(state.publicRooms)[0];
+            state.activeGroupId = nextPrivate || nextPublic || null;
+            state.activeIsPublic = !nextPrivate && !!nextPublic;
+        }
+        saveState(); 
+        notifyUpdate();
     }
     
     function switchGroup(groupId) {
+        // Check both private and public
         if (state.groups[groupId]) {
             state.activeGroupId = groupId;
+            state.activeIsPublic = false;
+            state.activeDmRecipient = null;
+            saveState(); notifyUpdate();
+        } else if (state.publicRooms[groupId]) {
+            state.activeGroupId = groupId;
+            state.activeIsPublic = true;
             state.activeDmRecipient = null;
             saveState(); notifyUpdate();
         }
@@ -696,7 +814,7 @@ const SkateChat = (() => {
     }
     
     function voteTime(programIndex) {
-        const group = state.groups[state.activeGroupId];
+        const group = getGroupOrRoom(state.activeGroupId);
         if (!group) return false;
         if (!group.votes) group.votes = {};
         if (!group.votes[programIndex]) group.votes[programIndex] = [];
@@ -711,7 +829,7 @@ const SkateChat = (() => {
     }
     
     function startDm(memberName) {
-        const group = state.groups[state.activeGroupId];
+        const group = getGroupOrRoom(state.activeGroupId);
         if (!group?.memberPubkeys) return false;
         const recipientPubkey = group.memberPubkeys[memberName];
         if (!recipientPubkey || recipientPubkey === state.myPublicKey) return false;
@@ -730,7 +848,7 @@ const SkateChat = (() => {
         if (!state.activeDmRecipient || !state.activeGroupId || !text.trim()) return false;
         if (Filter.check(text)) return false;
         
-        const group = state.groups[state.activeGroupId];
+        const group = getGroupOrRoom(state.activeGroupId);
         const thread = state.dmThreads[state.activeDmRecipient];
         if (!group || !thread) return false;
         
@@ -748,7 +866,10 @@ const SkateChat = (() => {
     function onUpdate(callback) { state.callbacks.push(callback); callback(getState()); }
     
     function getState() {
-        const activeGroup = state.groups[state.activeGroupId] || null;
+        // Get active group from either private or public
+        const activeGroup = state.activeIsPublic 
+            ? state.publicRooms[state.activeGroupId] 
+            : state.groups[state.activeGroupId] || null;
         const activeDmThread = state.activeDmRecipient ? state.dmThreads[state.activeDmRecipient] : null;
         
         // Count total unread DMs
@@ -758,28 +879,36 @@ const SkateChat = (() => {
         // Update page title with unread count
         Notify.updateTitle(totalUnread);
         
+        // Combine all groups for the UI (so it can display both)
+        const allGroups = { ...state.groups, ...state.publicRooms };
+        
         return {
             myName: state.myName,
             myPublicKey: state.myPublicKey,
-            groups: state.groups,
+            groups: allGroups,
+            privateGroups: state.groups,
+            publicRooms: state.publicRooms,
             activeGroupId: state.activeGroupId,
+            activeIsPublic: state.activeIsPublic,
             activeGroup,
             dmThreads: state.dmThreads,
             activeDmRecipient: state.activeDmRecipient,
             activeDmThread,
             totalUnread,
             viewMode: state.activeDmRecipient ? 'dm' : 'group',
-            favoritesCount: state.favorites.size
+            favoritesCount: state.favorites.size,
+            publicRoomSecrets: state.publicRoomSecrets
         };
     }
     
     function getShareUrl() {
+        // Only share private groups (not public rooms)
         const group = state.groups[state.activeGroupId];
         return group ? `${window.location.origin}${window.location.pathname}#${group.secret}` : null;
     }
     
     function getConnectionStatus(groupId = null) {
-        const group = state.groups[groupId || state.activeGroupId];
+        const group = getGroupOrRoom(groupId || state.activeGroupId);
         return group?.connected ? 'connected' : 'disconnected';
     }
     

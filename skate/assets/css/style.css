@@ -217,10 +217,60 @@ input:focus, select:focus {
 }
 
 .stats-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     font-size: 12px;
     color: var(--text-muted);
     margin-bottom: 8px;
+    gap: 8px;
 }
+
+.stats-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.stats-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.data-updated {
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.data-updated.stale {
+    color: var(--warning);
+}
+
+.btn-refresh {
+    padding: 4px 8px;
+    font-size: 12px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+}
+
+.btn-refresh:hover { background: var(--bg); }
+.btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-update-data {
+    padding: 4px 8px;
+    font-size: 11px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.btn-update-data:hover { background: var(--primary-dark); }
 
 .program-list {
     list-style: none;
@@ -283,10 +333,12 @@ input:focus, select:focus {
     font-weight: 500;
 }
 
-.tag.shinny { background: #ffe0e6; color: #c44; }
+.tag.hockey { background: #ffe0e6; color: #c44; }
 .tag.figure { background: #e0e6ff; color: #44c; }
 .tag.speed { background: #fff5e0; color: #a84; }
 .tag.leisure { background: #e0ffe6; color: #4a9; }
+.tag.adapted { background: #e6e0ff; color: #84a; }
+.tag.ringette { background: #ffe6f5; color: #a4c; }
 
 .program-actions {
     display: flex;
