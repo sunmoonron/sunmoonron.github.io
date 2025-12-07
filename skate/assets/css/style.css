@@ -110,7 +110,15 @@ input:focus, select:focus {
 
 .top-bar-actions {
     display: flex;
-    gap: 8px;
+    align-items: center;
+    gap: 12px;
+}
+
+.user-name {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
 }
 
 .btn-primary {
