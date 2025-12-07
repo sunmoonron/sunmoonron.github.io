@@ -455,9 +455,10 @@
                 </li>
             `).join('');
             
-            if (chatState.activeGroup && !publicSecrets.includes(chatState.activeGroup.secret)) {
+            // Only show share card for private groups, not public rooms
+            if (chatState.activeGroup && !chatState.activeIsPublic) {
                 $('share-card').classList.remove('hidden');
-                $('share-url-input').value = SkateChat.getShareUrl();
+                $('share-url-input').value = SkateChat.getShareUrl() || '';
             } else {
                 $('share-card').classList.add('hidden');
             }

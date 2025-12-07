@@ -56,30 +56,15 @@ const SkateChat = (() => {
         callbacks: [],
         presenceTimers: new Map(),
         favorites: new Set(),   // Set of program IDs (hash of activity+location+date)
-        notificationsEnabled: false,
         publicRoomSecrets: {}  // Cache: roomKey -> 64-char hex secret
     };
     
     // ========== NOTIFICATIONS ==========
     const Notify = {
-        // Request permission on first interaction
-        async requestPermission() {
-            if (!('Notification' in window)) return false;
-            if (Notification.permission === 'granted') {
-                state.notificationsEnabled = true;
-                return true;
-            }
-            if (Notification.permission !== 'denied') {
-                const permission = await Notification.requestPermission();
-                state.notificationsEnabled = permission === 'granted';
-                return state.notificationsEnabled;
-            }
-            return false;
-        },
-        
-        // Show browser notification
+        // Show browser notification (only if already granted, don't prompt)
         browser(title, body, onClick = null) {
-            if (!state.notificationsEnabled || document.hasFocus()) return;
+            if (!('Notification' in window)) return;
+            if (Notification.permission !== 'granted' || document.hasFocus()) return;
             try {
                 const notif = new Notification(title, { 
                     body, 
@@ -89,7 +74,7 @@ const SkateChat = (() => {
                 });
                 if (onClick) notif.onclick = onClick;
                 setTimeout(() => notif.close(), 5000);
-            } catch (e) { console.warn('[Notify] Browser notification failed:', e); }
+            } catch (e) { /* ignore */ }
         },
         
         // Show in-app toast
@@ -590,9 +575,6 @@ const SkateChat = (() => {
                 state.publicRoomSecrets[key] = await Crypto.deriveSecret(room.passphrase);
             }
         }
-        
-        // Request notification permission (won't prompt until user interacts)
-        Notify.requestPermission();
         
         const hash = window.location.hash.slice(1);
         if (hash && hash.length >= 32) {
