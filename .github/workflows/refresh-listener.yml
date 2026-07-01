@@ -1,0 +1,55 @@
+name: Refresh Listener (Nostr)
+
+# "The relay is the webhook."
+# The site's 🔄 button publishes a tiny Nostr note tagged #toronto-skate-refresh
+# from a throwaway key. This workflow polls the relays every ~30 min; if it sees
+# a request newer than the data (and the data is older than MIN_AGE_HOURS), it
+# refetches from the City API and commits — GitHub Pages redeploys automatically.
+#
+# No secrets, no backend, no tokens exposed in the static page.
+# Spam-proof: the event only *triggers* a refetch of official city data,
+# and MIN_AGE_HOURS puts a hard floor on how often that can happen.
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # GitHub can delay these to ~45-60 min at busy times; that's fine
+  workflow_dispatch:
+
+concurrency:
+  group: skate-data           # shares a lock with the weekly update — no races
+  cancel-in-progress: false
+
+jobs:
+  listen:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'   # gives us a built-in WebSocket client — zero npm deps
+
+      - name: Check relays for refresh requests
+        id: check
+        env:
+          MIN_AGE_HOURS: '12'  # server-side floor: never refetch if data is younger than this
+        run: node scripts/check-refresh-request.js
+
+      - name: Fetch skating data
+        if: steps.check.outputs.refresh == 'true'
+        env:
+          SKIP_EXTRAS: '1'
+        run: node fetch-skate-data.js
+
+      - name: Commit updated data
+        if: steps.check.outputs.refresh == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add skate/projects/data/*.json
+          git diff --staged --quiet || git commit -m "🛼 Update skating data (user-requested via Nostr)"
+          git pull --rebase origin main
+          git push
