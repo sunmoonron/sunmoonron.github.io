@@ -14,7 +14,12 @@ const path = require('path');
 
 const PACKAGE_ID = '1a5be46a-4039-48cd-a2d2-8e702abf9516';
 const BASE_URL = 'https://ckan0.cf.opendata.inter.prod-toronto.ca/api/3/action';
-const OUTPUT_DIR = path.join(__dirname, 'projects', 'data');
+// Script lives at the repo root, but the app reads from skate/projects/data/
+const OUTPUT_DIR = path.join(__dirname, 'skate', 'projects', 'data');
+
+// Set SKIP_EXTRAS=1 to skip writing locations.json / facilities.json
+// (the UI never loads them — program records already carry the joined location fields)
+const SKIP_EXTRAS = process.env.SKIP_EXTRAS === '1';
 
 // Ensure output directory exists
 if (!fs.existsSync(OUTPUT_DIR)) {
@@ -145,8 +150,8 @@ async function main() {
             console.log(`   🎯 Filtered to ${datasets.dropin.length} skating programs`);
         }
         
-        // Facilities
-        if (resourceMap.facilities) {
+        // Facilities (only needed if we're writing the extras files)
+        if (resourceMap.facilities && !SKIP_EXTRAS) {
             datasets.facilities = await fetchAllRecords(resourceMap.facilities.id, 'Facilities');
         }
         
@@ -223,29 +228,40 @@ async function main() {
             }
         };
         
-        // Save skating programs (the main file we need)
+        // Save skating programs (the main file we need) — compact JSON:
+        // pretty-printing costs ~2.5MB for zero benefit, GH Pages gzips it anyway
         const skatingFile = path.join(OUTPUT_DIR, 'skating-programs.json');
         fs.writeFileSync(skatingFile, JSON.stringify({
             metadata,
             programs: enrichedPrograms
-        }, null, 2));
+        }));
         console.log(`   ✅ ${skatingFile} (${(fs.statSync(skatingFile).size / 1024).toFixed(1)} KB)`);
-        
-        // Save locations (smaller, useful for map features)
-        const locationsFile = path.join(OUTPUT_DIR, 'locations.json');
-        fs.writeFileSync(locationsFile, JSON.stringify({
-            metadata: { ...metadata, type: 'locations' },
-            locations: datasets.locations || []
-        }, null, 2));
-        console.log(`   ✅ ${locationsFile} (${(fs.statSync(locationsFile).size / 1024).toFixed(1)} KB)`);
-        
-        // Save facilities
-        const facilitiesFile = path.join(OUTPUT_DIR, 'facilities.json');
-        fs.writeFileSync(facilitiesFile, JSON.stringify({
-            metadata: { ...metadata, type: 'facilities' },
-            facilities: datasets.facilities || []
-        }, null, 2));
-        console.log(`   ✅ ${facilitiesFile} (${(fs.statSync(facilitiesFile).size / 1024).toFixed(1)} KB)`);
+
+        // Tiny meta.json so the client can check data freshness without
+        // downloading the whole dataset (used by the 🔄 refresh button)
+        const metaFile = path.join(OUTPUT_DIR, 'meta.json');
+        fs.writeFileSync(metaFile, JSON.stringify(metadata));
+        console.log(`   ✅ ${metaFile}`);
+
+        if (!SKIP_EXTRAS) {
+            // Save locations (smaller, useful for map features)
+            const locationsFile = path.join(OUTPUT_DIR, 'locations.json');
+            fs.writeFileSync(locationsFile, JSON.stringify({
+                metadata: { ...metadata, type: 'locations' },
+                locations: datasets.locations || []
+            }));
+            console.log(`   ✅ ${locationsFile} (${(fs.statSync(locationsFile).size / 1024).toFixed(1)} KB)`);
+
+            // Save facilities
+            const facilitiesFile = path.join(OUTPUT_DIR, 'facilities.json');
+            fs.writeFileSync(facilitiesFile, JSON.stringify({
+                metadata: { ...metadata, type: 'facilities' },
+                facilities: datasets.facilities || []
+            }));
+            console.log(`   ✅ ${facilitiesFile} (${(fs.statSync(facilitiesFile).size / 1024).toFixed(1)} KB)`);
+        } else {
+            console.log('   ⏭️  SKIP_EXTRAS=1 — locations.json / facilities.json not written');
+        }
         
         console.log('\n✨ Done! Data files are ready in:', OUTPUT_DIR);
         console.log('\nNext steps:');

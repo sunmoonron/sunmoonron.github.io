@@ -163,6 +163,7 @@
     <script src="projects/js/storage.js?v=9"></script>
     <script src="projects/js/api.js?v=9"></script>
     <script src="projects/js/chat.js?v=9"></script>
+    <script src="projects/js/refresh.js?v=1"></script>
     
     <script>
     (function() {
@@ -688,6 +689,7 @@
                     app.filtered = app.programs;
                     applyFilters();
                     SkateChat.Notify.toast('Programs refreshed!', 'success', 2000);
+                    await SkateRefresh.requestCityRefresh();
                 } catch (e) {
                     SkateChat.Notify.toast('Failed to refresh: ' + e.message, 'error');
                 } finally {
