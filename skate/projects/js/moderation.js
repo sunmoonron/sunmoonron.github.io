@@ -130,9 +130,36 @@ const SkateMod = (() => {
         if (worker !== null) return worker;
         try {
             const bundleUrl = new URL('../../../assets/js/nostr.bundle.js', document.currentScript?.src || location.href).href;
+            // Custom miner instead of NostrTools.nip13.minePow: minePow REWRITES
+            // created_at to "now" every second while mining, which destroys the
+            // strictly-increasing timestamps that vote retraction ordering
+            // depends on (a + and a - mined in the same wall-clock second came
+            // out with EQUAL created_at, so other clients rejected the -).
+            // This miner never touches created_at.
             const src = `importScripts(${JSON.stringify(bundleUrl)});
+                const pow = (id) => {
+                    let bits = 0;
+                    for (let i = 0; i < id.length; i++) {
+                        const nibble = parseInt(id[i], 16);
+                        if (nibble === 0) { bits += 4; continue; }
+                        bits += Math.clz32(nibble) - 28;
+                        break;
+                    }
+                    return bits;
+                };
+                const mine = (evt, bits) => {
+                    const e = { ...evt, tags: evt.tags.map(t => t.slice()) };
+                    const tag = ['nonce', '0', String(bits)];
+                    e.tags.push(tag);
+                    let count = 0;
+                    while (true) {
+                        tag[1] = String(++count);
+                        e.id = NostrTools.getEventHash(e);
+                        if (pow(e.id) >= bits) return e;
+                    }
+                };
                 onmessage = (e) => {
-                    try { postMessage({ ok: true, event: NostrTools.nip13.minePow(e.data.event, e.data.bits) }); }
+                    try { postMessage({ ok: true, event: mine(e.data.event, e.data.bits) }); }
                     catch (err) { postMessage({ ok: false, error: String(err) }); }
                 };`;
             worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'application/javascript' })));
@@ -140,9 +167,23 @@ const SkateMod = (() => {
         return worker;
     }
 
+    /** Same preserve-created_at mining on the main thread (worker fallback). */
+    function minePreserve(evt, bits) {
+        const e = { ...evt, tags: evt.tags.map(t => t.slice()) };
+        const tag = ['nonce', '0', String(bits)];
+        e.tags.push(tag);
+        let count = 0;
+        while (true) {
+            tag[1] = String(++count);
+            e.id = NostrTools.getEventHash(e);
+            if (getPow(e.id) >= bits) return e;
+        }
+    }
+
     /**
      * Mine PoW into an unsigned event template. Resolves the mined template
      * (with nonce tag) ready for finalizeEvent(). Uses a worker when possible.
+     * Guarantees the template's created_at is preserved verbatim.
      */
     function mine(unsignedEvent, bits) {
         return new Promise((resolve, reject) => {
@@ -156,7 +197,7 @@ const SkateMod = (() => {
                 w.postMessage({ event: unsignedEvent, bits });
             } else {
                 // Main-thread fallback (small jank, still correct)
-                try { resolve(NostrTools.nip13.minePow(unsignedEvent, bits)); }
+                try { resolve(minePreserve(unsignedEvent, bits)); }
                 catch (err) { reject(err); }
             }
         });

@@ -48,16 +48,23 @@ const SkateChat = (() => {
         BACKFILL_DAYS: 7
     };
 
-    const PUBLIC_ROOMS = {
-        leisure: { name: 'Leisure Skating', passphrase: 'toronto-leisure-skate-public-2025', emoji: '⛸️', desc: 'Casual skating & fun' },
-        shinny:  { name: 'Shinny Hockey',   passphrase: 'toronto-shinny-hockey-public-2025', emoji: '🏒', desc: 'Drop-in hockey games' },
-        figure:  { name: 'Figure Skating',  passphrase: 'toronto-figure-skate-public-2025', emoji: '⛸️', desc: 'Spins, jumps & grace' },
-        general: { name: 'General Chat',    passphrase: 'toronto-skating-general-public-2025', emoji: '💬', desc: 'Help, tips & chill' },
-        newbies: { name: 'New Skaters',     passphrase: 'toronto-new-skaters-public-2026', emoji: '🐣', desc: 'First laps, zero judgement' }
+    // Default rooms + identity pools come from the central SkateConfig when
+    // present; the inline fallback keeps this module self-contained.
+    const DEFAULT_ROOMS = {
+        leisure: { name: 'Leisure Skating', passphrase: 'toronto-leisure-skate-public-2025', emoji: '⛸️', desc: 'Casual skating & fun', autoJoin: true },
+        shinny:  { name: 'Shinny Hockey',   passphrase: 'toronto-shinny-hockey-public-2025', emoji: '🏒', desc: 'Drop-in hockey games', autoJoin: true },
+        figure:  { name: 'Figure Skating',  passphrase: 'toronto-figure-skate-public-2025', emoji: '⛸️', desc: 'Spins, jumps & grace', autoJoin: true },
+        general: { name: 'General Chat',    passphrase: 'toronto-skating-general-public-2025', emoji: '💬', desc: 'Help, tips & chill', autoJoin: true, defaultActive: true },
+        newbies: { name: 'New Skaters',     passphrase: 'toronto-new-skaters-public-2026', emoji: '🐣', desc: 'First laps, zero judgement', autoJoin: true }
     };
+    const PUBLIC_ROOMS = (typeof window !== 'undefined' && window.SkateConfig?.rooms) || DEFAULT_ROOMS;
 
-    const ADJECTIVES = ['Swift', 'Gliding', 'Frozen', 'Quick', 'Cool', 'Icy', 'Smooth', 'Fast', 'Chill', 'Frosty'];
-    const NOUNS = ['Skater', 'Penguin', 'Blade', 'Tiger', 'Bear', 'Fox', 'Wolf', 'Hawk', 'Star', 'Flash'];
+    const NAME_POOLS = (typeof window !== 'undefined' && window.SkateConfig?.identity) || {
+        adjectives: ['Swift', 'Gliding', 'Frozen', 'Quick', 'Cool', 'Icy', 'Smooth', 'Fast', 'Chill', 'Frosty'],
+        nouns: ['Skater', 'Penguin', 'Blade', 'Tiger', 'Bear', 'Fox', 'Wolf', 'Hawk', 'Star', 'Flash']
+    };
+    const ADJECTIVES = NAME_POOLS.adjectives;
+    const NOUNS = NAME_POOLS.nouns;
 
     const state = {
         myName: null, mySecretKey: null, myPublicKey: null,
@@ -71,6 +78,7 @@ const SkateChat = (() => {
         favorites: new Set(),
         muted: new Set(),    // pubkeys muted by ME (local only)
         publicRoomSecrets: {},
+        seededRooms: false,  // default rooms auto-joined once (leaving is respected forever)
         subGeneration: 0
     };
 
@@ -306,7 +314,8 @@ const SkateChat = (() => {
                     publicRoomSecrets: state.publicRoomSecrets,
                     dmThreads: state.dmThreads,
                     activeGroupId: state.activeGroupId,
-                    activeIsPublic: state.activeIsPublic
+                    activeIsPublic: state.activeIsPublic,
+                    seededRooms: state.seededRooms
                 }));
             } catch (e) { console.warn('[SkateChat] save error:', e); }
         };
@@ -347,6 +356,7 @@ const SkateChat = (() => {
             state.dmThreads = p.dmThreads || {};
             state.activeGroupId = p.activeGroupId || null;
             state.activeIsPublic = p.activeIsPublic || false;
+            state.seededRooms = !!p.seededRooms;
             Object.values(state.groups).concat(Object.values(state.publicRooms)).forEach(migrateGroupShape);
         } catch (e) { console.warn('[SkateChat] load error:', e); }
     }
@@ -805,6 +815,37 @@ const SkateChat = (() => {
         };
     }
 
+    /**
+     * BUGFIX (autojoin): first run on a device seeds every room flagged
+     * `autoJoin` in the config, so General Chat + the other defaults are
+     * there from the get-go. This also makes the program 👍 vote button
+     * visible on day one — it's gated on having an active group, which
+     * fresh users never had before.
+     *
+     * Runs exactly once (the `seededRooms` flag persists), so leaving a
+     * room later is respected forever. Silent by design: no join-toast
+     * spam, one resubscribe handled by init() right after.
+     */
+    async function seedDefaultRooms() {
+        if (state.seededRooms) return;
+        state.seededRooms = true;
+        let defaultActiveId = null;
+        for (const [key, room] of Object.entries(PUBLIC_ROOMS)) {
+            if (!room.autoJoin) continue;
+            const secret = state.publicRoomSecrets[key];   // computed in init()
+            if (!secret) continue;
+            const groupId = Crypto.deriveGroupId(secret);
+            if (room.defaultActive) defaultActiveId = groupId;
+            if (state.publicRooms[groupId]) continue;      // already a member
+            state.publicRooms[groupId] = makeGroup(groupId, room.name, secret, { isPublic: true, roomKey: key, emoji: room.emoji });
+        }
+        if (!state.activeGroupId && defaultActiveId && state.publicRooms[defaultActiveId]) {
+            state.activeGroupId = defaultActiveId;
+            state.activeIsPublic = true;
+        }
+        saveState(true);
+    }
+
     async function joinPublicRoom(roomKey) {
         const room = PUBLIC_ROOMS[roomKey];
         if (!room) throw new Error('Unknown room');
@@ -1069,6 +1110,8 @@ const SkateChat = (() => {
         for (const [key, room] of Object.entries(PUBLIC_ROOMS)) {
             if (!state.publicRoomSecrets[key]) state.publicRoomSecrets[key] = await Crypto.sha256(room.passphrase);
         }
+
+        await seedDefaultRooms();
 
         SkateNostr.onStatus(({ connected }) => {
             const online = connected > 0;

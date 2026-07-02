@@ -369,8 +369,12 @@ body.dark-mode {
 .share-dest-list { max-height: 300px; border-top: none; }
 .share-dest-list .conv-item { border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 6px; }
 
-/* ========== Panel accents & titles ========== */
-.view-panel { position: relative; }
+/* ========== Panel accents & titles ==========
+   NOTE: no unscoped `.view-panel { position: relative }` here — that
+   overrode style.css's mobile `position: absolute` and collapsed the
+   scroll container (programs list couldn't scroll on phones). Panels are
+   always positioned anyway (absolute on mobile/tablet, relative in the
+   ≥1100px grid below), so the ::before accent bar anchors fine. */
 .view-panel::before {
     content: '';
     position: absolute; top: 0; left: 0; right: 0; height: 3px;
@@ -449,6 +453,7 @@ body.dark-mode {
 body.dark-mode .program-item:active { background: var(--bg); }
 
 /* extra affordance on the program action row */
+.program-actions { flex-wrap: wrap; justify-content: flex-end; }
 .program-actions button { border: 1px solid var(--border); background: var(--bg-white); }
 .program-actions button:hover { border-color: var(--acc-programs); }
 .program-actions .btn-vote.voted { background: var(--primary); color: #fff; border-color: var(--primary); }

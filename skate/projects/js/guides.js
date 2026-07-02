@@ -35,7 +35,9 @@ const SkateGuides = (() => {
     const OWNER_PUBKEY = 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257';
 
     const TAG = 'tskate-guide';
-    const CATEGORIES = {
+    // Categories come from the central SkateConfig when present; the inline
+    // fallback keeps this module self-contained.
+    const CATEGORIES = (typeof window !== 'undefined' && window.SkateConfig?.guideCategories) || {
         start:     { name: 'Getting started', emoji: '🐣' },
         gear:      { name: 'Gear & equipment', emoji: '🛼' },
         rinks:     { name: 'Rinks & locations', emoji: '🏟️' },
@@ -73,7 +75,14 @@ const SkateGuides = (() => {
     // reactions: { pubkey: { up: bool, ts: seconds } }
     function applyReaction(reactions, pubkey, up, ts) {
         const prev = reactions[pubkey];
-        if (prev && prev.ts >= ts) return false;   // stale — an older reaction arrived late
+        if (prev) {
+            if (prev.ts > ts) return false;            // stale — an older reaction arrived late
+            // Equal timestamps happen for legacy +/- pairs that were mined
+            // within the same wall-clock second (nostr-tools' minePow used to
+            // rewrite created_at — see SkateMod.mine). Deterministic rule so
+            // every client converges: the retraction wins the tie.
+            if (prev.ts === ts && up) return false;
+        }
         reactions[pubkey] = { up, ts };
         return true;
     }
