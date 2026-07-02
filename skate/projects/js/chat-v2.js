@@ -1,28 +1,34 @@
 /**
- * SkateChat v2 — same public API as v1, rebuilt internals.
+ * SkateChat v3 — same relay plumbing as v2, reworked group/DM surface.
  *
- * What changed and why (the v1 bug ledger):
- *  1. Event kinds moved OUT of the ephemeral range. v1 used kinds 20100-20103,
- *     which relays forward but never store — chat history vanished on reload
- *     and DMs to offline people were lost forever. v2 uses kind 42 for group
- *     traffic and kind 4 for DMs (both verified stored on damus/nos.lol/primal).
- *     Presence stays ephemeral (kind 20104) — that's the one thing v1 got right.
- *  2. Identity moved from sessionStorage to localStorage. v1 minted a new
- *     keypair + name every browser session, so DM threads pointed at dead
- *     pubkeys within a day.
- *  3. One shared relay pool (SkateNostr) instead of 3 sockets per group —
- *     kills the zombie-reconnect loop in v1's onclose handler and the
- *     socket explosion.
- *  4. DMs are independent of groups: subscribed by #p on your pubkey, so they
- *     arrive even if you share no group and even if sent while you're offline.
- *  5. Votes keyed by stable programId + voter pubkey (v1 keyed them by the
- *     *filtered list index* — change a filter and votes attached to the wrong
- *     programs — and by display name, which collides).
- *  6. Unread via lastReadTs (replay-safe) instead of increment-on-arrival.
- *  7. Send pipeline: moderation check -> PoW -> publish with relay-OK
- *     tracking -> message shows pending/sent/failed instead of silently dying.
- *  8. notifyUpdate throttled + saveState debounced: v1 re-rendered the whole
- *     app and rewrote localStorage on every presence ping (every 30s x member).
+ * v3 bug ledger (what changed vs v2 and why):
+ *  1. SECURITY — same-password collision. v2 derived the group secret as
+ *     sha256(password), so two strangers who both picked "hunter2" landed in
+ *     the SAME global group. v3: the secret is ALWAYS random; a password is a
+ *     gate on the invite link (secret travels nip44-encrypted under a
+ *     password-derived key). Link alone is no longer enough for pw groups.
+ *  2. Invites no longer auto-join. init() only *parses* the hash; the app
+ *     shows a confirm modal (with the group name, carried in the link) and
+ *     calls acceptInvite(). Fixes silent autojoin + password bypass.
+ *  3. Presence gets a goodbye. leaveGroup()/pagehide publish {s:'bye'} so the
+ *     "2 online" ghost disappears immediately instead of after 90s.
+ *  4. Roster keyed by PUBKEY (not display name). v2 keyed memberPubkeys by
+ *     name, so two "Skater"s collided and the members list grew forever.
+ *  5. Personal mutes (client-side, per pubkey): hides their group messages,
+ *     silences their DMs, excluded from unread counts.
+ *  6. Replies: messages can carry replyTo {id, from, text-excerpt}; excerpt is
+ *     embedded so the quote renders even if the original was evicted.
+ *  7. Rename for private groups: broadcast {type:'rename'}, last-writer-wins
+ *     by event timestamp (renamedAt guard) + a system line.
+ *  8. Share picker: shareProgram/shareGuide take an explicit destination
+ *     (any group OR any DM thread) instead of blind-posting to activeGroup.
+ *  9. Failed sends are retryable: optimistic echoes keep their payload;
+ *     retryMessage() refreshes ts and republishes.
+ * 10. Moderation privacy: DMs + private groups are checked LOCALLY only —
+ *     v2 shipped private-message plaintext to third-party profanity APIs.
+ * 11. Date fix: shareProgram used `new Date('YYYY-MM-DD')` (UTC) → programs
+ *     shared as the wrong day in Toronto. Uses local-date parsing now.
+ * 12. Storage bumped to v8 with an in-place migration from v7.
  */
 const SkateChat = (() => {
     'use strict';
@@ -32,9 +38,11 @@ const SkateChat = (() => {
         MAX_GROUPS: 10,
         MAX_MESSAGES: 200,
         MAX_MESSAGE_LENGTH: 500,
-        STORAGE_KEY: 'skate_chat_v7',
+        STORAGE_KEY: 'skate_chat_v8',
+        LEGACY_STORAGE_KEY: 'skate_chat_v7',
         IDENTITY_KEY: 'skate_identity_v1',
         FAVORITES_KEY: 'skate_favorites_v2',
+        MUTED_KEY: 'skate_muted_v1',
         PRESENCE_INTERVAL: 45000,
         ONLINE_WINDOW: 90000,
         BACKFILL_DAYS: 7
@@ -53,20 +61,26 @@ const SkateChat = (() => {
 
     const state = {
         myName: null, mySecretKey: null, myPublicKey: null,
-        groups: {},         // private groups: id -> group
-        publicRooms: {},    // joined public rooms: id -> group
+        groups: {},          // private groups: id -> group
+        publicRooms: {},     // joined public rooms: id -> group
         activeGroupId: null, activeIsPublic: false,
-        dmThreads: {},      // pubkey -> { name, messages[], lastReadTs }
+        dmThreads: {},       // pubkey -> { name, messages[], lastReadTs }
         activeDmRecipient: null,
         callbacks: [],
         presenceTimer: null,
         favorites: new Set(),
+        muted: new Set(),    // pubkeys muted by ME (local only)
         publicRoomSecrets: {},
         subGeneration: 0
     };
 
-    // ========== NOTIFICATIONS (unchanged surface) ==========
+    // ========== NOTIFICATIONS ==========
     const Notify = {
+        permission() { return ('Notification' in window) ? Notification.permission : 'unsupported'; },
+        async requestPermission() {
+            if (!('Notification' in window)) return 'unsupported';
+            try { return await Notification.requestPermission(); } catch { return Notification.permission; }
+        },
         browser(title, body, onClick = null) {
             if (!('Notification' in window)) return;
             if (Notification.permission !== 'granted' || document.hasFocus()) return;
@@ -80,7 +94,7 @@ const SkateChat = (() => {
             const container = document.getElementById('toast-container') || this._createContainer();
             const el = document.createElement('div');
             el.className = `toast toast-${type}`;
-            el.innerHTML = `<span></span><button>✕</button>`;
+            el.innerHTML = `<span></span><button aria-label="Dismiss">✕</button>`;
             el.querySelector('span').textContent = message;
             el.querySelector('button').onclick = () => el.remove();
             container.appendChild(el);
@@ -90,6 +104,8 @@ const SkateChat = (() => {
         _createContainer() {
             const c = document.createElement('div');
             c.id = 'toast-container';
+            c.setAttribute('role', 'status');       // screen readers announce toasts
+            c.setAttribute('aria-live', 'polite');
             document.body.appendChild(c);
             return c;
         },
@@ -98,7 +114,7 @@ const SkateChat = (() => {
         }
     };
 
-    // ========== FAVORITES (unchanged behaviour, stable IDs) ==========
+    // ========== FAVORITES (unchanged) ==========
     const Favorites = {
         load() {
             try {
@@ -127,6 +143,46 @@ const SkateChat = (() => {
         count() { return state.favorites.size; }
     };
 
+    // ========== MUTES (mine, local-only) ==========
+    const Mutes = {
+        load() {
+            try {
+                const saved = localStorage.getItem(CONFIG.MUTED_KEY);
+                if (saved) state.muted = new Set(JSON.parse(saved));
+            } catch {}
+        },
+        save() {
+            try { localStorage.setItem(CONFIG.MUTED_KEY, JSON.stringify([...state.muted])); } catch {}
+        },
+        has(pubkey) { return !!pubkey && state.muted.has(pubkey); },
+        toggle(pubkey, name = null) {
+            if (!pubkey || pubkey === state.myPublicKey) return false;
+            if (state.muted.has(pubkey)) {
+                state.muted.delete(pubkey);
+                Notify.toast(`Unmuted ${name || 'user'} 🔊`, 'success', 2000);
+            } else {
+                state.muted.add(pubkey);
+                Notify.toast(`Muted ${name || 'user'} — their messages are hidden for you 🔇`, 'info', 3000);
+            }
+            this.save();
+            notifyUpdate();
+            return state.muted.has(pubkey);
+        },
+        /** [{pubkey, name}] with best-known display names for the settings list. */
+        list() {
+            return [...state.muted].map(pk => ({ pubkey: pk, name: lookupName(pk) || 'Skater' }));
+        },
+        count() { return state.muted.size; }
+    };
+
+    function lookupName(pubkey) {
+        if (state.dmThreads[pubkey]?.name) return state.dmThreads[pubkey].name;
+        for (const g of [...Object.values(state.groups), ...Object.values(state.publicRooms)]) {
+            if (g.roster?.[pubkey]?.name) return g.roster[pubkey].name;
+        }
+        return null;
+    }
+
     // ========== CRYPTO ==========
     const Crypto = {
         randomHex(bytes = 32) {
@@ -151,8 +207,8 @@ const SkateChat = (() => {
             return result;
         },
         deriveGroupId(secret) { return this.hashSync(secret).slice(0, 12); },
-        groupKey(groupSecretHex) {
-            const sk = this.hexToBytes(groupSecretHex.slice(0, 64));
+        groupKey(secretHex) {
+            const sk = this.hexToBytes(secretHex.slice(0, 64));
             const pk = NostrTools.getPublicKey(sk);
             return NostrTools.nip44.getConversationKey(sk, pk);
         },
@@ -175,7 +231,17 @@ const SkateChat = (() => {
         bytesToHex(bytes) { return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(''); }
     };
 
-    // ========== IDENTITY (localStorage — stable across sessions) ==========
+    // base64url for carrying group names inside invite links
+    function b64u(s) {
+        try { return btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+        catch { return ''; }
+    }
+    function unb64u(s) {
+        try { return decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))); }
+        catch { return null; }
+    }
+
+    // ========== IDENTITY ==========
     function initIdentity() {
         try {
             const saved = localStorage.getItem(CONFIG.IDENTITY_KEY);
@@ -209,7 +275,8 @@ const SkateChat = (() => {
     }
 
     function setDisplayName(name) {
-        const clean = (name || '').trim().slice(0, 24);
+        // strip control chars so a name can't smuggle weird glyphs into other clients
+        const clean = (name || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 24);
         if (!clean || SkateMod.checkLocal(clean)) return false;
         state.myName = clean;
         saveIdentity();
@@ -218,7 +285,7 @@ const SkateChat = (() => {
         return true;
     }
 
-    // ========== PERSISTENCE (debounced) ==========
+    // ========== PERSISTENCE (debounced) + v7 → v8 MIGRATION ==========
     let saveTimer = null;
     function saveState(immediate = false) {
         if (saveTimer) clearTimeout(saveTimer);
@@ -228,7 +295,8 @@ const SkateChat = (() => {
                 const slim = (groups) => {
                     const out = {};
                     for (const [id, g] of Object.entries(groups)) {
-                        out[id] = { ...g, messages: g.messages.slice(-CONFIG.MAX_MESSAGES), _online: undefined };
+                        const { _online, ...rest } = g;
+                        out[id] = { ...rest, messages: g.messages.slice(-CONFIG.MAX_MESSAGES) };
                     }
                     return out;
                 };
@@ -245,9 +313,32 @@ const SkateChat = (() => {
         immediate ? write() : (saveTimer = setTimeout(write, 500));
     }
 
+    function migrateGroupShape(g) {
+        // v7 kept members:[names] + memberPubkeys:{name→pk}; v8 keeps roster:{pk→{name,last}}
+        if (!g.roster) {
+            g.roster = {};
+            const pkByName = g.memberPubkeys || {};
+            for (const [name, pk] of Object.entries(pkByName)) {
+                if (/^[0-9a-f]{64}$/i.test(pk)) g.roster[pk] = { name, last: 0 };
+            }
+            (g.messages || []).forEach(m => {
+                if (m.fromPubkey && /^[0-9a-f]{64}$/i.test(m.fromPubkey) && !m.system) {
+                    if (!g.roster[m.fromPubkey]) g.roster[m.fromPubkey] = { name: m.from || 'Skater', last: 0 };
+                }
+            });
+        }
+        delete g.members;
+        delete g.memberPubkeys;
+        if (!g.messages) g.messages = [];
+        if (!g.votes) g.votes = {};
+        g.connected = false;
+        return g;
+    }
+
     function loadState() {
         try {
-            const saved = localStorage.getItem(CONFIG.STORAGE_KEY);
+            let saved = localStorage.getItem(CONFIG.STORAGE_KEY);
+            if (!saved) saved = localStorage.getItem(CONFIG.LEGACY_STORAGE_KEY); // migrate v7 in place
             if (!saved) return;
             const p = JSON.parse(saved);
             state.groups = p.groups || {};
@@ -256,10 +347,7 @@ const SkateChat = (() => {
             state.dmThreads = p.dmThreads || {};
             state.activeGroupId = p.activeGroupId || null;
             state.activeIsPublic = p.activeIsPublic || false;
-            Object.values(state.groups).concat(Object.values(state.publicRooms)).forEach(g => {
-                g.connected = false;
-                g._online = {};
-            });
+            Object.values(state.groups).concat(Object.values(state.publicRooms)).forEach(migrateGroupShape);
         } catch (e) { console.warn('[SkateChat] load error:', e); }
     }
 
@@ -307,6 +395,16 @@ const SkateChat = (() => {
     }
 
     // ========== INCOMING ==========
+    function sanitizeReplyRef(r) {
+        if (!r || typeof r !== 'object') return null;
+        const out = {
+            from: String(r.from || '').slice(0, 24),
+            text: String(r.text || '').slice(0, 120)
+        };
+        if (typeof r.id === 'string' && /^[0-9a-f_]{1,64}$/i.test(r.id)) out.id = r.id;
+        return out.text || out.from ? out : null;
+    }
+
     function handleIncoming(event) {
         if (event.kind === CONFIG.KINDS.DM) return handleDm(event);
         const gTag = (event.tags || []).find(t => t[0] === 'g');
@@ -319,7 +417,12 @@ const SkateChat = (() => {
             if (!plain) return;
             try {
                 const c = JSON.parse(plain);
-                trackMember(group, c.from, event.pubkey, event.created_at * 1000);
+                if (c.s === 'bye') {
+                    // explicit goodbye: drop them from the online window immediately
+                    if (group.roster?.[event.pubkey]) group.roster[event.pubkey].last = 0;
+                } else {
+                    trackMember(group, c.from, event.pubkey, event.created_at * 1000);
+                }
             } catch {}
             notifyUpdate();
             return;
@@ -341,18 +444,37 @@ const SkateChat = (() => {
             return;
         }
 
+        if (c.type === 'rename') {
+            // last-writer-wins by relay timestamp; block muted users from renaming your view
+            const newName = SkateMod.clean(String(c.name || '')).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 40);
+            if (newName && ts >= (group.renamedAt || 0) && !Mutes.has(event.pubkey)) {
+                group.renamedAt = ts;
+                if (group.name !== newName) {
+                    group.name = newName;
+                    addMessage(group, {
+                        id: event.id, type: 'chat', system: true, mine,
+                        text: `${c.from || 'Someone'} renamed the group to “${newName}”`,
+                        from: c.from, fromPubkey: event.pubkey, ts, status: 'sent'
+                    });
+                }
+                saveState();
+                notifyUpdate();
+            }
+            return;
+        }
+
         const msg = {
             id: event.id,
-            type: c.type === 'share' ? 'share' : 'chat',
+            type: c.type === 'share' ? 'share' : (c.type === 'guide' ? 'guide' : 'chat'),
             text: SkateMod.clean(c.text || ''),
             from: c.from, fromPubkey: event.pubkey,
             mine, system: !!c.system, ts,
-            data: c.data, status: 'sent'
+            data: c.data, replyTo: sanitizeReplyRef(c.replyTo), status: 'sent'
         };
         const wasNew = addMessage(group, msg);
         if (wasNew && !mine && !c.system && ts > (group.lastReadTs || 0)) {
             if (state.activeGroupId !== group.id) {
-                Notify.browser(`${c.from} in ${group.name}`, c.text || '');
+                if (!Mutes.has(event.pubkey)) Notify.browser(`${c.from} in ${group.name}`, c.text || '');
             } else {
                 group.lastReadTs = ts; // viewing it live: auto-read
             }
@@ -373,17 +495,28 @@ const SkateChat = (() => {
     }
 
     function trackMember(group, name, pubkey, ts) {
-        if (!name) return;
-        if (!group.members.includes(name)) group.members.push(name);
-        if (!group.memberPubkeys) group.memberPubkeys = {};
-        group.memberPubkeys[name] = pubkey;
-        if (!group._online) group._online = {};
-        group._online[pubkey] = Math.max(group._online[pubkey] || 0, ts);
+        if (!pubkey) return;
+        if (!group.roster) group.roster = {};
+        const entry = group.roster[pubkey] || { name: 'Skater', last: 0 };
+        if (name) entry.name = String(name).slice(0, 24);
+        entry.last = Math.max(entry.last || 0, ts);
+        group.roster[pubkey] = entry;
     }
 
     function onlineCount(group) {
         const cutoff = Date.now() - CONFIG.ONLINE_WINDOW;
-        return Object.values(group._online || {}).filter(t => t > cutoff).length;
+        return Object.values(group.roster || {}).filter(m => (m.last || 0) > cutoff).length;
+    }
+
+    /** Members of a group, online first, me excluded (UI shows "you" separately). */
+    function getRoster(groupId) {
+        const group = getGroupOrRoom(groupId);
+        if (!group?.roster) return [];
+        const cutoff = Date.now() - CONFIG.ONLINE_WINDOW;
+        return Object.entries(group.roster)
+            .filter(([pk]) => pk !== state.myPublicKey)
+            .map(([pubkey, m]) => ({ pubkey, name: m.name || 'Skater', online: (m.last || 0) > cutoff, last: m.last || 0, muted: Mutes.has(pubkey) }))
+            .sort((a, b) => (b.online - a.online) || (b.last - a.last));
     }
 
     function applyVote(group, programId, pubkey, name, voted) {
@@ -394,7 +527,7 @@ const SkateChat = (() => {
         else delete group.votes[programId][pubkey];
     }
 
-    // ========== DMs (group-independent, persistent) ==========
+    // ========== DMs ==========
     function handleDm(event) {
         const pTag = (event.tags || []).find(t => t[0] === 'p');
         if (!pTag) return;
@@ -412,19 +545,25 @@ const SkateChat = (() => {
             state.dmThreads[otherPubkey] = { name: isFromMe ? (c.toName || 'Skater') : (c.fromName || 'Skater'), messages: [], lastReadTs: 0 };
         }
         const thread = state.dmThreads[otherPubkey];
-        if (!isFromMe && c.fromName) thread.name = c.fromName;
+        if (!isFromMe && c.fromName) thread.name = String(c.fromName).slice(0, 24);
         if (thread.messages.some(m => m.id === event.id)) return;
 
         const ts = event.created_at * 1000;
         const localIdx = isFromMe ? thread.messages.findIndex(m => m.localId && m.text === c.text && Math.abs(m.ts - ts) < 15000) : -1;
-        const msg = { id: event.id, text: SkateMod.clean(c.text || ''), from: isFromMe ? state.myName : thread.name, mine: isFromMe, ts, status: 'sent' };
+        const msg = {
+            id: event.id,
+            type: c.type === 'share' ? 'share' : (c.type === 'guide' ? 'guide' : 'chat'),
+            text: SkateMod.clean(c.text || ''),
+            from: isFromMe ? state.myName : thread.name,
+            mine: isFromMe, ts, data: c.data, replyTo: sanitizeReplyRef(c.replyTo), status: 'sent'
+        };
         if (localIdx > -1) thread.messages[localIdx] = msg;
         else { thread.messages.push(msg); thread.messages.sort((a, b) => a.ts - b.ts); }
         if (thread.messages.length > 100) thread.messages = thread.messages.slice(-100);
 
         if (!isFromMe && ts > (thread.lastReadTs || 0)) {
             if (state.activeDmRecipient === otherPubkey) thread.lastReadTs = ts;
-            else Notify.browser(`DM from ${thread.name}`, c.text || '');
+            else if (!Mutes.has(otherPubkey)) Notify.browser(`DM from ${thread.name}`, c.text || '');
         }
         saveState();
         notifyUpdate();
@@ -434,7 +573,6 @@ const SkateChat = (() => {
     async function signAndSend(template, powBits) {
         let tpl = template;
         if (powBits > 0) {
-            // minePow hashes the event, so it needs the pubkey up front
             try { tpl = await SkateMod.mine({ ...template, pubkey: state.myPublicKey }, powBits); }
             catch (e) { console.warn('[SkateChat] PoW skipped:', e?.message || e); }
         }
@@ -455,25 +593,43 @@ const SkateChat = (() => {
         return signAndSend(template, powBits);
     }
 
-    async function sendMessage(text) {
+    async function publishDm(toPubkey, payload) {
+        const template = {
+            kind: CONFIG.KINDS.DM,
+            content: Crypto.encryptDm(JSON.stringify(payload), state.mySecretKey, toPubkey),
+            tags: [['p', toPubkey]],
+            created_at: Math.floor(Date.now() / 1000)
+        };
+        return signAndSend(template, SkateMod.POW.chat);
+    }
+
+    /** Moderation context: public rooms get the remote APIs; private stays on-device. */
+    function moderationOpts(groupOrNullForDm) {
+        const isPublic = !!groupOrNullForDm?.isPublic;
+        return { remote: isPublic };
+    }
+
+    async function sendMessage(text, replyTo = null) {
         const groupId = state.activeGroupId;
         const group = getGroupOrRoom(groupId);
         if (!group || !text.trim()) return false;
         const trimmed = text.trim().slice(0, CONFIG.MAX_MESSAGE_LENGTH);
 
-        const verdict = await SkateMod.check(trimmed);
+        const verdict = await SkateMod.check(trimmed, moderationOpts(group));
         if (!verdict.ok) {
             Notify.toast('That message won\'t fly here 🙈 — keep it friendly', 'error', 3000);
             return false;
         }
 
-        // Optimistic local echo with pending state
+        const payload = { type: 'chat', text: trimmed, from: state.myName };
+        if (replyTo) payload.replyTo = sanitizeReplyRef(replyTo);
+
         const localId = 'local_' + Crypto.randomHex(6);
-        const echo = { id: localId, localId, type: 'chat', text: trimmed, from: state.myName, fromPubkey: state.myPublicKey, mine: true, ts: Date.now(), status: 'pending' };
+        const echo = { id: localId, localId, type: 'chat', text: trimmed, from: state.myName, fromPubkey: state.myPublicKey, mine: true, ts: Date.now(), replyTo: payload.replyTo || null, status: 'pending', payload };
         group.messages.push(echo);
         notifyUpdate();
 
-        const { ok } = await publishToGroup(groupId, { type: 'chat', text: trimmed, from: state.myName });
+        const { ok } = await publishToGroup(groupId, payload);
         const m = group.messages.find(x => x.id === localId);
         if (m) m.status = ok ? 'sent' : 'failed';
         saveState();
@@ -481,18 +637,106 @@ const SkateChat = (() => {
         return ok;
     }
 
-    async function shareProgram(program) {
-        if (!state.activeGroupId) return false;
+    async function sendDm(text, replyTo = null) {
+        const to = state.activeDmRecipient;
+        const thread = state.dmThreads[to];
+        if (!to || !thread || !text.trim()) return false;
+        const trimmed = text.trim().slice(0, CONFIG.MAX_MESSAGE_LENGTH);
+
+        const verdict = await SkateMod.check(trimmed, { remote: false }); // DMs never leave the device for moderation
+        if (!verdict.ok) {
+            Notify.toast('That message won\'t fly here 🙈', 'error', 3000);
+            return false;
+        }
+
+        const payload = { type: 'chat', text: trimmed, fromName: state.myName, toName: thread.name };
+        if (replyTo) payload.replyTo = sanitizeReplyRef(replyTo);
+
+        const localId = 'local_' + Crypto.randomHex(6);
+        thread.messages.push({ id: localId, localId, type: 'chat', text: trimmed, from: state.myName, mine: true, ts: Date.now(), replyTo: payload.replyTo || null, status: 'pending', payload });
+        notifyUpdate();
+
+        const { ok } = await publishDm(to, payload);
+        const m = thread.messages.find(x => x.id === localId);
+        if (m) m.status = ok ? 'sent' : 'failed';
+        saveState();
+        notifyUpdate();
+        return ok;
+    }
+
+    /** Retry a failed optimistic message (group or DM). */
+    async function retryMessage(kind, convId, localId) {
+        const list = kind === 'dm' ? state.dmThreads[convId]?.messages : getGroupOrRoom(convId)?.messages;
+        const m = list?.find(x => x.localId === localId && x.status === 'failed');
+        if (!m || !m.payload) return false;
+        m.status = 'pending';
+        m.ts = Date.now(); // refresh the echo-replacement window
+        notifyUpdate();
+        const { ok } = kind === 'dm' ? await publishDm(convId, m.payload) : await publishToGroup(convId, m.payload);
+        m.status = ok ? 'sent' : 'failed';
+        saveState();
+        notifyUpdate();
+        return ok;
+    }
+
+    // ---- Sharing: explicit destination (group OR dm) ----
+    function programCard(program) {
         const activity = program.Activity || program['Activity Title'] || 'Unknown';
         const location = program.LocationName || program['Location Name'] || '';
         const dateStr = program['Start Date Time'] || program['Start Date'] || '';
         let dateDisplay = '';
-        if (dateStr) dateDisplay = new Date(dateStr).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
-        const { ok } = await publishToGroup(state.activeGroupId, {
-            type: 'share', text: `⛸️ ${activity}`, from: state.myName,
-            data: { activity, location, date: dateDisplay, time: program['Start Time'] || '', endTime: program['End Time'] || '' }
-        });
-        if (ok) Notify.toast('Shared to the group 📤', 'success', 2000);
+        if (dateStr) {
+            // parse as LOCAL date — `new Date('YYYY-MM-DD')` is UTC and shifted the day
+            const m = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+            const d = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(dateStr);
+            dateDisplay = d.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
+        }
+        return {
+            activity, location, date: dateDisplay,
+            time: program['Start Time'] || '', endTime: program['End Time'] || '',
+            programId: Favorites.getId(program)
+        };
+    }
+
+    async function shareTo(dest, payload) {
+        if (dest.kind === 'dm') {
+            const thread = state.dmThreads[dest.id] || (state.dmThreads[dest.id] = { name: dest.name || lookupName(dest.id) || 'Skater', messages: [], lastReadTs: 0 });
+            const localId = 'local_' + Crypto.randomHex(6);
+            const dmPayload = { ...payload, fromName: state.myName, toName: thread.name };
+            thread.messages.push({ id: localId, localId, type: payload.type, text: payload.text, from: state.myName, mine: true, ts: Date.now(), data: payload.data, status: 'pending', payload: dmPayload });
+            notifyUpdate();
+            const { ok } = await publishDm(dest.id, dmPayload);
+            const m = thread.messages.find(x => x.id === localId);
+            if (m) m.status = ok ? 'sent' : 'failed';
+            saveState(); notifyUpdate();
+            return ok;
+        }
+        const { ok } = await publishToGroup(dest.id, { ...payload, from: state.myName });
+        return ok;
+    }
+
+    async function shareProgram(program, dest) {
+        const data = programCard(program);
+        const target = dest || (state.activeGroupId ? { kind: 'group', id: state.activeGroupId } : null);
+        if (!target) return false;
+        const ok = await shareTo(target, { type: 'share', text: `⛸️ ${data.activity}`, data });
+        if (ok) Notify.toast(`Shared to ${target.name || 'the chat'} 📤`, 'success', 2000);
+        else Notify.toast('Share didn\'t reach the relays — try again', 'error');
+        return ok;
+    }
+
+    async function shareGuide(guideRef, dest) {
+        // guideRef: {guideId, title, category, excerpt?}
+        if (!dest) return false;
+        const data = {
+            guideId: String(guideRef.guideId || '').slice(0, 64),
+            title: String(guideRef.title || '').slice(0, 80),
+            category: String(guideRef.category || '').slice(0, 20),
+            excerpt: String(guideRef.excerpt || '').slice(0, 200)
+        };
+        const ok = await shareTo(dest, { type: 'guide', text: `📖 ${data.title}`, data });
+        if (ok) Notify.toast(`Guide shared to ${dest.name || 'the chat'} 📖`, 'success', 2000);
+        else Notify.toast('Share didn\'t reach the relays — try again', 'error');
         return ok;
     }
 
@@ -516,52 +760,23 @@ const SkateChat = (() => {
         return { count: Object.keys(bucket).length, mine: !!bucket[state.myPublicKey] };
     }
 
-    async function sendDm(text) {
-        const to = state.activeDmRecipient;
-        const thread = state.dmThreads[to];
-        if (!to || !thread || !text.trim()) return false;
-        const trimmed = text.trim().slice(0, CONFIG.MAX_MESSAGE_LENGTH);
-
-        const verdict = await SkateMod.check(trimmed);
-        if (!verdict.ok) {
-            Notify.toast('That message won\'t fly here 🙈', 'error', 3000);
-            return false;
-        }
-
-        const localId = 'local_' + Crypto.randomHex(6);
-        thread.messages.push({ id: localId, localId, text: trimmed, from: state.myName, mine: true, ts: Date.now(), status: 'pending' });
-        notifyUpdate();
-
-        const template = {
-            kind: CONFIG.KINDS.DM,
-            content: Crypto.encryptDm(JSON.stringify({ text: trimmed, fromName: state.myName, toName: thread.name }), state.mySecretKey, to),
-            tags: [['p', to]],
+    // ========== PRESENCE ==========
+    function presenceEvent(group, gid, status) {
+        return NostrTools.finalizeEvent({
+            kind: CONFIG.KINDS.PRESENCE,
+            content: Crypto.encryptForGroup(JSON.stringify({ from: state.myName, s: status }), group.secret),
+            tags: [['g', gid]],
             created_at: Math.floor(Date.now() / 1000)
-        };
-        const { ok } = await signAndSend(template, SkateMod.POW.chat);
-        const m = thread.messages.find(x => x.id === localId);
-        if (m) m.status = ok ? 'sent' : 'failed';
-        saveState();
-        notifyUpdate();
-        return ok;
+        }, state.mySecretKey);
     }
 
-    // ========== PRESENCE (ephemeral by design) ==========
     function startPresence() {
         stopPresence();
         const beat = () => {
             allGroupIds().forEach(gid => {
                 const group = getGroupOrRoom(gid);
                 if (!group) return;
-                try {
-                    const event = NostrTools.finalizeEvent({
-                        kind: CONFIG.KINDS.PRESENCE,
-                        content: Crypto.encryptForGroup(JSON.stringify({ from: state.myName }), group.secret),
-                        tags: [['g', gid]],
-                        created_at: Math.floor(Date.now() / 1000)
-                    }, state.mySecretKey);
-                    SkateNostr.publish(event, 3000);
-                } catch {}
+                try { SkateNostr.publish(presenceEvent(group, gid, 'on'), 3000); } catch {}
             });
         };
         beat();
@@ -571,14 +786,21 @@ const SkateChat = (() => {
         if (state.presenceTimer) { clearInterval(state.presenceTimer); state.presenceTimer = null; }
     }
 
+    function sendBye(groupIds) {
+        groupIds.forEach(gid => {
+            const group = getGroupOrRoom(gid);
+            if (!group) return;
+            try { SkateNostr.publish(presenceEvent(group, gid, 'bye'), 800); } catch {}
+        });
+    }
+
     // ========== GROUP MANAGEMENT ==========
     function makeGroup(id, name, secret, extra = {}) {
         return {
-            id, name, secret, members: [state.myName],
-            memberPubkeys: { [state.myName]: state.myPublicKey },
+            id, name, secret,
+            roster: { [state.myPublicKey]: { name: state.myName, last: Date.now() } },
             messages: [], votes: {}, connected: false,
             lastReadTs: Date.now(), createdAt: Date.now(),
-            _online: { [state.myPublicKey]: Date.now() },
             ...extra
         };
     }
@@ -603,34 +825,42 @@ const SkateChat = (() => {
         return { groupId };
     }
 
+    /**
+     * Create a private group.
+     * The secret is ALWAYS random (fixes the same-password global-collision bug).
+     * If a password is set, the invite link carries the secret nip44-encrypted
+     * under a key derived from the password — link alone won't get anyone in.
+     */
     async function createGroup(options = {}) {
         if (Object.keys(state.groups).length >= CONFIG.MAX_GROUPS) throw new Error(`Max ${CONFIG.MAX_GROUPS} private groups`);
-        const name = (options.name || 'Skating Group').trim().slice(0, 40);
+        const name = (options.name || 'Skating Group').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 40);
         if (SkateMod.checkLocal(name)) throw new Error('Group name contains inappropriate content');
-        const secret = options.password ? await Crypto.sha256(options.password) : Crypto.randomHex(32);
+
+        const secret = Crypto.randomHex(32);
         const groupId = Crypto.deriveGroupId(secret);
-        if (!state.groups[groupId]) {
-            state.groups[groupId] = makeGroup(groupId, name, secret, { hasPassword: !!options.password });
-            resubscribe();
-            publishToGroup(groupId, { type: 'chat', text: `${state.myName} created the group`, from: state.myName, system: true }, 0);
+        const extra = { hasPassword: false };
+
+        if (options.password) {
+            const pwKeyHex = await Crypto.sha256(options.password);
+            extra.hasPassword = true;
+            extra.inviteEnc = NostrTools.nip44.encrypt(secret, Crypto.groupKey(pwKeyHex));
         }
+
+        state.groups[groupId] = makeGroup(groupId, name, secret, extra);
+        resubscribe();
+        publishToGroup(groupId, { type: 'chat', text: `${state.myName} created the group`, from: state.myName, system: true }, 0);
         state.activeGroupId = groupId;
         state.activeIsPublic = false;
         saveState(true);
         notifyUpdate();
-        return { groupId, shareUrl: getShareUrl() };
+        return { groupId, invite: getInviteInfo(groupId) };
     }
 
-    async function joinGroup(secret, password = null, customName = null) {
+    function joinBySecret(secret, name = null, extra = {}) {
         if (Object.keys(state.groups).length >= CONFIG.MAX_GROUPS) throw new Error(`Max ${CONFIG.MAX_GROUPS} private groups`);
-        let actualSecret;
-        if (password) actualSecret = await Crypto.sha256(password);
-        else if (secret.length === 64 && /^[0-9a-f]+$/i.test(secret)) actualSecret = secret.toLowerCase();
-        else actualSecret = await Crypto.sha256(secret);
-
-        const groupId = Crypto.deriveGroupId(actualSecret);
+        const groupId = Crypto.deriveGroupId(secret);
         if (!state.groups[groupId]) {
-            state.groups[groupId] = makeGroup(groupId, customName || 'Skating Group', actualSecret, { hasPassword: !!password });
+            state.groups[groupId] = makeGroup(groupId, name || 'Skating Group', secret, extra);
             resubscribe();
             publishToGroup(groupId, { type: 'chat', text: `${state.myName} joined the group`, from: state.myName, system: true }, 0);
             Notify.toast('Joined the group! 🎉', 'success');
@@ -642,17 +872,86 @@ const SkateChat = (() => {
         return { groupId };
     }
 
+    // ---- Invite links ----
+    // open:      #i=<secret>.<b64name>
+    // password:  #j=<groupId>.<b64(nip44enc(secret))>.<b64name>
+    // legacy v2: #<hex-secret>  (still accepted, treated as open)
+    function getInviteInfo(groupId) {
+        const group = state.groups[groupId];
+        if (!group) return null;
+        const base = `${window.location.origin}${window.location.pathname}`;
+        if (group.hasPassword && group.inviteEnc) {
+            return { url: `${base}#j=${group.id}.${b64u(group.inviteEnc)}.${b64u(group.name)}`, hasPassword: true };
+        }
+        return { url: `${base}#i=${group.secret}.${b64u(group.name)}`, hasPassword: false };
+    }
+
+    function parseInviteHash(rawHash) {
+        const hash = (rawHash || '').replace(/^#/, '');
+        if (!hash) return null;
+        if (hash.startsWith('i=')) {
+            const [secret, nameB64] = hash.slice(2).split('.');
+            if (!secret || !/^[0-9a-f]{32,64}$/i.test(secret)) return null;
+            return { mode: 'open', secret: secret.toLowerCase(), name: nameB64 ? unb64u(nameB64) : null };
+        }
+        if (hash.startsWith('j=')) {
+            const [groupId, encB64, nameB64] = hash.slice(2).split('.');
+            const enc = encB64 ? unb64u(encB64) : null;
+            if (!groupId || !enc) return null;
+            return { mode: 'password', groupId, enc, name: nameB64 ? unb64u(nameB64) : null };
+        }
+        if (hash.length >= 32 && /^[0-9a-f]+$/i.test(hash)) {
+            // legacy v2 link: the whole hash is (or hashes to) the secret
+            return { mode: 'legacy', raw: hash.toLowerCase(), name: null };
+        }
+        return null;
+    }
+
+    async function acceptInvite(invite, password = null) {
+        if (invite.mode === 'open') {
+            return joinBySecret(invite.secret, invite.name);
+        }
+        if (invite.mode === 'legacy') {
+            const secret = invite.raw.length === 64 ? invite.raw : await Crypto.sha256(invite.raw);
+            return joinBySecret(secret, invite.name);
+        }
+        if (invite.mode === 'password') {
+            if (!password) throw new Error('This group needs a password');
+            const pwKeyHex = await Crypto.sha256(password);
+            let secret = null;
+            try { secret = NostrTools.nip44.decrypt(invite.enc, Crypto.groupKey(pwKeyHex)); } catch {}
+            if (!secret || Crypto.deriveGroupId(secret) !== invite.groupId) throw new Error('Wrong password for this group');
+            return joinBySecret(secret, invite.name, { hasPassword: true, inviteEnc: invite.enc });
+        }
+        throw new Error('Invalid invite link');
+    }
+
+    async function renameGroup(groupId, newName) {
+        const group = state.groups[groupId];
+        if (!group) throw new Error('Only private groups can be renamed');
+        const name = (newName || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 40);
+        if (!name) throw new Error('Give the group a name');
+        if (SkateMod.checkLocal(name)) throw new Error('That name won\'t fly here');
+        group.name = name;
+        group.renamedAt = Date.now();
+        saveState(true);
+        notifyUpdate();
+        const { ok } = await publishToGroup(groupId, { type: 'rename', name, from: state.myName }, 0);
+        if (!ok) Notify.toast('Renamed locally — relays didn\'t confirm, others may not see it yet', 'info', 3500);
+        return ok;
+    }
+
     function leaveGroup(groupId) {
         const isPublic = !!state.publicRooms[groupId];
         const group = isPublic ? state.publicRooms[groupId] : state.groups[groupId];
         if (!group) return;
+        sendBye([groupId]); // clear the "still online" ghost for everyone else
         if (!isPublic) publishToGroup(groupId, { type: 'chat', text: `${state.myName} left the group`, from: state.myName, system: true }, 0);
         if (isPublic) delete state.publicRooms[groupId];
         else delete state.groups[groupId];
         if (state.activeGroupId === groupId) {
-            const next = Object.keys(state.groups)[0] || Object.keys(state.publicRooms)[0] || null;
-            state.activeGroupId = next;
-            state.activeIsPublic = next ? !!state.publicRooms[next] : false;
+            state.activeGroupId = null;
+            state.activeIsPublic = false;
         }
         resubscribe();
         saveState(true);
@@ -670,19 +969,33 @@ const SkateChat = (() => {
         notifyUpdate();
     }
 
-    // ========== DM SURFACE ==========
-    function startDm(nameOrPubkey) {
-        let pubkey = null, name = null;
-        if (/^[0-9a-f]{64}$/i.test(nameOrPubkey)) {
-            pubkey = nameOrPubkey;
-            name = state.dmThreads[pubkey]?.name || 'Skater';
+    function clearHistory(kind, id) {
+        if (kind === 'dm') {
+            const t = state.dmThreads[id];
+            if (t) { t.messages = []; t.lastReadTs = Date.now(); }
         } else {
-            const group = getGroupOrRoom(state.activeGroupId);
-            pubkey = group?.memberPubkeys?.[nameOrPubkey] || null;
-            name = nameOrPubkey;
+            const g = getGroupOrRoom(id);
+            if (g) { g.messages = []; g.lastReadTs = Date.now(); }
         }
-        if (!pubkey || pubkey === state.myPublicKey) return false;
-        if (!state.dmThreads[pubkey]) state.dmThreads[pubkey] = { name, messages: [], lastReadTs: 0 };
+        saveState(true);
+        notifyUpdate();
+    }
+
+    function deleteDmThread(pubkey) {
+        delete state.dmThreads[pubkey];
+        if (state.activeDmRecipient === pubkey) state.activeDmRecipient = null;
+        saveState(true);
+        notifyUpdate();
+    }
+
+    // ========== DM SURFACE ==========
+    function startDm(pubkey, name = null) {
+        if (!/^[0-9a-f]{64}$/i.test(pubkey || '') || pubkey === state.myPublicKey) return false;
+        if (!state.dmThreads[pubkey]) {
+            state.dmThreads[pubkey] = { name: name || lookupName(pubkey) || 'Skater', messages: [], lastReadTs: 0 };
+        } else if (name) {
+            state.dmThreads[pubkey].name = name;
+        }
         state.dmThreads[pubkey].lastReadTs = Date.now();
         state.activeDmRecipient = pubkey;
         saveState();
@@ -692,12 +1005,57 @@ const SkateChat = (() => {
 
     function closeDm() { state.activeDmRecipient = null; notifyUpdate(); }
 
-    function getDmThreadsList() {
-        return Object.entries(state.dmThreads).map(([pubkey, t]) => {
-            const last = t.messages[t.messages.length - 1] || null;
-            const unread = t.messages.filter(m => !m.mine && m.ts > (t.lastReadTs || 0)).length;
-            return { pubkey, name: t.name, unread, lastMessage: last };
-        }).sort((a, b) => (b.lastMessage?.ts || 0) - (a.lastMessage?.ts || 0));
+    function openConversation(kind, id) {
+        return kind === 'dm' ? startDm(id) : (switchGroup(id), true);
+    }
+
+    // ========== READ SURFACE ==========
+    function unreadOfGroup(g) {
+        return g.messages.filter(m => !m.mine && !m.system && m.ts > (g.lastReadTs || 0) && !Mutes.has(m.fromPubkey)).length;
+    }
+    function unreadOfThread(t, pubkey) {
+        if (Mutes.has(pubkey)) return 0;
+        return t.messages.filter(m => !m.mine && m.ts > (t.lastReadTs || 0)).length;
+    }
+
+    function previewOf(messages) {
+        for (let i = messages.length - 1; i >= 0; i--) {
+            const m = messages[i];
+            if (m.system || Mutes.has(m.fromPubkey)) continue;
+            const who = m.mine ? 'You: ' : '';
+            if (m.type === 'share') return `${who}📤 shared a program`;
+            if (m.type === 'guide') return `${who}📖 shared a guide`;
+            return who + (m.text || '').slice(0, 48);
+        }
+        return null;
+    }
+
+    /** Unified conversation list: joined rooms + private groups + DM threads. */
+    function getConversations() {
+        const out = [];
+        for (const g of Object.values(state.publicRooms)) {
+            out.push({
+                kind: 'group', isPublic: true, id: g.id, name: g.name, emoji: g.emoji || '🌐',
+                unread: unreadOfGroup(g), lastTs: g.messages.length ? g.messages[g.messages.length - 1].ts : (g.createdAt || 0),
+                preview: previewOf(g.messages) || 'Public room', online: onlineCount(g)
+            });
+        }
+        for (const g of Object.values(state.groups)) {
+            out.push({
+                kind: 'group', isPublic: false, id: g.id, name: g.name, emoji: g.hasPassword ? '🔐' : '🔒',
+                unread: unreadOfGroup(g), lastTs: g.messages.length ? g.messages[g.messages.length - 1].ts : (g.createdAt || 0),
+                preview: previewOf(g.messages) || 'Invite friends to start chatting', online: onlineCount(g),
+                hasPassword: !!g.hasPassword
+            });
+        }
+        for (const [pubkey, t] of Object.entries(state.dmThreads)) {
+            out.push({
+                kind: 'dm', id: pubkey, name: t.name || 'Skater', emoji: null,
+                unread: unreadOfThread(t, pubkey), lastTs: t.messages.length ? t.messages[t.messages.length - 1].ts : 0,
+                preview: previewOf(t.messages) || 'No messages yet', muted: Mutes.has(pubkey)
+            });
+        }
+        return out.sort((a, b) => (b.lastTs || 0) - (a.lastTs || 0));
     }
 
     // ========== PUBLIC SURFACE ==========
@@ -706,6 +1064,7 @@ const SkateChat = (() => {
         loadState();
         initIdentity();
         Favorites.load();
+        Mutes.load();
 
         for (const [key, room] of Object.entries(PUBLIC_ROOMS)) {
             if (!state.publicRoomSecrets[key]) state.publicRoomSecrets[key] = await Crypto.sha256(room.passphrase);
@@ -718,15 +1077,14 @@ const SkateChat = (() => {
         });
         SkateNostr.start();
 
-        const hash = window.location.hash.slice(1);
-        if (hash && hash.length >= 32 && /^[0-9a-f]+$/i.test(hash)) {
-            const groupId = Crypto.deriveGroupId(hash.toLowerCase());
-            if (!state.groups[groupId]) await joinGroup(hash);
-            else { state.activeGroupId = groupId; state.activeIsPublic = false; }
-        }
-
         resubscribe();
         startPresence();
+
+        // Tell the room you're gone the moment the tab closes — kills the
+        // "2 online" ghost. pagehide (not visibilitychange) so tab switches
+        // don't flicker everyone offline.
+        window.addEventListener('pagehide', () => sendBye(allGroupIds()));
+
         notifyUpdate();
     }
 
@@ -736,18 +1094,15 @@ const SkateChat = (() => {
         const activeGroup = state.activeIsPublic ? state.publicRooms[state.activeGroupId] : state.groups[state.activeGroupId] || null;
         const activeDmThread = state.activeDmRecipient ? state.dmThreads[state.activeDmRecipient] : null;
 
-        const unreadOf = g => g.messages.filter(m => !m.mine && !m.system && m.ts > (g.lastReadTs || 0)).length;
         let totalGroupUnread = 0;
         const perGroupUnread = {};
         [...Object.values(state.groups), ...Object.values(state.publicRooms)].forEach(g => {
-            const u = unreadOf(g);
+            const u = unreadOfGroup(g);
             perGroupUnread[g.id] = u;
             totalGroupUnread += u;
         });
         let totalDmUnread = 0;
-        Object.values(state.dmThreads).forEach(t => {
-            totalDmUnread += t.messages.filter(m => !m.mine && m.ts > (t.lastReadTs || 0)).length;
-        });
+        Object.entries(state.dmThreads).forEach(([pk, t]) => { totalDmUnread += unreadOfThread(t, pk); });
         Notify.updateTitle(totalDmUnread + totalGroupUnread);
 
         return {
@@ -761,13 +1116,9 @@ const SkateChat = (() => {
             onlineCounts: Object.fromEntries(allGroupIds().map(id => [id, onlineCount(getGroupOrRoom(id))])),
             viewMode: state.activeDmRecipient ? 'dm' : 'group',
             favoritesCount: state.favorites.size,
+            mutedCount: state.muted.size,
             publicRoomSecrets: state.publicRoomSecrets
         };
-    }
-
-    function getShareUrl() {
-        const group = state.groups[state.activeGroupId];
-        return group ? `${window.location.origin}${window.location.pathname}#${group.secret}` : null;
     }
 
     function getConnectionStatus() {
@@ -779,11 +1130,14 @@ const SkateChat = (() => {
     function getIdentity() { return { sk: state.mySecretKey, pk: state.myPublicKey, name: state.myName }; }
 
     return {
-        init, createGroup, joinGroup, joinPublicRoom, leaveGroup, switchGroup,
-        sendMessage, shareProgram, voteTime, getVotes,
-        startDm, sendDm, closeDm, getDmThreadsList, setDisplayName, getIdentity,
-        onUpdate, getState, getShareUrl, getConnectionStatus, getPublicRooms,
-        Notify, Favorites, Crypto
+        init, createGroup, joinPublicRoom, leaveGroup, switchGroup, renameGroup,
+        parseInviteHash, acceptInvite, getInviteInfo,
+        sendMessage, shareProgram, shareGuide, voteTime, getVotes, retryMessage,
+        startDm, sendDm, closeDm, openConversation, deleteDmThread, clearHistory,
+        getConversations, getRoster,
+        setDisplayName, getIdentity,
+        onUpdate, getState, getConnectionStatus, getPublicRooms,
+        Notify, Favorites, Crypto, Mutes
     };
 })();
 

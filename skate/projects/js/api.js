@@ -38,7 +38,10 @@ const SkateAPI = {
         // Try Firebase Storage first if configured
         if (this.FIREBASE_STORAGE_URL) {
             try {
-                const url = this.FIREBASE_STORAGE_URL;
+                // Bug fix: the old code ignored `filename`, so locations/facilities/meta
+                // all fetched the same URL. Treat a .json URL as exact, else as a folder.
+                const base = this.FIREBASE_STORAGE_URL;
+                const url = base.endsWith('.json') ? base : `${base.replace(/\/+$/, '')}/${filename}`;
                 console.log(`[SkateAPI] Loading from Firebase: ${url}`);
                 
                 const response = await fetch(url);

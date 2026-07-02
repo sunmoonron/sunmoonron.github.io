@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Toronto Ice Skating</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <link rel="stylesheet" href="assets/css/style.css?v=10">
-    <link rel="stylesheet" href="assets/css/style-additions.css?v=1">
+    <link rel="stylesheet" href="assets/css/style-additions.css?v=2">
 </head>
 <body>
     <div class="app" id="app">
@@ -14,29 +14,26 @@
         <div class="top-bar">
             <h1>Toronto Skating</h1>
             <div class="top-bar-actions">
-                <label class="dark-mode-toggle" id="dark-mode-label">
-                    <button class="btn-icon" id="btn-dark-mode" title="Toggle dark mode">🌙</button>
-                    <span>Dark</span>
-                </label>
-                <button class="btn-icon" id="btn-settings" title="Settings">⚙️</button>
-                <span id="user-name" class="user-name"></span>
+                <button class="btn-icon" id="btn-dark-mode" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
+                <button class="btn-icon" id="btn-settings" title="Settings" aria-label="Settings">⚙️</button>
+                <button id="user-name" class="user-name" title="Your chat name — tap to change"></button>
             </div>
         </div>
 
-        <!-- Tabs -->
+        <!-- Tabs (mobile / mid-width) -->
         <div class="view-tabs">
             <button class="view-tab active" data-view="programs">⛸️ Programs</button>
             <button class="view-tab" data-view="guides">📖 Guides</button>
-            <button class="view-tab" data-view="groups">👥 Groups <span class="badge hidden" id="groups-badge">0</span></button>
-            <button class="view-tab" data-view="chat">💬 Chat <span class="badge hidden" id="dm-badge">0</span></button>
+            <button class="view-tab" data-view="chats">💬 Chats <span class="badge hidden" id="chats-badge">0</span></button>
         </div>
 
         <div class="main-content">
             <!-- Programs Panel -->
-            <div class="view-panel active" id="programs-panel">
+            <div class="view-panel panel-programs active" id="programs-panel">
+                <div class="panel-title">⛸️ Programs</div>
                 <div class="search-box">
                     <input type="text" id="search-input" placeholder="Search activities or locations...">
-                    <button id="btn-search">🔍</button>
+                    <button id="btn-search" aria-label="Search">🔍</button>
                 </div>
 
                 <div class="filter-row" id="type-filters">
@@ -76,14 +73,15 @@
             </div>
 
             <!-- Guides Panel -->
-            <div class="view-panel" id="guides-panel">
+            <div class="view-panel panel-guides" id="guides-panel">
+                <div class="panel-title">📖 Guides</div>
                 <div id="guides-home">
                     <div class="guides-header">
                         <div>
                             <h3>📖 Skater guides</h3>
-                            <p class="guides-sub">Written by the community — rinks, gear, first-lap tips.</p>
+                            <p class="guides-sub">Written by the community — rinks, gear, first-lap tips. Found a bug or have an idea for this site? 🐛💡 That lives here too.</p>
                         </div>
-                        <button class="btn-primary" id="btn-write-guide">✍️ Write a guide</button>
+                        <button class="btn-primary" id="btn-write-guide">✍️ Write</button>
                     </div>
                     <div class="filter-row" id="guide-cat-filters">
                         <button class="filter-chip active" data-cat="">All</button>
@@ -97,9 +95,13 @@
                     <div class="guide-comments">
                         <h4 id="guide-comments-title">Comments</h4>
                         <ul id="guide-comments-list"></ul>
+                        <div class="reply-bar hidden" id="guide-reply-bar">
+                            <span id="guide-reply-label"></span>
+                            <button class="btn-icon" id="btn-guide-reply-cancel" title="Cancel reply">✕</button>
+                        </div>
                         <div class="comment-input-row">
                             <input type="text" id="guide-comment-input" maxlength="500" placeholder="Add a comment…">
-                            <button id="btn-guide-comment">➤</button>
+                            <button id="btn-guide-comment" title="Post comment">➤</button>
                         </div>
                     </div>
                 </div>
@@ -107,7 +109,7 @@
                 <div id="guide-write" class="hidden">
                     <button class="btn-back-inline" id="btn-write-back">← Cancel</button>
                     <h3>✍️ Write a guide</h3>
-                    <p class="guides-sub">Share what you wish you'd known. Plain text, no brands-shilling — the community votes with real effort.</p>
+                    <p class="guides-sub">Share what you wish you'd known — or file a 🐛 bug report / 💡 suggestion for this site. Plain text, no brand-shilling; the community votes with real effort.</p>
                     <input type="text" id="guide-title-input" maxlength="80" placeholder="Title (e.g. 'Renting skates downtown: the real options')">
                     <select id="guide-cat-input"></select>
                     <textarea id="guide-body-input" maxlength="6000" rows="10" placeholder="Your guide… (at least a few sentences)"></textarea>
@@ -116,68 +118,56 @@
                 </div>
             </div>
 
-            <!-- Groups Panel -->
-            <div class="view-panel groups-panel-view" id="groups-panel">
-                <div class="public-rooms">
-                    <h3>🌐 Public Rooms</h3>
-                    <div id="public-rooms-list"></div>
+            <!-- Chats Panel (groups + DMs, unified) -->
+            <div class="view-panel panel-chats chat-panel-view" id="chats-panel">
+                <div class="panel-title">💬 Chats</div>
+
+                <!-- List mode -->
+                <div id="chats-list-mode" class="chats-list-mode">
+                    <div class="chats-list-header">
+                        <h3>Conversations</h3>
+                        <button class="btn-primary btn-small" id="btn-discover">＋ New</button>
+                    </div>
+                    <div class="filter-row" id="chat-filters">
+                        <button class="filter-chip active" data-cf="all">All</button>
+                        <button class="filter-chip" data-cf="groups">👥 Groups <span class="chip-badge hidden" id="cf-groups-badge"></span></button>
+                        <button class="filter-chip" data-cf="dms">💬 DMs <span class="chip-badge hidden" id="cf-dms-badge"></span></button>
+                        <button class="filter-chip hidden" data-cf="muted" id="cf-muted">🔇 Muted</button>
+                    </div>
+                    <ul class="conversation-list" id="conversation-list"></ul>
                 </div>
 
-                <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--border);">
-
-                <div class="create-group-card" style="margin: 0 16px;">
-                    <h3>🔒 Create Private Group</h3>
-                    <p style="font-size:12px;color:var(--text-muted)">Invite-only group for friends</p>
-                    <input type="text" id="group-name-input" placeholder="Group name" maxlength="40">
-                    <input type="text" id="group-password-input" placeholder="Password (optional)">
-                    <button class="btn-primary" id="btn-create-group">Create</button>
-                </div>
-
-                <div class="share-card hidden" id="share-card" style="margin: 16px;">
-                    <p>🔗 Invite friends:</p>
-                    <input type="text" id="share-url-input" readonly>
-                    <button id="btn-copy-url">📋 Copy Invite Link</button>
-                </div>
-
-                <h4 style="margin: 16px 16px 8px;">Your Groups</h4>
-                <ul class="groups-list" id="groups-list"><li>No groups yet</li></ul>
-            </div>
-
-            <!-- Chat Panel -->
-            <div class="view-panel chat-panel-view" id="chat-panel">
-                <div class="chat-header">
-                    <button class="btn-icon hidden" id="btn-back">←</button>
-                    <div class="chat-header-info">
-                        <h3 id="chat-title">No group selected</h3>
-                        <div class="chat-status">
-                            <span class="status-dot offline" id="chat-status-dot"></span>
-                            <span id="chat-status-text">--</span>
-                            <span id="chat-online" class="chat-online hidden"></span>
+                <!-- Conversation mode -->
+                <div id="chats-convo-mode" class="chats-convo-mode hidden">
+                    <div class="chat-header">
+                        <button class="btn-icon" id="btn-back" title="All conversations" aria-label="Back">←</button>
+                        <div class="chat-header-info">
+                            <h3 id="chat-title">…</h3>
+                            <div class="chat-status">
+                                <span class="status-dot offline" id="chat-status-dot"></span>
+                                <span id="chat-status-text">--</span>
+                                <span id="chat-online" class="chat-online hidden"></span>
+                            </div>
                         </div>
+                        <button class="btn-icon" id="btn-chat-menu" title="Conversation options" aria-label="Conversation options">⋯</button>
                     </div>
-                    <button class="btn-icon" id="btn-dm-inbox" title="Direct messages">💬<span class="badge hidden" id="dm-inbox-badge">0</span></button>
-                </div>
 
-                <div class="dm-inbox hidden" id="dm-inbox">
-                    <div class="dm-inbox-header">
-                        <h4>💬 Direct Messages</h4>
-                        <button class="btn-icon" id="btn-close-inbox">✕</button>
+                    <div class="members-bar hidden" id="members-bar">
+                        <span class="members-hint" title="Tap a member to message or mute them">👥</span>
+                        <div id="members-list"></div>
                     </div>
-                    <ul id="dm-list"><li>No messages yet</li></ul>
-                </div>
 
-                <div class="members-bar hidden" id="members-bar">
-                    <span style="font-size:11px;color:var(--text-muted)">👥</span>
-                    <div id="members-list"></div>
-                </div>
+                    <div class="chat-messages" id="chat-messages"></div>
+                    <button class="jump-pill hidden" id="jump-pill">↓ New messages</button>
 
-                <div class="chat-messages" id="chat-messages">
-                    <div class="chat-empty"><p>👥 Join or create a group to start chatting!</p></div>
-                </div>
-
-                <div class="chat-input-bar hidden" id="chat-input-bar">
-                    <input type="text" id="chat-input" maxlength="500" placeholder="Type a message...">
-                    <button id="btn-send">➤</button>
+                    <div class="reply-bar hidden" id="chat-reply-bar">
+                        <span id="chat-reply-label"></span>
+                        <button class="btn-icon" id="btn-reply-cancel" title="Cancel reply">✕</button>
+                    </div>
+                    <div class="chat-input-bar" id="chat-input-bar">
+                        <input type="text" id="chat-input" maxlength="500" placeholder="Type a message...">
+                        <button id="btn-send" title="Send">➤</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -206,7 +196,7 @@
         <div class="modal">
             <div class="modal-header">
                 <h3>⚙️ Settings</h3>
-                <button class="btn-icon" id="btn-settings-close">✕</button>
+                <button class="btn-icon" id="btn-settings-close" aria-label="Close settings">✕</button>
             </div>
             <label class="settings-field">
                 <span>Display name</span>
@@ -229,20 +219,94 @@
                     <button data-exp="regular">🏒 Regular</button>
                 </div>
             </label>
+            <div class="settings-field">
+                <span>Desktop notifications</span>
+                <button class="btn-primary" id="btn-enable-notif">Enable notifications</button>
+                <p class="settings-hint" id="notif-hint"></p>
+            </div>
+            <div class="settings-field">
+                <span>Muted users</span>
+                <ul id="muted-list" class="muted-list"><li class="muted-empty">No one muted. Tap a name in any chat to mute someone.</li></ul>
+            </div>
             <p class="settings-hint">Your chat identity lives only in this browser. Clearing site data resets it.</p>
         </div>
     </div>
+
+    <!-- Discover / new conversation modal -->
+    <div class="modal-overlay hidden" id="discover-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>＋ New conversation</h3>
+                <button class="btn-icon" id="btn-discover-close" aria-label="Close">✕</button>
+            </div>
+            <h4 class="modal-sub">🌐 Public rooms</h4>
+            <div id="discover-rooms"></div>
+            <hr class="modal-hr">
+            <h4 class="modal-sub">🔒 Create a private group</h4>
+            <div class="create-group-card">
+                <input type="text" id="group-name-input" placeholder="Group name" maxlength="40">
+                <input type="text" id="group-password-input" placeholder="Password (optional)" autocomplete="off">
+                <p class="settings-hint">With a password, the invite link alone won't get anyone in — they'll be asked for it.</p>
+                <button class="btn-primary" id="btn-create-group">Create group</button>
+            </div>
+            <hr class="modal-hr">
+            <h4 class="modal-sub">🔗 Join with an invite link</h4>
+            <div class="settings-inline">
+                <input type="text" id="join-link-input" placeholder="Paste an invite link…">
+                <button class="btn-primary" id="btn-join-link">Join</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invite confirmation modal (no more silent autojoin) -->
+    <div class="modal-overlay hidden" id="invite-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>🔗 Group invite</h3>
+                <button class="btn-icon" id="btn-invite-close" aria-label="Close">✕</button>
+            </div>
+            <p>You've been invited to join:</p>
+            <p class="invite-name" id="invite-name">Skating Group</p>
+            <div class="settings-field hidden" id="invite-pw-field">
+                <span>This group is password-protected 🔐</span>
+                <input type="password" id="invite-pw-input" placeholder="Group password" autocomplete="off">
+            </div>
+            <p class="settings-hint invite-error" id="invite-error"></p>
+            <div class="settings-inline">
+                <button class="btn-primary" id="btn-invite-join">Join group</button>
+                <button id="btn-invite-cancel">Not now</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share destination picker -->
+    <div class="modal-overlay hidden" id="share-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="share-title">📤 Share to…</h3>
+                <button class="btn-icon" id="btn-share-close" aria-label="Close">✕</button>
+            </div>
+            <ul class="conversation-list share-dest-list" id="share-dest-list"></ul>
+            <div class="chat-empty hidden" id="share-empty">
+                <p>No conversations yet — join a room or start a group first.</p>
+                <button class="btn-primary" id="btn-share-discover">Browse rooms</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating action popover (member / message actions) -->
+    <div id="popover" class="popover hidden" role="menu"></div>
 
     <!-- Scripts (order matters) -->
     <script src="../assets/js/nostr.bundle.js"></script>
     <script src="projects/js/profanity-list.js"></script>
     <script src="projects/js/settings.js?v=1"></script>
-    <script src="projects/js/moderation.js?v=1"></script>
+    <script src="projects/js/moderation.js?v=2"></script>
     <script src="projects/js/nostr-core.js?v=1"></script>
     <script src="projects/js/storage.js?v=10"></script>
-    <script src="projects/js/api.js?v=10"></script>
-    <script src="projects/js/chat-v2.js?v=1"></script>
-    <script src="projects/js/guides.js?v=1"></script>
+    <script src="projects/js/api.js?v=11"></script>
+    <script src="projects/js/chat-v2.js?v=2"></script>
+    <script src="projects/js/guides.js?v=2"></script>
     <script src="projects/js/refresh.js?v=2"></script>
 
     <script>
@@ -255,8 +319,17 @@
             programs: [], filtered: [], page: 1, perPage: 20,
             type: 'all', search: '', day: '', age: null, showPast: false,
             darkMode: localStorage.getItem('darkMode') === 'true',
-            showInbox: false, activeGuideId: null, guideCat: '',
-            lastVotesSnapshot: ''
+            activeGuideId: null, guideCat: '',
+            lastVotesSnapshot: '',
+            chatOpen: false, chatFilter: 'all',
+            replyTo: null,                 // chat reply state {id, from, text}
+            guideReply: null,              // guide comment reply {id, name}
+            shareCtx: null,                // {type:'program'|'guide', payload}
+            pendingInvite: null,
+            pendingGuideOpen: null,
+            pendingProgramFocus: null,
+            lastRenderedConv: null,        // for autofocus + jump pill resets
+            jumpBase: 0, lastVisibleCount: 0
         };
 
         // ---------- Helpers ----------
@@ -273,6 +346,99 @@
             return new Date(str);
         }
         const fmtClock = t => SkateSettings.formatClock(t);
+        const baseUrl = () => `${window.location.origin}${window.location.pathname}`;
+
+        /** Deterministic hue per pubkey — tiny colored dot so "Skater" ≠ "Skater". */
+        function hueOf(pubkey) {
+            if (!pubkey) return 200;
+            return parseInt(pubkey.slice(0, 6), 16) % 360;
+        }
+        function hueDot(pubkey) {
+            return `<span class="hue-dot" style="--hue:${hueOf(pubkey)}"></span>`;
+        }
+        function shortPk(pubkey) { return pubkey ? '#' + pubkey.slice(0, 6) : ''; }
+
+        /** Clipboard with an execCommand fallback (http / old iOS). */
+        function copyText(text, okMsg = 'Copied! 📋') {
+            const fallback = () => {
+                try {
+                    const ta = document.createElement('textarea');
+                    ta.value = text;
+                    ta.style.cssText = 'position:fixed;opacity:0';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    const ok = document.execCommand('copy');
+                    ta.remove();
+                    ok ? SkateChat.Notify.toast(okMsg, 'success', 2000)
+                       : SkateChat.Notify.toast('Could not copy — long-press to copy manually', 'error');
+                } catch { SkateChat.Notify.toast('Could not copy', 'error'); }
+            };
+            if (navigator.clipboard?.writeText) {
+                navigator.clipboard.writeText(text)
+                    .then(() => SkateChat.Notify.toast(okMsg, 'success', 2000))
+                    .catch(fallback);
+            } else fallback();
+        }
+
+        // ---------- Generic popover ----------
+        function closePopover() {
+            const p = $('popover');
+            p.classList.add('hidden');
+            p.innerHTML = '';
+        }
+        /** items: [{label, danger?, onClick}] — built with textContent, never innerHTML. */
+        function openPopover(anchor, items) {
+            if (!items.length) return;
+            const p = $('popover');
+            p.innerHTML = '';
+            items.forEach(it => {
+                const b = document.createElement('button');
+                b.className = 'popover-item' + (it.danger ? ' danger' : '');
+                b.textContent = it.label;
+                b.onclick = (e) => { e.stopPropagation(); closePopover(); it.onClick(); };
+                p.appendChild(b);
+            });
+            p.classList.remove('hidden');
+            const r = anchor.getBoundingClientRect();
+            const pw = Math.min(240, window.innerWidth - 16);
+            const left = Math.min(Math.max(8, r.left), window.innerWidth - pw - 8);
+            p.style.left = left + 'px';
+            p.style.top = (r.bottom + 6) + 'px';
+            const ph = p.offsetHeight;
+            if (r.bottom + 6 + ph > window.innerHeight - 8) p.style.top = Math.max(8, r.top - ph - 6) + 'px';
+        }
+        document.addEventListener('click', e => {
+            if (!e.target.closest('#popover')) closePopover();
+        }, true);
+        window.addEventListener('scroll', closePopover, true);
+        window.addEventListener('resize', closePopover);
+
+        function userActions(pubkey, name) {
+            const items = [];
+            const me = SkateChat.getState().myPublicKey;
+            if (pubkey && pubkey !== me) {
+                items.push({ label: `💬 Message ${name}`, onClick: () => { if (SkateChat.startDm(pubkey, name)) { app.chatOpen = true; switchView('chats'); focusChatInput(); } } });
+                items.push({
+                    label: SkateChat.Mutes.has(pubkey) ? `🔊 Unmute ${name}` : `🔇 Mute ${name}`,
+                    danger: !SkateChat.Mutes.has(pubkey),
+                    onClick: () => SkateChat.Mutes.toggle(pubkey, name)
+                });
+            }
+            return items;
+        }
+
+        // ---------- Modals ----------
+        function openModal(id) { $(id).classList.remove('hidden'); }
+        function closeModal(id) { $(id).classList.add('hidden'); }
+        function anyOpenModal() {
+            return [...$$('.modal-overlay')].find(m => !m.classList.contains('hidden')) || null;
+        }
+        $$('.modal-overlay').forEach(m => m.addEventListener('click', e => {
+            if (e.target === m && m.id !== 'onboarding-modal') {
+                m.classList.add('hidden');
+                if (m.id === 'invite-modal') { app.pendingInvite = null; clearHash(); }
+            }
+        }));
 
         // ---------- Init ----------
         async function init() {
@@ -280,9 +446,8 @@
             bindEvents();
             buildGuideCatUI();
 
-            // Onboarding fork: the whole app re-prioritizes around this answer
             if (!SkateSettings.get('experience')) {
-                $('onboarding-modal').classList.remove('hidden');
+                openModal('onboarding-modal');
             } else if (SkateSettings.get('experience') === 'new' && !sessionStorage.getItem('skate_seen_this_session')) {
                 switchView('guides');
             }
@@ -292,6 +457,7 @@
                 const programs = await SkateAPI.getSkatingPrograms();
                 app.programs = programs || [];
                 applyFilters();
+                if (app.pendingProgramFocus) { focusProgram(app.pendingProgramFocus); app.pendingProgramFocus = null; }
             } catch (e) {
                 $('program-list').innerHTML = '<li class="loading">Could not load programs 😕 — pull to refresh or try again later.</li>';
             }
@@ -301,13 +467,74 @@
             SkateGuides.load();
             SkateGuides.onUpdate(scheduleGuidesRender);
             SkateSettings.onChange(() => { renderPrograms(); renderChatUI(SkateChat.getState()); });
+
+            route();
+            window.addEventListener('hashchange', route);
         }
 
+        // ---------- Hash router: #p= programs, #guide= guides, #i/#j/legacy = invites ----------
+        let lastRoutedHash = null;
+        function route() {
+            const hash = window.location.hash.slice(1);
+            if (!hash || hash === lastRoutedHash) return;
+            lastRoutedHash = hash;
+
+            if (hash.startsWith('p=')) {
+                const pid = hash.slice(2);
+                switchView('programs');
+                if (app.programs.length) focusProgram(pid);
+                else app.pendingProgramFocus = pid;
+                return;
+            }
+            if (hash.startsWith('guide=')) {
+                const gid = hash.slice(6);
+                openGuideById(gid);
+                return;
+            }
+            const invite = SkateChat.parseInviteHash(hash);
+            if (invite) showInviteModal(invite);
+        }
+
+        function clearHash() {
+            lastRoutedHash = null;
+            history.replaceState(null, '', baseUrl());
+        }
+
+        function showInviteModal(invite) {
+            app.pendingInvite = invite;
+            $('invite-name').textContent = invite.name || 'Skating Group';
+            $('invite-error').textContent = '';
+            $('invite-pw-input').value = '';
+            $('invite-pw-field').classList.toggle('hidden', invite.mode !== 'password');
+            openModal('invite-modal');
+            if (invite.mode === 'password') setTimeout(() => $('invite-pw-input').focus(), 60);
+        }
+
+        async function confirmInvite() {
+            const inv = app.pendingInvite;
+            if (!inv) return;
+            const btn = $('btn-invite-join');
+            btn.disabled = true;
+            try {
+                await SkateChat.acceptInvite(inv, $('invite-pw-input').value || null);
+                app.pendingInvite = null;
+                closeModal('invite-modal');
+                clearHash();
+                app.chatOpen = true;
+                switchView('chats');
+                focusChatInput();
+            } catch (e) {
+                $('invite-error').textContent = e.message || 'Could not join';
+            }
+            btn.disabled = false;
+        }
+
+        // ---------- Experience fork ----------
         function applyExperience(exp) {
             SkateSettings.set('experience', exp);
             if (exp === 'new') {
                 app.type = 'leisure';
-                $$('.filter-chip').forEach(c => c.classList.toggle('active', c.dataset.type === 'leisure'));
+                $$('#type-filters .filter-chip').forEach(c => c.classList.toggle('active', c.dataset.type === 'leisure'));
                 applyFilters();
                 switchView('guides');
                 SkateChat.Notify.toast('Set up for new skaters — guides first, leisure sessions filtered 🐣', 'success', 3500);
@@ -384,6 +611,7 @@
 
             $('program-list').innerHTML = items.map((p, i) => {
                 const idx = start + i;
+                const pid = SkateChat.Favorites.getId(p);
                 const activity = p.Activity || p['Activity Title'] || 'Unknown';
                 const location = p.LocationName || p['Location Name'] || '';
                 const dateStr = p['Start Date Time'] || p['Start Date'] || '';
@@ -421,16 +649,16 @@
 
                 const votes = SkateChat.getVotes(p);
                 const isFavorite = SkateChat.Favorites.has(p);
-                const favBtn = `<button class="btn-favorite ${isFavorite ? 'active' : ''}" onclick="toggleFavorite(${idx})" title="${isFavorite ? 'Remove from saved' : 'Save this program'}">${isFavorite ? '❤️' : '🤍'}</button>`;
-                const groupActions = chatState.activeGroup ? `
-                    <button class="btn-share-program" onclick="shareProgram(${idx})" title="Share to ${escapeHtml(chatState.activeGroup.name)}">📤 Share</button>
-                    <button class="btn-vote ${votes.mine ? 'voted' : ''}" onclick="voteTime(${idx})" title="Vote for this time with your group">👍 ${votes.count || ''}</button>
-                ` : '';
-                const copyBtn = `<button class="btn-copy" onclick="copyProgram(${idx})" title="Copy details">📋</button>`;
+                const favBtn = `<button data-act="fav" data-idx="${idx}" class="btn-favorite ${isFavorite ? 'active' : ''}" title="${isFavorite ? 'Remove from saved' : 'Save this program'}">${isFavorite ? '❤️' : '🤍'}</button>`;
+                const copyBtn = `<button data-act="copy" data-idx="${idx}" class="btn-copy" title="Copy, link or add to calendar">📋</button>`;
+                const shareBtn = `<button data-act="share" data-idx="${idx}" class="btn-share-program" title="Share to a group or DM">📤</button>`;
+                const voteBtn = chatState.activeGroup
+                    ? `<button data-act="vote" data-idx="${idx}" class="btn-vote ${votes.mine ? 'voted' : ''}" title="Vote for this time with ${escapeHtml(chatState.activeGroup.name)}">👍 ${votes.count || ''}</button>`
+                    : '';
                 const locationHtml = location ? `<a href="${mapsUrl(location)}" target="_blank" rel="noopener" class="program-location">📍 ${escapeHtml(location)} ↗</a>` : '';
 
                 return `
-                    <li class="program-item ${happeningSoon ? 'happening-soon' : ''}">
+                    <li class="program-item ${happeningSoon ? 'happening-soon' : ''}" data-pid="${pid}">
                         <div class="program-header">
                             <div>
                                 <div class="program-title">${escapeHtml(activity)}</div>
@@ -444,7 +672,7 @@
                         </div>
                         <div class="program-footer">
                             <div class="program-badges">${tag} ${ageBadge}</div>
-                            <div class="program-actions">${favBtn}${copyBtn}${groupActions}</div>
+                            <div class="program-actions">${favBtn}${copyBtn}${shareBtn}${voteBtn}</div>
                         </div>
                     </li>`;
             }).join('');
@@ -462,23 +690,84 @@
             }
         }
 
-        // ---------- Chat ----------
+        function programText(p) {
+            const activity = p.Activity || p['Activity Title'] || '';
+            const location = p.LocationName || p['Location Name'] || '';
+            const dateStr = p['Start Date Time'] || p['Start Date'] || '';
+            const time = p['Start Time'] || '';
+            const date = dateStr ? parseLocalDate(dateStr).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' }) : '';
+            const pid = SkateChat.Favorites.getId(p);
+            return `⛸️ ${activity}\n📍 ${location}\n🗓️ ${date}${time ? ' at ' + fmtClock(time) : ''}\n\n${baseUrl()}#p=${pid}`;
+        }
+
+        function downloadIcs(p) {
+            const dateStr = p['Start Date Time'] || p['Start Date'] || '';
+            if (!dateStr) return SkateChat.Notify.toast('This program has no date to add', 'error');
+            const d = parseLocalDate(dateStr);
+            const [sh, sm] = (p['Start Time'] || '00:00').split(':').map(Number);
+            const [eh, em] = (p['End Time'] || '').split(':').map(Number);
+            const pad = n => String(n).padStart(2, '0');
+            const stamp = (h, m) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(h || 0)}${pad(m || 0)}00`;
+            const esc = s => String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+            const pid = SkateChat.Favorites.getId(p);
+            const lines = [
+                'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Toronto Skating//EN',
+                'BEGIN:VEVENT',
+                `UID:${pid}@toronto-skating`,
+                `DTSTART:${stamp(sh, sm)}`,
+                Number.isFinite(eh) ? `DTEND:${stamp(eh, em)}` : `DTEND:${stamp((sh || 0) + 1, sm)}`,
+                `SUMMARY:${esc(p.Activity || p['Activity Title'] || 'Skating')}`,
+                `LOCATION:${esc((p.LocationName || p['Location Name'] || '') + ', Toronto, ON')}`,
+                `URL:${baseUrl()}#p=${pid}`,
+                'END:VEVENT', 'END:VCALENDAR'
+            ];
+            const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `skating-${pid}.ics`;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+            SkateChat.Notify.toast('Calendar file downloaded 📆', 'success', 2000);
+        }
+
+        function focusProgram(pid) {
+            const find = () => app.filtered.findIndex(p => SkateChat.Favorites.getId(p) === pid);
+            let idx = find();
+            if (idx === -1) {
+                // widen the net: clear filters, include past events
+                app.type = 'all'; app.search = ''; app.day = ''; app.age = null; app.showPast = true;
+                $('search-input').value = ''; $('day-filter').value = ''; $('age-filter').value = '';
+                $('show-past-toggle').checked = true;
+                $$('#type-filters .filter-chip').forEach(c => c.classList.toggle('active', c.dataset.type === 'all'));
+                applyFilters();
+                idx = find();
+            }
+            if (idx === -1) return SkateChat.Notify.toast('That program isn\'t in the current dataset anymore', 'error');
+            app.page = Math.floor(idx / app.perPage) + 1;
+            renderPrograms();
+            requestAnimationFrame(() => {
+                const li = document.querySelector(`.program-item[data-pid="${pid}"]`);
+                if (li) {
+                    li.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                    li.classList.add('flash');
+                    li.addEventListener('animationend', () => li.classList.remove('flash'), { once: true });
+                }
+            });
+        }
+
+        // ---------- Chats: unified list + conversation ----------
         function renderChatUI(chatState) {
-            renderGroups(chatState);
-            renderChat(chatState);
-            renderPublicRooms(chatState);
-
-            $('groups-badge').textContent = chatState.totalGroupUnread || 0;
-            $('groups-badge').classList.toggle('hidden', !chatState.totalGroupUnread);
+            const totalUnread = (chatState.totalGroupUnread || 0) + (chatState.totalDmUnread || 0);
+            $('chats-badge').textContent = totalUnread;
+            $('chats-badge').classList.toggle('hidden', !totalUnread);
             $('user-name').textContent = `👤 ${chatState.myName || 'Guest'}`;
-            $('dm-badge').textContent = chatState.totalDmUnread || 0;
-            $('dm-badge').classList.toggle('hidden', !chatState.totalDmUnread);
-            $('dm-inbox-badge').textContent = chatState.totalDmUnread || 0;
-            $('dm-inbox-badge').classList.toggle('hidden', !chatState.totalDmUnread);
 
-            if (app.showInbox) renderDmInbox(chatState);
+            renderConversations(chatState);
+            renderActiveChat(chatState);
+            renderDiscoverRooms(chatState);
+            refreshMutedList();
 
-            // Programs re-render ONLY when votes actually changed (v1 re-rendered on every presence ping)
+            // Programs re-render ONLY when votes actually changed
             const votesSnapshot = JSON.stringify(Object.values(chatState.groups).map(g => g.votes || {})) + '|' + (chatState.activeGroupId || '');
             if (votesSnapshot !== app.lastVotesSnapshot) {
                 app.lastVotesSnapshot = votesSnapshot;
@@ -486,160 +775,383 @@
             }
         }
 
-        function renderPublicRooms(chatState) {
+        function convRow(c) {
+            const li = document.createElement('li');
+            li.className = 'conv-item' + (c.unread ? ' unread' : '') + (c.muted ? ' is-muted' : '');
+            li.dataset.kind = c.kind;
+            li.dataset.id = c.id;
+
+            const icon = document.createElement('span');
+            icon.className = 'conv-icon';
+            if (c.kind === 'dm') icon.innerHTML = hueDot(c.id);
+            else icon.textContent = c.emoji || '👥';
+
+            const info = document.createElement('div');
+            info.className = 'conv-info';
+            const nameEl = document.createElement('strong');
+            nameEl.textContent = c.name + (c.muted ? ' 🔇' : '');
+            const prev = document.createElement('span');
+            prev.className = 'conv-preview';
+            prev.textContent = c.preview || '';
+            info.append(nameEl, prev);
+
+            const meta = document.createElement('div');
+            meta.className = 'conv-meta';
+            const time = document.createElement('span');
+            time.className = 'conv-time';
+            time.textContent = c.lastTs ? SkateSettings.formatWhen(c.lastTs) : '';
+            meta.appendChild(time);
+            if (c.unread) {
+                const b = document.createElement('span');
+                b.className = 'dm-unread-badge';
+                b.textContent = c.unread;
+                meta.appendChild(b);
+            } else if (c.kind === 'group' && c.online > 1) {
+                const o = document.createElement('span');
+                o.className = 'conv-online';
+                o.innerHTML = `<span class="online-dot"></span>${c.online}`;
+                meta.appendChild(o);
+            }
+            li.append(icon, info, meta);
+            return li;
+        }
+
+        function renderConversations(chatState) {
+            const all = SkateChat.getConversations();
+            const f = app.chatFilter;
+            const shown = all.filter(c => {
+                if (f === 'groups') return c.kind === 'group';
+                if (f === 'dms') return c.kind === 'dm' && !c.muted;
+                if (f === 'muted') return c.muted;
+                return !c.muted; // 'all' keeps muted threads tucked away
+            });
+
+            const list = $('conversation-list');
+            list.innerHTML = '';
+            if (!shown.length) {
+                const li = document.createElement('li');
+                li.className = 'conv-empty';
+                if (f === 'muted') li.textContent = 'Nothing muted.';
+                else if (f === 'dms') li.textContent = 'No DMs yet — tap someone\'s name in any chat to message them.';
+                else {
+                    const p = document.createElement('p');
+                    p.textContent = 'No conversations yet.';
+                    const b = document.createElement('button');
+                    b.className = 'btn-primary btn-small';
+                    b.textContent = '＋ Browse rooms';
+                    b.onclick = () => openModal('discover-modal');
+                    li.append(p, b);
+                }
+                list.appendChild(li);
+            } else {
+                shown.forEach(c => list.appendChild(convRow(c)));
+            }
+
+            const gUnread = all.filter(c => c.kind === 'group').reduce((s, c) => s + c.unread, 0);
+            const dUnread = all.filter(c => c.kind === 'dm').reduce((s, c) => s + c.unread, 0);
+            $('cf-groups-badge').textContent = gUnread; $('cf-groups-badge').classList.toggle('hidden', !gUnread);
+            $('cf-dms-badge').textContent = dUnread; $('cf-dms-badge').classList.toggle('hidden', !dUnread);
+            const mutedThreads = all.filter(c => c.muted).length;
+            $('cf-muted').classList.toggle('hidden', !mutedThreads && f !== 'muted');
+            $('cf-muted').textContent = `🔇 Muted${mutedThreads ? ` (${mutedThreads})` : ''}`;
+
+            $('chats-list-mode').classList.toggle('hidden', app.chatOpen);
+            $('chats-convo-mode').classList.toggle('hidden', !app.chatOpen);
+        }
+
+        function replyRefHtml(r) {
+            if (!r) return '';
+            const mid = r.id && /^[0-9a-f_]{1,64}$/i.test(r.id) ? ` data-ref="${r.id}"` : '';
+            return `<div class="reply-ref"${mid}>↩ <strong>${escapeHtml(r.from || '')}</strong> ${escapeHtml(r.text || '')}</div>`;
+        }
+
+        function msgHtml(m, isDm) {
+            let cls = 'chat-msg';
+            if (m.mine) cls += ' mine';
+            if (m.system) cls += ' system';
+            if (m.type === 'share') cls += ' share';
+            if (m.type === 'guide') cls += ' share guide-share';
+
+            let content = escapeHtml(m.text || '');
+            if (m.type === 'share' && m.data) {
+                const loc = m.data.location;
+                const locLink = loc ? `<a href="${mapsUrl(loc)}" target="_blank" rel="noopener">📍 ${escapeHtml(loc)} ↗</a>` : '';
+                content = `<strong>⛸️ ${escapeHtml(m.data.activity)}</strong><br>${locLink}<br>🗓️ ${escapeHtml(m.data.date || '')}${m.data.time ? ' • ' + fmtClock(m.data.time) : ''}${m.data.endTime ? '–' + fmtClock(m.data.endTime) : ''}`;
+                if (m.data.programId) content += `<br><span class="share-open" data-open-program="${escapeHtml(m.data.programId)}">Open in Programs →</span>`;
+            } else if (m.type === 'guide' && m.data) {
+                const cat = SkateGuides.CATEGORIES[m.data.category];
+                content = `<strong>📖 ${escapeHtml(m.data.title)}</strong>` +
+                    (cat ? `<br><span class="guide-cat">${cat.emoji} ${escapeHtml(cat.name)}</span>` : '') +
+                    (m.data.excerpt ? `<br><em>“${escapeHtml(m.data.excerpt)}”</em>` : '') +
+                    `<br><span class="share-open" data-open-guide="${escapeHtml(m.data.guideId || '')}">Read the guide →</span>`;
+            }
+
+            const tick = !m.mine ? '' :
+                m.status === 'pending' ? '<span class="msg-tick pending" title="Sending…">⏳</span>' :
+                m.status === 'failed' ? '<span class="msg-tick failed" title="Not delivered — tap the message to retry">⚠ retry</span>' :
+                '<span class="msg-tick" title="Delivered to relays">✓</span>';
+
+            const sender = (!m.mine && !m.system)
+                ? `<div class="sender" ${m.fromPubkey ? `data-pk="${m.fromPubkey}"` : ''} data-name="${escapeHtml(m.from || 'Skater')}" title="Tap for message / mute">${!isDm ? hueDot(m.fromPubkey) : ''}${escapeHtml(m.from || '')}</div>`
+                : '';
+
+            return `
+                <div class="${cls}" data-mid="${escapeHtml(m.id)}"${m.localId ? ` data-local="${m.localId}"` : ''}>
+                    ${sender}
+                    <div class="bubble">${replyRefHtml(m.replyTo)}${content}${m.system ? '' : `<span class="msg-time">${SkateSettings.formatWhen(m.ts)}${tick}</span>`}</div>
+                </div>`;
+        }
+
+        function renderActiveChat(chatState) {
+            if (!app.chatOpen) return;
+            const { activeGroup, viewMode, activeDmThread, activeDmRecipient } = chatState;
+            const msgs = $('chat-messages');
+            const nearBottom = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 80;
+
+            let convKey = null, visible = [];
+
+            if (viewMode === 'dm' && activeDmThread) {
+                convKey = 'dm:' + activeDmRecipient;
+                $('chat-title').innerHTML = `${hueDot(activeDmRecipient)}${escapeHtml(activeDmThread.name)} <span class="pk-tag" title="Identity tag — same tag = same person, whatever they rename themselves">${shortPk(activeDmRecipient)}</span>`;
+                $('chat-status-dot').className = 'status-dot online';
+                $('chat-status-text').textContent = SkateChat.Mutes.has(activeDmRecipient) ? 'Muted — you won\'t be pinged' : 'Private message';
+                $('chat-online').classList.add('hidden');
+                $('members-bar').classList.add('hidden');
+                visible = activeDmThread.messages || [];
+                msgs.innerHTML = visible.length
+                    ? visible.map(m => msgHtml(m, true)).join('')
+                    : '<div class="chat-empty"><p>Start a private conversation — it reaches them even if they\'re offline now.</p></div>';
+                $('chat-input').placeholder = `Message ${activeDmThread.name}…`;
+            } else if (activeGroup) {
+                convKey = 'g:' + activeGroup.id;
+                $('chat-title').textContent = `${activeGroup.emoji || (activeGroup.hasPassword ? '🔐' : activeGroup.isPublic ? '🌐' : '🔒')} ${activeGroup.name || 'Skating Group'}`;
+                const status = SkateChat.getConnectionStatus();
+                $('chat-status-dot').className = `status-dot ${status === 'connected' ? 'online' : 'offline'}`;
+                $('chat-status-text').textContent = `#${activeGroup.id.slice(0, 6).toUpperCase()} • ${status}`;
+                const online = chatState.onlineCounts?.[activeGroup.id] || 0;
+                $('chat-online').classList.toggle('hidden', online < 2);
+                $('chat-online').innerHTML = `<span class="online-dot"></span>${online} here now`;
+
+                visible = (activeGroup.messages || []).filter(m => m.mine || !SkateChat.Mutes.has(m.fromPubkey));
+                msgs.innerHTML = visible.length
+                    ? visible.map(m => msgHtml(m, false)).join('')
+                    : '<div class="chat-empty"><p>No messages yet. Say hi! 👋</p></div>';
+
+                const roster = SkateChat.getRoster(activeGroup.id);
+                $('members-bar').classList.remove('hidden');
+                const ml = $('members-list');
+                ml.innerHTML = '';
+                if (!roster.length) {
+                    const solo = document.createElement('span');
+                    solo.className = 'members-solo';
+                    solo.textContent = 'Just you so far — messages wait here for whoever joins';
+                    ml.appendChild(solo);
+                } else {
+                    roster.slice(0, 8).forEach(r => {
+                        const chip = document.createElement('button');
+                        chip.className = 'member-chip' + (r.muted ? ' is-muted' : '');
+                        chip.dataset.pk = r.pubkey;
+                        chip.dataset.name = r.name;
+                        chip.title = `${r.name} — message or mute`;
+                        chip.innerHTML = `${hueDot(r.pubkey)}${r.online ? '<span class="online-dot"></span>' : ''}${escapeHtml(r.name)}${r.muted ? ' 🔇' : ''}`;
+                        ml.appendChild(chip);
+                    });
+                    if (roster.length > 8) {
+                        const more = document.createElement('span');
+                        more.className = 'members-more';
+                        more.textContent = `+${roster.length - 8}`;
+                        ml.appendChild(more);
+                    }
+                }
+                $('chat-input').placeholder = 'Type a message…';
+            } else {
+                // conversation vanished (left the group elsewhere) — back to list
+                app.chatOpen = false;
+                renderConversations(chatState);
+                return;
+            }
+
+            app.lastVisibleCount = visible.length;
+            if (convKey !== app.lastRenderedConv) {
+                app.lastRenderedConv = convKey;
+                app.jumpBase = visible.length;
+                msgs.scrollTop = msgs.scrollHeight;
+                $('jump-pill').classList.add('hidden');
+            } else if (nearBottom) {
+                msgs.scrollTop = msgs.scrollHeight;
+                app.jumpBase = visible.length;
+                $('jump-pill').classList.add('hidden');
+            } else {
+                const fresh = visible.length - app.jumpBase;
+                if (fresh > 0) {
+                    $('jump-pill').textContent = `↓ ${fresh} new message${fresh > 1 ? 's' : ''}`;
+                    $('jump-pill').classList.remove('hidden');
+                }
+            }
+        }
+
+        function focusChatInput() { setTimeout(() => $('chat-input').focus(), 60); }
+
+        function goBackToList() {
+            const s = SkateChat.getState();
+            if (s.viewMode === 'dm') SkateChat.closeDm();
+            app.chatOpen = false;
+            app.lastRenderedConv = null;
+            clearReply();
+            renderChatUI(SkateChat.getState());
+        }
+
+        function setReply(m) {
+            app.replyTo = { id: m.id, from: m.from || 'Skater', text: (m.text || m.data?.title || m.data?.activity || '').slice(0, 120) };
+            $('chat-reply-label').textContent = `↩ Replying to ${app.replyTo.from}: ${app.replyTo.text.slice(0, 60)}`;
+            $('chat-reply-bar').classList.remove('hidden');
+            focusChatInput();
+        }
+        function clearReply() {
+            app.replyTo = null;
+            $('chat-reply-bar').classList.add('hidden');
+        }
+
+        function findMessage(chatState, mid) {
+            const pool = chatState.viewMode === 'dm'
+                ? chatState.activeDmThread?.messages
+                : chatState.activeGroup?.messages;
+            return (pool || []).find(m => m.id === mid || m.localId === mid) || null;
+        }
+
+        function scrollToMsg(mid) {
+            const el = document.querySelector(`.chat-msg[data-mid="${CSS.escape(mid)}"]`);
+            if (!el) return SkateChat.Notify.toast('That message isn\'t loaded anymore', 'info', 2000);
+            el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            el.classList.add('flash');
+            el.addEventListener('animationend', () => el.classList.remove('flash'), { once: true });
+        }
+
+        function messageActions(m, chatState) {
+            const items = [];
+            const isDm = chatState.viewMode === 'dm';
+            const convId = isDm ? chatState.activeDmRecipient : chatState.activeGroup?.id;
+            if (!m.system) items.push({ label: '↩ Reply', onClick: () => setReply(m) });
+            if (m.text) items.push({ label: '📋 Copy text', onClick: () => copyText(m.text) });
+            if (m.type === 'share' && m.data?.programId) items.push({ label: '⛸️ Open in Programs', onClick: () => { switchView('programs'); focusProgram(m.data.programId); } });
+            if (m.type === 'guide' && m.data?.guideId) items.push({ label: '📖 Open guide', onClick: () => openGuideById(m.data.guideId) });
+            if (m.mine && m.status === 'failed' && m.localId) {
+                items.push({ label: '🔁 Retry send', onClick: () => SkateChat.retryMessage(isDm ? 'dm' : 'group', convId, m.localId) });
+            }
+            if (!m.mine && !m.system && !isDm) items.push(...userActions(m.fromPubkey, m.from || 'Skater'));
+            if (!m.mine && isDm) {
+                items.push({
+                    label: SkateChat.Mutes.has(convId) ? '🔊 Unmute' : '🔇 Mute',
+                    danger: !SkateChat.Mutes.has(convId),
+                    onClick: () => SkateChat.Mutes.toggle(convId, chatState.activeDmThread?.name)
+                });
+            }
+            return items;
+        }
+
+        function openChatMenu(anchor) {
+            const s = SkateChat.getState();
+            const items = [];
+            if (s.viewMode === 'dm' && s.activeDmRecipient) {
+                const pk = s.activeDmRecipient, name = s.activeDmThread?.name || 'Skater';
+                items.push({
+                    label: SkateChat.Mutes.has(pk) ? `🔊 Unmute ${name}` : `🔇 Mute ${name}`,
+                    onClick: () => SkateChat.Mutes.toggle(pk, name)
+                });
+                items.push({ label: '🧹 Clear history (this device)', onClick: () => { if (confirm('Clear this conversation on this device?')) SkateChat.clearHistory('dm', pk); } });
+                items.push({ label: '🗑 Delete conversation', danger: true, onClick: () => { if (confirm('Delete this DM thread from this device?')) { SkateChat.deleteDmThread(pk); goBackToList(); } } });
+            } else if (s.activeGroup) {
+                const g = s.activeGroup;
+                if (!g.isPublic) {
+                    items.push({ label: '🔗 Copy invite link', onClick: () => {
+                        const inv = SkateChat.getInviteInfo(g.id);
+                        if (inv) copyText(inv.url, inv.hasPassword ? 'Invite copied — they\'ll also need the password 🔐' : 'Invite link copied! 🔗');
+                    } });
+                    items.push({ label: '✏️ Rename group', onClick: async () => {
+                        const name = prompt('New group name:', g.name);
+                        if (name === null) return;
+                        try { await SkateChat.renameGroup(g.id, name); } catch (e) { SkateChat.Notify.toast(e.message, 'error'); }
+                    } });
+                }
+                items.push({ label: '🧹 Clear history (this device)', onClick: () => { if (confirm('Clear messages on this device? Others keep theirs.')) SkateChat.clearHistory('group', g.id); } });
+                items.push({ label: g.isPublic ? '🚪 Leave room' : '🚪 Leave group', danger: true, onClick: () => {
+                    if (confirm(`Leave ${g.name}?`)) { SkateChat.leaveGroup(g.id); goBackToList(); }
+                } });
+            }
+            openPopover(anchor, items);
+        }
+
+        // ---------- Discover modal ----------
+        function renderDiscoverRooms(chatState) {
             const rooms = SkateChat.getPublicRooms();
             const joinedIds = Object.keys(chatState.publicRooms || {});
-            $('public-rooms-list').innerHTML = Object.entries(rooms).map(([key, room]) => {
+            const wrap = $('discover-rooms');
+            wrap.innerHTML = '';
+            Object.entries(rooms).forEach(([key, room]) => {
                 const secret = chatState.publicRoomSecrets?.[key];
                 const roomId = secret ? SkateChat.Crypto.deriveGroupId(secret) : null;
                 const isJoined = roomId && joinedIds.includes(roomId);
                 const online = roomId ? (chatState.onlineCounts?.[roomId] || 0) : 0;
-                return `
-                    <div class="room-card ${isJoined ? 'joined' : ''}" onclick="joinPublicRoom('${key}')">
-                        <span class="room-emoji">${room.emoji}</span>
-                        <div class="room-info">
-                            <div class="room-name">${escapeHtml(room.name)}</div>
-                            <div class="room-desc">${escapeHtml(room.desc)}</div>
-                            ${isJoined ? `<div class="room-members">✓ Joined${online ? ` • <span class="online-dot"></span>${online} online now` : ''}</div>` : ''}
-                        </div>
-                    </div>`;
-            }).join('');
-        }
 
-        function renderGroups(chatState) {
-            const privateGroups = Object.values(chatState.privateGroups || {});
-            if (privateGroups.length === 0) {
-                $('groups-list').innerHTML = '<li style="text-align:center;padding:12px;color:var(--text-muted);font-size:12px">No private groups yet</li>';
-                $('share-card').classList.add('hidden');
-                return;
-            }
-            $('groups-list').innerHTML = privateGroups.map(g => {
-                const unread = chatState.perGroupUnread?.[g.id] || 0;
-                return `
-                <li class="group-item ${g.id === chatState.activeGroupId && !chatState.activeIsPublic ? 'active' : ''}">
-                    <div class="group-info">
-                        <h3>${escapeHtml(g.name || 'Skating Group')} ${unread ? `<span class="badge">${unread}</span>` : ''}</h3>
-                        <div class="group-code">#${g.id.slice(0, 6).toUpperCase()}</div>
-                        <div class="group-members">${g.members?.length || 1} members</div>
+                const card = document.createElement('div');
+                card.className = 'room-card' + (isJoined ? ' joined' : '');
+                card.dataset.room = key;
+                card.innerHTML = `
+                    <span class="room-emoji">${room.emoji}</span>
+                    <div class="room-info">
+                        <div class="room-name">${escapeHtml(room.name)}</div>
+                        <div class="room-desc">${escapeHtml(room.desc)}</div>
+                        ${isJoined ? `<div class="room-members">✓ Joined${online ? ` • <span class="online-dot"></span>${online} online` : ''}</div>` : ''}
                     </div>
-                    <div class="group-actions">
-                        <button class="btn-icon" onclick="selectGroup('${g.id}')">${g.id === chatState.activeGroupId ? '✓' : '→'}</button>
-                        <button class="btn-icon" onclick="leaveGroup('${g.id}')">✕</button>
-                    </div>
-                </li>`;
-            }).join('');
-
-            if (chatState.activeGroup && !chatState.activeIsPublic) {
-                $('share-card').classList.remove('hidden');
-                $('share-url-input').value = SkateChat.getShareUrl() || '';
-            } else {
-                $('share-card').classList.add('hidden');
-            }
+                    <span class="room-cta">${isJoined ? 'Open →' : 'Join →'}</span>`;
+                if (isJoined && roomId) {
+                    const leave = document.createElement('button');
+                    leave.className = 'btn-icon room-leave';
+                    leave.title = `Leave ${room.name}`;
+                    leave.dataset.leave = roomId;
+                    leave.dataset.roomName = room.name;
+                    leave.textContent = '✕';
+                    card.appendChild(leave);
+                }
+                wrap.appendChild(card);
+            });
         }
 
-        function renderDmInbox(chatState) {
-            const threads = SkateChat.getDmThreadsList();
-            if (!threads.length) {
-                $('dm-list').innerHTML = '<li style="text-align:center;padding:20px;color:var(--text-muted)">No messages yet — tap a member chip in any chat to DM them</li>';
-                return;
-            }
-            $('dm-list').innerHTML = threads.map(t => {
-                const preview = t.lastMessage ? t.lastMessage.text.slice(0, 30) + (t.lastMessage.text.length > 30 ? '…' : '') : 'No messages';
-                const time = t.lastMessage ? SkateSettings.formatWhen(t.lastMessage.ts) : '';
-                return `
-                    <li class="dm-item ${t.unread > 0 ? 'unread' : ''}" onclick="openDm('${t.pubkey}')">
-                        <div class="dm-info"><strong>${escapeHtml(t.name)}</strong><span class="dm-preview">${escapeHtml(preview)}</span></div>
-                        <div class="dm-meta"><span class="dm-time">${time}</span>${t.unread ? `<span class="dm-unread-badge">${t.unread}</span>` : ''}</div>
-                    </li>`;
-            }).join('');
+        // ---------- Share picker ----------
+        function openSharePicker(ctx) {
+            app.shareCtx = ctx;
+            $('share-title').textContent = ctx.type === 'guide' ? '📖 Share guide to…' : '📤 Share program to…';
+            const list = $('share-dest-list');
+            list.innerHTML = '';
+            const convs = SkateChat.getConversations().filter(c => !(c.kind === 'dm' && c.muted));
+            $('share-empty').classList.toggle('hidden', !!convs.length);
+            convs.forEach(c => {
+                const li = document.createElement('li');
+                li.className = 'conv-item share-dest';
+                li.dataset.kind = c.kind;
+                li.dataset.id = c.id;
+                li.dataset.name = c.name;
+                const icon = document.createElement('span');
+                icon.className = 'conv-icon';
+                if (c.kind === 'dm') icon.innerHTML = hueDot(c.id); else icon.textContent = c.emoji || '👥';
+                const info = document.createElement('div');
+                info.className = 'conv-info';
+                const nm = document.createElement('strong');
+                nm.textContent = c.name;
+                info.appendChild(nm);
+                li.append(icon, info);
+                list.appendChild(li);
+            });
+            openModal('share-modal');
         }
 
-        function statusTick(m) {
-            if (!m.mine) return '';
-            if (m.status === 'pending') return '<span class="msg-tick pending" title="Sending…">⏳</span>';
-            if (m.status === 'failed') return '<span class="msg-tick failed" title="Not delivered — check connection">⚠</span>';
-            return '<span class="msg-tick" title="Delivered to relays">✓</span>';
-        }
-
-        function renderChat(chatState) {
-            const { activeGroup, viewMode, activeDmThread } = chatState;
-            const msgs = $('chat-messages'), input = $('chat-input-bar'), members = $('members-bar'), backBtn = $('btn-back');
-            const nearBottom = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 80;
-
-            if (viewMode === 'dm' && activeDmThread) {
-                backBtn.classList.remove('hidden');
-                $('chat-title').textContent = `💬 ${activeDmThread.name}`;
-                $('chat-status-dot').className = 'status-dot online';
-                $('chat-status-text').textContent = 'Private message';
-                $('chat-online').classList.add('hidden');
-                msgs.innerHTML = activeDmThread.messages?.length
-                    ? activeDmThread.messages.map(m => `
-                        <div class="chat-msg ${m.mine ? 'mine' : ''}">
-                            ${!m.mine ? `<div class="sender">${escapeHtml(m.from)}</div>` : ''}
-                            <div class="bubble">${escapeHtml(m.text)}<span class="msg-time">${SkateSettings.formatWhen(m.ts)}${statusTick(m)}</span></div>
-                        </div>`).join('')
-                    : '<div class="chat-empty"><p>Start a private conversation — it reaches them even if they\'re offline now.</p></div>';
-                if (nearBottom) msgs.scrollTop = msgs.scrollHeight;
-                members.classList.add('hidden');
-                input.classList.remove('hidden');
-                $('chat-input').placeholder = `Message ${activeDmThread.name}…`;
-                return;
-            }
-
-            backBtn.classList.add('hidden');
-            if (!activeGroup) {
-                $('chat-title').textContent = 'No group selected';
-                $('chat-status-dot').className = 'status-dot offline';
-                $('chat-status-text').textContent = 'Not connected';
-                $('chat-online').classList.add('hidden');
-                msgs.innerHTML = '<div class="chat-empty"><p>👥 Join a public room or create a group!</p></div>';
-                input.classList.add('hidden');
-                members.classList.add('hidden');
-                return;
-            }
-
-            $('chat-title').textContent = activeGroup.name || 'Skating Group';
-            const status = SkateChat.getConnectionStatus();
-            $('chat-status-dot').className = `status-dot ${status === 'connected' ? 'online' : 'offline'}`;
-            $('chat-status-text').textContent = `#${activeGroup.id.slice(0, 6).toUpperCase()} • ${status}`;
-            const online = chatState.onlineCounts?.[activeGroup.id] || 0;
-            $('chat-online').classList.toggle('hidden', online < 2);
-            $('chat-online').innerHTML = `<span class="online-dot"></span>${online} here now`;
-
-            msgs.innerHTML = activeGroup.messages?.length
-                ? activeGroup.messages.map(m => {
-                    let cls = 'chat-msg';
-                    if (m.mine) cls += ' mine';
-                    if (m.system) cls += ' system';
-                    if (m.type === 'share') cls += ' share';
-                    let content = escapeHtml(m.text || '');
-                    if (m.type === 'share' && m.data) {
-                        const loc = m.data.location;
-                        const locLink = loc ? `<a href="${mapsUrl(loc)}" target="_blank" rel="noopener">📍 ${escapeHtml(loc)} ↗</a>` : '';
-                        content = `<strong>⛸️ ${escapeHtml(m.data.activity)}</strong><br>${locLink}<br>🗓️ ${escapeHtml(m.data.date || '')}${m.data.time ? ' • ' + fmtClock(m.data.time) : ''}${m.data.endTime ? '–' + fmtClock(m.data.endTime) : ''}`;
-                    }
-                    return `
-                        <div class="${cls}">
-                            ${!m.mine && !m.system ? `<div class="sender">${escapeHtml(m.from)}</div>` : ''}
-                            <div class="bubble">${content}${m.system ? '' : `<span class="msg-time">${SkateSettings.formatWhen(m.ts)}${statusTick(m)}</span>`}</div>
-                        </div>`;
-                }).join('')
-                : '<div class="chat-empty"><p>No messages yet. Say hi! 👋</p></div>';
-            if (nearBottom) msgs.scrollTop = msgs.scrollHeight;
-
-            const myName = chatState.myName;
-            const others = (activeGroup.members || []).filter(m => m !== myName);
-            if (others.length) {
-                members.classList.remove('hidden');
-                $('members-list').innerHTML = others.slice(0, 8).map(m =>
-                    `<span class="member-chip" onclick="startDm('${escapeHtml(m)}')" title="Message ${escapeHtml(m)}">${escapeHtml(m)}</span>`).join('') +
-                    (others.length > 8 ? ` +${others.length - 8}` : '');
-            } else {
-                members.classList.remove('hidden');
-                $('members-list').innerHTML = '<span style="color:var(--text-muted)">Just you so far — messages wait here for whoever joins</span>';
-            }
-            input.classList.remove('hidden');
-            $('chat-input').placeholder = 'Type a message…';
+        async function doShare(dest) {
+            const ctx = app.shareCtx;
+            if (!ctx) return;
+            closeModal('share-modal');
+            app.shareCtx = null;
+            if (ctx.type === 'program') await SkateChat.shareProgram(ctx.payload, dest);
+            else await SkateChat.shareGuide(ctx.payload, dest);
         }
 
         // ---------- Guides ----------
@@ -647,7 +1159,15 @@
         function scheduleGuidesRender() {
             if (guidesRenderQueued) return;
             guidesRenderQueued = true;
-            requestAnimationFrame(() => { guidesRenderQueued = false; renderGuides(); });
+            requestAnimationFrame(() => {
+                guidesRenderQueued = false;
+                renderGuides();
+                if (app.pendingGuideOpen && SkateGuides.get(app.pendingGuideOpen)) {
+                    const gid = app.pendingGuideOpen;
+                    app.pendingGuideOpen = null;
+                    openGuideById(gid);
+                }
+            });
         }
 
         function buildGuideCatUI() {
@@ -674,7 +1194,7 @@
             $('guides-list').innerHTML = guides.map(g => {
                 const cat = SkateGuides.CATEGORIES[g.category] || {};
                 return `
-                <div class="guide-card ${g.pinned ? 'pinned' : ''}" onclick="openGuide('${g.id}')">
+                <div class="guide-card ${g.pinned ? 'pinned' : ''}" data-guide="${g.id}">
                     <div class="guide-card-top">
                         ${g.pinned ? '<span class="pin-badge">📌 Pinned</span>' : ''}
                         <span class="guide-cat">${cat.emoji || ''} ${escapeHtml(cat.name || '')}</span>
@@ -682,9 +1202,9 @@
                     <h4>${escapeHtml(g.title)}</h4>
                     <p class="guide-preview">${escapeHtml(g.body.slice(0, 140))}${g.body.length > 140 ? '…' : ''}</p>
                     <div class="guide-card-bottom">
-                        <span>by ${escapeHtml(g.authorName || 'Skater')} · ${new Date(g.ts).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}</span>
+                        <span>${hueDot(g.author)}${escapeHtml(g.authorName || 'Skater')} · ${new Date(g.ts).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}</span>
                         <span>
-                            <button class="btn-guide-vote ${SkateGuides.hasVoted(g.id, myPk) ? 'voted' : ''}" onclick="event.stopPropagation();voteGuide('${g.id}', this)">⛸️ ${g.votes}</button>
+                            <button class="btn-guide-vote ${SkateGuides.hasVoted(g.id, myPk) ? 'voted' : ''}" data-vote="${g.id}" title="${SkateGuides.hasVoted(g.id, myPk) ? 'Remove your vote' : 'Vote useful'}">⛸️ ${g.votes}</button>
                             💬 ${g.comments.length}
                         </span>
                     </div>
@@ -697,69 +1217,180 @@
             if (!g) { app.activeGuideId = null; return renderGuides(); }
             const cat = SkateGuides.CATEGORIES[g.category] || {};
             const myPk = SkateChat.getState().myPublicKey;
+            const voted = SkateGuides.hasVoted(g.id, myPk);
             $('guide-detail-content').innerHTML = `
                 <div class="guide-card-top">
                     ${g.pinned ? '<span class="pin-badge">📌 Pinned</span>' : ''}
                     <span class="guide-cat">${cat.emoji || ''} ${escapeHtml(cat.name || '')}</span>
                 </div>
                 <h3>${escapeHtml(g.title)}</h3>
-                <p class="guide-byline">by ${escapeHtml(g.authorName || 'Skater')} · ${new Date(g.ts).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
-                <div class="guide-body">${escapeHtml(g.body).replace(/\n/g, '<br>')}</div>
-                <button class="btn-guide-vote big ${SkateGuides.hasVoted(g.id, myPk) ? 'voted' : ''}" onclick="voteGuide('${g.id}', this)">⛸️ Useful (${g.votes})</button>`;
-            $('guide-comments-title').textContent = `Comments (${g.comments.length})`;
-            $('guide-comments-list').innerHTML = g.comments.length
-                ? g.comments.map(c => `<li><strong>${escapeHtml(c.authorName)}</strong> <span class="dm-time">${SkateSettings.formatWhen(c.ts)}</span><br>${escapeHtml(c.text)}</li>`).join('')
-                : '<li style="color:var(--text-muted)">No comments yet</li>';
+                <p class="guide-byline">${hueDot(g.author)}${escapeHtml(g.authorName || 'Skater')} <span class="pk-tag">${shortPk(g.author)}</span> · ${new Date(g.ts).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                <div class="guide-body" id="guide-body-text">${escapeHtml(g.body).replace(/\n/g, '<br>')}</div>
+                <div class="guide-detail-actions">
+                    <button class="btn-guide-vote big ${voted ? 'voted' : ''}" data-vote="${g.id}" title="${voted ? 'Remove your vote' : 'Vote useful'}">⛸️ Useful (${g.votes})</button>
+                    <button data-guide-copy="${g.id}" title="Copy a link to this guide">🔗 Copy link</button>
+                    <button data-guide-share="${g.id}" title="Share this guide (or a highlighted part) into a chat">📤 Share to chat</button>
+                </div>
+                <p class="guides-sub">Tip: highlight a sentence before hitting Share to quote just that part. 🔍</p>`;
+
+            // ----- comment tree: roots chronological, replies nested one visual level -----
+            const comments = g.comments || [];
+            const byId = Object.fromEntries(comments.map(c => [c.id, c]));
+            const children = {};
+            const roots = [];
+            comments.forEach(c => {
+                if (c.parentId && byId[c.parentId]) (children[c.parentId] ||= []).push(c);
+                else roots.push(c);
+            });
+            const nodeHtml = (c, depth, parentName) => {
+                const cVoted = SkateGuides.hasVoted(c.id, myPk);
+                return `
+                <li class="comment ${depth ? 'reply' : ''}" data-cid="${c.id}">
+                    ${depth ? `<span class="reply-to">↪ ${escapeHtml(parentName)}</span>` : ''}
+                    <div class="comment-head">${hueDot(c.author)}<strong>${escapeHtml(c.authorName)}</strong> <span class="dm-time">${SkateSettings.formatWhen(c.ts)}</span></div>
+                    <div class="comment-text">${escapeHtml(c.text)}</div>
+                    <div class="comment-actions">
+                        <button class="btn-cvote ${cVoted ? 'voted' : ''}" data-vote="${c.id}" title="${cVoted ? 'Remove your vote' : 'Upvote this comment'}">⛸️ ${c.votes || ''}</button>
+                        <button class="btn-creply" data-reply-comment="${c.id}" data-name="${escapeHtml(c.authorName)}">↩ Reply</button>
+                    </div>
+                </li>`;
+            };
+            const walk = (c, depth, parentName) => {
+                let html = nodeHtml(c, depth, parentName);
+                (children[c.id] || []).sort((a, b) => a.ts - b.ts)
+                    .forEach(ch => { html += walk(ch, 1, c.authorName); });
+                return html;
+            };
+            $('guide-comments-title').textContent = `Comments (${comments.length})`;
+            $('guide-comments-list').innerHTML = roots.length
+                ? roots.map(r => walk(r, 0, null)).join('')
+                : '<li class="comment-none">No comments yet — start the thread! 💬</li>';
         }
 
-        window.openGuide = id => {
+        function openGuideById(id) {
+            switchView('guides');
+            const g = SkateGuides.get(id);
+            if (!g) {
+                app.pendingGuideOpen = id;
+                if (SkateGuides.loaded) SkateChat.Notify.toast('Hmm, that guide isn\'t on the relays (yet?)', 'info', 3000);
+                return;
+            }
+            app.pendingGuideOpen = null;
             app.activeGuideId = id;
+            clearGuideReply();
             $('guides-home').classList.add('hidden');
             $('guide-write').classList.add('hidden');
             $('guide-detail').classList.remove('hidden');
             renderGuideDetail();
-        };
+        }
 
-        window.voteGuide = async (id, btn) => {
-            const orig = btn.textContent;
+        function setGuideReply(id, name) {
+            app.guideReply = { id, name };
+            $('guide-reply-label').textContent = `↩ Replying to ${name}`;
+            $('guide-reply-bar').classList.remove('hidden');
+            $('guide-comment-input').focus();
+        }
+        function clearGuideReply() {
+            app.guideReply = null;
+            $('guide-reply-bar').classList.add('hidden');
+        }
+
+        async function toggleGuideVote(targetId, btn) {
             btn.disabled = true;
-            btn.textContent = '⛏️…';
             try {
-                const ok = await SkateGuides.vote(id, identity());
+                const ok = await SkateGuides.vote(targetId, identity());
                 if (!ok) SkateChat.Notify.toast('Vote didn\'t reach the relays — try again', 'error');
             } catch (e) { SkateChat.Notify.toast(e.message, 'error'); }
             btn.disabled = false;
-            btn.textContent = orig;
             renderGuides();
-        };
+        }
 
-        // ---------- Global actions ----------
-        window.shareProgram = idx => { const p = app.filtered[idx]; if (p) SkateChat.shareProgram(p); };
-        window.voteTime = idx => { const p = app.filtered[idx]; if (p) SkateChat.voteTime(p); };
-        window.selectGroup = id => { SkateChat.switchGroup(id); if (window.innerWidth < 768) switchView('chat'); };
-        window.leaveGroup = id => { if (confirm('Leave this group?')) SkateChat.leaveGroup(id); };
-        window.startDm = name => { if (SkateChat.startDm(name)) { app.showInbox = false; $('dm-inbox').classList.add('hidden'); switchView('chat'); } };
-        window.openDm = pubkey => {
-            if (SkateChat.startDm(pubkey)) { app.showInbox = false; $('dm-inbox').classList.add('hidden'); }
-        };
-        window.joinPublicRoom = async key => {
-            try { await SkateChat.joinPublicRoom(key); if (window.innerWidth < 768) switchView('chat'); }
-            catch (e) { SkateChat.Notify.toast(e.message, 'error'); }
-        };
-        window.toggleFavorite = idx => { const p = app.filtered[idx]; if (p) { SkateChat.Favorites.toggle(p); renderPrograms(); } };
-        window.copyProgram = idx => {
-            const p = app.filtered[idx];
-            if (!p) return;
-            const activity = p.Activity || p['Activity Title'] || '';
-            const location = p.LocationName || p['Location Name'] || '';
-            const dateStr = p['Start Date Time'] || p['Start Date'] || '';
-            const time = p['Start Time'] || '';
-            const date = dateStr ? new Date(dateStr).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' }) : '';
-            const text = `⛸️ ${activity}\n📍 ${location}\n🗓️ ${date}${time ? ' at ' + fmtClock(time) : ''}\n\nFound on Toronto Skating: ${window.location.origin}${window.location.pathname}`;
-            navigator.clipboard.writeText(text)
-                .then(() => SkateChat.Notify.toast('Copied to clipboard! 📋', 'success', 2000))
-                .catch(() => SkateChat.Notify.toast('Could not copy', 'error', 2000));
-        };
+        async function submitGuideComment() {
+            const text = $('guide-comment-input').value;
+            if (!text.trim() || !app.activeGuideId) return;
+            const btn = $('btn-guide-comment');
+            btn.disabled = true; btn.textContent = '⛏️';
+            try {
+                const ok = await SkateGuides.comment(app.activeGuideId, text, identity(), app.guideReply?.id || null);
+                if (ok) { $('guide-comment-input').value = ''; clearGuideReply(); renderGuideDetail(); }
+                else SkateChat.Notify.toast('Comment didn\'t reach the relays', 'error');
+            } catch (e) { SkateChat.Notify.toast(e.message, 'error'); }
+            btn.disabled = false; btn.textContent = '➤';
+        }
+
+        function shareGuideFromDetail(g) {
+            // If the reader highlighted a passage inside the guide body, quote it
+            let excerpt = '';
+            const sel = window.getSelection();
+            if (sel && !sel.isCollapsed && sel.rangeCount) {
+                const body = $('guide-body-text');
+                if (body && body.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+                    excerpt = sel.toString().trim().slice(0, 200);
+                }
+            }
+            if (!excerpt) excerpt = g.body.slice(0, 140).trim();
+            openSharePicker({ type: 'guide', payload: { guideId: g.id, title: g.title, category: g.category, excerpt } });
+        }
+
+        // ---------- Settings ----------
+        function refreshSettingsUI() {
+            const fmt = SkateSettings.get('timeFormat'), exp = SkateSettings.get('experience');
+            $$('#settings-timefmt button').forEach(b => b.classList.toggle('active', b.dataset.fmt === fmt));
+            $$('#settings-exp button').forEach(b => b.classList.toggle('active', b.dataset.exp === exp));
+            updateNotifUI();
+            refreshMutedList();
+        }
+
+        function updateNotifUI() {
+            const p = SkateChat.Notify.permission();
+            const btn = $('btn-enable-notif'), hint = $('notif-hint');
+            if (p === 'granted') { btn.classList.add('hidden'); hint.textContent = 'Enabled ✓ — you\'ll be pinged for messages while this tab is in the background.'; }
+            else if (p === 'denied') { btn.classList.add('hidden'); hint.textContent = 'Blocked in your browser — allow notifications for this site in browser settings to turn them on.'; }
+            else if (p === 'unsupported') { btn.classList.add('hidden'); hint.textContent = 'Your browser doesn\'t support notifications.'; }
+            else { btn.classList.remove('hidden'); hint.textContent = 'Get pinged for new messages when this tab is in the background.'; }
+        }
+
+        function refreshMutedList() {
+            const list = $('muted-list');
+            const muted = SkateChat.Mutes.list();
+            list.innerHTML = '';
+            if (!muted.length) {
+                const li = document.createElement('li');
+                li.className = 'muted-empty';
+                li.textContent = 'No one muted. Tap a name in any chat to mute someone.';
+                list.appendChild(li);
+                return;
+            }
+            muted.forEach(m => {
+                const li = document.createElement('li');
+                const label = document.createElement('span');
+                label.innerHTML = `${hueDot(m.pubkey)}`;
+                label.append(document.createTextNode(`${m.name} `));
+                const tag = document.createElement('span');
+                tag.className = 'pk-tag';
+                tag.textContent = shortPk(m.pubkey);
+                label.appendChild(tag);
+                const btn = document.createElement('button');
+                btn.className = 'btn-small';
+                btn.textContent = '🔊 Unmute';
+                btn.onclick = () => SkateChat.Mutes.toggle(m.pubkey, m.name);
+                li.append(label, btn);
+                list.appendChild(li);
+            });
+        }
+
+        // ---------- Sending ----------
+        async function sendCurrent() {
+            const input = $('chat-input');
+            const text = input.value;
+            if (!text.trim()) return;
+            input.value = '';
+            const reply = app.replyTo;
+            clearReply();
+            const s = SkateChat.getState();
+            if (s.viewMode === 'dm') await SkateChat.sendDm(text, reply);
+            else await SkateChat.sendMessage(text, reply);
+        }
 
         // ---------- Events ----------
         function bindEvents() {
@@ -791,7 +1422,9 @@
             $('age-filter').onchange = () => { app.age = $('age-filter').value ? parseInt($('age-filter').value) : null; applyFilters(); };
             $('show-past-toggle').onchange = () => { app.showPast = $('show-past-toggle').checked; applyFilters(); };
 
-            $('dark-mode-label').onclick = () => {
+            // Single button now — the old <label>-wrapped version double-fired
+            // (label re-dispatched the click to its own child button = instant undo).
+            $('btn-dark-mode').onclick = () => {
                 app.darkMode = !app.darkMode;
                 applyDarkMode();
                 localStorage.setItem('darkMode', app.darkMode);
@@ -803,31 +1436,152 @@
             $('pagination').onclick = goPage;
             $('pagination-top').onclick = goPage;
 
-            // Chat
+            // Program actions (delegated — no user strings in inline handlers)
+            $('program-list').onclick = e => {
+                const btn = e.target.closest('button[data-act]');
+                if (!btn) return;
+                const p = app.filtered[parseInt(btn.dataset.idx)];
+                if (!p) return;
+                const act = btn.dataset.act;
+                if (act === 'fav') { SkateChat.Favorites.toggle(p); renderPrograms(); }
+                else if (act === 'vote') SkateChat.voteTime(p);
+                else if (act === 'share') openSharePicker({ type: 'program', payload: p });
+                else if (act === 'copy') {
+                    const pid = SkateChat.Favorites.getId(p);
+                    openPopover(btn, [
+                        { label: '📋 Copy details', onClick: () => copyText(programText(p)) },
+                        { label: '🔗 Copy link', onClick: () => copyText(`${baseUrl()}#p=${pid}`, 'Link copied! 🔗') },
+                        { label: '📆 Add to calendar (.ics)', onClick: () => downloadIcs(p) }
+                    ]);
+                }
+            };
+
+            // Chats — list
+            $('btn-discover').onclick = () => openModal('discover-modal');
+            $('chat-filters').onclick = e => {
+                const chip = e.target.closest('.filter-chip');
+                if (!chip) return;
+                $$('#chat-filters .filter-chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                app.chatFilter = chip.dataset.cf;
+                renderConversations(SkateChat.getState());
+            };
+            $('conversation-list').onclick = e => {
+                const row = e.target.closest('.conv-item');
+                if (!row) return;
+                app.chatOpen = true;
+                clearReply();
+                SkateChat.openConversation(row.dataset.kind, row.dataset.id);
+                focusChatInput();
+            };
+
+            // Chats — conversation
+            $('btn-back').onclick = goBackToList;
+            $('btn-chat-menu').onclick = e => { e.stopPropagation(); openChatMenu($('btn-chat-menu')); };
             $('btn-send').onclick = sendCurrent;
             $('chat-input').onkeypress = e => { if (e.key === 'Enter') sendCurrent(); };
-            $('btn-back').onclick = () => SkateChat.closeDm();
-            $('btn-dm-inbox').onclick = () => {
-                app.showInbox = !app.showInbox;
-                $('dm-inbox').classList.toggle('hidden', !app.showInbox);
-                if (app.showInbox) renderDmInbox(SkateChat.getState());
+            $('btn-reply-cancel').onclick = clearReply;
+            $('jump-pill').onclick = () => {
+                const msgs = $('chat-messages');
+                msgs.scrollTop = msgs.scrollHeight;
+                app.jumpBase = app.lastVisibleCount;
+                $('jump-pill').classList.add('hidden');
             };
-            $('btn-close-inbox').onclick = () => { app.showInbox = false; $('dm-inbox').classList.add('hidden'); };
+            $('chat-messages').addEventListener('scroll', () => {
+                const msgs = $('chat-messages');
+                if (msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 80) {
+                    app.jumpBase = app.lastVisibleCount;
+                    $('jump-pill').classList.add('hidden');
+                }
+            });
+            $('members-list').onclick = e => {
+                const chip = e.target.closest('.member-chip');
+                if (!chip) return;
+                e.stopPropagation();
+                openPopover(chip, userActions(chip.dataset.pk, chip.dataset.name));
+            };
+            $('chat-messages').onclick = e => {
+                if (e.target.closest('a')) return;                       // links behave like links
+                const opener = e.target.closest('[data-open-program],[data-open-guide]');
+                if (opener) {
+                    if (opener.dataset.openProgram) { switchView('programs'); focusProgram(opener.dataset.openProgram); }
+                    else openGuideById(opener.dataset.openGuide);
+                    return;
+                }
+                const ref = e.target.closest('.reply-ref');
+                if (ref && ref.dataset.ref) return scrollToMsg(ref.dataset.ref);
+                const sender = e.target.closest('.sender');
+                const s = SkateChat.getState();
+                if (sender && sender.dataset.pk) {
+                    e.stopPropagation();
+                    return openPopover(sender, userActions(sender.dataset.pk, sender.dataset.name));
+                }
+                const msgEl = e.target.closest('.chat-msg');
+                if (!msgEl) return;
+                const m = findMessage(s, msgEl.dataset.local || msgEl.dataset.mid);
+                if (!m) return;
+                e.stopPropagation();
+                openPopover(msgEl.querySelector('.bubble') || msgEl, messageActions(m, s));
+            };
 
-            // Groups
+            // Discover modal
+            $('btn-discover-close').onclick = () => closeModal('discover-modal');
+            $('discover-rooms').onclick = async e => {
+                const leave = e.target.closest('[data-leave]');
+                if (leave) {
+                    if (confirm(`Leave ${leave.dataset.roomName}?`)) SkateChat.leaveGroup(leave.dataset.leave);
+                    return;
+                }
+                const card = e.target.closest('.room-card');
+                if (!card) return;
+                try {
+                    await SkateChat.joinPublicRoom(card.dataset.room);
+                    closeModal('discover-modal');
+                    app.chatOpen = true;
+                    switchView('chats');
+                    focusChatInput();
+                } catch (err) { SkateChat.Notify.toast(err.message, 'error'); }
+            };
             $('btn-create-group').onclick = async () => {
                 try {
                     const name = $('group-name-input').value.trim();
                     const password = $('group-password-input').value.trim() || null;
                     if (!name) return SkateChat.Notify.toast('Give your group a name', 'error', 2000);
-                    await SkateChat.createGroup({ name, password });
+                    const { invite } = await SkateChat.createGroup({ name, password });
                     $('group-name-input').value = ''; $('group-password-input').value = '';
-                    SkateChat.Notify.toast('Group created! Share the invite link 🔗', 'success');
+                    closeModal('discover-modal');
+                    app.chatOpen = true;
+                    switchView('chats');
+                    if (invite) copyText(invite.url, invite.hasPassword
+                        ? 'Group created — invite link copied. Friends will also need the password 🔐'
+                        : 'Group created — invite link copied! 🔗');
                 } catch (e) { SkateChat.Notify.toast(e.message, 'error'); }
             };
-            $('btn-copy-url').onclick = () => {
-                navigator.clipboard.writeText($('share-url-input').value)
-                    .then(() => SkateChat.Notify.toast('Invite link copied! 🔗', 'success', 2000));
+            $('btn-join-link').onclick = () => {
+                const raw = $('join-link-input').value.trim();
+                if (!raw) return;
+                const hashPart = raw.includes('#') ? raw.slice(raw.indexOf('#') + 1) : raw;
+                const inv = SkateChat.parseInviteHash(hashPart);
+                if (!inv) return SkateChat.Notify.toast('That doesn\'t look like a valid invite link', 'error');
+                $('join-link-input').value = '';
+                closeModal('discover-modal');
+                showInviteModal(inv);
+            };
+
+            // Invite modal
+            $('btn-invite-join').onclick = confirmInvite;
+            $('invite-pw-input').onkeypress = e => { if (e.key === 'Enter') confirmInvite(); };
+            const dismissInvite = () => { app.pendingInvite = null; closeModal('invite-modal'); clearHash(); };
+            $('btn-invite-cancel').onclick = dismissInvite;
+            $('btn-invite-close').onclick = dismissInvite;
+
+            // Share modal
+            $('btn-share-close').onclick = () => { app.shareCtx = null; closeModal('share-modal'); };
+            $('btn-share-discover').onclick = () => { closeModal('share-modal'); openModal('discover-modal'); };
+            $('share-dest-list').onclick = e => {
+                const row = e.target.closest('.share-dest');
+                if (!row) return;
+                doShare({ kind: row.dataset.kind, id: row.dataset.id, name: row.dataset.name });
             };
 
             // Guides
@@ -839,8 +1593,33 @@
                     renderGuides();
                 }
             };
+            $('guides-list').onclick = e => {
+                const vote = e.target.closest('[data-vote]');
+                if (vote) { e.stopPropagation(); return toggleGuideVote(vote.dataset.vote, vote); }
+                const card = e.target.closest('[data-guide]');
+                if (card) openGuideById(card.dataset.guide);
+            };
+            $('guide-detail-content').onclick = e => {
+                const vote = e.target.closest('[data-vote]');
+                if (vote) return toggleGuideVote(vote.dataset.vote, vote);
+                const copy = e.target.closest('[data-guide-copy]');
+                if (copy) return copyText(`${baseUrl()}#guide=${copy.dataset.guideCopy}`, 'Guide link copied! 🔗');
+                const share = e.target.closest('[data-guide-share]');
+                if (share) {
+                    const g = SkateGuides.get(share.dataset.guideShare);
+                    if (g) shareGuideFromDetail(g);
+                }
+            };
+            $('guide-comments-list').onclick = e => {
+                const vote = e.target.closest('[data-vote]');
+                if (vote) return toggleGuideVote(vote.dataset.vote, vote);
+                const reply = e.target.closest('[data-reply-comment]');
+                if (reply) setGuideReply(reply.dataset.replyComment, reply.dataset.name);
+            };
+            $('btn-guide-reply-cancel').onclick = clearGuideReply;
             $('btn-guide-back').onclick = () => {
                 app.activeGuideId = null;
+                clearGuideReply();
                 $('guide-detail').classList.add('hidden');
                 $('guides-home').classList.remove('hidden');
                 renderGuides();
@@ -872,31 +1651,22 @@
                 } catch (e) { SkateChat.Notify.toast(e.message, 'error'); }
                 btn.disabled = false; btn.textContent = 'Publish guide';
             };
-            $('btn-guide-comment').onclick = async () => {
-                const text = $('guide-comment-input').value;
-                if (!text.trim() || !app.activeGuideId) return;
-                const btn = $('btn-guide-comment');
-                btn.disabled = true; btn.textContent = '⛏️';
-                try {
-                    const ok = await SkateGuides.comment(app.activeGuideId, text, identity());
-                    if (ok) { $('guide-comment-input').value = ''; renderGuideDetail(); }
-                    else SkateChat.Notify.toast('Comment didn\'t reach the relays', 'error');
-                } catch (e) { SkateChat.Notify.toast(e.message, 'error'); }
-                btn.disabled = false; btn.textContent = '➤';
-            };
+            $('btn-guide-comment').onclick = submitGuideComment;
+            $('guide-comment-input').onkeypress = e => { if (e.key === 'Enter') submitGuideComment(); };
 
             // Onboarding
-            $('onboard-new').onclick = () => { $('onboarding-modal').classList.add('hidden'); applyExperience('new'); };
-            $('onboard-regular').onclick = () => { $('onboarding-modal').classList.add('hidden'); applyExperience('regular'); };
+            $('onboard-new').onclick = () => { closeModal('onboarding-modal'); applyExperience('new'); };
+            $('onboard-regular').onclick = () => { closeModal('onboarding-modal'); applyExperience('regular'); };
 
             // Settings
-            $('btn-settings').onclick = () => {
+            const openSettings = () => {
                 $('settings-name').value = SkateChat.getState().myName || '';
                 refreshSettingsUI();
-                $('settings-modal').classList.remove('hidden');
+                openModal('settings-modal');
             };
-            $('btn-settings-close').onclick = () => $('settings-modal').classList.add('hidden');
-            $('settings-modal').onclick = e => { if (e.target === $('settings-modal')) $('settings-modal').classList.add('hidden'); };
+            $('btn-settings').onclick = openSettings;
+            $('user-name').onclick = openSettings;
+            $('btn-settings-close').onclick = () => closeModal('settings-modal');
             $('btn-save-name').onclick = () => {
                 if (SkateChat.setDisplayName($('settings-name').value)) SkateChat.Notify.toast('Name updated ✓', 'success', 2000);
                 else SkateChat.Notify.toast('That name won\'t work — try another', 'error', 2500);
@@ -907,29 +1677,29 @@
             $('settings-exp').onclick = e => {
                 if (e.target.dataset.exp) { applyExperience(e.target.dataset.exp); refreshSettingsUI(); }
             };
+            $('btn-enable-notif').onclick = async () => {
+                await SkateChat.Notify.requestPermission();
+                updateNotifUI();
+            };
 
-            // Keyboard: 1-4 switch views when not typing
+            // Keyboard: 1-3 switch views, Esc walks back (popover → modal → conversation)
             document.addEventListener('keydown', e => {
+                if (e.key === 'Escape') {
+                    const pop = $('popover');
+                    if (!pop.classList.contains('hidden')) return closePopover();
+                    const modal = anyOpenModal();
+                    if (modal && modal.id !== 'onboarding-modal') {
+                        modal.classList.add('hidden');
+                        if (modal.id === 'invite-modal') { app.pendingInvite = null; clearHash(); }
+                        return;
+                    }
+                    if (app.chatOpen && $('chats-panel').classList.contains('active')) return goBackToList();
+                    return;
+                }
                 if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
-                const views = ['programs', 'guides', 'groups', 'chat'];
-                if (e.key >= '1' && e.key <= '4') switchView(views[parseInt(e.key) - 1]);
+                const views = ['programs', 'guides', 'chats'];
+                if (e.key >= '1' && e.key <= '3') switchView(views[parseInt(e.key) - 1]);
             });
-        }
-
-        function refreshSettingsUI() {
-            const fmt = SkateSettings.get('timeFormat'), exp = SkateSettings.get('experience');
-            $$('#settings-timefmt button').forEach(b => b.classList.toggle('active', b.dataset.fmt === fmt));
-            $$('#settings-exp button').forEach(b => b.classList.toggle('active', b.dataset.exp === exp));
-        }
-
-        async function sendCurrent() {
-            const input = $('chat-input');
-            const text = input.value;
-            if (!text.trim()) return;
-            input.value = '';
-            const s = SkateChat.getState();
-            if (s.viewMode === 'dm') await SkateChat.sendDm(text);
-            else await SkateChat.sendMessage(text);
         }
 
         function applyDarkMode() {

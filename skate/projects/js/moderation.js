@@ -79,10 +79,15 @@ const SkateMod = (() => {
      * Full check. Returns { ok, reason }.
      * Local hit -> blocked immediately. Remote APIs consulted next;
      * if both are unreachable we allow (local list remains the floor).
+     *
+     * opts.remote=false skips the third-party APIs entirely — used for DMs
+     * and private groups so private plaintext never leaves the device.
      */
-    async function check(text) {
+    async function check(text, opts = {}) {
+        const remote = opts.remote !== false;
         if (!text || !text.trim()) return { ok: false, reason: 'empty' };
         if (checkLocal(text)) return { ok: false, reason: 'local' };
+        if (!remote) return { ok: true };
         try {
             if (await checkProfanityDev(text)) return { ok: false, reason: 'profanity.dev' };
             return { ok: true };
