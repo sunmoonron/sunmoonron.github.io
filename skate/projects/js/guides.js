@@ -25,7 +25,7 @@ const SkateGuides = (() => {
 
     // TODO(owner): put YOUR pubkey here (hex, not npub — decode with NostrTools.nip19.decode)
     // Pins + mutes signed by any other key are ignored.
-    const OWNER_PUBKEY = 'REPLACE_WITH_OWNER_HEX_PUBKEY';
+    const OWNER_PUBKEY = 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257';
 
     const TAG = 'tskate-guide';
     const CATEGORIES = {
