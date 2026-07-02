@@ -1,0 +1,140 @@
+/**
+ * Toronto Ice Skating — v2 additions
+ * Onboarding fork, settings modal, guides board, chat delivery states.
+ * Extends the existing token system in style.css (uses the same variables).
+ */
+
+/* ========== Modals ========== */
+.modal-overlay {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(10, 20, 25, 0.55);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+}
+.modal {
+    background: var(--bg-white);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    width: 100%; max-width: 400px;
+    max-height: 85vh; overflow-y: auto;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+}
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+
+/* Onboarding — the fork */
+.modal.onboarding { text-align: center; }
+.onboard-ice { font-size: 44px; margin-bottom: 4px; }
+.modal.onboarding h2 { margin-bottom: 6px; }
+.modal.onboarding > p { color: var(--text-muted); font-size: 13px; margin-bottom: 16px; }
+.onboard-choice {
+    display: flex; align-items: center; gap: 12px;
+    width: 100%; text-align: left;
+    background: var(--bg); border: 2px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px; margin-bottom: 10px;
+    transition: border-color 0.15s, transform 0.1s;
+}
+.onboard-choice:hover { border-color: var(--primary); }
+.onboard-choice small { color: var(--text-muted); }
+.onboard-emoji { font-size: 28px; }
+.onboard-note { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+/* Settings */
+.settings-field { display: block; margin-bottom: 16px; }
+.settings-field > span { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+.settings-inline { display: flex; gap: 8px; }
+.settings-inline input { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--text); }
+.seg-control { display: flex; gap: 6px; }
+.seg-control button {
+    flex: 1; padding: 8px; font-size: 13px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.seg-control button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.settings-hint { font-size: 11px; color: var(--text-muted); }
+
+/* ========== Guides ========== */
+#guides-panel { padding: 12px 16px; overflow-y: auto; }
+.guides-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+.guides-sub { font-size: 12px; color: var(--text-muted); margin: 2px 0 8px; }
+#guides-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+
+.guide-card {
+    background: var(--bg-white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.1s;
+}
+.guide-card:hover { border-color: var(--primary); }
+.guide-card:active { transform: scale(0.99); }
+.guide-card.pinned { border-color: var(--primary); border-width: 2px; }
+.guide-card h4 { margin: 4px 0; }
+.guide-card-top { display: flex; gap: 8px; align-items: center; font-size: 11px; }
+.pin-badge { color: var(--primary); font-weight: 600; }
+.guide-cat { color: var(--text-muted); }
+.guide-preview { font-size: 12px; color: var(--text-muted); margin: 4px 0 8px; }
+.guide-card-bottom { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted); }
+
+.btn-guide-vote {
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 4px 10px; font-size: 12px;
+}
+.btn-guide-vote.voted { background: var(--primary); color: #fff; border-color: var(--primary); }
+.btn-guide-vote.big { padding: 10px 16px; font-size: 14px; margin-top: 12px; }
+.btn-guide-vote:disabled { opacity: 0.7; }
+
+.btn-back-inline { background: none; color: var(--primary); padding: 6px 0; font-size: 13px; margin-bottom: 6px; }
+.guide-byline { font-size: 12px; color: var(--text-muted); margin: 4px 0 12px; }
+.guide-body { line-height: 1.6; font-size: 14px; }
+
+.guide-comments { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 12px; }
+.guide-comments ul { list-style: none; display: flex; flex-direction: column; gap: 10px; margin: 10px 0; }
+.guide-comments li { background: var(--bg-white); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 10px; font-size: 13px; }
+.comment-input-row { display: flex; gap: 8px; }
+.comment-input-row input { flex: 1; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-white); color: var(--text); }
+.comment-input-row button { background: var(--primary); color: #fff; min-width: 44px; }
+
+#guide-write input, #guide-write select, #guide-write textarea {
+    display: block; width: 100%; margin-bottom: 10px;
+    padding: 10px; border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--bg-white); color: var(--text);
+    font-family: inherit; font-size: 14px;
+}
+.pow-hint { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+
+/* ========== Chat additions ========== */
+.msg-time {
+    display: inline-block; margin-left: 8px;
+    font-size: 10px; color: var(--text-muted);
+    vertical-align: bottom;
+}
+.msg-tick { font-size: 10px; margin-left: 3px; }
+.msg-tick.pending { opacity: 0.7; }
+.msg-tick.failed { color: var(--danger); }
+
+.chat-online { font-size: 11px; color: var(--primary); margin-left: 8px; }
+.online-dot {
+    display: inline-block; width: 7px; height: 7px;
+    border-radius: 50%; background: var(--success);
+    margin-right: 3px;
+    animation: online-pulse 2.4s ease-in-out infinite;
+}
+@keyframes online-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .online-dot { animation: none; } }
+
+#btn-dm-inbox { position: relative; }
+#dm-inbox-badge {
+    position: absolute; top: -4px; right: -4px;
+    background: var(--danger); color: #fff;
+    font-size: 10px; min-width: 16px; height: 16px;
+    border-radius: 8px; line-height: 16px; padding: 0 3px;
+}
+
+.btn-primary {
+    background: var(--primary); color: #fff;
+    padding: 8px 14px; border-radius: var(--radius); font-size: 13px;
+}
+.btn-primary:disabled { opacity: 0.7; }
+
+.hidden { display: none !important; }

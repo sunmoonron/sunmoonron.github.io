@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Toronto Ice Skating</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <link rel="stylesheet" href="assets/css/style.css?v=9">
+    <link rel="stylesheet" href="assets/css/style.css?v=10">
+    <link rel="stylesheet" href="assets/css/style-additions.css?v=1">
 </head>
 <body>
     <div class="app" id="app">
@@ -17,18 +18,19 @@
                     <button class="btn-icon" id="btn-dark-mode" title="Toggle dark mode">🌙</button>
                     <span>Dark</span>
                 </label>
+                <button class="btn-icon" id="btn-settings" title="Settings">⚙️</button>
                 <span id="user-name" class="user-name"></span>
             </div>
         </div>
-        
-        <!-- Mobile Tabs -->
+
+        <!-- Tabs -->
         <div class="view-tabs">
             <button class="view-tab active" data-view="programs">⛸️ Programs</button>
+            <button class="view-tab" data-view="guides">📖 Guides</button>
             <button class="view-tab" data-view="groups">👥 Groups <span class="badge hidden" id="groups-badge">0</span></button>
             <button class="view-tab" data-view="chat">💬 Chat <span class="badge hidden" id="dm-badge">0</span></button>
         </div>
-        
-        <!-- Main Content -->
+
         <div class="main-content">
             <!-- Programs Panel -->
             <div class="view-panel active" id="programs-panel">
@@ -36,7 +38,7 @@
                     <input type="text" id="search-input" placeholder="Search activities or locations...">
                     <button id="btn-search">🔍</button>
                 </div>
-                
+
                 <div class="filter-row" id="type-filters">
                     <button class="filter-chip active" data-type="all">All</button>
                     <button class="filter-chip" data-type="favorites">❤️ Saved</button>
@@ -47,7 +49,7 @@
                     <button class="filter-chip" data-type="adapted">Adapted</button>
                     <button class="filter-chip" data-type="ringette">Ringette</button>
                 </div>
-                
+
                 <div class="filter-selects">
                     <select id="day-filter">
                         <option value="">Any Day</option>
@@ -56,7 +58,7 @@
                     </select>
                     <input type="number" id="age-filter" placeholder="Age" style="max-width:80px">
                 </div>
-                
+
                 <div class="stats-row" id="stats-row">
                     <div class="stats-info">
                         <span id="stats-text">Loading...</span>
@@ -72,305 +74,361 @@
                 <ul class="program-list" id="program-list"><li class="loading">Loading...</li></ul>
                 <div class="pagination" id="pagination"></div>
             </div>
-            
+
+            <!-- Guides Panel -->
+            <div class="view-panel" id="guides-panel">
+                <div id="guides-home">
+                    <div class="guides-header">
+                        <div>
+                            <h3>📖 Skater guides</h3>
+                            <p class="guides-sub">Written by the community — rinks, gear, first-lap tips.</p>
+                        </div>
+                        <button class="btn-primary" id="btn-write-guide">✍️ Write a guide</button>
+                    </div>
+                    <div class="filter-row" id="guide-cat-filters">
+                        <button class="filter-chip active" data-cat="">All</button>
+                    </div>
+                    <div id="guides-list"><div class="loading">Loading guides from the network…</div></div>
+                </div>
+
+                <div id="guide-detail" class="hidden">
+                    <button class="btn-back-inline" id="btn-guide-back">← All guides</button>
+                    <div id="guide-detail-content"></div>
+                    <div class="guide-comments">
+                        <h4 id="guide-comments-title">Comments</h4>
+                        <ul id="guide-comments-list"></ul>
+                        <div class="comment-input-row">
+                            <input type="text" id="guide-comment-input" maxlength="500" placeholder="Add a comment…">
+                            <button id="btn-guide-comment">➤</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="guide-write" class="hidden">
+                    <button class="btn-back-inline" id="btn-write-back">← Cancel</button>
+                    <h3>✍️ Write a guide</h3>
+                    <p class="guides-sub">Share what you wish you'd known. Plain text, no brands-shilling — the community votes with real effort.</p>
+                    <input type="text" id="guide-title-input" maxlength="80" placeholder="Title (e.g. 'Renting skates downtown: the real options')">
+                    <select id="guide-cat-input"></select>
+                    <textarea id="guide-body-input" maxlength="6000" rows="10" placeholder="Your guide… (at least a few sentences)"></textarea>
+                    <button class="btn-primary" id="btn-guide-submit">Publish guide</button>
+                    <p class="pow-hint">Publishing takes a few seconds — your device does a small proof-of-work so spam is expensive. ⛏️</p>
+                </div>
+            </div>
+
             <!-- Groups Panel -->
             <div class="view-panel groups-panel-view" id="groups-panel">
-                <!-- Public Rooms Section -->
                 <div class="public-rooms">
                     <h3>🌐 Public Rooms</h3>
                     <div id="public-rooms-list"></div>
                 </div>
-                
-                <!-- Divider -->
+
                 <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--border);">
-                
-                <!-- Create Private Group -->
+
                 <div class="create-group-card" style="margin: 0 16px;">
                     <h3>🔒 Create Private Group</h3>
                     <p style="font-size:12px;color:var(--text-muted)">Invite-only group for friends</p>
-                    <div class="create-options">
-                        <input type="text" id="group-name-input" placeholder="Group name" maxlength="30">
-                        <input type="password" id="group-password-input" placeholder="Password (optional)">
-                        <button class="btn-primary" id="btn-create-group">Create</button>
-                    </div>
+                    <input type="text" id="group-name-input" placeholder="Group name" maxlength="40">
+                    <input type="text" id="group-password-input" placeholder="Password (optional)">
+                    <button class="btn-primary" id="btn-create-group">Create</button>
                 </div>
-                
+
                 <div class="share-card hidden" id="share-card" style="margin: 16px;">
-                    <label>🔗 Invite friends:</label>
+                    <p>🔗 Invite friends:</p>
                     <input type="text" id="share-url-input" readonly>
-                    <button id="btn-copy-url" style="width:100%">📋 Copy Invite Link</button>
+                    <button id="btn-copy-url">📋 Copy Invite Link</button>
                 </div>
-                
-                <h4 style="margin:16px 16px 8px;font-size:13px;color:var(--text-muted)">Your Groups</h4>
-                <ul class="groups-list" id="groups-list" style="margin:0 16px;">
-                    <li style="text-align:center;padding:20px;color:var(--text-muted)">No groups yet</li>
-                </ul>
+
+                <h4 style="margin: 16px 16px 8px;">Your Groups</h4>
+                <ul class="groups-list" id="groups-list"><li>No groups yet</li></ul>
             </div>
-            
+
             <!-- Chat Panel -->
             <div class="view-panel chat-panel-view" id="chat-panel">
-                <div class="chat-container">
-                    <!-- Chat Header -->
-                    <div class="chat-header">
-                        <div class="chat-header-info">
-                            <button class="btn-icon hidden" id="btn-back" style="margin-right:8px">←</button>
-                            <div>
-                                <h3 id="chat-title">No group selected</h3>
-                                <div class="status">
-                                    <span class="status-dot" id="chat-status-dot"></span>
-                                    <span id="chat-status-text">--</span>
-                                </div>
-                            </div>
+                <div class="chat-header">
+                    <button class="btn-icon hidden" id="btn-back">←</button>
+                    <div class="chat-header-info">
+                        <h3 id="chat-title">No group selected</h3>
+                        <div class="chat-status">
+                            <span class="status-dot offline" id="chat-status-dot"></span>
+                            <span id="chat-status-text">--</span>
+                            <span id="chat-online" class="chat-online hidden"></span>
                         </div>
-                        <button class="btn-icon hidden" id="btn-dm-inbox" title="Messages">💬</button>
                     </div>
-                    
-                    <!-- DM Inbox (toggleable) -->
-                    <div class="dm-inbox hidden" id="dm-inbox">
-                        <div class="dm-inbox-header">
-                            <h4>💬 Direct Messages</h4>
-                            <button class="btn-icon" id="btn-close-inbox">✕</button>
-                        </div>
-                        <ul class="dm-list" id="dm-list">
-                            <li style="text-align:center;padding:20px;color:var(--text-muted)">No messages yet</li>
-                        </ul>
+                    <button class="btn-icon" id="btn-dm-inbox" title="Direct messages">💬<span class="badge hidden" id="dm-inbox-badge">0</span></button>
+                </div>
+
+                <div class="dm-inbox hidden" id="dm-inbox">
+                    <div class="dm-inbox-header">
+                        <h4>💬 Direct Messages</h4>
+                        <button class="btn-icon" id="btn-close-inbox">✕</button>
                     </div>
-                    
-                    <!-- Messages Area -->
-                    <div class="chat-messages" id="chat-messages">
-                        <div class="chat-empty"><p>👥 Join or create a group to start chatting!</p></div>
-                    </div>
-                    
-                    <!-- Members Bar -->
-                    <div class="members-bar hidden" id="members-bar">
-                        <span style="margin-right:4px">👥</span>
-                        <span id="members-list"></span>
-                    </div>
-                    
-                    <!-- Input Bar -->
-                    <div class="chat-input-bar hidden" id="chat-input-bar">
-                        <input type="text" id="chat-input" placeholder="Type a message..." maxlength="500">
-                        <button id="btn-send">➤</button>
-                    </div>
+                    <ul id="dm-list"><li>No messages yet</li></ul>
+                </div>
+
+                <div class="members-bar hidden" id="members-bar">
+                    <span style="font-size:11px;color:var(--text-muted)">👥</span>
+                    <div id="members-list"></div>
+                </div>
+
+                <div class="chat-messages" id="chat-messages">
+                    <div class="chat-empty"><p>👥 Join or create a group to start chatting!</p></div>
+                </div>
+
+                <div class="chat-input-bar hidden" id="chat-input-bar">
+                    <input type="text" id="chat-input" maxlength="500" placeholder="Type a message...">
+                    <button id="btn-send">➤</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Scripts -->
+    <!-- Onboarding modal (first visit) -->
+    <div class="modal-overlay hidden" id="onboarding-modal">
+        <div class="modal onboarding">
+            <div class="onboard-ice">⛸️</div>
+            <h2>Welcome to Toronto Skating</h2>
+            <p>Quick question so we can set things up for you:</p>
+            <button class="onboard-choice" id="onboard-new">
+                <span class="onboard-emoji">🐣</span>
+                <span><strong>New to skating</strong><br><small>Show me guides, beginner-friendly sessions & the New Skaters room</small></span>
+            </button>
+            <button class="onboard-choice" id="onboard-regular">
+                <span class="onboard-emoji">🏒</span>
+                <span><strong>I skate regularly</strong><br><small>Straight to the schedule — I know what I'm looking for</small></span>
+            </button>
+            <p class="onboard-note">You can change this anytime in ⚙️ settings.</p>
+        </div>
+    </div>
+
+    <!-- Settings modal -->
+    <div class="modal-overlay hidden" id="settings-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>⚙️ Settings</h3>
+                <button class="btn-icon" id="btn-settings-close">✕</button>
+            </div>
+            <label class="settings-field">
+                <span>Display name</span>
+                <div class="settings-inline">
+                    <input type="text" id="settings-name" maxlength="24" placeholder="Your chat name">
+                    <button class="btn-primary" id="btn-save-name">Save</button>
+                </div>
+            </label>
+            <label class="settings-field">
+                <span>Time format</span>
+                <div class="seg-control" id="settings-timefmt">
+                    <button data-fmt="12h">12h · 2:30 PM</button>
+                    <button data-fmt="24h">24h · 14:30</button>
+                </div>
+            </label>
+            <label class="settings-field">
+                <span>Experience</span>
+                <div class="seg-control" id="settings-exp">
+                    <button data-exp="new">🐣 New skater</button>
+                    <button data-exp="regular">🏒 Regular</button>
+                </div>
+            </label>
+            <p class="settings-hint">Your chat identity lives only in this browser. Clearing site data resets it.</p>
+        </div>
+    </div>
+
+    <!-- Scripts (order matters) -->
     <script src="../assets/js/nostr.bundle.js"></script>
     <script src="projects/js/profanity-list.js"></script>
-    <script src="projects/js/storage.js?v=9"></script>
-    <script src="projects/js/api.js?v=9"></script>
-    <script src="projects/js/chat.js?v=9"></script>
-    <script src="projects/js/refresh.js?v=1"></script>
-    
+    <script src="projects/js/settings.js?v=1"></script>
+    <script src="projects/js/moderation.js?v=1"></script>
+    <script src="projects/js/nostr-core.js?v=1"></script>
+    <script src="projects/js/storage.js?v=10"></script>
+    <script src="projects/js/api.js?v=10"></script>
+    <script src="projects/js/chat-v2.js?v=1"></script>
+    <script src="projects/js/guides.js?v=1"></script>
+    <script src="projects/js/refresh.js?v=2"></script>
+
     <script>
-    (function() {
+    (() => {
         'use strict';
-        
-        // ========== STATE ==========
-        const app = { programs: [], filtered: [], page: 1, perPage: 25, type: 'all', search: '', day: '', age: null, view: 'programs', showInbox: false, showPast: false, darkMode: localStorage.getItem('darkMode') === 'true' };
-        
-        // ========== HELPERS ==========
         const $ = id => document.getElementById(id);
         const $$ = sel => document.querySelectorAll(sel);
-        
-        // Parse date string as local time (not UTC) to avoid off-by-one day issues
-        function parseLocalDate(dateStr) {
-            if (!dateStr) return null;
-            // If it's a YYYY-MM-DD format, parse as local date
-            if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-                const [year, month, day] = dateStr.split('-').map(Number);
-                return new Date(year, month - 1, day);
-            }
-            // Otherwise use standard parsing
-            return new Date(dateStr);
+
+        const app = {
+            programs: [], filtered: [], page: 1, perPage: 20,
+            type: 'all', search: '', day: '', age: null, showPast: false,
+            darkMode: localStorage.getItem('darkMode') === 'true',
+            showInbox: false, activeGuideId: null, guideCat: '',
+            lastVotesSnapshot: ''
+        };
+
+        // ---------- Helpers ----------
+        function escapeHtml(s) {
+            return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         }
-        
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-        
         function mapsUrl(location) {
-            return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location + ', Toronto, ON')}`;
+            return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(location + ', Toronto, ON');
         }
-        
-        // ========== INIT ==========
+        function parseLocalDate(str) {
+            if (!str) return new Date(9999, 0, 1);
+            const m = String(str).match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+            return new Date(str);
+        }
+        const fmtClock = t => SkateSettings.formatClock(t);
+
+        // ---------- Init ----------
         async function init() {
+            applyDarkMode();
+            bindEvents();
+            buildGuideCatUI();
+
+            // Onboarding fork: the whole app re-prioritizes around this answer
+            if (!SkateSettings.get('experience')) {
+                $('onboarding-modal').classList.remove('hidden');
+            } else if (SkateSettings.get('experience') === 'new' && !sessionStorage.getItem('skate_seen_this_session')) {
+                switchView('guides');
+            }
+            sessionStorage.setItem('skate_seen_this_session', '1');
+
             try {
                 const programs = await SkateAPI.getSkatingPrograms();
                 app.programs = programs || [];
-                app.filtered = app.programs;
                 applyFilters();
-                bindEvents();
-                
-                await SkateChat.init();
-                SkateChat.onUpdate(renderChatUI);
-            } catch (err) {
-                $('program-list').innerHTML = `<li class="error">Error: ${err.message}</li>`;
+            } catch (e) {
+                $('program-list').innerHTML = '<li class="loading">Could not load programs 😕 — pull to refresh or try again later.</li>';
+            }
+
+            await SkateChat.init();
+            SkateChat.onUpdate(renderChatUI);
+            SkateGuides.load();
+            SkateGuides.onUpdate(scheduleGuidesRender);
+            SkateSettings.onChange(() => { renderPrograms(); renderChatUI(SkateChat.getState()); });
+        }
+
+        function applyExperience(exp) {
+            SkateSettings.set('experience', exp);
+            if (exp === 'new') {
+                app.type = 'leisure';
+                $$('.filter-chip').forEach(c => c.classList.toggle('active', c.dataset.type === 'leisure'));
+                applyFilters();
+                switchView('guides');
+                SkateChat.Notify.toast('Set up for new skaters — guides first, leisure sessions filtered 🐣', 'success', 3500);
+            } else {
+                switchView('programs');
+                SkateChat.Notify.toast('Straight to the schedule 🏒', 'success', 2500);
             }
         }
-        
-        // ========== VIEW ==========
+
+        // ---------- View switching ----------
         function switchView(view) {
-            app.view = view;
-            app.showInbox = false;
-            $('dm-inbox').classList.add('hidden');
             $$('.view-tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
             $$('.view-panel').forEach(p => p.classList.remove('active'));
-            $(`${view}-panel`).classList.add('active');
+            $(view + '-panel').classList.add('active');
         }
-        
-        // ========== PROGRAMS ==========
+
+        // ---------- Programs ----------
         function applyFilters() {
             let result = app.programs;
-            
-            // Favorites filter
             if (app.type === 'favorites') {
                 result = result.filter(p => SkateChat.Favorites.has(p));
             } else if (app.type === 'hockey') {
-                // Hockey includes shinny, ball hockey, etc.
                 result = result.filter(p => {
-                    const activity = (p.Activity || p['Activity Title'] || '').toLowerCase();
-                    return activity.includes('shinny') || activity.includes('hockey');
+                    const a = (p.Activity || p['Activity Title'] || '').toLowerCase();
+                    return a.includes('shinny') || a.includes('hockey');
                 });
             } else if (app.type !== 'all') {
                 result = result.filter(p => (p.Activity || p['Activity Title'] || '').toLowerCase().includes(app.type));
             }
             if (app.search) {
                 const term = app.search.toLowerCase();
-                result = result.filter(p => 
+                result = result.filter(p =>
                     (p.Activity || p['Activity Title'] || '').toLowerCase().includes(term) ||
-                    (p.LocationName || p['Location Name'] || '').toLowerCase().includes(term)
-                );
+                    (p.LocationName || p['Location Name'] || '').toLowerCase().includes(term));
             }
             if (app.day) result = result.filter(p => p['Day of Week'] === app.day);
             if (app.age !== null) result = result.filter(p => app.age >= (p['Age Min'] || 0) && app.age <= (p['Age Max'] || 999));
-            
-            // Filter out past events (use local date parsing)
-            const now = new Date(); now.setHours(0,0,0,0);
+
+            const now = new Date(); now.setHours(0, 0, 0, 0);
             if (!app.showPast) {
                 result = result.filter(p => {
                     const d = p['Start Date Time'] || p['Start Date'];
-                    if (!d) return true;
-                    const programDate = parseLocalDate(d);
-                    return programDate >= now;
+                    return !d || parseLocalDate(d) >= now;
                 });
             }
-            result.sort((a, b) => {
-                const dateA = parseLocalDate(a['Start Date Time'] || a['Start Date'] || '9999');
-                const dateB = parseLocalDate(b['Start Date Time'] || b['Start Date'] || '9999');
-                return dateA - dateB;
-            });
-            
+            result.sort((a, b) => parseLocalDate(a['Start Date Time'] || a['Start Date'] || '9999') - parseLocalDate(b['Start Date Time'] || b['Start Date'] || '9999'));
             app.filtered = result;
             app.page = 1;
             renderPrograms();
         }
-        
+
         function renderPrograms() {
             const { filtered, page, perPage } = app;
             const start = (page - 1) * perPage;
             const items = filtered.slice(start, start + perPage);
             const chatState = SkateChat.getState();
             const now = new Date();
-            
+
             $('stats-text').textContent = `${filtered.length} programs found`;
-            
-            // Show last updated date
             const metadata = SkateAPI.getMetadata();
             if (metadata?.lastUpdated) {
                 const updated = new Date(metadata.lastUpdated);
-                const daysAgo = Math.floor((now - updated) / (1000 * 60 * 60 * 24));
+                const daysAgo = Math.floor((now - updated) / 86400000);
                 const dateStr = updated.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
-                $('data-updated').textContent = daysAgo === 0 ? `Updated today` : 
-                    daysAgo === 1 ? `Updated yesterday` : `Updated ${dateStr}`;
+                $('data-updated').textContent = daysAgo === 0 ? 'Updated today' : daysAgo === 1 ? 'Updated yesterday' : `Updated ${dateStr}`;
                 $('data-updated').classList.toggle('stale', daysAgo > 7);
             }
-            
+
             if (filtered.length === 0) {
-                const emptyMsg = app.type === 'favorites' ? 
-                    'No saved programs yet. Click ❤️ on any program to save it!' :
-                    'No matching programs found';
-                $('program-list').innerHTML = `<li class="loading">${emptyMsg}</li>`;
-                $('pagination').innerHTML = '';
-                $('pagination-top').innerHTML = '';
+                $('program-list').innerHTML = `<li class="loading">${app.type === 'favorites' ? 'No saved programs yet. Tap ❤️ on any program to save it!' : 'No matching programs found'}</li>`;
+                $('pagination').innerHTML = ''; $('pagination-top').innerHTML = '';
                 return;
             }
-            
+
             $('program-list').innerHTML = items.map((p, i) => {
                 const idx = start + i;
                 const activity = p.Activity || p['Activity Title'] || 'Unknown';
                 const location = p.LocationName || p['Location Name'] || '';
                 const dateStr = p['Start Date Time'] || p['Start Date'] || '';
-                const time = p['Start Time'] || '';
-                const endTime = p['End Time'] || '';
+                const time = p['Start Time'] || '', endTime = p['End Time'] || '';
                 const ageMin = p['Age Min'], ageMax = p['Age Max'];
-                
-                let dateDisplay = '';
-                let programDate = null;
+
+                let dateDisplay = '', programDate = null;
                 if (dateStr) {
                     programDate = parseLocalDate(dateStr);
                     dateDisplay = programDate.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
                 }
-                
-                // Check if happening soon (within 2 hours)
                 let happeningSoon = false;
                 if (programDate && time) {
-                    const [hours, mins] = time.split(':').map(Number);
-                    const eventTime = new Date(programDate);
-                    eventTime.setHours(hours || 0, mins || 0, 0, 0);
-                    const diffMs = eventTime - now;
-                    happeningSoon = diffMs > 0 && diffMs < 2 * 60 * 60 * 1000; // within 2 hours
+                    const [h, m] = time.split(':').map(Number);
+                    const eventTime = new Date(programDate); eventTime.setHours(h || 0, m || 0, 0, 0);
+                    const diff = eventTime - now;
+                    happeningSoon = diff > 0 && diff < 2 * 3600000;
                 }
-                
-                // Age badge with better visibility
+
                 let ageBadge = '<span class="age-badge all-ages">All Ages</span>';
                 if (ageMin && ageMax) ageBadge = `<span class="age-badge">Ages ${ageMin}-${ageMax}</span>`;
                 else if (ageMin) ageBadge = `<span class="age-badge">Ages ${ageMin}+</span>`;
                 else if (ageMax) ageBadge = `<span class="age-badge">Under ${ageMax}</span>`;
-                
-                // Activity type tag
-                const actLower = activity.toLowerCase();
+
+                const al = activity.toLowerCase();
                 let tag = '';
-                if (actLower.includes('shinny') || actLower.includes('hockey')) tag = '<span class="tag hockey">🏒 Hockey</span>';
-                else if (actLower.includes('figure')) tag = '<span class="tag figure">⛸️ Figure</span>';
-                else if (actLower.includes('speed')) tag = '<span class="tag speed">⛸️ Speed</span>';
-                else if (actLower.includes('leisure')) tag = '<span class="tag leisure">⛸️ Leisure</span>';
-                else if (actLower.includes('adapted')) tag = '<span class="tag adapted">♿ Adapted</span>';
-                else if (actLower.includes('ringette')) tag = '<span class="tag ringette">🥏 Ringette</span>';
-                
-                // Happening now indicator
+                if (al.includes('shinny') || al.includes('hockey')) tag = '<span class="tag hockey">🏒 Hockey</span>';
+                else if (al.includes('figure')) tag = '<span class="tag figure">⛸️ Figure</span>';
+                else if (al.includes('speed')) tag = '<span class="tag speed">⛸️ Speed</span>';
+                else if (al.includes('leisure')) tag = '<span class="tag leisure">⛸️ Leisure</span>';
+                else if (al.includes('adapted')) tag = '<span class="tag adapted">♿ Adapted</span>';
+                else if (al.includes('ringette')) tag = '<span class="tag ringette">🥏 Ringette</span>';
+
                 const happeningBadge = happeningSoon ? '<span class="happening-now">Starting Soon</span>' : '';
-                
-                // Vote count
-                let voteCount = 0, hasVoted = false;
-                if (chatState.activeGroup?.votes?.[idx]) {
-                    voteCount = chatState.activeGroup.votes[idx].length;
-                    hasVoted = chatState.activeGroup.votes[idx].includes(chatState.myName);
-                }
-                
-                // Favorite button
+
+                const votes = SkateChat.getVotes(p);
                 const isFavorite = SkateChat.Favorites.has(p);
                 const favBtn = `<button class="btn-favorite ${isFavorite ? 'active' : ''}" onclick="toggleFavorite(${idx})" title="${isFavorite ? 'Remove from saved' : 'Save this program'}">${isFavorite ? '❤️' : '🤍'}</button>`;
-                
-                // Actions (share/vote only if in a group)
                 const groupActions = chatState.activeGroup ? `
-                    <button class="btn-share-program" onclick="shareProgram(${idx})" title="Share to ${chatState.activeGroup.name}">📤 Share</button>
-                    <button class="btn-vote ${hasVoted ? 'voted' : ''}" onclick="voteTime(${idx})" title="Vote for this time">👍 ${voteCount || ''}</button>
+                    <button class="btn-share-program" onclick="shareProgram(${idx})" title="Share to ${escapeHtml(chatState.activeGroup.name)}">📤 Share</button>
+                    <button class="btn-vote ${votes.mine ? 'voted' : ''}" onclick="voteTime(${idx})" title="Vote for this time with your group">👍 ${votes.count || ''}</button>
                 ` : '';
-                
-                // Copy button
                 const copyBtn = `<button class="btn-copy" onclick="copyProgram(${idx})" title="Copy details">📋</button>`;
-                
-                // Make location clickable for maps
-                const locationHtml = location ? 
-                    `<a href="${mapsUrl(location)}" target="_blank" rel="noopener" class="program-location">📍 ${escapeHtml(location)} ↗</a>` :
-                    '';
-                
+                const locationHtml = location ? `<a href="${mapsUrl(location)}" target="_blank" rel="noopener" class="program-location">📍 ${escapeHtml(location)} ↗</a>` : '';
+
                 return `
                     <li class="program-item ${happeningSoon ? 'happening-soon' : ''}">
                         <div class="program-header">
@@ -381,30 +439,19 @@
                             <div class="program-meta">
                                 ${happeningBadge}
                                 <div class="program-date">${dateDisplay}</div>
-                                <div>${time}${endTime ? '-' + endTime : ''}</div>
+                                <div>${fmtClock(time)}${endTime ? '–' + fmtClock(endTime) : ''}</div>
                             </div>
                         </div>
                         <div class="program-footer">
-                            <div class="program-badges">
-                                ${tag}
-                                ${ageBadge}
-                            </div>
-                            <div class="program-actions">
-                                ${favBtn}
-                                ${copyBtn}
-                                ${groupActions}
-                            </div>
+                            <div class="program-badges">${tag} ${ageBadge}</div>
+                            <div class="program-actions">${favBtn}${copyBtn}${groupActions}</div>
                         </div>
-                    </li>
-                `;
+                    </li>`;
             }).join('');
-            
-            // Pagination (top and bottom)
+
             const totalPages = Math.ceil(filtered.length / perPage);
-            if (totalPages <= 1) {
-                $('pagination').innerHTML = '';
-                $('pagination-top').innerHTML = '';
-            } else {
+            if (totalPages <= 1) { $('pagination').innerHTML = ''; $('pagination-top').innerHTML = ''; }
+            else {
                 let html = `<button ${page === 1 ? 'disabled' : ''} data-p="${page - 1}">‹</button>`;
                 for (let i = Math.max(1, page - 2); i <= Math.min(totalPages, page + 2); i++) {
                     html += `<button class="${i === page ? 'active' : ''}" data-p="${i}">${i}</button>`;
@@ -414,71 +461,64 @@
                 $('pagination-top').innerHTML = html;
             }
         }
-        
-        // ========== CHAT UI ==========
+
+        // ---------- Chat ----------
         function renderChatUI(chatState) {
             renderGroups(chatState);
             renderChat(chatState);
-            
-            // Groups badge - show unread group messages (both public + private)
-            const groupUnread = chatState.totalGroupUnread || 0;
-            $('groups-badge').textContent = groupUnread;
-            $('groups-badge').classList.toggle('hidden', groupUnread === 0);
-            
-            // Show user name
-            $('user-name').textContent = `👤 ${chatState.myName || 'Guest'}`;
-            
-            // DM unread badge
-            $('dm-badge').textContent = chatState.totalDmUnread || 0;
-            $('dm-badge').classList.toggle('hidden', (chatState.totalDmUnread || 0) === 0);
-            
-            // Show DM inbox button if has any DMs
-            const hasDms = Object.keys(chatState.dmThreads).length > 0;
-            $('btn-dm-inbox').classList.toggle('hidden', !hasDms && !chatState.activeGroup);
-            
             renderPublicRooms(chatState);
-            renderPrograms();
+
+            $('groups-badge').textContent = chatState.totalGroupUnread || 0;
+            $('groups-badge').classList.toggle('hidden', !chatState.totalGroupUnread);
+            $('user-name').textContent = `👤 ${chatState.myName || 'Guest'}`;
+            $('dm-badge').textContent = chatState.totalDmUnread || 0;
+            $('dm-badge').classList.toggle('hidden', !chatState.totalDmUnread);
+            $('dm-inbox-badge').textContent = chatState.totalDmUnread || 0;
+            $('dm-inbox-badge').classList.toggle('hidden', !chatState.totalDmUnread);
+
+            if (app.showInbox) renderDmInbox(chatState);
+
+            // Programs re-render ONLY when votes actually changed (v1 re-rendered on every presence ping)
+            const votesSnapshot = JSON.stringify(Object.values(chatState.groups).map(g => g.votes || {})) + '|' + (chatState.activeGroupId || '');
+            if (votesSnapshot !== app.lastVotesSnapshot) {
+                app.lastVotesSnapshot = votesSnapshot;
+                renderPrograms();
+            }
         }
-        
+
         function renderPublicRooms(chatState) {
             const rooms = SkateChat.getPublicRooms();
-            const joinedPublicRoomIds = Object.keys(chatState.publicRooms || {});
-            
+            const joinedIds = Object.keys(chatState.publicRooms || {});
             $('public-rooms-list').innerHTML = Object.entries(rooms).map(([key, room]) => {
-                // Use the cached secret if available, or derive from passphrase
                 const secret = chatState.publicRoomSecrets?.[key];
                 const roomId = secret ? SkateChat.Crypto.deriveGroupId(secret) : null;
-                const isJoined = roomId && joinedPublicRoomIds.includes(roomId);
-                const publicRoom = roomId ? chatState.publicRooms?.[roomId] : null;
-                const memberCount = publicRoom?.members?.length || 0;
-                
+                const isJoined = roomId && joinedIds.includes(roomId);
+                const online = roomId ? (chatState.onlineCounts?.[roomId] || 0) : 0;
                 return `
                     <div class="room-card ${isJoined ? 'joined' : ''}" onclick="joinPublicRoom('${key}')">
                         <span class="room-emoji">${room.emoji}</span>
                         <div class="room-info">
                             <div class="room-name">${escapeHtml(room.name)}</div>
                             <div class="room-desc">${escapeHtml(room.desc)}</div>
-                            ${isJoined ? `<div class="room-members">✓ Joined • ${memberCount} online</div>` : ''}
+                            ${isJoined ? `<div class="room-members">✓ Joined${online ? ` • <span class="online-dot"></span>${online} online now` : ''}</div>` : ''}
                         </div>
-                    </div>
-                `;
+                    </div>`;
             }).join('');
         }
-        
+
         function renderGroups(chatState) {
-            // Only show private groups in "Your Groups" list
             const privateGroups = Object.values(chatState.privateGroups || {});
-            
             if (privateGroups.length === 0) {
                 $('groups-list').innerHTML = '<li style="text-align:center;padding:12px;color:var(--text-muted);font-size:12px">No private groups yet</li>';
                 $('share-card').classList.add('hidden');
                 return;
             }
-            
-            $('groups-list').innerHTML = privateGroups.map(g => `
+            $('groups-list').innerHTML = privateGroups.map(g => {
+                const unread = chatState.perGroupUnread?.[g.id] || 0;
+                return `
                 <li class="group-item ${g.id === chatState.activeGroupId && !chatState.activeIsPublic ? 'active' : ''}">
                     <div class="group-info">
-                        <h3>${escapeHtml(g.name || 'Skating Group')}</h3>
+                        <h3>${escapeHtml(g.name || 'Skating Group')} ${unread ? `<span class="badge">${unread}</span>` : ''}</h3>
                         <div class="group-code">#${g.id.slice(0, 6).toUpperCase()}</div>
                         <div class="group-members">${g.members?.length || 1} members</div>
                     </div>
@@ -486,10 +526,9 @@
                         <button class="btn-icon" onclick="selectGroup('${g.id}')">${g.id === chatState.activeGroupId ? '✓' : '→'}</button>
                         <button class="btn-icon" onclick="leaveGroup('${g.id}')">✕</button>
                     </div>
-                </li>
-            `).join('');
-            
-            // Only show share card for private groups, not public rooms
+                </li>`;
+            }).join('');
+
             if (chatState.activeGroup && !chatState.activeIsPublic) {
                 $('share-card').classList.remove('hidden');
                 $('share-url-input').value = SkateChat.getShareUrl() || '';
@@ -497,161 +536,217 @@
                 $('share-card').classList.add('hidden');
             }
         }
-        
+
         function renderDmInbox(chatState) {
             const threads = SkateChat.getDmThreadsList();
-            
-            if (threads.length === 0) {
-                $('dm-list').innerHTML = '<li style="text-align:center;padding:20px;color:var(--text-muted)">No messages yet</li>';
+            if (!threads.length) {
+                $('dm-list').innerHTML = '<li style="text-align:center;padding:20px;color:var(--text-muted)">No messages yet — tap a member chip in any chat to DM them</li>';
                 return;
             }
-            
             $('dm-list').innerHTML = threads.map(t => {
-                const preview = t.lastMessage ? t.lastMessage.text.slice(0, 30) + (t.lastMessage.text.length > 30 ? '...' : '') : 'No messages';
-                const time = t.lastMessage ? new Date(t.lastMessage.ts).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' }) : '';
+                const preview = t.lastMessage ? t.lastMessage.text.slice(0, 30) + (t.lastMessage.text.length > 30 ? '…' : '') : 'No messages';
+                const time = t.lastMessage ? SkateSettings.formatWhen(t.lastMessage.ts) : '';
                 return `
                     <li class="dm-item ${t.unread > 0 ? 'unread' : ''}" onclick="openDm('${t.pubkey}')">
-                        <div class="dm-info">
-                            <strong>${escapeHtml(t.name)}</strong>
-                            <span class="dm-preview">${escapeHtml(preview)}</span>
-                        </div>
-                        <div class="dm-meta">
-                            <span class="dm-time">${time}</span>
-                            ${t.unread > 0 ? `<span class="dm-unread-badge">${t.unread}</span>` : ''}
-                        </div>
-                    </li>
-                `;
+                        <div class="dm-info"><strong>${escapeHtml(t.name)}</strong><span class="dm-preview">${escapeHtml(preview)}</span></div>
+                        <div class="dm-meta"><span class="dm-time">${time}</span>${t.unread ? `<span class="dm-unread-badge">${t.unread}</span>` : ''}</div>
+                    </li>`;
             }).join('');
         }
-        
+
+        function statusTick(m) {
+            if (!m.mine) return '';
+            if (m.status === 'pending') return '<span class="msg-tick pending" title="Sending…">⏳</span>';
+            if (m.status === 'failed') return '<span class="msg-tick failed" title="Not delivered — check connection">⚠</span>';
+            return '<span class="msg-tick" title="Delivered to relays">✓</span>';
+        }
+
         function renderChat(chatState) {
-            const { activeGroup, viewMode, activeDmThread, myName } = chatState;
-            const msgs = $('chat-messages');
-            const input = $('chat-input-bar');
-            const members = $('members-bar');
-            const backBtn = $('btn-back');
-            
-            // Render DM inbox if open
-            if (app.showInbox) {
-                renderDmInbox(chatState);
-            }
-            
-            // DM mode
+            const { activeGroup, viewMode, activeDmThread } = chatState;
+            const msgs = $('chat-messages'), input = $('chat-input-bar'), members = $('members-bar'), backBtn = $('btn-back');
+            const nearBottom = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 80;
+
             if (viewMode === 'dm' && activeDmThread) {
                 backBtn.classList.remove('hidden');
                 $('chat-title').textContent = `💬 ${activeDmThread.name}`;
                 $('chat-status-dot').className = 'status-dot online';
                 $('chat-status-text').textContent = 'Private message';
-                
-                if (!activeDmThread.messages?.length) {
-                    msgs.innerHTML = '<div class="chat-empty"><p>Start a private conversation</p></div>';
-                } else {
-                    msgs.innerHTML = activeDmThread.messages.map(m => `
+                $('chat-online').classList.add('hidden');
+                msgs.innerHTML = activeDmThread.messages?.length
+                    ? activeDmThread.messages.map(m => `
                         <div class="chat-msg ${m.mine ? 'mine' : ''}">
                             ${!m.mine ? `<div class="sender">${escapeHtml(m.from)}</div>` : ''}
-                            <div class="bubble">${escapeHtml(m.text)}</div>
-                        </div>
-                    `).join('');
-                    msgs.scrollTop = msgs.scrollHeight;
-                }
-                
+                            <div class="bubble">${escapeHtml(m.text)}<span class="msg-time">${SkateSettings.formatWhen(m.ts)}${statusTick(m)}</span></div>
+                        </div>`).join('')
+                    : '<div class="chat-empty"><p>Start a private conversation — it reaches them even if they\'re offline now.</p></div>';
+                if (nearBottom) msgs.scrollTop = msgs.scrollHeight;
                 members.classList.add('hidden');
                 input.classList.remove('hidden');
-                $('chat-input').placeholder = `Message ${activeDmThread.name}...`;
+                $('chat-input').placeholder = `Message ${activeDmThread.name}…`;
                 return;
             }
-            
-            // Group mode
+
             backBtn.classList.add('hidden');
-            
             if (!activeGroup) {
                 $('chat-title').textContent = 'No group selected';
                 $('chat-status-dot').className = 'status-dot offline';
                 $('chat-status-text').textContent = 'Not connected';
-                msgs.innerHTML = '<div class="chat-empty"><p>👥 Join or create a group!</p></div>';
+                $('chat-online').classList.add('hidden');
+                msgs.innerHTML = '<div class="chat-empty"><p>👥 Join a public room or create a group!</p></div>';
                 input.classList.add('hidden');
                 members.classList.add('hidden');
                 return;
             }
-            
-            $('chat-title').textContent = escapeHtml(activeGroup.name || 'Skating Group');
+
+            $('chat-title').textContent = activeGroup.name || 'Skating Group';
             const status = SkateChat.getConnectionStatus();
             $('chat-status-dot').className = `status-dot ${status === 'connected' ? 'online' : 'offline'}`;
             $('chat-status-text').textContent = `#${activeGroup.id.slice(0, 6).toUpperCase()} • ${status}`;
-            
-            // Messages
-            if (!activeGroup.messages?.length) {
-                msgs.innerHTML = '<div class="chat-empty"><p>No messages yet. Say hi! 👋</p></div>';
-            } else {
-                msgs.innerHTML = activeGroup.messages.map(m => {
+            const online = chatState.onlineCounts?.[activeGroup.id] || 0;
+            $('chat-online').classList.toggle('hidden', online < 2);
+            $('chat-online').innerHTML = `<span class="online-dot"></span>${online} here now`;
+
+            msgs.innerHTML = activeGroup.messages?.length
+                ? activeGroup.messages.map(m => {
                     let cls = 'chat-msg';
                     if (m.mine) cls += ' mine';
                     if (m.system) cls += ' system';
                     if (m.type === 'share') cls += ' share';
-                    
                     let content = escapeHtml(m.text || '');
                     if (m.type === 'share' && m.data) {
                         const loc = m.data.location;
                         const locLink = loc ? `<a href="${mapsUrl(loc)}" target="_blank" rel="noopener">📍 ${escapeHtml(loc)} ↗</a>` : '';
-                        content = `
-                            <strong>⛸️ ${escapeHtml(m.data.activity)}</strong><br>
-                            ${locLink}<br>
-                            🗓️ ${escapeHtml(m.data.date || '')} ${m.data.time ? '• ' + m.data.time : ''}${m.data.endTime ? '-' + m.data.endTime : ''}
-                        `;
+                        content = `<strong>⛸️ ${escapeHtml(m.data.activity)}</strong><br>${locLink}<br>🗓️ ${escapeHtml(m.data.date || '')}${m.data.time ? ' • ' + fmtClock(m.data.time) : ''}${m.data.endTime ? '–' + fmtClock(m.data.endTime) : ''}`;
                     }
-                    
                     return `
                         <div class="${cls}">
                             ${!m.mine && !m.system ? `<div class="sender">${escapeHtml(m.from)}</div>` : ''}
-                            <div class="bubble">${content}</div>
-                        </div>
-                    `;
-                }).join('');
-                msgs.scrollTop = msgs.scrollHeight;
-            }
-            
-            // Members (clickable for DM)
-            if (activeGroup.members?.length > 0) {
+                            <div class="bubble">${content}${m.system ? '' : `<span class="msg-time">${SkateSettings.formatWhen(m.ts)}${statusTick(m)}</span>`}</div>
+                        </div>`;
+                }).join('')
+                : '<div class="chat-empty"><p>No messages yet. Say hi! 👋</p></div>';
+            if (nearBottom) msgs.scrollTop = msgs.scrollHeight;
+
+            const myName = chatState.myName;
+            const others = (activeGroup.members || []).filter(m => m !== myName);
+            if (others.length) {
                 members.classList.remove('hidden');
-                const others = activeGroup.members.filter(m => m !== myName);
-                $('members-list').innerHTML = others.length > 0 ?
-                    others.slice(0, 8).map(m => `<span class="member-chip" onclick="startDm('${escapeHtml(m)}')" title="Message ${escapeHtml(m)}">${escapeHtml(m)}</span>`).join('') +
-                    (others.length > 8 ? ` +${others.length - 8}` : '') :
-                    '<span style="color:var(--text-muted)">Just you so far</span>';
+                $('members-list').innerHTML = others.slice(0, 8).map(m =>
+                    `<span class="member-chip" onclick="startDm('${escapeHtml(m)}')" title="Message ${escapeHtml(m)}">${escapeHtml(m)}</span>`).join('') +
+                    (others.length > 8 ? ` +${others.length - 8}` : '');
             } else {
-                members.classList.add('hidden');
+                members.classList.remove('hidden');
+                $('members-list').innerHTML = '<span style="color:var(--text-muted)">Just you so far — messages wait here for whoever joins</span>';
             }
-            
             input.classList.remove('hidden');
-            $('chat-input').placeholder = 'Type a message...';
+            $('chat-input').placeholder = 'Type a message…';
         }
-        
-        // ========== GLOBAL ACTIONS ==========
+
+        // ---------- Guides ----------
+        let guidesRenderQueued = false;
+        function scheduleGuidesRender() {
+            if (guidesRenderQueued) return;
+            guidesRenderQueued = true;
+            requestAnimationFrame(() => { guidesRenderQueued = false; renderGuides(); });
+        }
+
+        function buildGuideCatUI() {
+            const cats = SkateGuides.CATEGORIES;
+            $('guide-cat-filters').innerHTML = '<button class="filter-chip active" data-cat="">All</button>' +
+                Object.entries(cats).map(([k, c]) => `<button class="filter-chip" data-cat="${k}">${c.emoji} ${c.name}</button>`).join('');
+            $('guide-cat-input').innerHTML = Object.entries(cats).map(([k, c]) => `<option value="${k}">${c.emoji} ${c.name}</option>`).join('');
+        }
+
+        function identity() { return SkateChat.getIdentity(); }
+
+        function renderGuides() {
+            if (app.activeGuideId) return renderGuideDetail();
+            const guides = SkateGuides.list(app.guideCat || null);
+            if (!SkateGuides.loaded && !guides.length) {
+                $('guides-list').innerHTML = '<div class="loading">Loading guides from the network…</div>';
+                return;
+            }
+            if (!guides.length) {
+                $('guides-list').innerHTML = '<div class="chat-empty"><p>No guides here yet — be the first to write one! ✍️</p></div>';
+                return;
+            }
+            const myPk = SkateChat.getState().myPublicKey;
+            $('guides-list').innerHTML = guides.map(g => {
+                const cat = SkateGuides.CATEGORIES[g.category] || {};
+                return `
+                <div class="guide-card ${g.pinned ? 'pinned' : ''}" onclick="openGuide('${g.id}')">
+                    <div class="guide-card-top">
+                        ${g.pinned ? '<span class="pin-badge">📌 Pinned</span>' : ''}
+                        <span class="guide-cat">${cat.emoji || ''} ${escapeHtml(cat.name || '')}</span>
+                    </div>
+                    <h4>${escapeHtml(g.title)}</h4>
+                    <p class="guide-preview">${escapeHtml(g.body.slice(0, 140))}${g.body.length > 140 ? '…' : ''}</p>
+                    <div class="guide-card-bottom">
+                        <span>by ${escapeHtml(g.authorName || 'Skater')} · ${new Date(g.ts).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}</span>
+                        <span>
+                            <button class="btn-guide-vote ${SkateGuides.hasVoted(g.id, myPk) ? 'voted' : ''}" onclick="event.stopPropagation();voteGuide('${g.id}', this)">⛸️ ${g.votes}</button>
+                            💬 ${g.comments.length}
+                        </span>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderGuideDetail() {
+            const g = SkateGuides.get(app.activeGuideId);
+            if (!g) { app.activeGuideId = null; return renderGuides(); }
+            const cat = SkateGuides.CATEGORIES[g.category] || {};
+            const myPk = SkateChat.getState().myPublicKey;
+            $('guide-detail-content').innerHTML = `
+                <div class="guide-card-top">
+                    ${g.pinned ? '<span class="pin-badge">📌 Pinned</span>' : ''}
+                    <span class="guide-cat">${cat.emoji || ''} ${escapeHtml(cat.name || '')}</span>
+                </div>
+                <h3>${escapeHtml(g.title)}</h3>
+                <p class="guide-byline">by ${escapeHtml(g.authorName || 'Skater')} · ${new Date(g.ts).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                <div class="guide-body">${escapeHtml(g.body).replace(/\n/g, '<br>')}</div>
+                <button class="btn-guide-vote big ${SkateGuides.hasVoted(g.id, myPk) ? 'voted' : ''}" onclick="voteGuide('${g.id}', this)">⛸️ Useful (${g.votes})</button>`;
+            $('guide-comments-title').textContent = `Comments (${g.comments.length})`;
+            $('guide-comments-list').innerHTML = g.comments.length
+                ? g.comments.map(c => `<li><strong>${escapeHtml(c.authorName)}</strong> <span class="dm-time">${SkateSettings.formatWhen(c.ts)}</span><br>${escapeHtml(c.text)}</li>`).join('')
+                : '<li style="color:var(--text-muted)">No comments yet</li>';
+        }
+
+        window.openGuide = id => {
+            app.activeGuideId = id;
+            $('guides-home').classList.add('hidden');
+            $('guide-write').classList.add('hidden');
+            $('guide-detail').classList.remove('hidden');
+            renderGuideDetail();
+        };
+
+        window.voteGuide = async (id, btn) => {
+            const orig = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = '⛏️…';
+            try {
+                const ok = await SkateGuides.vote(id, identity());
+                if (!ok) SkateChat.Notify.toast('Vote didn\'t reach the relays — try again', 'error');
+            } catch (e) { SkateChat.Notify.toast(e.message, 'error'); }
+            btn.disabled = false;
+            btn.textContent = orig;
+            renderGuides();
+        };
+
+        // ---------- Global actions ----------
         window.shareProgram = idx => { const p = app.filtered[idx]; if (p) SkateChat.shareProgram(p); };
-        window.voteTime = idx => SkateChat.voteTime(idx);
+        window.voteTime = idx => { const p = app.filtered[idx]; if (p) SkateChat.voteTime(p); };
         window.selectGroup = id => { SkateChat.switchGroup(id); if (window.innerWidth < 768) switchView('chat'); };
         window.leaveGroup = id => { if (confirm('Leave this group?')) SkateChat.leaveGroup(id); };
-        window.startDm = name => { if (SkateChat.startDm(name)) { app.showInbox = false; $('dm-inbox').classList.add('hidden'); }};
+        window.startDm = name => { if (SkateChat.startDm(name)) { app.showInbox = false; $('dm-inbox').classList.add('hidden'); switchView('chat'); } };
         window.openDm = pubkey => {
-            const thread = SkateChat.getState().dmThreads[pubkey];
-            if (thread) { SkateChat.startDm(thread.name); app.showInbox = false; $('dm-inbox').classList.add('hidden'); }
+            if (SkateChat.startDm(pubkey)) { app.showInbox = false; $('dm-inbox').classList.add('hidden'); }
         };
-        
-        // Join public room
         window.joinPublicRoom = async key => {
-            try {
-                await SkateChat.joinPublicRoom(key);
-                if (window.innerWidth < 768) switchView('chat');
-            } catch (e) { alert(e.message); }
+            try { await SkateChat.joinPublicRoom(key); if (window.innerWidth < 768) switchView('chat'); }
+            catch (e) { SkateChat.Notify.toast(e.message, 'error'); }
         };
-        
-        // Favorites
-        window.toggleFavorite = idx => {
-            const p = app.filtered[idx];
-            if (p) { SkateChat.Favorites.toggle(p); renderPrograms(); }
-        };
-        
-        // Copy program details
+        window.toggleFavorite = idx => { const p = app.filtered[idx]; if (p) { SkateChat.Favorites.toggle(p); renderPrograms(); } };
         window.copyProgram = idx => {
             const p = app.filtered[idx];
             if (!p) return;
@@ -660,48 +755,33 @@
             const dateStr = p['Start Date Time'] || p['Start Date'] || '';
             const time = p['Start Time'] || '';
             const date = dateStr ? new Date(dateStr).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' }) : '';
-            
-            const text = `⛸️ ${activity}\n📍 ${location}\n🗓️ ${date} ${time ? 'at ' + time : ''}\n\nFound on Toronto Skating: ${window.location.origin}${window.location.pathname}`;
-            
-            navigator.clipboard.writeText(text).then(() => {
-                SkateChat.Notify.toast('Copied to clipboard! 📋', 'success', 2000);
-            }).catch(() => {
-                SkateChat.Notify.toast('Could not copy', 'error', 2000);
-            });
+            const text = `⛸️ ${activity}\n📍 ${location}\n🗓️ ${date}${time ? ' at ' + fmtClock(time) : ''}\n\nFound on Toronto Skating: ${window.location.origin}${window.location.pathname}`;
+            navigator.clipboard.writeText(text)
+                .then(() => SkateChat.Notify.toast('Copied to clipboard! 📋', 'success', 2000))
+                .catch(() => SkateChat.Notify.toast('Could not copy', 'error', 2000));
         };
-        
-        // ========== EVENTS ==========
+
+        // ---------- Events ----------
         function bindEvents() {
             $$('.view-tab').forEach(t => t.onclick = () => switchView(t.dataset.view));
-            
-            // Search
             $('btn-search').onclick = () => { app.search = $('search-input').value.trim(); applyFilters(); };
-            $('search-input').onkeypress = e => { if (e.key === 'Enter') { app.search = $('search-input').value.trim(); applyFilters(); }};
-            
-            // Refresh button
+            $('search-input').onkeypress = e => { if (e.key === 'Enter') { app.search = $('search-input').value.trim(); applyFilters(); } };
+
             $('btn-refresh').onclick = async () => {
-                $('btn-refresh').disabled = true;
-                $('btn-refresh').textContent = '⏳';
+                $('btn-refresh').disabled = true; $('btn-refresh').textContent = '⏳';
                 try {
-                    SkateAPI._skatingPrograms = null; // Clear cache
-                    const programs = await SkateAPI.getSkatingPrograms();
-                    app.programs = programs || [];
-                    app.filtered = app.programs;
+                    SkateAPI._skatingPrograms = null;
+                    app.programs = (await SkateAPI.getSkatingPrograms()) || [];
                     applyFilters();
-                    SkateChat.Notify.toast('Programs refreshed!', 'success', 2000);
+                    SkateChat.Notify.toast('Programs reloaded!', 'success', 2000);
                     await SkateRefresh.requestCityRefresh();
-                } catch (e) {
-                    SkateChat.Notify.toast('Failed to refresh: ' + e.message, 'error');
-                } finally {
-                    $('btn-refresh').disabled = false;
-                    $('btn-refresh').textContent = '🔄';
-                }
+                } catch (e) { SkateChat.Notify.toast('Refresh failed: ' + e.message, 'error'); }
+                finally { $('btn-refresh').disabled = false; $('btn-refresh').textContent = '🔄'; }
             };
-            
-            // Filters
+
             $('type-filters').onclick = e => {
                 if (e.target.classList.contains('filter-chip')) {
-                    $$('.filter-chip').forEach(c => c.classList.remove('active'));
+                    $$('#type-filters .filter-chip').forEach(c => c.classList.remove('active'));
                     e.target.classList.add('active');
                     app.type = e.target.dataset.type;
                     applyFilters();
@@ -709,120 +789,154 @@
             };
             $('day-filter').onchange = () => { app.day = $('day-filter').value; applyFilters(); };
             $('age-filter').onchange = () => { app.age = $('age-filter').value ? parseInt($('age-filter').value) : null; applyFilters(); };
-            
-            // Show past events toggle
-            $('show-past-toggle').onchange = () => {
-                app.showPast = $('show-past-toggle').checked;
-                applyFilters();
-            };
-            
-            // Dark mode toggle (clicking label or button)
+            $('show-past-toggle').onchange = () => { app.showPast = $('show-past-toggle').checked; applyFilters(); };
+
             $('dark-mode-label').onclick = () => {
                 app.darkMode = !app.darkMode;
-                document.body.classList.toggle('dark-mode', app.darkMode);
-                $('btn-dark-mode').textContent = app.darkMode ? '☀️' : '🌙';
+                applyDarkMode();
                 localStorage.setItem('darkMode', app.darkMode);
             };
-            // Apply saved dark mode on load
-            if (app.darkMode) {
-                document.body.classList.add('dark-mode');
-                $('btn-dark-mode').textContent = '☀️';
-            }
-            
-            // Pagination (bottom)
-            $('pagination').onclick = e => {
-                if (e.target.tagName === 'BUTTON' && !e.target.disabled) {
-                    app.page = parseInt(e.target.dataset.p);
-                    renderPrograms();
-                    $('programs-panel').scrollTop = 0;
-                }
+
+            const goPage = e => {
+                if (e.target.dataset.p) { app.page = parseInt(e.target.dataset.p); renderPrograms(); $('programs-panel').scrollTop = 0; }
             };
-            // Pagination (top)
-            $('pagination-top').onclick = e => {
-                if (e.target.tagName === 'BUTTON' && !e.target.disabled) {
-                    app.page = parseInt(e.target.dataset.p);
-                    renderPrograms();
-                    $('programs-panel').scrollTop = 0;
-                }
-            };
-            
-            // Create group
-            $('btn-create-group').onclick = async () => {
-                try {
-                    const result = await SkateChat.createGroup({
-                        name: $('group-name-input').value.trim() || 'Skating Group',
-                        password: $('group-password-input').value || null
-                    });
-                    $('share-url-input').value = result.shareUrl;
-                    $('share-card').classList.remove('hidden');
-                    $('group-name-input').value = '';
-                    $('group-password-input').value = '';
-                    if (window.innerWidth < 768) switchView('chat');
-                } catch (e) {
-                    SkateChat.Notify.toast(e.message, 'error');
-                }
-            };
-            
-            // Copy invite link
-            $('btn-copy-url').onclick = () => {
-                $('share-url-input').select();
-                document.execCommand('copy');
-                $('btn-copy-url').textContent = '✓ Copied!';
-                setTimeout(() => $('btn-copy-url').textContent = '📋 Copy Invite Link', 2000);
-            };
-            
-            // DM Inbox toggle
+            $('pagination').onclick = goPage;
+            $('pagination-top').onclick = goPage;
+
+            // Chat
+            $('btn-send').onclick = sendCurrent;
+            $('chat-input').onkeypress = e => { if (e.key === 'Enter') sendCurrent(); };
+            $('btn-back').onclick = () => SkateChat.closeDm();
             $('btn-dm-inbox').onclick = () => {
                 app.showInbox = !app.showInbox;
                 $('dm-inbox').classList.toggle('hidden', !app.showInbox);
                 if (app.showInbox) renderDmInbox(SkateChat.getState());
             };
-            $('btn-close-inbox').onclick = () => {
-                app.showInbox = false;
-                $('dm-inbox').classList.add('hidden');
+            $('btn-close-inbox').onclick = () => { app.showInbox = false; $('dm-inbox').classList.add('hidden'); };
+
+            // Groups
+            $('btn-create-group').onclick = async () => {
+                try {
+                    const name = $('group-name-input').value.trim();
+                    const password = $('group-password-input').value.trim() || null;
+                    if (!name) return SkateChat.Notify.toast('Give your group a name', 'error', 2000);
+                    await SkateChat.createGroup({ name, password });
+                    $('group-name-input').value = ''; $('group-password-input').value = '';
+                    SkateChat.Notify.toast('Group created! Share the invite link 🔗', 'success');
+                } catch (e) { SkateChat.Notify.toast(e.message, 'error'); }
             };
-            
-            // Send message
-            const sendMsg = () => {
-                const text = $('chat-input').value.trim();
-                if (!text) return;
-                
-                const state = SkateChat.getState();
-                let sent = false;
-                if (state.viewMode === 'dm') {
-                    sent = SkateChat.sendDm(text);
-                } else {
-                    sent = SkateChat.sendMessage(text);
-                }
-                
-                if (!sent && SkateChat.Filter.check(text)) {
-                    SkateChat.Notify.toast('Message blocked: inappropriate content', 'error');
-                }
-                $('chat-input').value = '';
+            $('btn-copy-url').onclick = () => {
+                navigator.clipboard.writeText($('share-url-input').value)
+                    .then(() => SkateChat.Notify.toast('Invite link copied! 🔗', 'success', 2000));
             };
-            $('btn-send').onclick = sendMsg;
-            $('chat-input').onkeypress = e => { if (e.key === 'Enter') sendMsg(); };
-            
-            // Back button (from DM or inbox)
-            $('btn-back').onclick = () => { SkateChat.closeDm(); };
-            
-            // Keyboard shortcuts
+
+            // Guides
+            $('guide-cat-filters').onclick = e => {
+                if (e.target.classList.contains('filter-chip')) {
+                    $$('#guide-cat-filters .filter-chip').forEach(c => c.classList.remove('active'));
+                    e.target.classList.add('active');
+                    app.guideCat = e.target.dataset.cat;
+                    renderGuides();
+                }
+            };
+            $('btn-guide-back').onclick = () => {
+                app.activeGuideId = null;
+                $('guide-detail').classList.add('hidden');
+                $('guides-home').classList.remove('hidden');
+                renderGuides();
+            };
+            $('btn-write-guide').onclick = () => {
+                $('guides-home').classList.add('hidden');
+                $('guide-write').classList.remove('hidden');
+            };
+            $('btn-write-back').onclick = () => {
+                $('guide-write').classList.add('hidden');
+                $('guides-home').classList.remove('hidden');
+            };
+            $('btn-guide-submit').onclick = async () => {
+                const btn = $('btn-guide-submit');
+                btn.disabled = true; btn.textContent = 'Proving you\'re human ⛏️…';
+                try {
+                    const ok = await SkateGuides.postGuide({
+                        title: $('guide-title-input').value,
+                        category: $('guide-cat-input').value,
+                        body: $('guide-body-input').value
+                    }, identity());
+                    if (ok) {
+                        SkateChat.Notify.toast('Guide published! 📖', 'success');
+                        $('guide-title-input').value = ''; $('guide-body-input').value = '';
+                        $('guide-write').classList.add('hidden');
+                        $('guides-home').classList.remove('hidden');
+                        renderGuides();
+                    } else SkateChat.Notify.toast('Relays didn\'t accept it — try again', 'error');
+                } catch (e) { SkateChat.Notify.toast(e.message, 'error'); }
+                btn.disabled = false; btn.textContent = 'Publish guide';
+            };
+            $('btn-guide-comment').onclick = async () => {
+                const text = $('guide-comment-input').value;
+                if (!text.trim() || !app.activeGuideId) return;
+                const btn = $('btn-guide-comment');
+                btn.disabled = true; btn.textContent = '⛏️';
+                try {
+                    const ok = await SkateGuides.comment(app.activeGuideId, text, identity());
+                    if (ok) { $('guide-comment-input').value = ''; renderGuideDetail(); }
+                    else SkateChat.Notify.toast('Comment didn\'t reach the relays', 'error');
+                } catch (e) { SkateChat.Notify.toast(e.message, 'error'); }
+                btn.disabled = false; btn.textContent = '➤';
+            };
+
+            // Onboarding
+            $('onboard-new').onclick = () => { $('onboarding-modal').classList.add('hidden'); applyExperience('new'); };
+            $('onboard-regular').onclick = () => { $('onboarding-modal').classList.add('hidden'); applyExperience('regular'); };
+
+            // Settings
+            $('btn-settings').onclick = () => {
+                $('settings-name').value = SkateChat.getState().myName || '';
+                refreshSettingsUI();
+                $('settings-modal').classList.remove('hidden');
+            };
+            $('btn-settings-close').onclick = () => $('settings-modal').classList.add('hidden');
+            $('settings-modal').onclick = e => { if (e.target === $('settings-modal')) $('settings-modal').classList.add('hidden'); };
+            $('btn-save-name').onclick = () => {
+                if (SkateChat.setDisplayName($('settings-name').value)) SkateChat.Notify.toast('Name updated ✓', 'success', 2000);
+                else SkateChat.Notify.toast('That name won\'t work — try another', 'error', 2500);
+            };
+            $('settings-timefmt').onclick = e => {
+                if (e.target.dataset.fmt) { SkateSettings.set('timeFormat', e.target.dataset.fmt); refreshSettingsUI(); }
+            };
+            $('settings-exp').onclick = e => {
+                if (e.target.dataset.exp) { applyExperience(e.target.dataset.exp); refreshSettingsUI(); }
+            };
+
+            // Keyboard: 1-4 switch views when not typing
             document.addEventListener('keydown', e => {
-                // Escape to close DM or inbox
-                if (e.key === 'Escape') {
-                    if (app.showInbox) { app.showInbox = false; $('dm-inbox').classList.add('hidden'); }
-                    else if (SkateChat.getState().viewMode === 'dm') { SkateChat.closeDm(); }
-                }
-                // Ctrl/Cmd + 1/2/3 to switch views
-                if ((e.ctrlKey || e.metaKey) && ['1', '2', '3'].includes(e.key)) {
-                    e.preventDefault();
-                    const views = ['programs', 'groups', 'chat'];
-                    switchView(views[parseInt(e.key) - 1]);
-                }
+                if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+                const views = ['programs', 'guides', 'groups', 'chat'];
+                if (e.key >= '1' && e.key <= '4') switchView(views[parseInt(e.key) - 1]);
             });
         }
-        
-        // GO!
+
+        function refreshSettingsUI() {
+            const fmt = SkateSettings.get('timeFormat'), exp = SkateSettings.get('experience');
+            $$('#settings-timefmt button').forEach(b => b.classList.toggle('active', b.dataset.fmt === fmt));
+            $$('#settings-exp button').forEach(b => b.classList.toggle('active', b.dataset.exp === exp));
+        }
+
+        async function sendCurrent() {
+            const input = $('chat-input');
+            const text = input.value;
+            if (!text.trim()) return;
+            input.value = '';
+            const s = SkateChat.getState();
+            if (s.viewMode === 'dm') await SkateChat.sendDm(text);
+            else await SkateChat.sendMessage(text);
+        }
+
+        function applyDarkMode() {
+            document.body.classList.toggle('dark-mode', app.darkMode);
+            $('btn-dark-mode').textContent = app.darkMode ? '☀️' : '🌙';
+        }
+
         init();
     })();
     </script>
