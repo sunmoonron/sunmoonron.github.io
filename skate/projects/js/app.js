@@ -26,6 +26,16 @@ window.SkateApp = (() => {
     const S = {
         programs: [], filtered: [], page: 1, perPage: 20,
         type: 'all', search: '', day: '', age: null, showPast: false,
+        // v2: runtime copies of persisted prefs (S is the source of truth
+        // while the app runs; SkateSettings persists explicit user choices)
+        paidVisible: !!SkateSettings.get('paidVisible'),
+        rinkScope: SkateSettings.get('rinkScope') || 'all',
+        sort: SkateSettings.get('sort') || 'time',
+        calMode: !!SkateSettings.get('calMode'),
+        calWeekOffset: 0,
+        nearRink: null,                // {key, name} chip filter set from the 📍 locator
+        myRinksReturnScope: null,      // restore scope if picker closes with 0 picks
+        pendingExpAction: null,        // continuation for the lazy onboarding gate
         darkMode: localStorage.getItem('darkMode') === 'true',
         activeGuideId: null, guideCat: '',
         lastVotesSnapshot: '',
@@ -52,6 +62,18 @@ window.SkateApp = (() => {
         time:     p => p['Start Time'] || '',
         endTime:  p => p['End Time'] || '',
         id:       p => SkateChat.Favorites.getId(p),
+
+        /**
+         * Stable location key shared with rinks.json:
+         * city → String(Location ID); external without a city id →
+         * 'ext-<source>' (matches the synthetic rinks.json entries);
+         * last resort → normalized name.
+         */
+        locKey(p) {
+            if (p['Location ID'] != null) return String(p['Location ID']);
+            if (p.Source && p.Source !== 'city') return 'ext-' + p.Source;
+            return 'name:' + P.location(p).toLowerCase();
+        },
 
         /** Config-driven type matcher (replaces the hardcoded if-chain). */
         matchesType(p, typeId) {
@@ -134,8 +156,22 @@ window.SkateApp = (() => {
             onPick: id => { S.type = id; Actions.applyFilters(); }
         });
 
+        // Rink scope chips (🌍 all / ⭐ mine / ✎ edit) — rebuilt on changes
+        Render.scopeChips();
+
         // Day options
         fillSelect($('day-filter'), CFG.days);
+
+        // Sort options
+        fillSelect($('sort-filter'), CFG.sortOptions.map(o => ({ value: o.id, label: o.label })), v => v.label);
+        $('sort-filter').value = S.sort;
+
+        // Version chip + unseen-release dot
+        $('version-label').textContent = 'v' + CFG.version;
+        $('version-dot').classList.toggle('hidden', SkateSettings.get('lastSeenVersion') === CFG.version);
+
+        // Calendar toggle reflects the persisted mode
+        $('show-paid-toggle').checked = S.paidVisible;
 
         // Chat filter chips (muted chip starts hidden, like before)
         chips($('chat-filters'), CFG.chatFilters, {
@@ -178,6 +214,26 @@ window.SkateApp = (() => {
         $(view + '-panel').classList.add('active');
     };
 
+    /* ---------- Rink scope (personalization) ---------- */
+    Render.scopeChips = function () {
+        const n = (SkateSettings.get('myRinks') || []).length;
+        const items = CFG.rinkScopes.map(s => ({
+            ...s,
+            label: s.id === 'mine' && n ? `${s.label} (${n})` : s.label
+        }));
+        items.push({ id: 'edit', label: '✎' });
+        if (S.nearRink) items.push({ id: 'nearclear', label: `📍 ${S.nearRink.name} ✕` });
+
+        chips($('scope-row'), items, {
+            attr: 'scope', active: S.rinkScope,
+            onPick: id => Actions.pickScope(id),
+            extra: (btn, it) => {
+                if (it.id === 'edit') { btn.classList.add('scope-edit'); btn.title = 'Choose my rinks'; }
+                if (it.id === 'nearclear') { btn.classList.add('scope-near'); btn.title = 'Showing one rink from the locator — tap to clear'; }
+            }
+        });
+    };
+
     /* ---------- Programs ---------- */
     Render.programs = function () {
         const { filtered, page, perPage } = S;
@@ -186,7 +242,9 @@ window.SkateApp = (() => {
         const chatState = SkateChat.getState();
         const now = new Date();
 
-        $('stats-text').textContent = `${filtered.length} programs found`;
+        // stats line (shared by list + calendar views)
+        const paidHidden = !S.paidVisible ? S.programs.filter(p => p.Paid).length : 0;
+        $('stats-text').textContent = `${filtered.length} programs found` + (paidHidden ? ` · ${paidHidden} paid hidden 💰` : '');
         const metadata = SkateAPI.getMetadata();
         if (metadata?.lastUpdated) {
             const updated = new Date(metadata.lastUpdated);
@@ -194,10 +252,24 @@ window.SkateApp = (() => {
             const dateStr = updated.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
             $('data-updated').textContent = daysAgo === 0 ? 'Updated today' : daysAgo === 1 ? 'Updated yesterday' : `Updated ${dateStr}`;
             $('data-updated').classList.toggle('stale', daysAgo > 7);
+            if (SkateAlerts.fetchedAt) $('data-updated').title = `Service-alert snapshot: ${new Date(SkateAlerts.fetchedAt).toLocaleString('en-CA')}`;
         }
 
+        // list ↔ calendar
+        $('calendar-wrap').classList.toggle('hidden', !S.calMode);
+        $('program-list').classList.toggle('hidden', S.calMode);
+        $('pagination').classList.toggle('hidden', S.calMode);
+        $('pagination-top').classList.toggle('hidden', S.calMode);
+        const calBtn = $('btn-cal-toggle');
+        calBtn.textContent = S.calMode ? '📋' : '📅';
+        calBtn.title = S.calMode ? 'Back to list view' : 'Switch to week-calendar view';
+        if (S.calMode) return Render.calendar();
+
         if (!filtered.length) {
-            $('program-list').innerHTML = `<li class="loading">${S.type === 'favorites' ? 'No saved programs yet. Tap ❤️ on any program to save it!' : 'No matching programs found'}</li>`;
+            const empty = S.type === 'favorites' ? 'No saved programs yet. Tap ❤️ on any program to save it!'
+                : S.rinkScope === 'mine' ? 'Nothing at your rinks with these filters — tap 🌍 All rinks to widen the search.'
+                : 'No matching programs found';
+            $('program-list').innerHTML = `<li class="loading">${empty}</li>`;
             Render.pagination(0);
             return;
         }
@@ -206,24 +278,74 @@ window.SkateApp = (() => {
         Render.pagination(Math.ceil(filtered.length / perPage));
     };
 
+    Render.calendar = function () {
+        const res = SkateCalendar.render($('calendar-view'), S.filtered, {
+            weekOffset: S.calWeekOffset,
+            fmtClock,
+            idFor: p => P.id(p),
+            isSaved: p => SkateChat.Favorites.has(p),
+            alertFor: p => SkateAlerts.forProgram(p),
+            statusFor: p => SkateTime.status(p)
+        });
+        $('cal-label').textContent = `${res.label} · ${res.total} session${res.total === 1 ? '' : 's'}`;
+    };
+
     Render.programRow = function (p, idx, chatState, now) {
         const pid = P.id(p);
         const activity = P.activity(p) || 'Unknown';
         const location = P.location(p);
         const time = P.time(p), endTime = P.endTime(p);
 
-        let dateDisplay = '', programDate = null;
+        let dateDisplay = '';
         if (P.dateStr(p)) {
-            programDate = parseLocalDate(P.dateStr(p));
-            dateDisplay = programDate.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
+            dateDisplay = parseLocalDate(P.dateStr(p)).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
         }
-        let happeningSoon = false;
-        if (programDate && time) {
-            const [h, m] = time.split(':').map(Number);
-            const eventTime = new Date(programDate); eventTime.setHours(h || 0, m || 0, 0, 0);
-            const diff = eventTime - now;
-            happeningSoon = diff > 0 && diff < 2 * 3600000;
+
+        // Live status vs *Toronto* time: Starts in Xm / On now · Xm left / Ended
+        const st = SkateTime.status(p, now.getTime());
+        let statusChip = '', rowStateCls = '';
+        if (st.phase === 'soon') {
+            statusChip = `<span class="happening-now">Starts in ${SkateTime.fmtMins(st.minsToStart)}</span>`;
+            rowStateCls = ' happening-soon';
+        } else if (st.phase === 'live') {
+            statusChip = `<span class="happening-now live">On now · ${SkateTime.fmtMins(st.minsLeft)} left</span>`;
+            rowStateCls = ' happening-soon is-live';
+        } else if (st.phase === 'ended') {
+            statusChip = '<span class="ended-chip">Ended</span>';
+            rowStateCls = ' is-ended';
         }
+
+        // Service alert verdict for this location (toronto.ca snapshot)
+        const alert = SkateAlerts.forProgram(p);
+        let alertHtml = '';
+        if (alert) {
+            const closed = alert.level === 'closed';
+            const snippet = (alert.text || '').slice(0, 200);
+            alertHtml = `<div class="alert-banner ${closed ? 'closed' : 'warning'}" title="${escapeHtml(alert.text || alert.reason)}">
+                <strong>${closed ? '🚫 Likely cancelled — rink alert' : '⚠️ Service alert at this location'}:</strong>
+                ${escapeHtml(alert.reason)}${snippet ? ` — ${escapeHtml(snippet)}${alert.text.length > 200 ? '…' : ''}` : ''}
+            </div>`;
+        }
+
+        // Scraped schedules can't be verified against a live feed — say so, loudly.
+        const unverifiedHtml = p.Unverified ? `<div class="alert-banner unverified">
+                <strong>❓ UNVERIFIED — CALL / CHECK WEBSITE</strong> — this schedule is scraped from the venue's site and there's no live status feed. Confirm before heading out:
+                <a href="${escapeHtml(p.InfoUrl || '#')}" target="_blank" rel="noopener">venue website ↗</a>
+            </div>` : '';
+
+        // Paid venue extras: gold badge with price + register link
+        const srcInfo = CFG.sourceInfo[p.Source];
+        const paidBadge = p.Paid ? `<span class="paid-badge" title="Paid venue${srcInfo ? ' — ' + escapeHtml(srcInfo.label) : ''}${srcInfo?.note ? '. ' + escapeHtml(srcInfo.note) : ''}">💲${p.Price != null ? p.Price : '?'}</span>` : '';
+        const srcTag = (p.Source && p.Source !== 'city' && srcInfo) ? `<span class="src-tag" title="${escapeHtml(srcInfo.note || '')}">via ${escapeHtml(srcInfo.label)}</span>` : '';
+        const registerBtn = (p.Paid && p.RegistrationUrl) ? `<a class="btn-register" href="${escapeHtml(p.RegistrationUrl)}" target="_blank" rel="noopener" title="Opens the venue's registration page">Register ↗</a>` : '';
+
+        // Distance badge once a location is set via the 📍 locator
+        const km = SkateGeo.distanceForProgram(p);
+        const distBadge = km != null ? `<div class="dist-badge">📍 ${SkateGeo.fmtKm(km)}</div>` : '';
+
+        // Per-location footnote (e.g. Don Montgomery's on-site rink-info TV)
+        const note = CFG.locationNotes[String(p['Location ID'] ?? '')];
+        const noteBtn = note ? `<button class="loc-note" data-note="${escapeHtml(note)}" title="${escapeHtml(note)}" aria-label="Location note">ℹ️</button>` : '';
 
         // Action buttons from config (order + gating are data)
         const votes = SkateChat.getVotes(p);
@@ -243,24 +365,26 @@ window.SkateApp = (() => {
             return `<button data-act="${a.act}" data-idx="${idx}" class="${a.cls}${extraCls}" title="${title}">${text}</button>`;
         }).join('');
 
-        const locationHtml = location ? `<a href="${mapsUrl(location)}" target="_blank" rel="noopener" class="program-location">📍 ${escapeHtml(location)} ↗</a>` : '';
+        const locationHtml = location ? `<a href="${mapsUrl(location)}" target="_blank" rel="noopener" class="program-location">📍 ${escapeHtml(location)} ↗</a>${noteBtn}` : '';
 
         return `
-            <li class="program-item ${happeningSoon ? 'happening-soon' : ''}" data-pid="${pid}">
+            <li class="program-item${rowStateCls}${p.Paid ? ' is-paid' : ''}${alert ? (alert.level === 'closed' ? ' has-alert-closed' : ' has-alert') : ''}" data-pid="${pid}">
                 <div class="program-header">
                     <div>
                         <div class="program-title">${escapeHtml(activity)}</div>
                         ${locationHtml}
                     </div>
                     <div class="program-meta">
-                        ${happeningSoon ? '<span class="happening-now">Starting Soon</span>' : ''}
+                        ${statusChip}
                         <div class="program-date">${dateDisplay}</div>
                         <div>${fmtClock(time)}${endTime ? '–' + fmtClock(endTime) : ''}</div>
+                        ${distBadge}
                     </div>
                 </div>
+                ${alertHtml}${unverifiedHtml}
                 <div class="program-footer">
-                    <div class="program-badges">${P.tagFor(p)} ${P.ageBadge(p)}</div>
-                    <div class="program-actions">${actionHtml}</div>
+                    <div class="program-badges">${P.tagFor(p)} ${paidBadge} ${P.ageBadge(p)} ${srcTag}</div>
+                    <div class="program-actions">${registerBtn}${actionHtml}</div>
                 </div>
             </li>`;
     };
@@ -571,6 +695,99 @@ window.SkateApp = (() => {
         else { btn.classList.remove('hidden'); hint.textContent = 'Get pinged for new messages when this tab is in the background.'; }
     };
 
+    /* ---------- Locator (closest rinks) ---------- */
+    Render.locator = function () {
+        const user = SkateGeo.getUserLocation();
+        $('locator-status').textContent = user ? `Rinks nearest to: ${user.label}` : '';
+        const wrap = $('locator-results');
+        wrap.innerHTML = '';
+        if (!user) {
+            wrap.appendChild(el('p', { class: 'settings-hint' }, ['Share your location or search an address to see your closest rinks, with distances everywhere in the app.']));
+            return;
+        }
+        if (!SkateGeo.loaded || !SkateGeo.rinks.length) {
+            wrap.appendChild(el('p', { class: 'settings-hint' }, ['Rink map still loading — try again in a second.']));
+            return;
+        }
+        const mine = new Set(SkateSettings.get('myRinks') || []);
+        SkateGeo.nearest(user, 12).forEach(r => {
+            const key = String(r.locationid);
+            const sessions = S.programs.filter(p => P.locKey(p) === key && SkateTime.status(p).phase !== 'ended').length;
+            const alerts = SkateAlerts.forLocation(key);
+            const row = el('div', { class: 'locator-rink' });
+            row.appendChild(el('div', { class: 'locator-rink-info' }, [
+                el('strong', {}, [
+                    r.name,
+                    ...(r.paid ? [el('span', { class: 'paid-badge small' }, [' 💲'])] : []),
+                    ...(alerts.length ? [el('span', { class: 'locator-alert', title: alerts.map(a => a.Reason).join(', ') }, [' ⚠️'])] : [])
+                ]),
+                el('span', { class: 'locator-rink-meta' }, [
+                    `${SkateGeo.fmtKm(r.km)} · ${(r.kinds || []).map(k => k === 'indoor' ? '🏠 indoor' : '🌳 outdoor').join(' + ')}` +
+                    (sessions ? ` · ${sessions} upcoming` : ' · no drop-ins listed')
+                ])
+            ]));
+            const starred = mine.has(key);
+            row.appendChild(el('div', { class: 'locator-rink-actions' }, [
+                el('button', { class: 'btn-small', dataset: { locFilter: key, locName: r.name }, title: 'Show only this rink\'s sessions' }, ['🔎']),
+                el('button', { class: 'btn-small' + (starred ? ' starred' : ''), dataset: { locStar: key }, title: starred ? 'Remove from My rinks' : 'Add to My rinks' }, [starred ? '⭐' : '☆'])
+            ]));
+            wrap.appendChild(row);
+        });
+    };
+
+    /* ---------- My rinks picker ---------- */
+    Render.myRinks = function (filterText = '') {
+        const mine = new Set(SkateSettings.get('myRinks') || []);
+        $('myrinks-count').textContent = mine.size ? `${mine.size} picked.` : '';
+        const user = SkateGeo.getUserLocation();
+
+        // Universe = every rink + every program location (some drop-in spots
+        // aren't rinks, e.g. gym ball-hockey — still selectable).
+        const seen = new Map();
+        SkateGeo.rinks.forEach(r => {
+            seen.set(String(r.locationid), {
+                key: String(r.locationid), name: r.name,
+                km: user && r.lat != null ? SkateGeo.distanceKm(user, { lat: r.lat, lng: r.lng }) : null,
+                kinds: r.kinds || []
+            });
+        });
+        S.programs.forEach(p => {
+            const key = P.locKey(p);
+            if (!seen.has(key)) {
+                const km = SkateGeo.distanceForProgram(p);
+                seen.set(key, { key, name: P.location(p) || key, km, kinds: [] });
+            }
+        });
+
+        let all = [...seen.values()];
+        const q = filterText.trim().toLowerCase();
+        if (q) all = all.filter(x => x.name.toLowerCase().includes(q));
+        all.sort((a, b) =>
+            (mine.has(b.key) - mine.has(a.key)) ||             // picked first
+            ((a.km ?? Infinity) - (b.km ?? Infinity)) ||        // then nearest
+            a.name.localeCompare(b.name));                      // then A-Z
+
+        const list = $('myrinks-list');
+        list.innerHTML = '';
+        all.slice(0, 80).forEach(x => {
+            const li = el('li', { class: 'myrinks-item' + (mine.has(x.key) ? ' picked' : ''), dataset: { rink: x.key } });
+            li.appendChild(el('span', { class: 'myrinks-check' }, [mine.has(x.key) ? '⭐' : '☆']));
+            li.appendChild(el('span', { class: 'myrinks-name' }, [x.name]));
+            li.appendChild(el('span', { class: 'myrinks-meta' }, [x.km != null ? SkateGeo.fmtKm(x.km) : '']));
+            list.appendChild(li);
+        });
+        if (!all.length) list.appendChild(el('li', { class: 'muted-empty' }, ['No locations match that filter.']));
+    };
+
+    /* ---------- What's new ---------- */
+    Render.whatsNew = function () {
+        $('whatsnew-list').innerHTML = CFG.changelog.map(c => `
+            <div class="wn-entry">
+                <h4>v${escapeHtml(c.v)} <span class="wn-date">${escapeHtml(c.date)}</span></h4>
+                <ul>${c.items.map(i => `<li>${escapeHtml(i)}</li>`).join('')}</ul>
+            </div>`).join('');
+    };
+
     /* ---------- Guides ---------- */
     let guidesRenderQueued = false;
     function scheduleGuidesRender() {
@@ -749,6 +966,26 @@ window.SkateApp = (() => {
                 { ...A('copyLink'), onClick: () => copyText(`${baseUrl()}#p=${P.id(p)}`, 'Link copied! 🔗') },
                 { ...A('addCalendar'), onClick: () => downloadIcs(p) }
             ];
+        },
+
+        /** Tapping a session block in the week calendar. */
+        calBlock(p) {
+            const fav = SkateChat.Favorites.has(p);
+            const items = [
+                { label: fav ? '💔 Remove from saved' : '❤️ Save this session', onClick: () => { SkateChat.Favorites.toggle(p); Render.programs(); } },
+                { label: '📋 Show in list', onClick: () => {
+                    S.calMode = false;
+                    SkateSettings.set('calMode', false);
+                    Render.programs();
+                    Actions.focusProgram(P.id(p));
+                } }
+            ];
+            if (p.Paid && p.RegistrationUrl) {
+                items.push({ label: '🎟 Register on venue site ↗', onClick: () => window.open(p.RegistrationUrl, '_blank', 'noopener') });
+            }
+            items.push({ label: '📤 Share to chat', onClick: () => Actions.openSharePicker({ type: 'program', payload: p }) });
+            items.push(...Menus.programCopy(p));
+            return items;
         }
     };
 
@@ -757,8 +994,25 @@ window.SkateApp = (() => {
 
     Actions.switchView = view => Render.switchView(view);
 
-    Actions.applyFilters = function () {
+    /**
+     * @param keepPage true for background re-runs (the 1-minute status
+     * ticker) — keeps the reader's current page instead of jumping to 1.
+     */
+    Actions.applyFilters = function (keepPage = false) {
         let result = S.programs.filter(p => P.matchesType(p, S.type));
+
+        // Paid/private venues stay hidden until explicitly toggled on
+        if (!S.paidVisible) result = result.filter(p => !p.Paid);
+
+        // ⭐ My rinks scope
+        if (S.rinkScope === 'mine') {
+            const mine = new Set(SkateSettings.get('myRinks') || []);
+            if (mine.size) result = result.filter(p => mine.has(P.locKey(p)));
+        }
+
+        // Single-rink chip from the 📍 locator
+        if (S.nearRink) result = result.filter(p => P.locKey(p) === S.nearRink.key);
+
         if (S.search) {
             const term = S.search.toLowerCase();
             result = result.filter(p => P.activity(p).toLowerCase().includes(term) || P.location(p).toLowerCase().includes(term));
@@ -766,12 +1020,30 @@ window.SkateApp = (() => {
         if (S.day) result = result.filter(p => p['Day of Week'] === S.day);
         if (S.age !== null) result = result.filter(p => S.age >= (p['Age Min'] || 0) && S.age <= (p['Age Max'] || 999));
 
-        const now = new Date(); now.setHours(0, 0, 0, 0);
-        if (!S.showPast) result = result.filter(p => !P.dateStr(p) || parseLocalDate(P.dateStr(p)) >= now);
+        // Past filter on the real END time in Toronto — an event disappears
+        // the minute it ends (not at midnight), and in-progress ones stay.
+        if (!S.showPast) {
+            const nowMs = Date.now();
+            result = result.filter(p => SkateTime.status(p, nowMs).phase !== 'ended');
+        }
 
-        result.sort((a, b) => parseLocalDate(P.dateStr(a) || '9999') - parseLocalDate(P.dateStr(b) || '9999'));
+        // Order by actual start instant (date+time, Toronto) — fixes the
+        // old date-only sort that shuffled same-day events.
+        if (S.sort === 'near' && SkateGeo.getUserLocation()) {
+            result.sort((a, b) => {
+                const da = SkateGeo.distanceForProgram(a), db = SkateGeo.distanceForProgram(b);
+                if (da == null && db == null) return SkateTime.sortEpoch(a) - SkateTime.sortEpoch(b);
+                if (da == null) return 1;
+                if (db == null) return -1;
+                return (da - db) || (SkateTime.sortEpoch(a) - SkateTime.sortEpoch(b));
+            });
+        } else {
+            result.sort((a, b) => SkateTime.sortEpoch(a) - SkateTime.sortEpoch(b));
+        }
+
         S.filtered = result;
-        S.page = 1;
+        const maxPage = Math.max(1, Math.ceil(result.length / S.perPage));
+        S.page = keepPage ? Math.min(S.page, maxPage) : 1;
         Render.programs();
     };
 
@@ -779,18 +1051,157 @@ window.SkateApp = (() => {
         const find = () => S.filtered.findIndex(p => P.id(p) === pid);
         let idx = find();
         if (idx === -1) {
-            // widen the net: clear filters, include past events
+            // widen the net: clear filters, include past + paid, all rinks.
+            // (session-only — the persisted prefs are untouched)
             S.type = 'all'; S.search = ''; S.day = ''; S.age = null; S.showPast = true;
+            S.paidVisible = true; S.rinkScope = 'all'; S.nearRink = null;
             $('search-input').value = ''; $('day-filter').value = ''; $('age-filter').value = '';
             $('show-past-toggle').checked = true;
+            $('show-paid-toggle').checked = true;
             $$('#type-filters .filter-chip').forEach(c => c.classList.toggle('active', c.dataset.type === 'all'));
+            Render.scopeChips();
             Actions.applyFilters();
             idx = find();
         }
         if (idx === -1) return SkateChat.Notify.toast('That program isn\'t in the current dataset anymore', 'error');
+        if (S.calMode) { S.calMode = false; Render.programs(); }
         S.page = Math.floor(idx / S.perPage) + 1;
         Render.programs();
         requestAnimationFrame(() => flash(document.querySelector(`.program-item[data-pid="${pid}"]`)));
+    };
+
+    /* ---------- Rink scope + personalization ---------- */
+    Actions.pickScope = function (id) {
+        if (id === 'edit') {
+            Actions.openMyRinks(false);
+            Render.scopeChips();   // undo the chip auto-highlight on ✎
+            return;
+        }
+        if (id === 'nearclear') {
+            S.nearRink = null;
+            Render.scopeChips();
+            Actions.applyFilters();
+            return;
+        }
+        if (id === 'mine' && !(SkateSettings.get('myRinks') || []).length) {
+            // nothing picked yet — open the picker; scope flips on Done
+            Actions.openMyRinks(true);
+            Render.scopeChips();
+            return;
+        }
+        S.rinkScope = id;
+        SkateSettings.set('rinkScope', id);
+        Render.scopeChips();
+        Actions.applyFilters();
+    };
+
+    Actions.openMyRinks = function (activateOnDone) {
+        S.myRinksReturnScope = activateOnDone ? 'activate' : null;
+        $('myrinks-search').value = '';
+        Render.myRinks('');
+        Modal.open('myrinks-modal');
+    };
+
+    Actions.toggleMyRink = function (key) {
+        const mine = new Set(SkateSettings.get('myRinks') || []);
+        mine.has(key) ? mine.delete(key) : mine.add(key);
+        SkateSettings.set('myRinks', [...mine]);
+        Render.myRinks($('myrinks-search').value);
+        Render.scopeChips();
+        if (S.rinkScope === 'mine') Actions.applyFilters();
+    };
+
+    Actions.closeMyRinks = function () {
+        const n = (SkateSettings.get('myRinks') || []).length;
+        if (S.myRinksReturnScope === 'activate' && n) {
+            S.rinkScope = 'mine';
+            SkateSettings.set('rinkScope', 'mine');
+        }
+        if (!n && S.rinkScope === 'mine') {
+            S.rinkScope = 'all';
+            SkateSettings.set('rinkScope', 'all');
+        }
+        S.myRinksReturnScope = null;
+        Modal.close('myrinks-modal');
+        Render.scopeChips();
+        Actions.applyFilters();
+    };
+
+    /* ---------- Locator ---------- */
+    Actions.openLocator = function () {
+        Render.locator();
+        Modal.open('locator-modal');
+    };
+
+    Actions.useMyLocation = async function () {
+        const btn = $('btn-share-location');
+        btn.disabled = true; btn.textContent = '📡 Locating…';
+        try {
+            const loc = await SkateGeo.locateMe();
+            SkateGeo.setUserLocation(loc);
+            Render.locator();
+            Actions.applyFilters(true);
+        } catch (e) {
+            $('locator-status').textContent = e.message;
+        }
+        btn.disabled = false; btn.textContent = '📡 Use my location';
+    };
+
+    Actions.searchLocation = async function () {
+        const btn = $('btn-locator-search');
+        btn.disabled = true;
+        $('locator-status').textContent = 'Searching…';
+        try {
+            const loc = await SkateGeo.geocode($('locator-input').value);
+            SkateGeo.setUserLocation(loc);
+            Render.locator();
+            Actions.applyFilters(true);
+        } catch (e) {
+            $('locator-status').textContent = e.message;
+        }
+        btn.disabled = false;
+    };
+
+    Actions.filterToRink = function (key, name) {
+        S.nearRink = { key, name };
+        // widen anything that would hide this rink's sessions
+        if (S.rinkScope === 'mine' && !(SkateSettings.get('myRinks') || []).includes(key)) S.rinkScope = 'all';
+        const rink = SkateGeo.rinkByLocation(key);
+        if (rink && rink.paid) { S.paidVisible = true; $('show-paid-toggle').checked = true; }
+        Modal.close('locator-modal');
+        Render.scopeChips();
+        Actions.applyFilters();
+        SkateChat.Notify.toast(`Showing only ${name} — tap the 📍 chip to clear`, 'info', 3500);
+    };
+
+    /* ---------- What's new ---------- */
+    Actions.openWhatsNew = function () {
+        Render.whatsNew();
+        SkateSettings.set('lastSeenVersion', CFG.version);
+        $('version-dot').classList.add('hidden');
+        Modal.open('whatsnew-modal');
+    };
+
+    /* ---------- Lazy onboarding gate ----------
+       The old startup popup is gone. The experience question only appears
+       the first time someone actually uses a community feature (chat send,
+       guide write, guide comment) — and choosing/skipping never yanks the
+       view away from what they were doing. */
+    Actions.ensureExperience = function (cont) {
+        if (SkateSettings.get('experience')) return cont();
+        S.pendingExpAction = cont;
+        Modal.open('onboarding-modal');
+    };
+
+    Actions.resolveExperience = function (exp) {
+        SkateSettings.set('experience', exp);
+        Modal.close('onboarding-modal');
+        if (exp === 'new') {
+            SkateChat.Notify.toast('Welcome! The 📖 Guides tab has first-lap tips, and the 🐣 New Skaters room is judgement-free 🐣', 'success', 4500);
+        }
+        const cont = S.pendingExpAction;
+        S.pendingExpAction = null;
+        if (cont) cont();
     };
 
     Actions.openGuide = function (id) {
@@ -842,6 +1253,7 @@ window.SkateApp = (() => {
     Actions.submitGuideComment = async function () {
         const text = $('guide-comment-input').value;
         if (!text.trim() || !S.activeGuideId) return;
+        if (!SkateSettings.get('experience')) return Actions.ensureExperience(() => Actions.submitGuideComment());
         const btn = $('btn-guide-comment');
         btn.disabled = true; btn.textContent = '⛏️';
         try {
@@ -928,6 +1340,8 @@ window.SkateApp = (() => {
         const input = $('chat-input');
         const text = input.value;
         if (!text.trim()) return;
+        // first community action → one-time experience question (input keeps its text)
+        if (!SkateSettings.get('experience')) return Actions.ensureExperience(() => Actions.sendCurrent());
         input.value = '';
         const reply = S.replyTo;
         Actions.clearReply();
@@ -1058,6 +1472,7 @@ window.SkateApp = (() => {
         try {
             SkateAPI._skatingPrograms = null;
             S.programs = (await SkateAPI.getSkatingPrograms()) || [];
+            SkateAlerts.load();   // re-pull the alert snapshot too
             Actions.applyFilters();
             SkateChat.Notify.toast('Programs reloaded!', 'success', 2000);
             await SkateRefresh.requestCityRefresh();
@@ -1074,6 +1489,62 @@ window.SkateApp = (() => {
         $('day-filter').onchange = () => { S.day = $('day-filter').value; Actions.applyFilters(); };
         $('age-filter').onchange = () => { S.age = $('age-filter').value ? parseInt($('age-filter').value) : null; Actions.applyFilters(); };
         $('show-past-toggle').onchange = () => { S.showPast = $('show-past-toggle').checked; Actions.applyFilters(); };
+        $('show-paid-toggle').onchange = () => {
+            S.paidVisible = $('show-paid-toggle').checked;
+            SkateSettings.set('paidVisible', S.paidVisible);
+            Actions.applyFilters();
+        };
+        $('sort-filter').onchange = () => {
+            S.sort = $('sort-filter').value;
+            SkateSettings.set('sort', S.sort);
+            if (S.sort === 'near' && !SkateGeo.getUserLocation()) Actions.openLocator();
+            Actions.applyFilters();
+        };
+        $('btn-near').onclick = Actions.openLocator;
+
+        // Calendar view
+        $('btn-cal-toggle').onclick = () => {
+            S.calMode = !S.calMode;
+            SkateSettings.set('calMode', S.calMode);
+            Render.programs();
+        };
+        $('btn-cal-prev').onclick = () => { S.calWeekOffset--; Render.calendar(); };
+        $('btn-cal-next').onclick = () => { S.calWeekOffset++; Render.calendar(); };
+        $('btn-cal-today').onclick = () => { S.calWeekOffset = 0; Render.calendar(); };
+        delegate($('calendar-view'), [
+            ['.cal-block', (block, e) => {
+                e.stopPropagation();
+                const p = S.filtered.find(x => P.id(x) === block.dataset.pid);
+                if (p) Popover.open(block, Menus.calBlock(p));
+            }]
+        ]);
+
+        // Locator modal
+        $('btn-locator-close').onclick = () => Modal.close('locator-modal');
+        $('btn-share-location').onclick = Actions.useMyLocation;
+        $('btn-locator-search').onclick = Actions.searchLocation;
+        $('locator-input').onkeypress = e => { if (e.key === 'Enter') Actions.searchLocation(); };
+        delegate($('locator-results'), [
+            ['[data-loc-filter]', (b) => Actions.filterToRink(b.dataset.locFilter, b.dataset.locName)],
+            ['[data-loc-star]', (b) => { Actions.toggleMyRink(b.dataset.locStar); Render.locator(); }]
+        ]);
+
+        // My rinks modal
+        $('btn-myrinks-close').onclick = Actions.closeMyRinks;
+        $('btn-myrinks-done').onclick = Actions.closeMyRinks;
+        $('btn-myrinks-clear').onclick = () => {
+            SkateSettings.set('myRinks', []);
+            Render.myRinks($('myrinks-search').value);
+            Render.scopeChips();
+        };
+        $('myrinks-search').oninput = () => Render.myRinks($('myrinks-search').value);
+        delegate($('myrinks-list'), [
+            ['.myrinks-item', (li) => Actions.toggleMyRink(li.dataset.rink)]
+        ]);
+
+        // What's new
+        $('btn-version').onclick = Actions.openWhatsNew;
+        $('btn-whatsnew-close').onclick = () => Modal.close('whatsnew-modal');
 
         // Single button — the old <label>-wrapped version double-fired.
         $('btn-dark-mode').onclick = () => {
@@ -1089,6 +1560,7 @@ window.SkateApp = (() => {
         delegate($('pagination-top'), [['button[data-p]', goPage]]);
 
         delegate($('program-list'), [
+            ['.loc-note', (n, e) => { e.stopPropagation(); SkateChat.Notify.toast(n.dataset.note, 'info', 6000); }],
             ['button[data-act]', (btn) => {
                 const p = S.filtered[parseInt(btn.dataset.idx)];
                 if (!p) return;
@@ -1217,10 +1689,10 @@ window.SkateApp = (() => {
         ]);
         $('btn-guide-reply-cancel').onclick = Actions.clearGuideReply;
         $('btn-guide-back').onclick = Actions.closeGuide;
-        $('btn-write-guide').onclick = () => {
+        $('btn-write-guide').onclick = () => Actions.ensureExperience(() => {
             $('guides-home').classList.add('hidden');
             $('guide-write').classList.remove('hidden');
-        };
+        });
         $('btn-write-back').onclick = () => {
             $('guide-write').classList.add('hidden');
             $('guides-home').classList.remove('hidden');
@@ -1229,10 +1701,13 @@ window.SkateApp = (() => {
         $('btn-guide-comment').onclick = Actions.submitGuideComment;
         $('guide-comment-input').onkeypress = e => { if (e.key === 'Enter') Actions.submitGuideComment(); };
 
-        // Onboarding (buttons generated from config in Render.bootstrap)
+        // Onboarding (buttons generated from config in Render.bootstrap).
+        // Shown lazily via ensureExperience, never at startup — choosing or
+        // skipping resolves quietly and continues whatever the user was doing.
         CFG.experiences.forEach(x => {
-            $(`onboard-${x.id}`).onclick = () => { Modal.close('onboarding-modal'); Actions.applyExperience(x.id); };
+            $(`onboard-${x.id}`).onclick = () => Actions.resolveExperience(x.id);
         });
+        $('onboard-skip').onclick = () => Actions.resolveExperience('regular');
 
         // Settings
         $('btn-settings').onclick = Actions.openSettings;
@@ -1255,6 +1730,7 @@ window.SkateApp = (() => {
 
         Modal.bindOverlays((id) => {
             if (id === 'invite-modal') { S.pendingInvite = null; Actions.clearHash(); }
+            if (id === 'myrinks-modal') Actions.closeMyRinks();
         });
 
         // Keyboard: 1-N switch views, Esc walks back (popover → modal → conversation)
@@ -1262,9 +1738,11 @@ window.SkateApp = (() => {
             if (e.key === 'Escape') {
                 if (Popover.isOpen()) return Popover.close();
                 const modal = Modal.any();
-                if (modal && modal.id !== 'onboarding-modal') {
+                if (modal) {
                     modal.classList.add('hidden');
                     if (modal.id === 'invite-modal') { S.pendingInvite = null; Actions.clearHash(); }
+                    if (modal.id === 'onboarding-modal') S.pendingExpAction = null; // ask again next time
+                    if (modal.id === 'myrinks-modal') Actions.closeMyRinks();
                     return;
                 }
                 if (S.chatOpen && $('chats-panel').classList.contains('active')) return Actions.backToList();
@@ -1282,12 +1760,16 @@ window.SkateApp = (() => {
         Actions.applyDarkMode();
         bind();
 
-        if (!SkateSettings.get('experience')) {
-            Modal.open('onboarding-modal');
-        } else if (SkateSettings.get('experience') === 'new' && !sessionStorage.getItem('skate_seen_this_session')) {
-            Actions.switchView('guides');
-        }
-        sessionStorage.setItem('skate_seen_this_session', '1');
+        // No startup popup anymore: everyone lands on the schedule (the
+        // first tab), on every device. The experience question appears
+        // lazily via ensureExperience the first time it actually matters.
+
+        // Rink map + service alerts load in parallel with programs;
+        // whichever lands last re-renders so badges/distances appear.
+        SkateGeo.load();
+        SkateAlerts.load();
+        SkateGeo.onUpdate(() => { if (S.programs.length) Actions.applyFilters(true); });
+        SkateAlerts.onUpdate(() => { if (S.programs.length) Render.programs(); });
 
         try {
             const programs = await SkateAPI.getSkatingPrograms();
@@ -1297,6 +1779,12 @@ window.SkateApp = (() => {
         } catch (e) {
             $('program-list').innerHTML = '<li class="loading">Could not load programs 😕 — pull to refresh or try again later.</li>';
         }
+
+        // Keep "Starts in Xm / On now · Xm left" honest and let just-ended
+        // sessions drop off — re-filter once a minute, preserving the page.
+        setInterval(() => {
+            if (S.programs.length && document.visibilityState !== 'hidden') Actions.applyFilters(true);
+        }, 60000);
 
         await SkateChat.init();
         SkateChat.onUpdate(Render.chatUI);

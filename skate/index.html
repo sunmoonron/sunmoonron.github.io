@@ -7,6 +7,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <link rel="stylesheet" href="assets/css/style.css?v=10">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=3">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=3">
 </head>
 <body>
     <div class="app" id="app">
@@ -14,6 +15,7 @@
         <div class="top-bar">
             <h1>Toronto Skating</h1>
             <div class="top-bar-actions">
+                <button class="version-chip" id="btn-version" title="What's new in this version" aria-label="What's new"><span id="version-label">v?</span><span class="new-dot hidden" id="version-dot"></span></button>
                 <button class="btn-icon" id="btn-dark-mode" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
                 <button class="btn-icon" id="btn-settings" title="Settings" aria-label="Settings">⚙️</button>
                 <button id="user-name" class="user-name" title="Your chat name — tap to change"></button>
@@ -32,6 +34,9 @@
                     <button id="btn-search" aria-label="Search">🔍</button>
                 </div>
 
+                <!-- Rink scope: generated from SkateConfig.rinkScopes (🌍 all / ⭐ mine) -->
+                <div class="scope-row" id="scope-row"></div>
+
                 <!-- Type chips: generated from SkateConfig.programTypes -->
                 <div class="filter-row" id="type-filters"></div>
 
@@ -41,6 +46,8 @@
                         <!-- day options generated from SkateConfig.days -->
                     </select>
                     <input type="number" id="age-filter" placeholder="Age" style="max-width:80px">
+                    <select id="sort-filter"><!-- options generated from SkateConfig.sortOptions --></select>
+                    <button id="btn-near" class="btn-near" title="Find the rinks closest to you">📍 Near</button>
                 </div>
 
                 <div class="stats-row" id="stats-row">
@@ -48,12 +55,30 @@
                         <span id="stats-text">Loading...</span>
                         <span id="data-updated" class="data-updated"></span>
                     </div>
+                    <label class="toggle-past toggle-paid" title="Show paid/private venues (e.g. Canlan York — prices shown per session)">
+                        <input type="checkbox" id="show-paid-toggle">
+                        <span>💰 Paid</span>
+                    </label>
                     <label class="toggle-past" title="Show events that already happened">
                         <input type="checkbox" id="show-past-toggle">
                         <span>Past</span>
                     </label>
+                    <button class="btn-refresh" id="btn-cal-toggle" title="Switch between list and week-calendar view">📅</button>
                     <button class="btn-refresh" id="btn-refresh" title="Reload programs">🔄</button>
                 </div>
+
+                <!-- Week calendar (list ↔ calendar toggled by 📅) -->
+                <div id="calendar-wrap" class="hidden">
+                    <div class="cal-nav">
+                        <button class="btn-icon" id="btn-cal-prev" title="Previous week" aria-label="Previous week">‹</button>
+                        <button class="cal-today-btn" id="btn-cal-today">Today</button>
+                        <span class="cal-label" id="cal-label"></span>
+                        <button class="btn-icon" id="btn-cal-next" title="Next week" aria-label="Next week">›</button>
+                    </div>
+                    <div id="calendar-view"></div>
+                    <p class="cal-legend">❤️ saved · 💲 paid · 🚫 alert-cancelled · ⚠️ service alert · ❓ unverified — tap a session for actions</p>
+                </div>
+
                 <div class="pagination pagination-top" id="pagination-top"></div>
                 <ul class="program-list" id="program-list"><li class="loading">Loading...</li></ul>
                 <div class="pagination" id="pagination"></div>
@@ -155,7 +180,8 @@
         </div>
     </div>
 
-    <!-- Onboarding modal (first visit) -->
+    <!-- Onboarding modal — no longer shown at startup; appears the first
+         time someone uses chat or writes a guide (or from ⚙️ settings). -->
     <div class="modal-overlay hidden" id="onboarding-modal">
         <div class="modal onboarding">
             <div class="onboard-ice">⛸️</div>
@@ -163,7 +189,55 @@
             <p>Quick question so we can set things up for you:</p>
             <!-- Choice buttons: generated from SkateConfig.experiences -->
             <div id="onboarding-choices"></div>
+            <button class="onboard-skip" id="onboard-skip">Skip for now</button>
             <p class="onboard-note">You can change this anytime in ⚙️ settings.</p>
+        </div>
+    </div>
+
+    <!-- Closest-rink locator -->
+    <div class="modal-overlay hidden" id="locator-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>📍 Rinks near you</h3>
+                <button class="btn-icon" id="btn-locator-close" aria-label="Close">✕</button>
+            </div>
+            <button class="btn-primary btn-locate" id="btn-share-location">📡 Use my location</button>
+            <p class="settings-hint locator-or">— or —</p>
+            <div class="settings-inline">
+                <input type="text" id="locator-input" placeholder="Address or postal code (e.g. M5A 3S5)" autocomplete="off">
+                <button class="btn-primary" id="btn-locator-search">Search</button>
+            </div>
+            <p class="settings-hint" id="locator-status"></p>
+            <div id="locator-results" class="locator-results"></div>
+            <p class="settings-hint">Address search by OpenStreetMap Nominatim. Your location is only stored in this browser.</p>
+        </div>
+    </div>
+
+    <!-- My rinks picker (personalization) -->
+    <div class="modal-overlay hidden" id="myrinks-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>⭐ My rinks</h3>
+                <button class="btn-icon" id="btn-myrinks-close" aria-label="Close">✕</button>
+            </div>
+            <p class="settings-hint">Pick your usual spots — the ⭐ My rinks scope shows only these, everywhere (list, calendar, search). <strong id="myrinks-count"></strong></p>
+            <input type="text" id="myrinks-search" placeholder="Filter locations…" autocomplete="off">
+            <ul id="myrinks-list" class="myrinks-list"></ul>
+            <div class="settings-inline myrinks-actions">
+                <button class="btn-primary" id="btn-myrinks-done">Done</button>
+                <button id="btn-myrinks-clear">Clear all</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- What's new (version changelog) -->
+    <div class="modal-overlay hidden" id="whatsnew-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>🆕 What's new</h3>
+                <button class="btn-icon" id="btn-whatsnew-close" aria-label="Close">✕</button>
+            </div>
+            <div id="whatsnew-list"></div>
         </div>
     </div>
 
@@ -269,19 +343,24 @@
     <!-- Floating action popover (member / message actions) -->
     <div id="popover" class="popover hidden" role="menu"></div>
 
-    <!-- Scripts (order matters: config → modules → ui → app) -->
+    <!-- Scripts (order matters: config → modules → ui → calendar → app;
+         calendar.js reads SkateUI at load so it must come after ui.js) -->
     <script src="../assets/js/nostr.bundle.js"></script>
     <script src="projects/js/profanity-list.js"></script>
-    <script src="projects/js/config.js?v=1"></script>
-    <script src="projects/js/settings.js?v=1"></script>
+    <script src="projects/js/config.js?v=2"></script>
+    <script src="projects/js/settings.js?v=2"></script>
     <script src="projects/js/moderation.js?v=3"></script>
     <script src="projects/js/nostr-core.js?v=1"></script>
     <script src="projects/js/storage.js?v=10"></script>
     <script src="projects/js/api.js?v=11"></script>
+    <script src="projects/js/time.js?v=1"></script>
+    <script src="projects/js/geo.js?v=1"></script>
+    <script src="projects/js/alerts.js?v=1"></script>
     <script src="projects/js/chat-v2.js?v=3"></script>
     <script src="projects/js/guides.js?v=3"></script>
     <script src="projects/js/ui.js?v=1"></script>
-    <script src="projects/js/app.js?v=1"></script>
+    <script src="projects/js/calendar.js?v=2"></script>
+    <script src="projects/js/app.js?v=2"></script>
     <script src="projects/js/refresh.js?v=2"></script>
 </body>
 </html>

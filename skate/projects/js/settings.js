@@ -3,14 +3,25 @@
  *
  *  - timeFormat: '12h' | '24h'  (default 12h; every timestamp in the app goes
  *    through formatClock/formatTime so the toggle applies everywhere at once)
- *  - experience: 'new' | 'regular' | null (drives tab order + default filters)
+ *  - experience: 'new' | 'regular' | null (drives default filters; asked
+ *    lazily the first time someone chats/writes, never as a startup popup)
  *  - displayName: chat name (replaces the random-every-session name)
+ *  - paidVisible: show paid/private venues (hidden by default)
+ *  - rinkScope: 'all' | 'mine'   + myRinks: [locationKey,…] (personalization)
+ *  - sort: 'time' | 'near'      (near requires userLoc)
+ *  - calMode: list ↔ week-calendar toggle for the programs panel
+ *  - userLoc: {lat,lng,label,ts} from the 📍 locator (null = unset)
+ *  - lastSeenVersion: for the 🆕 what's-new dot
  */
 const SkateSettings = (() => {
     'use strict';
 
     const KEY = 'skate_settings_v1';
-    const defaults = { timeFormat: '12h', experience: null, displayName: null };
+    const defaults = {
+        timeFormat: '12h', experience: null, displayName: null,
+        paidVisible: false, rinkScope: 'all', myRinks: [],
+        sort: 'time', calMode: false, userLoc: null, lastSeenVersion: null
+    };
     let settings = { ...defaults };
     const cbs = [];
 
@@ -64,4 +75,8 @@ const SkateSettings = (() => {
     return { load, get, set, onChange, formatClock, formatTime, formatWhen };
 })();
 
+// Expose on window like the other modules — `const` alone doesn't attach to
+// window, which left every `window.SkateSettings?.…` caller silently no-oping
+// (geo persistence, chat display-name preference).
+if (typeof window !== 'undefined') window.SkateSettings = SkateSettings;
 if (typeof module !== 'undefined') module.exports = SkateSettings;

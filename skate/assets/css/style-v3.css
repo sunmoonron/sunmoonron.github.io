@@ -1,0 +1,359 @@
+/**
+ * Toronto Ice Skating — v3 additions.
+ * Loads AFTER style.css and style-additions.css.
+ *
+ * Everything for the 2.0 release lives here:
+ *  1. Service-alert banners (closed / warning / unverified)
+ *  2. Live status chips (Starts in Xm · On now · Ended)
+ *  3. Paid-venue styling (gold accent, price badge, register link)
+ *  4. Week-calendar view
+ *  5. Locator + My-rinks + What's-new modals, scope chips, version chip
+ *  6. Distance badges, source tags, location notes
+ * All colors go through vars so dark mode inherits sensibly, with explicit
+ * dark overrides where contrast needs help.
+ */
+
+/* ========== Tokens ========== */
+:root {
+    --paid: #b8860b;              /* goldenrod family — "money" without neon */
+    --paid-bg: #fdf6e3;
+    --alert-red: #c0392b;
+    --alert-red-bg: #fdecea;
+    --alert-amber: #9a6700;
+    --alert-amber-bg: #fff8e1;
+    --live: #1a9c4b;
+}
+body.dark-mode {
+    --paid: #e6c35c;
+    --paid-bg: #3a3220;
+    --alert-red: #ff7b6b;
+    --alert-red-bg: #43221e;
+    --alert-amber: #ffce4d;
+    --alert-amber-bg: #3d3416;
+    --live: #4dd47f;
+}
+
+/* ========== 1. Alert banners on program rows ========== */
+.alert-banner {
+    margin-top: 8px;
+    padding: 7px 10px;
+    border-radius: var(--radius);
+    font-size: 12px;
+    line-height: 1.45;
+    border: 1px solid;
+}
+.alert-banner.closed {
+    background: var(--alert-red-bg);
+    border-color: color-mix(in srgb, var(--alert-red) 45%, transparent);
+    color: var(--alert-red);
+}
+.alert-banner.warning {
+    background: var(--alert-amber-bg);
+    border-color: color-mix(in srgb, var(--alert-amber) 45%, transparent);
+    color: var(--alert-amber);
+}
+.alert-banner.unverified {
+    background: var(--alert-red-bg);
+    border: 2px dashed var(--alert-red);
+    color: var(--alert-red);
+    font-weight: 500;
+}
+.alert-banner a { color: inherit; font-weight: 700; }
+.program-item.has-alert-closed { border-left: 3px solid var(--alert-red); }
+.program-item.has-alert { border-left: 3px solid var(--alert-amber); }
+.program-item.has-alert-closed .program-title { text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: color-mix(in srgb, var(--alert-red) 65%, transparent); }
+
+/* ========== 2. Live status chips ========== */
+.happening-now.live {
+    background: var(--live);
+    animation: pulse 2s infinite;
+}
+.ended-chip {
+    display: inline-block;
+    background: var(--bg);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.program-item.is-live { border-left: 3px solid var(--live); }
+.program-item.is-ended { opacity: 0.62; }
+
+/* ========== 3. Paid venues ========== */
+.program-item.is-paid {
+    border-color: color-mix(in srgb, var(--paid) 55%, var(--border));
+    background: linear-gradient(90deg, color-mix(in srgb, var(--paid) 9%, var(--bg-white)), var(--bg-white) 120px);
+}
+.program-item.is-paid .program-title { color: var(--paid); }
+.paid-badge {
+    display: inline-flex;
+    align-items: center;
+    background: var(--paid);
+    color: #fff;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+body.dark-mode .paid-badge { color: #1a1a1a; }
+.paid-badge.small { background: none; color: var(--paid); padding: 0; }
+.btn-register {
+    display: inline-block;
+    background: var(--paid);
+    color: #fff;
+    text-decoration: none;
+    padding: 5px 10px;
+    border-radius: var(--radius);
+    font-size: 12px;
+    font-weight: 600;
+}
+body.dark-mode .btn-register { color: #1a1a1a; }
+.btn-register:hover { filter: brightness(1.08); }
+.src-tag {
+    font-size: 10px;
+    color: var(--text-muted);
+    border: 1px dashed var(--border-dark);
+    border-radius: 10px;
+    padding: 2px 7px;
+    white-space: nowrap;
+}
+.toggle-paid span { color: var(--paid); font-weight: 600; }
+
+/* ========== 4. Week calendar ========== */
+.cal-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.cal-label { font-size: 13px; font-weight: 600; flex: 1; }
+.cal-today-btn {
+    font-size: 12px;
+    padding: 5px 10px;
+    background: var(--bg-white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+.cal-today-btn:hover { border-color: var(--acc-programs); }
+.cal-legend { font-size: 10.5px; color: var(--text-muted); margin: 8px 2px 14px; }
+
+/* NB: no scroll-snap here — a fresh snap container re-snaps to its first
+   column on creation, which silently undid the scroll-to-today. */
+.cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(128px, 1fr));
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+}
+.cal-day {
+    background: var(--bg-white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    min-height: 120px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    
+}
+.cal-day.today {
+    border-color: var(--acc-programs);
+    box-shadow: inset 0 2px 0 var(--acc-programs);
+}
+.cal-day-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 4px;
+}
+.cal-day-name { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.cal-day.today .cal-day-name { color: var(--acc-programs); }
+.cal-day-num { font-size: 13px; font-weight: 700; }
+.cal-empty { color: var(--text-muted); font-size: 12px; text-align: center; margin-top: 10px; }
+
+.cal-block {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    text-align: left;
+    width: 100%;
+    background: color-mix(in srgb, var(--acc-programs) 10%, var(--bg-white));
+    border: 1px solid color-mix(in srgb, var(--acc-programs) 35%, var(--border));
+    border-radius: 6px;
+    padding: 5px 7px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.1s;
+}
+.cal-block:hover { border-color: var(--acc-programs); }
+.cal-block:active { transform: scale(0.98); }
+.cal-block-time { font-weight: 700; font-size: 10.5px; }
+.cal-block-title { font-weight: 600; line-height: 1.25; word-break: break-word; }
+.cal-block-loc {
+    color: var(--text-muted);
+    font-size: 10px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.cal-block.cal-paid {
+    background: color-mix(in srgb, var(--paid) 14%, var(--bg-white));
+    border-color: color-mix(in srgb, var(--paid) 55%, var(--border));
+}
+.cal-block.cal-paid .cal-block-time { color: var(--paid); }
+.cal-block.cal-saved { box-shadow: 0 0 0 2px color-mix(in srgb, #e0245e 55%, transparent); }
+.cal-block.cal-closed { opacity: 0.75; }
+.cal-block.cal-closed .cal-block-title { text-decoration: line-through; color: var(--alert-red); }
+.cal-block.cal-warning { border-color: var(--alert-amber); }
+.cal-block.cal-live { border-color: var(--live); box-shadow: inset 3px 0 0 var(--live); }
+.cal-block.cal-ended { opacity: 0.5; }
+.cal-price { color: var(--paid); font-weight: 700; }
+
+/* ========== 5. Scope chips / locator / my-rinks / what's-new ========== */
+.scope-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+.scope-row .filter-chip.active {
+    background: var(--acc-programs);
+    border-color: var(--acc-programs);
+    color: #fff;
+}
+.scope-row .scope-edit { min-width: 34px; }
+.scope-row .scope-near {
+    border-color: var(--acc-programs);
+    color: var(--acc-programs);
+    font-weight: 600;
+}
+
+.btn-near {
+    background: var(--bg-white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 13px;
+    white-space: nowrap;
+}
+.btn-near:hover { border-color: var(--acc-programs); }
+
+.btn-locate { width: 100%; padding: 11px; font-size: 14px; }
+.locator-or { text-align: center; margin: 10px 0; }
+.locator-results { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; max-height: 320px; overflow-y: auto; }
+.locator-rink {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+}
+.locator-rink-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.locator-rink-info strong { font-size: 13px; }
+.locator-rink-meta { font-size: 11px; color: var(--text-muted); }
+.locator-alert { cursor: help; }
+.locator-rink-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.locator-rink-actions .btn-small.starred { border-color: var(--paid); background: color-mix(in srgb, var(--paid) 15%, var(--bg)); }
+
+#myrinks-search {
+    width: 100%;
+    margin-bottom: 8px;
+}
+.myrinks-list {
+    list-style: none;
+    max-height: 300px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+.myrinks-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 13px;
+    transition: border-color 0.12s;
+}
+.myrinks-item:hover { border-color: var(--acc-programs); }
+.myrinks-item.picked { border-color: var(--paid); background: color-mix(in srgb, var(--paid) 10%, var(--bg)); }
+.myrinks-check { font-size: 14px; width: 20px; text-align: center; }
+.myrinks-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.myrinks-meta { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+.myrinks-actions { margin-top: 4px; }
+
+.wn-entry { margin-bottom: 16px; }
+.wn-entry h4 { font-size: 14px; margin-bottom: 6px; }
+.wn-date { font-size: 11px; color: var(--text-muted); font-weight: 400; margin-left: 6px; }
+.wn-entry ul { margin: 0 0 0 18px; display: flex; flex-direction: column; gap: 5px; font-size: 13px; line-height: 1.45; }
+
+/* ========== 6. Top-bar version chip, distance, notes ========== */
+.version-chip {
+    position: relative;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 4px 9px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+}
+.version-chip:hover { border-color: var(--primary); color: var(--text); }
+.new-dot {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--danger);
+    animation: pulse 2s infinite;
+}
+.dist-badge {
+    font-size: 11px;
+    color: var(--acc-programs);
+    font-weight: 600;
+    margin-top: 2px;
+}
+.loc-note {
+    background: none;
+    border: none;
+    padding: 0 4px;
+    font-size: 12px;
+    cursor: pointer;
+    vertical-align: baseline;
+}
+.loc-note:hover { transform: scale(1.15); }
+
+/* stats + filter rows wrap politely on narrow screens now that they hold more
+   (pre-fix: the 📍 Near button sat off-screen at 375px) */
+.stats-row { flex-wrap: wrap; }
+.filter-selects { flex-wrap: wrap; }
+.filter-selects select { min-width: 104px; }
+
+/* ========== Dark-mode & motion sanity ========== */
+body.dark-mode .cal-block { background: color-mix(in srgb, var(--acc-programs) 14%, var(--bg-white)); }
+body.dark-mode .program-item.is-paid {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--paid) 13%, var(--bg-white)), var(--bg-white) 120px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .happening-now.live, .new-dot { animation: none; }
+}

@@ -14,6 +14,28 @@
  */
 window.SkateConfig = {
 
+    /* ---------- Release info (powers the version chip + What's new) ---------- */
+    version: '2.0',
+    changelog: [
+        {
+            v: '2.0', date: '2026-07-16', items: [
+                '🚨 Live service alerts from toronto.ca — sessions at closed rinks are flagged, other alerts show a warning with the city\'s note',
+                '🏒 New venues: Moss Park Arena (free public skate) and Canlan York (NFP Athletic Centre, $5 public skate)',
+                '💰 Paid sessions toggle — hidden by default, gold-highlighted with the price when shown',
+                '🗓️ Week calendar view — plan your week; saved sessions glow',
+                '📍 Closest-rink finder — share location or type an address/postal code',
+                '⭐ My rinks — pick your usual spots and filter everything to them',
+                '⏱️ Times now follow Toronto time on any device; "Starts in 25m" / "On now · 40m left" chips; ended sessions auto-hide',
+                '❓ Scraped schedules (Moss Park) are marked UNVERIFIED — call/check the website before heading out'
+            ]
+        },
+        {
+            v: '1.0', date: '2026-06-20', items: [
+                'City drop-in schedule, guides, group chats & DMs, favourites, dark mode'
+            ]
+        }
+    ],
+
     /* ---------- Top-level views (tabs + panels) ---------- */
     views: [
         { id: 'programs', label: '⛸️ Programs' },
@@ -27,7 +49,7 @@ window.SkateConfig = {
     programTypes: [
         { id: 'all',       label: 'All',       special: 'all' },
         { id: 'favorites', label: '❤️ Saved',  special: 'favorites' },
-        { id: 'leisure',   label: 'Leisure',   keywords: ['leisure'] },
+        { id: 'leisure',   label: 'Leisure',   keywords: ['leisure', 'public skat'] },
         { id: 'hockey',    label: 'Hockey',    keywords: ['shinny', 'hockey'] },
         { id: 'figure',    label: 'Figure',    keywords: ['figure'] },
         { id: 'speed',     label: 'Speed',     keywords: ['speed'] },
@@ -37,15 +59,44 @@ window.SkateConfig = {
 
     // Activity → badge tag. First keyword hit wins (order matters).
     activityTags: [
-        { keywords: ['shinny', 'hockey'], cls: 'hockey',   label: '🏒 Hockey' },
-        { keywords: ['figure'],           cls: 'figure',   label: '⛸️ Figure' },
-        { keywords: ['speed'],            cls: 'speed',    label: '⛸️ Speed' },
-        { keywords: ['leisure'],          cls: 'leisure',  label: '⛸️ Leisure' },
-        { keywords: ['adapted'],          cls: 'adapted',  label: '♿ Adapted' },
-        { keywords: ['ringette'],         cls: 'ringette', label: '🥏 Ringette' }
+        { keywords: ['shinny', 'hockey'],        cls: 'hockey',   label: '🏒 Hockey' },
+        { keywords: ['figure'],                  cls: 'figure',   label: '⛸️ Figure' },
+        { keywords: ['speed'],                   cls: 'speed',    label: '⛸️ Speed' },
+        { keywords: ['leisure', 'public skat'],  cls: 'leisure',  label: '⛸️ Leisure' },
+        { keywords: ['adapted'],                 cls: 'adapted',  label: '♿ Adapted' },
+        { keywords: ['ringette'],                cls: 'ringette', label: '🥏 Ringette' }
     ],
 
     days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+
+    // Sort orders for the programs list. 'near' needs a saved location —
+    // picking it without one opens the 📍 locator first.
+    sortOptions: [
+        { id: 'time', label: 'Sort: Soonest' },
+        { id: 'near', label: 'Sort: Nearest' }
+    ],
+
+    // Rink scope segmented control (personalization). 'mine' filters every
+    // list/calendar/search to the user's picked rinks.
+    rinkScopes: [
+        { id: 'all',  label: '🌍 All rinks' },
+        { id: 'mine', label: '⭐ My rinks' }
+    ],
+
+    /* ---------- Per-location footnotes (keyed by city Location ID) ---------- */
+    // Shown as a tappable ℹ️ next to the location name.
+    locationNotes: {
+        '712': 'Don Montgomery has a live rink-info TV on site — the lobby screen shows today\'s actual ice times, worth a glance when you arrive.'
+    },
+
+    /* ---------- Data-source hints (keyed by program.Source) ---------- */
+    sourceInfo: {
+        'city':        { label: 'City of Toronto', verified: true },
+        'canlan-york': { label: 'Canlan Sports (York)', verified: true,
+                         note: 'Third-party paid venue — register on their site; sessions can sell out or change.' },
+        'mosspark':    { label: 'mossparkarena.com', verified: false,
+                         note: 'Schedule scraped from their website — there is NO live feed for this arena.' }
+    },
 
     // Per-program action buttons, in render order. `gated:'activeGroup'`
     // means the button only renders while a group chat is active.

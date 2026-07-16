@@ -1,1 +1,1 @@
-{"lastUpdated":"2026-07-12T14:47:50.842Z","source":"City of Toronto Open Data","packageId":"1a5be46a-4039-48cd-a2d2-8e702abf9516","counts":{"skatingPrograms":321,"locations":1880,"facilities":0}}
+{"lastUpdated":"2026-07-16T22:34:08.229Z","source":"City of Toronto Open Data + external venues","packageId":"1a5be46a-4039-48cd-a2d2-8e702abf9516","counts":{"skatingPrograms":346,"cityPrograms":319,"locations":1880,"facilities":0,"rinks":103,"alerts":59},"sources":{"canlan-york":{"ok":true,"count":18},"mosspark":{"ok":true,"count":9}}}

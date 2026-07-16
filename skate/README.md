@@ -265,6 +265,42 @@ data is under a week old.
 Kept as a separate file so the word list never appears in readable source
 diffs of logic files.
 
+### v2.0 layer (alerts · geo · time · calendar)
+
+**`projects/js/time.js`** — `SkateTime`. Every program time on the site
+is *Toronto wall-clock*; this pins all comparisons to `America/Toronto`
+via `Intl`, DST-safe, regardless of device timezone. `epoch(date, time)`
+(memoized), `todayKey()`, and `status(p)` → `upcoming / soon / live /
+ended` with minute counts — which powers the "Starts in 25m" / "On now ·
+40m left" chips, the real end-time past filter (events vanish when they
+*end*, not at midnight), and the date+time sort.
+
+**`projects/js/alerts.js`** — `SkateAlerts`. Loads
+`projects/data/alerts.json` (a CI snapshot of toronto.ca's live skate
+alerts — that endpoint sends no CORS headers, so the browser can't fetch
+it directly) and classifies per program: Status 0 closures flag a session
+"likely cancelled" **only when the closed pad kinds cover every rink kind
+at that location** (an outdoor pad hibernating for summer must not cancel
+an indoor program — pad kinds come from rinks.json); Status 2 alerts stay
+warnings unless the text clearly says the rink itself is closed and any
+mentioned date range covers the program date. Deliberately deterministic:
+every flag traces to a rule, and the full alert text is always shown so
+the human decides.
+
+**`projects/js/geo.js`** — `SkateGeo`. Loads `projects/data/rinks.json`
+(all indoor + outdoor pads with coordinates), haversine distances, the
+📍 locator (browser geolocation or Nominatim geocoding biased to the
+Toronto viewbox), persisted user location, `nearest()` for the locator
+modal and `distanceForProgram()` for the row badges / nearest sort.
+
+**`projects/js/calendar.js`** — `SkateCalendar`, a pure renderer for the
+week view: Monday→Sunday columns from the *current filtered* programs,
+today highlighted and auto-scrolled into view, blocks styled by state
+(paid gold, saved ring, alert struck, live pulsing). Click handling stays
+in app.js via `data-pid` delegation. Careful: no `scroll-snap` on the
+grid — a freshly created snap container re-snaps to its first column,
+which silently undoes the scroll-to-today.
+
 ### Styles
 
 **`assets/css/style.css`** — the original base stylesheet. Deliberately
@@ -288,9 +324,21 @@ hardcoded. One landmine documented inline: never add an **unscoped**
 
 ### Data & other
 
-**`projects/data/`** — `skating-programs.json` (the schedule),
-`locations.json`, `facilities.json`, `meta.json` (`lastUpdated`). Written
-by `fetch-skate-data.js` in CI; treated as read-only by the app.
+**`projects/data/`** — `skating-programs.json` (the schedule: city
+drop-ins **plus** external venues — Canlan York via the DaySmart API with
+live prices, Moss Park Arena scraped from their site and marked
+`Unverified`), `rinks.json` (every indoor/outdoor pad with coordinates +
+kinds, feeds the locator and alert matching), `alerts.json` (toronto.ca
+service-alert snapshot, refreshed every ~30 min by the listener workflow
+— only committed when content changes), `locations.json`,
+`facilities.json`, `meta.json` (`lastUpdated` + per-source health).
+Written by `fetch-skate-data.js` in CI; treated as read-only by the app.
+External program records reuse the exact city field names plus
+`Source / Paid / Price / RegistrationUrl / InfoUrl / Unverified / Lat /
+Lng` — adding a venue is a config entry in `EXTERNAL_SOURCES` at the top
+of `fetch-skate-data.js` (an optional `ANTHROPIC_API_KEY` secret upgrades
+the Moss Park scrape to an LLM parse; the regex parser is the always-on
+fallback).
 
 **`../assets/js/nostr.bundle.js`** — the `nostr-tools` browser bundle
 (keys, signatures, nip44 encryption, event hashing). Lives at the **repo
