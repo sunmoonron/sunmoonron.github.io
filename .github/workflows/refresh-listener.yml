@@ -6,6 +6,12 @@ name: Refresh Listener (Nostr)
 # a request newer than the data (and the data is older than MIN_AGE_HOURS), it
 # refetches from the City API and commits — GitHub Pages redeploys automatically.
 #
+# It ALSO refreshes the toronto.ca skate service alerts on every tick
+# (toronto.ca sends no CORS headers, so the browser can't fetch them live;
+# this snapshot keeps alerts.json ≤ ~30-60 min stale). The alerts script
+# only rewrites the file when alert content actually changed, so quiet
+# ticks produce no commit.
+#
 # No secrets, no backend, no tokens exposed in the static page.
 # Spam-proof: the event only *triggers* a refetch of official city data,
 # and MIN_AGE_HOURS puts a hard floor on how often that can happen.
@@ -44,12 +50,17 @@ jobs:
           SKIP_EXTRAS: '1'
         run: node fetch-skate-data.js
 
+      - name: Refresh service alerts (every tick, cheap)
+        # Full fetch above already includes alerts; only run the light
+        # alerts-only pass when we didn't do a full refresh.
+        if: steps.check.outputs.refresh != 'true'
+        run: node fetch-skate-data.js --alerts-only
+
       - name: Commit updated data
-        if: steps.check.outputs.refresh == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add skate/projects/data/*.json
-          git diff --staged --quiet || git commit -m "🛼 Update skating data (user-requested via Nostr)"
+          git diff --staged --quiet || git commit -m "🛼 Update skating data (refresh/alerts via listener)"
           git pull --rebase origin main
           git push
