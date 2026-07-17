@@ -416,12 +416,13 @@ window.SkateApp = (() => {
         const now = new Date();
 
         // stats line (shared by list + calendar views). The paid toggle and
-        // its "hidden" hint only appear when the CURRENT rink scope actually
-        // contains paid sessions — a My-rinks view without a paid venue
-        // shouldn't advertise a toggle that does nothing there.
-        const paidInScope = S.paidInScope || 0;
-        $('paid-toggle-wrap').classList.toggle('hidden', paidInScope === 0);
-        const paidHidden = !S.paidVisible ? paidInScope : 0;
+        // its "hidden" hint reflect the FULL current filter set (rinks, type,
+        // day, age, search) — they only appear when toggling Paid would
+        // actually change what's on screen. If Paid is ON, the toggle stays
+        // visible even at zero matches so it can be turned back off.
+        const paidMatching = S.paidMatching || 0;
+        $('paid-toggle-wrap').classList.toggle('hidden', paidMatching === 0 && !S.paidVisible);
+        const paidHidden = !S.paidVisible ? paidMatching : 0;
         $('stats-text').textContent = `${filtered.length} sessions` + (paidHidden ? ` · ${paidHidden} paid hidden` : '');
         const metadata = SkateAPI.getMetadata();
         Render.dataWarnings(metadata, now);
@@ -1163,11 +1164,16 @@ window.SkateApp = (() => {
         },
 
         programCopy(p) {
-            return [
+            const items = [
                 { ...A('copyDetails'), onClick: () => copyText(programText(p)) },
                 { ...A('copyLink'), onClick: () => copyText(`${baseUrl()}#p=${P.id(p)}`, 'Link copied! 🔗') },
                 { ...A('addCalendar'), onClick: () => downloadIcs(p) }
             ];
+            // Share rides the community stack — only offered when Chats are on
+            if (SkateSettings.get('showChats') !== false) {
+                items.push({ label: '📤 Share to chat…', onClick: () => Actions.openSharePicker({ type: 'program', payload: p }) });
+            }
+            return items;
         },
 
         /** Tapping a session block in the week calendar. */
@@ -1185,7 +1191,7 @@ window.SkateApp = (() => {
             if (p.Paid && p.RegistrationUrl) {
                 items.push({ label: '🎟 Register on venue site ↗', onClick: () => window.open(p.RegistrationUrl, '_blank', 'noopener') });
             }
-            items.push({ label: '📤 Share to chat', onClick: () => Actions.openSharePicker({ type: 'program', payload: p }) });
+            // programCopy already appends the chats-gated "Share to chat…"
             items.push(...Menus.programCopy(p));
             return items;
         }
@@ -1201,20 +1207,12 @@ window.SkateApp = (() => {
      * ticker) — keeps the reader's current page instead of jumping to 1.
      */
     Actions.applyFilters = function (keepPage = false) {
-        // Rink-scope predicate (my-rinks selection + single-rink chip) is
-        // needed twice: for the result set AND to know whether the current
-        // rink view contains any paid sessions at all (drives the Paid
-        // toggle's visibility — it hides when it would do nothing).
         const mine = new Set(SkateSettings.get('myRinks') || []);
         const inScope = (p) =>
             (S.rinkScope !== 'mine' || !mine.size || mine.has(P.locKey(p))) &&
             (!S.nearRink || P.locKey(p) === S.nearRink.key);
-        S.paidInScope = S.programs.filter(p => p.Paid && inScope(p)).length;
 
         let result = S.programs.filter(p => P.matchesType(p, S.type) && inScope(p));
-
-        // Paid venues stay hidden until explicitly toggled on
-        if (!S.paidVisible) result = result.filter(p => !p.Paid);
 
         if (S.search) {
             const term = S.search.toLowerCase();
@@ -1237,6 +1235,13 @@ window.SkateApp = (() => {
             const nowMs = Date.now();
             result = result.filter(p => SkateTime.status(p, nowMs).phase !== 'ended');
         }
+
+        // Paid exclusion runs LAST so the "N paid hidden" hint (and the
+        // toggle's visibility) reflect every other active filter — with
+        // Hockey picked or a day with no paid sessions, no phantom "17
+        // paid hidden" can appear.
+        S.paidMatching = result.filter(p => p.Paid).length;
+        if (!S.paidVisible) result = result.filter(p => !p.Paid);
 
         // Order by actual start instant (date+time, Toronto) — fixes the
         // old date-only sort that shuffled same-day events.
@@ -1787,20 +1792,15 @@ window.SkateApp = (() => {
     const systemDark = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
     /**
-     * Current theme setting. Site DEFAULTS TO LIGHT: "Auto" only follows
-     * the device when the user explicitly picked it in Settings
-     * (themeChosen) — otherwise a migrated/unset 'system' reads as light.
-     * Pre-2.3 `darkMode` key migrates once (that WAS an explicit choice).
+     * Current theme setting — DEFAULTS TO AUTO (follow the device) now
+     * that dark earned its keep. Pre-2.3 `darkMode` key migrates once.
      */
     function themeSetting() {
         let t = SkateSettings.get('theme');
         if (!t) {
-            const legacyDark = localStorage.getItem('darkMode') === 'true';
-            t = legacyDark ? 'dark' : 'light';
+            t = localStorage.getItem('darkMode') === 'true' ? 'dark' : 'system';
             SkateSettings.set('theme', t);
-            if (legacyDark) SkateSettings.set('themeChosen', true);
         }
-        if (t === 'system' && !SkateSettings.get('themeChosen')) t = 'light';
         return t;
     }
 
@@ -1826,8 +1826,12 @@ window.SkateApp = (() => {
             SkateAlerts.load();                 // re-pull the alert snapshot too
             SkateLive.load(S.programs, true);   // force-refresh live spots
             Actions.applyFilters();
-            SkateChat.Notify.toast('Programs reloaded!', 'success', 2000);
-            await SkateRefresh.requestCityRefresh();
+            // The success/failure story belongs to the city-refresh request —
+            // no premature "reloaded!" that survives a cancelled confirm.
+            const res = await SkateRefresh.requestCityRefresh();   // toasts on queued/failed itself
+            if (res === 'cancelled') {
+                SkateChat.Notify.toast('No city refresh requested — showing the latest published schedule', 'info', 2500);
+            }
         } catch (e) { SkateChat.Notify.toast('Refresh failed: ' + e.message, 'error'); }
         finally { $('btn-refresh').disabled = false; $('btn-refresh').textContent = 'Refresh'; }
     };
@@ -1947,7 +1951,6 @@ window.SkateApp = (() => {
         delegate($('settings-theme'), [
             ['button[data-theme]', (b) => {
                 SkateSettings.set('theme', b.dataset.theme);
-                SkateSettings.set('themeChosen', true);   // explicit pick — Auto now really follows the device
                 Actions.applyTheme();
                 Render.settings();
             }]
@@ -1970,7 +1973,6 @@ window.SkateApp = (() => {
                     if (SkateChat.getState().activeGroup) SkateChat.voteTime(p);
                     else SkateChat.Notify.toast('Voting is for planning with friends — open Chats and join or create a group first 👍', 'info', 4500);
                 }
-                else if (act === 'share') Actions.openSharePicker({ type: 'program', payload: p });
                 else if (act === 'copy') Popover.open(btn, Menus.programCopy(p));
             }]
         ]);

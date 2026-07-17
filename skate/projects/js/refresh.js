@@ -63,8 +63,9 @@ const SkateRefresh = (() => {
     }
 
     /**
-     * Main entry point — wire this to the 🔄 button.
+     * Main entry point — wire this to the Refresh button.
      * Confirms if the data is fresh, then rings the doorbell on the relays.
+     * Returns: true (queued) | false (no relay reachable) | 'cancelled'.
      */
     async function requestCityRefresh() {
         const age = await dataAgeDays();
@@ -72,7 +73,7 @@ const SkateRefresh = (() => {
         if (age !== null && age < CONFIRM_UNDER_DAYS) {
             const label = age < 1 ? 'today' : `${Math.floor(age)} day${Math.floor(age) === 1 ? '' : 's'} ago`;
             if (!confirm(`Schedule data was refreshed ${label} — still request a fresh pull from the city? :O`)) {
-                return false;
+                return 'cancelled';   // caller decides what (not) to announce
             }
         }
 

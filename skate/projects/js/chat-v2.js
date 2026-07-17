@@ -721,7 +721,29 @@ const SkateChat = (() => {
             saveState(); notifyUpdate();
             return ok;
         }
-        const { ok } = await publishToGroup(dest.id, { ...payload, from: state.myName });
+
+        // Group shares get the SAME optimistic local echo as text sends —
+        // without it the sender only ever saw their share if a relay echoed
+        // their own event back through the subscription (many don't → the
+        // "I shared it but can't see it, others can" bug). addMessage()
+        // later swaps this echo for the relay copy via the localId match.
+        const group = getGroupOrRoom(dest.id);
+        const full = { ...payload, from: state.myName };
+        if (group) {
+            const localId = 'local_' + Crypto.randomHex(6);
+            group.messages.push({
+                id: localId, localId, type: payload.type, text: payload.text,
+                from: state.myName, fromPubkey: state.myPublicKey, mine: true,
+                ts: Date.now(), data: payload.data, status: 'pending', payload: full
+            });
+            notifyUpdate();
+            const { ok } = await publishToGroup(dest.id, full);
+            const m = group.messages.find(x => x.id === localId);
+            if (m) m.status = ok ? 'sent' : 'failed';
+            saveState(); notifyUpdate();
+            return ok;
+        }
+        const { ok } = await publishToGroup(dest.id, full);
         return ok;
     }
 
@@ -1184,4 +1206,8 @@ const SkateChat = (() => {
     };
 })();
 
+// Expose on window like the other modules — ui.js (copyText toasts) and
+// refresh.js probe `window.SkateChat?.…`, which silently no-oped while
+// this was only a lexical const.
+if (typeof window !== 'undefined') window.SkateChat = SkateChat;
 if (typeof module !== 'undefined') module.exports = SkateChat;

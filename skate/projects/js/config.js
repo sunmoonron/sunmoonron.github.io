@@ -15,8 +15,17 @@
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '2.5',
+    version: '2.6',
     changelog: [
+        {
+            v: '2.6', date: '2026-07-17', items: [
+                'Theme defaults to Auto again — dark mode passed inspection 😎',
+                'Fixed: sharing a session into a group chat now appears in YOUR chat instantly too (it was only visible to everyone else — classic missing local echo)',
+                '"N paid hidden" is honest now: it respects every filter, so Hockey-only or a paid-free day shows no phantom hint (the Paid toggle hides too when it would do nothing)',
+                'Cancelling the "refresh again?" prompt no longer claims anything was refreshed',
+                'Share moved into the 📋 menu (one less icon per row) and only appears when Chats are enabled'
+            ]
+        },
         {
             v: '2.5', date: '2026-07-17', items: [
                 'Dark mode got a real design: a "night rink" theme — deep ice-blue surfaces with actual depth, glowing cyan accents, calm chips, native dark controls and scrollbars',
@@ -176,13 +185,13 @@ window.SkateConfig = {
                          note: 'Schedule scraped from their website — there is NO live feed for this arena.' }
     },
 
-    // Per-program action buttons, in render order. `gated:'activeGroup'`
-    // means the button only renders while a group chat is active.
+    // Per-program action buttons, in render order. Share lives inside the
+    // 📋 popover now (and only when Chats are enabled) — one less mystery
+    // icon on every row.
     programActions: [
         { act: 'fav',   cls: 'btn-favorite' },
-        { act: 'copy',  cls: 'btn-copy',          title: 'Copy, link or add to calendar', text: '📋' },
-        { act: 'share', cls: 'btn-share-program', title: 'Share to a group or DM',        text: '📤' },
-        { act: 'vote',  cls: 'btn-vote', gated: 'activeGroup' }
+        { act: 'copy',  cls: 'btn-copy', title: 'Copy, share or add to calendar', text: '📋' },
+        { act: 'vote',  cls: 'btn-vote' }
     ],
 
     /* ---------- Chats panel ---------- */
