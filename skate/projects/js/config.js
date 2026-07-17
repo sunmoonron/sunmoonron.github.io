@@ -15,8 +15,15 @@
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '2.7',
+    version: '2.8',
     changelog: [
+        {
+            v: '2.8', date: '2026-07-17', items: [
+                'Desktop no longer has a dead strip to the right of Chats — all three columns stretch to fill the window',
+                'Short messages ("ok", "see you") now sit under the sender\'s name like every other message, not beside it',
+                'Small chat consistency pass: nameless senders show as "Skater" instead of a lone dot, and the "new messages" pill clears the taller message box'
+            ]
+        },
         {
             v: '2.7', date: '2026-07-17', items: [
                 'Phone chat fixes: tapping the message box no longer zooms the page (and crops the send arrow)',

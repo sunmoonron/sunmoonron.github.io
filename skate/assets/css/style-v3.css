@@ -639,6 +639,17 @@ body.dark-mode ::selection { background: rgba(70, 198, 234, 0.35); }
 .chat-status #chat-status-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .chat-online { flex-shrink: 0; white-space: nowrap; margin-left: 0; }
 
+/* Jump-to-latest pill: clear the input bar, which grew with the 16px
+   mobile fields (was kissing/overlapping its top edge) */
+.jump-pill { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+
+/* Sender name is BLOCK-level so the bubble always drops below it —
+   as inline-flex, a short bubble ("ok", "see you") fit on the same
+   line and rendered beside the name instead of under it like longer
+   messages. fit-content keeps the tap/click target hugging the name. */
+.chat-msg .sender { display: flex; width: fit-content; max-width: 100%; }
+.chat-msg .sender .hue-dot { flex-shrink: 0; }
+
 /* Members bar: show a couple, tuck the crowd behind "+N more" */
 #members-list { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; min-width: 0; }
 #members-list.expanded { max-height: 96px; overflow-y: auto; }
@@ -717,14 +728,28 @@ body.hide-guides #guides-panel,
 body.hide-chats #chats-panel { display: none !important; }
 
 @media (min-width: 1100px) {
+    /* Every track is fr-based so the grid always FILLS the viewport —
+       the old fixed caps (420/460px) on the chats column left a dead
+       strip of page background down the far right on wide screens. */
+    .main-content {
+        grid-template-columns: minmax(400px, 1.6fr) minmax(320px, 1fr) minmax(340px, 1.05fr);
+    }
     body.hide-guides:not(.hide-chats) .main-content {
-        grid-template-columns: minmax(400px, 1.6fr) minmax(340px, 460px);
+        grid-template-columns: minmax(400px, 1.7fr) minmax(340px, 1fr);
     }
     body.hide-chats:not(.hide-guides) .main-content {
         grid-template-columns: minmax(400px, 1.6fr) minmax(320px, 1fr);
     }
     body.hide-guides.hide-chats .main-content { grid-template-columns: 1fr; }
     body.hide-guides.hide-chats .view-panel.panel-programs { border-right: none; }
+
+    /* keep message lines readable even now that the column can widen */
+    .chat-messages { padding-left: 14px; padding-right: 14px; }
+
+    /* the REAL right-gap culprit: base CSS caps the chat panel itself at
+       380px (a relic of the old flex layout), so it stopped short inside
+       its own grid track. Let the panel fill the track. */
+    .view-panel.chat-panel-view { max-width: none; flex: 1 1 auto; }
 }
 
 /* ========== First-visit setup modal ========== */

@@ -717,7 +717,7 @@ window.SkateApp = (() => {
             '<span class="msg-tick" title="Delivered to relays">✓</span>';
 
         const sender = (!m.mine && !m.system)
-            ? `<div class="sender" ${m.fromPubkey ? `data-pk="${m.fromPubkey}"` : ''} data-name="${escapeHtml(m.from || 'Skater')}" title="Tap for message / mute">${!isDm ? hueDot(m.fromPubkey) : ''}${escapeHtml(m.from || '')}</div>`
+            ? `<div class="sender" ${m.fromPubkey ? `data-pk="${m.fromPubkey}"` : ''} data-name="${escapeHtml(m.from || 'Skater')}" title="Tap for message / mute">${!isDm ? hueDot(m.fromPubkey) : ''}${escapeHtml(m.from || 'Skater')}</div>`
             : '';
 
         return `
