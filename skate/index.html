@@ -16,7 +16,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=10">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=3">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=6">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=7">
 </head>
 <body>
     <div class="app" id="app">
@@ -57,7 +57,7 @@
                     <select id="age-preset" title="Who's skating? Filters to sessions open to that age group"><!-- options generated from SkateConfig.agePresets --></select>
                     <input type="number" id="age-filter" placeholder="Age" min="0" max="120" style="max-width:80px" class="hidden" title="Exact age to filter by">
                     <select id="sort-filter" title="Ordering"><!-- options generated from SkateConfig.sortOptions --></select>
-                    <button id="btn-near" class="btn-near" title="Find the rinks closest to you">Near me</button>
+                    <button id="btn-near" class="btn-near" title="Find the rinks closest to you">📍 Near me</button>
                 </div>
 
                 <div class="stats-row" id="stats-row">
@@ -69,13 +69,13 @@
                         <input type="checkbox" id="show-paid-toggle">
                         <span>Paid</span>
                     </label>
-                    <label class="toggle-past" title="Show sessions that already ended">
+                    <label class="toggle-past" title="Include sessions that already ended">
                         <input type="checkbox" id="show-past-toggle">
-                        <span>Past</span>
+                        <span>Show past</span>
                     </label>
                     <div class="seg-control view-mode-seg" id="view-mode-seg" title="How the schedule is displayed">
-                        <button data-mode="list" class="active">List</button>
-                        <button data-mode="week">Week</button>
+                        <button data-mode="list" class="active" title="One session per row">List</button>
+                        <button data-mode="week" title="Week-at-a-glance calendar">Calendar</button>
                     </div>
                     <button class="btn-refresh" id="btn-refresh" title="Re-download the schedule and alerts">Refresh</button>
                 </div>
@@ -221,15 +221,16 @@
             <h2>Welcome — set up your view</h2>
             <p>The schedule is always on. Pick what else you'd like:</p>
             <div class="setup-section">
-                <h4>Community sections</h4>
+                <h4>Community — off unless you want it</h4>
                 <label class="setup-toggle">
-                    <input type="checkbox" id="setup-guides" checked>
+                    <input type="checkbox" id="setup-guides">
                     <span><strong>📖 Guides</strong> — community rink write-ups &amp; tips</span>
                 </label>
                 <label class="setup-toggle">
-                    <input type="checkbox" id="setup-chats" checked>
+                    <input type="checkbox" id="setup-chats">
                     <span><strong>💬 Chats</strong> — public rooms, private groups &amp; DMs</span>
                 </label>
+                <p class="settings-hint">Community runs on the open Nostr network — nothing loads unless you turn these on.</p>
             </div>
             <div class="setup-section">
                 <h4>Your rinks</h4>
@@ -299,13 +300,6 @@
                 <button class="btn-icon" id="btn-settings-close" aria-label="Close settings">✕</button>
             </div>
             <label class="settings-field">
-                <span>Display name</span>
-                <div class="settings-inline">
-                    <input type="text" id="settings-name" maxlength="24" placeholder="Your chat name">
-                    <button class="btn-primary" id="btn-save-name">Save</button>
-                </div>
-            </label>
-            <label class="settings-field">
                 <span>Time format</span>
                 <!-- Segments generated from SkateConfig.timeFormats -->
                 <div class="seg-control" id="settings-timefmt"></div>
@@ -315,27 +309,40 @@
                 <!-- Segments generated from SkateConfig.themes; Auto follows the device -->
                 <div class="seg-control" id="settings-theme"></div>
             </label>
-            <label class="settings-field">
-                <span>Experience</span>
-                <!-- Segments generated from SkateConfig.experiences -->
-                <div class="seg-control" id="settings-exp"></div>
-            </label>
-            <div class="settings-field">
-                <span>Sections — hide what you don't use</span>
-                <!-- Toggle buttons generated from SkateConfig.sectionToggles -->
-                <div class="seg-control seg-multi" id="settings-sections"></div>
-                <p class="settings-hint">The ⛸️ schedule is always on. Hidden sections keep their data — nothing is deleted.</p>
+
+            <!-- Community features ride the open Nostr network — boxed apart
+                 so app prefs (above) and network-y bits (below) read distinct -->
+            <div class="nostr-box">
+                <div class="nostr-box-head"><span class="nostr-bolt">⚡</span> Community · powered by Nostr</div>
+                <div class="settings-field">
+                    <span>Sections — Guides &amp; Chats are opt-in</span>
+                    <!-- Toggle buttons generated from SkateConfig.sectionToggles -->
+                    <div class="seg-control seg-multi" id="settings-sections"></div>
+                    <p class="settings-hint">The ⛸️ schedule is always on. Turning a section off closes its network connections; nothing is deleted.</p>
+                </div>
+                <label class="settings-field">
+                    <span>Display name</span>
+                    <div class="settings-inline">
+                        <input type="text" id="settings-name" maxlength="24" placeholder="Your chat name">
+                        <button class="btn-primary" id="btn-save-name">Save</button>
+                    </div>
+                </label>
+                <label class="settings-field">
+                    <span>Experience</span>
+                    <!-- Segments generated from SkateConfig.experiences -->
+                    <div class="seg-control" id="settings-exp"></div>
+                </label>
+                <div class="settings-field">
+                    <span>Desktop notifications</span>
+                    <button class="btn-primary" id="btn-enable-notif">Enable notifications</button>
+                    <p class="settings-hint" id="notif-hint"></p>
+                </div>
+                <div class="settings-field">
+                    <span>Muted users</span>
+                    <ul id="muted-list" class="muted-list"><li class="muted-empty">No one muted. Tap a name in any chat to mute someone.</li></ul>
+                </div>
+                <p class="settings-hint">Your identity is a keypair that lives only in this browser — no account, no email. Clearing site data resets it.</p>
             </div>
-            <div class="settings-field">
-                <span>Desktop notifications</span>
-                <button class="btn-primary" id="btn-enable-notif">Enable notifications</button>
-                <p class="settings-hint" id="notif-hint"></p>
-            </div>
-            <div class="settings-field">
-                <span>Muted users</span>
-                <ul id="muted-list" class="muted-list"><li class="muted-empty">No one muted. Tap a name in any chat to mute someone.</li></ul>
-            </div>
-            <p class="settings-hint">Your chat identity lives only in this browser. Clearing site data resets it.</p>
         </div>
     </div>
 
@@ -409,7 +416,7 @@
     <script src="../assets/js/nostr.bundle.js"></script>
     <!-- profanity-list.js is injected lazily by app.js bootCommunity() —
          schedule-only visits (community sections hidden) never download it -->
-    <script src="projects/js/config.js?v=5"></script>
+    <script src="projects/js/config.js?v=6"></script>
     <script src="projects/js/settings.js?v=4"></script>
     <script src="projects/js/moderation.js?v=4"></script>
     <script src="projects/js/nostr-core.js?v=1"></script>
@@ -423,7 +430,7 @@
     <script src="projects/js/guides.js?v=3"></script>
     <script src="projects/js/ui.js?v=1"></script>
     <script src="projects/js/calendar.js?v=4"></script>
-    <script src="projects/js/app.js?v=6"></script>
+    <script src="projects/js/app.js?v=8"></script>
     <script src="projects/js/refresh.js?v=2"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)

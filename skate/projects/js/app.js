@@ -246,11 +246,31 @@ window.SkateApp = (() => {
     };
 
     /* ---------- Rink scope (personalization) ---------- */
+    /**
+     * Upcoming (not-ended) session count at one location key, honouring the
+     * Paid toggle — so every count in the UI moves together when Paid flips.
+     */
+    function upcomingCountFor(key, nowMs = Date.now()) {
+        return S.programs.filter(p =>
+            P.locKey(p) === key &&
+            (S.paidVisible || !p.Paid) &&
+            SkateTime.status(p, nowMs).phase !== 'ended').length;
+    }
+
     Render.scopeChips = function () {
         const n = (SkateSettings.get('myRinks') || []).length;
+        // "(N)" on All rinks = locations with at least one upcoming session
+        // under the current Paid setting — flips live with the toggle.
+        const nowMs = Date.now();
+        const activeLocs = new Set();
+        S.programs.forEach(p => {
+            if ((S.paidVisible || !p.Paid) && SkateTime.status(p, nowMs).phase !== 'ended') activeLocs.add(P.locKey(p));
+        });
         const items = CFG.rinkScopes.map(s => ({
             ...s,
-            label: s.id === 'mine' && n ? `${s.label} (${n})` : s.label
+            label: s.id === 'mine' && n ? `${s.label} (${n})`
+                 : s.id === 'all' && activeLocs.size ? `${s.label} (${activeLocs.size})`
+                 : s.label
         }));
         items.push({ id: 'edit', label: 'Edit…' });
         if (S.nearRink) items.push({ id: 'nearclear', label: `Only: ${S.nearRink.name} ✕` });
@@ -891,7 +911,7 @@ window.SkateApp = (() => {
         const mine = new Set(SkateSettings.get('myRinks') || []);
         SkateGeo.nearest(user, 12).forEach(r => {
             const key = String(r.locationid);
-            const sessions = S.programs.filter(p => P.locKey(p) === key && SkateTime.status(p).phase !== 'ended').length;
+            const sessions = upcomingCountFor(key);
             const alerts = SkateAlerts.forLocation(key);
             const row = el('div', { class: 'locator-rink' });
             row.appendChild(el('div', { class: 'locator-rink-info' }, [
@@ -952,6 +972,9 @@ window.SkateApp = (() => {
             const li = el('li', { class: 'myrinks-item' + (mine.has(x.key) ? ' picked' : ''), dataset: { rink: x.key } });
             li.appendChild(el('span', { class: 'myrinks-check' }, [mine.has(x.key) ? '⭐' : '☆']));
             li.appendChild(el('span', { class: 'myrinks-name' }, [x.name]));
+            // session count so nobody picks a location that's empty right now
+            const cnt = upcomingCountFor(x.key);
+            li.appendChild(el('span', { class: 'myrinks-count' + (cnt ? '' : ' zero') }, [`${cnt} session${cnt === 1 ? '' : 's'}`]));
             li.appendChild(el('span', { class: 'myrinks-meta' }, [x.km != null ? SkateGeo.fmtKm(x.km) : '']));
             list.appendChild(li);
         });
@@ -1395,8 +1418,19 @@ window.SkateApp = (() => {
         return communityBootPromise;
     };
 
+    /** First-visit setup still unanswered? (Same condition maybeShowSetup uses.) */
+    const setupPending = () =>
+        !SkateSettings.get('setupDone') && !SkateSettings.get('experience') && !SkateSettings.get('displayName');
+
+    /**
+     * Community boots only when a section is on AND the visitor has had
+     * their say — a brand-new visitor mid-setup must not open relay
+     * connections that setup is about to decline. (Deep links that need
+     * chat immediately call bootCommunity() directly and skip this gate.)
+     */
     const communityWanted = () =>
-        SkateSettings.get('showGuides') !== false || SkateSettings.get('showChats') !== false;
+        !setupPending() &&
+        (SkateSettings.get('showGuides') !== false || SkateSettings.get('showChats') !== false);
 
     Actions.applyVisibility = function () {
         document.body.classList.toggle('hide-guides', SkateSettings.get('showGuides') === false);
@@ -1420,6 +1454,12 @@ window.SkateApp = (() => {
             Actions.applyVisibility();
             SkateChat.Notify.toast(`${visKey === 'showGuides' ? '📖 Guides' : '💬 Chats'} re-enabled — hide it again in ⚙️ Settings`, 'info', 3500);
         }
+        // If the first-visit setup is still on screen (deep link on a brand-new
+        // install), tick its box too so finishing setup doesn't undo the link.
+        if (!SkateSettings.get('setupDone')) {
+            const box = $(visKey === 'showGuides' ? 'setup-guides' : 'setup-chats');
+            if (box) box.checked = true;
+        }
     };
 
     Actions.maybeShowSetup = function () {
@@ -1430,8 +1470,11 @@ window.SkateApp = (() => {
             SkateSettings.set('setupDone', true);
             return;
         }
-        $('setup-guides').checked = SkateSettings.get('showGuides') !== false;
-        $('setup-chats').checked = SkateSettings.get('showChats') !== false;
+        // Community is OPT-IN for brand-new visitors: boxes start unchecked,
+        // so completing (or dismissing) setup without touching them gives a
+        // schedule-only site — zero relay connections until they choose.
+        $('setup-guides').checked = false;
+        $('setup-chats').checked = false;
         Modal.open('setup-modal');
     };
 
@@ -1768,6 +1811,7 @@ window.SkateApp = (() => {
             SkateAPI._skatingPrograms = null;
             S.programs = (await SkateAPI.getSkatingPrograms(true)) || [];   // force: bypass HTTP cache
             Render.typeChips();
+            Render.scopeChips();
             SkateAlerts.load();                 // re-pull the alert snapshot too
             SkateLive.load(S.programs, true);   // force-refresh live spots
             Actions.applyFilters();
@@ -1804,6 +1848,8 @@ window.SkateApp = (() => {
             S.paidVisible = $('show-paid-toggle').checked;
             SkateSettings.set('paidVisible', S.paidVisible);
             Actions.applyFilters();
+            Render.scopeChips();   // "(N)" location counts follow the Paid setting
+            if (!$('myrinks-modal').classList.contains('hidden')) Render.myRinks($('myrinks-search').value);
         };
         $('sort-filter').onchange = () => {
             S.sort = $('sort-filter').value;
@@ -2137,6 +2183,7 @@ window.SkateApp = (() => {
             const programs = await SkateAPI.getSkatingPrograms();
             S.programs = programs || [];
             Render.typeChips();           // prune categories absent from this dataset
+            Render.scopeChips();          // "(N)" active-location count
             Actions.applyFilters();
             SkateLive.load(S.programs);   // live venue spots (TTL-throttled)
             if (S.pendingProgramFocus) { Actions.focusProgram(S.pendingProgramFocus); S.pendingProgramFocus = null; }

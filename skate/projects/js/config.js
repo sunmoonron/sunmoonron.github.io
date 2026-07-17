@@ -15,8 +15,17 @@
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '2.3',
+    version: '2.4',
     changelog: [
+        {
+            v: '2.4', date: '2026-07-17', items: [
+                'Dark mode actually looks good now — titles, filter pills, tags and badges all re-tuned for contrast instead of glowing pastels',
+                'New visitors start schedule-only: Guides & Chats are opt-in on the welcome screen (nothing connects to the network until you say so)',
+                'Settings got a clear split: app preferences up top, community features boxed in an orange "powered by Nostr ⚡" card',
+                'Rink pickers now show session counts — each location in My rinks says how many upcoming sessions it has, and "All rinks (N)" counts active locations (both follow the Paid toggle)',
+                'Clearer words: "Calendar" instead of "Week", "Show past", and 📍 is back on "Near me"'
+            ]
+        },
         {
             v: '2.3', date: '2026-07-17', items: [
                 'Cleaner look for every age: buttons say what they do in words (Refresh, List/Week, Near me…) instead of mystery icons',

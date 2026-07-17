@@ -474,6 +474,88 @@ body.dark-mode .cal-tag { color: #1a1a1a; }
 .chat-input-bar { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
 .view-panel { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
 
+/* ========== v2.4: dark-mode contrast pack ==========
+   The base stylesheet hardcodes light-mode colors in several spots
+   (#0066cc titles, pastel tag chips, gradient badges, near-white active
+   pills) that turned illegible or garish on dark. Every override below
+   targets one of those. */
+
+/* program titles: #0066cc is mud on dark */
+body.dark-mode .program-title { color: #85bdf5; }
+
+/* active pills used --text as a background → light-grey pill with WHITE
+   text in dark mode (unreadable). Dark text restores the contrast. */
+body.dark-mode .filter-chip.active { color: #16181c; }
+body.dark-mode .pagination button.active { color: #16181c; }
+
+/* teal/violet accent buttons kept white text from light mode — mid-tone
+   accents in dark need dark text to clear contrast */
+body.dark-mode .btn-primary,
+body.dark-mode .seg-control button.active,
+body.dark-mode .scope-row .filter-chip.active,
+body.dark-mode .view-mode-seg button.active,
+body.dark-mode .view-tab .badge,
+body.dark-mode .btn-share-program,
+body.dark-mode .chat-input-bar button,
+body.dark-mode .comment-input-row button,
+body.dark-mode .program-actions .btn-vote.voted,
+body.dark-mode .btn-guide-vote.voted,
+body.dark-mode .btn-cvote.voted { color: #10151a; }
+
+/* activity tags: pastel-on-white originals glow on dark — muted deep
+   backgrounds with lifted text, same hue language as the light set */
+body.dark-mode .tag { background: #2c2c2c; color: #bbb; }
+body.dark-mode .tag.hockey   { background: #3a2228; color: #ff9aa8; }
+body.dark-mode .tag.figure   { background: #232a44; color: #a9b8ff; }
+body.dark-mode .tag.speed    { background: #38301e; color: #e8c98a; }
+body.dark-mode .tag.leisure  { background: #1d332a; color: #86dcb0; }
+body.dark-mode .tag.adapted  { background: #2d2440; color: #cbaeff; }
+body.dark-mode .tag.ringette { background: #3a2336; color: #ff9fd9; }
+
+/* age badges: loud purple/green gradients → calm flat chips */
+body.dark-mode .age-badge { background: #32385a; color: #c8d1ff; }
+body.dark-mode .age-badge.all-ages { background: #1d3b32; color: #94e2c2; }
+
+/* leftover hardcoded light surfaces */
+body.dark-mode .members-bar { background: #212121; }
+body.dark-mode .room-card:hover { background: #22322a; }
+body.dark-mode .room-card.joined { background: #1e2e26; }
+body.dark-mode .dm-item.unread { background: #22301f; }
+body.dark-mode .chat-msg.dm .bubble { background: #3a2f1e; border-color: #5a4a2e; }
+
+/* ========== v2.4: Nostr community box (Settings) ========== */
+.nostr-box {
+    border: 1px solid color-mix(in srgb, #f7931a 50%, var(--border));
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, #f7931a 5%, var(--bg-white));
+    padding: 14px 14px 6px;
+    margin-bottom: 16px;
+}
+.nostr-box-head {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.07em; text-transform: uppercase;
+    color: #a86200;
+    margin-bottom: 12px;
+}
+.nostr-bolt { font-size: 13px; }
+body.dark-mode .nostr-box {
+    background: color-mix(in srgb, #f7931a 8%, var(--bg-white));
+    border-color: color-mix(in srgb, #f7931a 45%, var(--border));
+}
+body.dark-mode .nostr-box-head { color: #f7a83c; }
+
+/* ========== v2.4: session counts in pickers ========== */
+.myrinks-count {
+    flex-shrink: 0;
+    font-size: 10.5px; font-weight: 700;
+    color: var(--acc-programs);
+    background: color-mix(in srgb, var(--acc-programs) 12%, transparent);
+    border-radius: 9px; padding: 1px 7px;
+    white-space: nowrap;
+}
+.myrinks-count.zero { color: var(--text-muted); background: var(--bg); font-weight: 500; }
+
 /* live spots-left badge on paid sessions (fetched from the venue's API) */
 .spots-badge {
     display: inline-flex;
