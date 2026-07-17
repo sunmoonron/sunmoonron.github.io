@@ -391,6 +391,89 @@ body.hide-guides.hide-chats .user-name { display: none; }
 /* data-health banners sit above the list/calendar */
 #data-warnings .alert-banner { margin: 0 0 8px; }
 
+/* ========== v2.3: pro-UI pass ========== */
+
+/* Saved chip: ♥ + live count, readable at a glance */
+.filter-chip.chip-saved .chip-heart { color: #e0245e; margin-right: 3px; font-size: 12px; }
+.filter-chip.chip-saved.active { background: #e0245e; border-color: #e0245e; color: #fff; }
+.filter-chip.chip-saved.active .chip-heart { color: #fff; }
+.chip-count {
+    display: inline-block; margin-left: 5px;
+    background: color-mix(in srgb, #e0245e 14%, var(--bg-white));
+    color: #e0245e; border-radius: 9px;
+    font-size: 10px; font-weight: 700; min-width: 16px; text-align: center;
+    padding: 0 4px; vertical-align: 1px;
+}
+.filter-chip.chip-saved.active .chip-count { background: rgba(255,255,255,0.25); color: #fff; }
+
+/* Saved rows: gentle tint + the heart already fills */
+.program-item.is-saved { background: linear-gradient(90deg, color-mix(in srgb, #e0245e 6%, var(--bg-white)), var(--bg-white) 140px); }
+
+/* Next-saved countdown card */
+.saved-next {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; text-align: left;
+    background: var(--bg-white);
+    border: 1px solid color-mix(in srgb, #e0245e 45%, var(--border));
+    border-left: 4px solid #e0245e;
+    border-radius: var(--radius);
+    padding: 9px 12px; margin: 0 0 8px;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.saved-next:hover { box-shadow: 0 0 0 3px color-mix(in srgb, #e0245e 15%, transparent); }
+.saved-next-heart { color: #e0245e; font-size: 18px; flex-shrink: 0; }
+.saved-next-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.saved-next-label { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.saved-next-title { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.saved-next-when { font-size: 12.5px; font-weight: 700; color: var(--acc-programs); white-space: nowrap; flex-shrink: 0; }
+.saved-next.is-live { border-left-color: var(--live); }
+.saved-next.is-live .saved-next-when { color: var(--live); }
+
+/* List | Week segmented switch sits inline with the toggles */
+.view-mode-seg { flex: none; }
+.view-mode-seg button { flex: none; padding: 5px 12px; font-size: 12px; }
+.view-mode-seg button.active { background: var(--acc-programs); border-color: var(--acc-programs); color: #fff; }
+
+/* Refresh is a text button now */
+#btn-refresh { font-size: 12px; padding: 6px 12px; }
+
+/* Age badge: drop the 👤 pictogram the base stylesheet prepends */
+.age-badge::before { content: none; }
+
+/* Vote button without an active group: present but visibly dormant */
+.program-actions .btn-vote.inactive { opacity: 0.55; }
+
+/* Calendar: worded legend + cancelled tag + text heart */
+.cal-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; }
+.legend-group { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; }
+.legend-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.legend-hint { flex-basis: 100%; color: var(--text-muted); }
+.legend-sample {
+    display: inline-block; width: 14px; height: 12px;
+    border-radius: 3px; border: 1px solid var(--border-dark);
+    background: var(--bg-white);
+    font-size: 9px; line-height: 11px; text-align: center; color: var(--alert-red);
+}
+.legend-sample.sample-saved { box-shadow: 0 0 0 2px color-mix(in srgb, #e0245e 55%, transparent); }
+.legend-sample.sample-paid { background: color-mix(in srgb, var(--paid) 25%, var(--bg-white)); border-color: var(--paid); }
+.legend-sample.sample-cancelled { border-color: var(--alert-red); }
+.legend-sample.sample-warning { border-color: var(--alert-amber); border-width: 2px; }
+.legend-sample.sample-unverified { border-style: dashed; border-color: var(--alert-red); }
+.cal-heart { color: #e0245e; font-weight: 700; }
+.cal-tag {
+    display: inline-block;
+    background: var(--alert-red); color: #fff;
+    font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    border-radius: 3px; padding: 1px 5px; margin: 1px 0;
+}
+body.dark-mode .cal-tag { color: #1a1a1a; }
+
+/* Safe areas for installed/home-screen use (notch + home indicator) */
+.top-bar { padding-top: calc(10px + env(safe-area-inset-top, 0px)); }
+.chat-input-bar { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+.view-panel { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+
 /* live spots-left badge on paid sessions (fetched from the venue's API) */
 .spots-badge {
     display: inline-flex;

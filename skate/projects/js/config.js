@@ -15,8 +15,20 @@
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '2.2',
+    version: '2.3',
     changelog: [
+        {
+            v: '2.3', date: '2026-07-17', items: [
+                'Cleaner look for every age: buttons say what they do in words (Refresh, List/Week, Near me…) instead of mystery icons',
+                'Countdown card for your saved sessions — "starts in 2h 15m" ticks live at the top of the schedule; tap it to jump there',
+                'Calendar legend now explains the colors and states in plain words',
+                'Filters got smarter: empty categories (Speed, Ringette… until outdoor season) hide themselves; the Paid toggle only appears when your current rink view actually has paid sessions; Saved shows a live count',
+                'Age picker spells out the ranges: Kids (≤12), Teens (13–17), Adults (18+), Seniors (60+)',
+                'Dark mode moved into Settings as Auto / Light / Dark (follows your device on Auto)',
+                'Vote button no longer vanishes without a group — it now explains how voting works',
+                'Home-screen app polish: safe-area padding for notches, and the sort dropdown no longer gets cut off on phones'
+            ]
+        },
         {
             v: '2.2', date: '2026-07-17', items: [
                 '🎟 LIVE spots-left on paid sessions (e.g. "197/200 spots" at Canlan York) — fetched straight from the venue\'s registration system every few minutes',
@@ -60,7 +72,7 @@ window.SkateConfig = {
        visKey = the SkateSettings boolean that shows/hides the section
        (Programs has none — the schedule is always on). */
     views: [
-        { id: 'programs', label: '⛸️ Programs' },
+        { id: 'programs', label: '⛸️ Schedule' },
         { id: 'guides',   label: '📖 Guides', visKey: 'showGuides' },
         { id: 'chats',    label: '💬 Chats', badgeId: 'chats-badge', visKey: 'showChats' }
     ],
@@ -76,7 +88,8 @@ window.SkateConfig = {
     // custom handling ('all' = no filter, 'favorites' = saved list).
     programTypes: [
         { id: 'all',       label: 'All',       special: 'all' },
-        { id: 'favorites', label: '❤️ Saved',  special: 'favorites' },
+        // 'favorites' renders as the ♥-styled chip with a live count
+        { id: 'favorites', label: 'Saved',     special: 'favorites' },
         { id: 'leisure',   label: 'Leisure',   keywords: ['leisure', 'public skat'] },
         { id: 'hockey',    label: 'Hockey',    keywords: ['shinny', 'hockey'] },
         { id: 'figure',    label: 'Figure',    keywords: ['figure'] },
@@ -98,10 +111,11 @@ window.SkateConfig = {
     days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
 
     // Sort orders for the programs list. 'near' needs a saved location —
-    // picking it without one opens the 📍 locator first.
+    // picking it without one opens the locator first. Labels stay short
+    // so the select never truncates on narrow phones.
     sortOptions: [
-        { id: 'time', label: 'Sort: Soonest' },
-        { id: 'near', label: 'Sort: Nearest' }
+        { id: 'time', label: 'Soonest', title: 'Order by start time' },
+        { id: 'near', label: 'Nearest', title: 'Order by distance from your location' }
     ],
 
     // Age quick-picks. Each preset filters with a representative age
@@ -109,18 +123,25 @@ window.SkateConfig = {
     // "6+" minimums, etc). 'exact' reveals the precise-age input.
     agePresets: [
         { id: '',      label: 'Any age' },
-        { id: '8',     label: '👶 Kids' },
-        { id: '15',    label: '🧒 Teens' },
-        { id: '30',    label: '🧑 Adults' },
-        { id: '65',    label: '🧓 Seniors 60+' },
+        { id: '8',     label: 'Kids (≤12)' },
+        { id: '15',    label: 'Teens (13–17)' },
+        { id: '30',    label: 'Adults (18+)' },
+        { id: '65',    label: 'Seniors (60+)' },
         { id: 'exact', label: 'Exact age…' }
     ],
 
     // Rink scope segmented control (personalization). 'mine' filters every
     // list/calendar/search to the user's picked rinks.
     rinkScopes: [
-        { id: 'all',  label: '🌍 All rinks' },
-        { id: 'mine', label: '⭐ My rinks' }
+        { id: 'all',  label: 'All rinks' },
+        { id: 'mine', label: 'My rinks' }
+    ],
+
+    // Appearance (Settings): Auto follows the device's light/dark preference.
+    themes: [
+        { id: 'system', seg: 'Auto' },
+        { id: 'light',  seg: 'Light' },
+        { id: 'dark',   seg: 'Dark' }
     ],
 
     /* ---------- Per-location footnotes (keyed by city Location ID) ---------- */

@@ -84,18 +84,25 @@ window.SkateCalendar = (() => {
                 else if (st.phase === 'ended') cls += ' cal-ended';
                 if (p.Unverified) cls += ' cal-unverified';
 
-                const block = el('button', { class: cls, dataset: { pid: opts.idFor(p) }, title: `${p.Activity || ''} @ ${p.LocationName || ''}` });
+                // Words over icons: states live in the legend + styling; the
+                // one state that must scream is a likely cancellation, which
+                // gets its own text tag.
+                const hoverBits = [
+                    p.Activity || '', '@', p.LocationName || '',
+                    alert ? (alert.level === 'closed' ? '· likely cancelled (rink alert)' : '· service alert at this location') : '',
+                    p.Unverified ? '· unverified schedule' : ''
+                ].filter(Boolean).join(' ');
+                const block = el('button', { class: cls, dataset: { pid: opts.idFor(p) }, title: hoverBits });
                 const timeTxt = opts.fmtClock(p['Start Time'] || '') + (p['End Time'] ? '–' + opts.fmtClock(p['End Time']) : '');
                 block.appendChild(el('span', { class: 'cal-block-time' }, [
                     timeTxt,
-                    ...(p.Paid ? [el('span', { class: 'cal-price' }, [` 💲${p.Price ?? ''}`])] : []),
-                    ...(saved ? [el('span', { class: 'cal-heart' }, [' ❤️'])] : [])
+                    ...(p.Paid ? [el('span', { class: 'cal-price' }, [` $${p.Price ?? ''}`])] : []),
+                    ...(saved ? [el('span', { class: 'cal-heart', 'aria-label': 'saved' }, [' ♥'])] : [])
                 ]));
-                block.appendChild(el('span', { class: 'cal-block-title' }, [
-                    (alert && alert.level === 'closed' ? '🚫 ' : alert ? '⚠️ ' : '') +
-                    (p.Unverified ? '❓ ' : '') +
-                    (p.Activity || 'Skating')
-                ]));
+                block.appendChild(el('span', { class: 'cal-block-title' }, [p.Activity || 'Skating']));
+                if (alert && alert.level === 'closed') {
+                    block.appendChild(el('span', { class: 'cal-tag' }, ['likely cancelled']));
+                }
                 block.appendChild(el('span', { class: 'cal-block-loc' }, [p.LocationName || '']));
                 col.appendChild(block);
             });

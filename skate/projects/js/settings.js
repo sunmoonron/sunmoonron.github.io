@@ -24,7 +24,10 @@ const SkateSettings = (() => {
         paidVisible: false, rinkScope: 'all', myRinks: [],
         sort: 'time', calMode: false, userLoc: null, lastSeenVersion: null,
         // section visibility (⚙️ Settings → Sections; first-visit setup screen)
-        showGuides: true, showChats: true, setupDone: false
+        showGuides: true, showChats: true, setupDone: false,
+        // 'system' | 'light' | 'dark' — null migrates from the old
+        // standalone `darkMode` localStorage key on first read
+        theme: null
     };
     let settings = { ...defaults };
     const cbs = [];

@@ -36,7 +36,7 @@ window.SkateApp = (() => {
         nearRink: null,                // {key, name} chip filter set from the 📍 locator
         myRinksReturnScope: null,      // restore scope if picker closes with 0 picks
         pendingExpAction: null,        // continuation for the lazy onboarding gate
-        darkMode: localStorage.getItem('darkMode') === 'true',
+        // theme handled by Actions.applyTheme (Settings → Appearance)
         activeGuideId: null, guideCat: '',
         lastVotesSnapshot: '',
         chatOpen: false, chatFilter: 'all',
@@ -159,13 +159,10 @@ window.SkateApp = (() => {
             if (t) Actions.switchView(t.dataset.view);
         };
 
-        // Program type chips
-        chips($('type-filters'), CFG.programTypes, {
-            attr: 'type', active: 'all',
-            onPick: id => { S.type = id; Actions.applyFilters(); }
-        });
+        // Program type chips (pruned to non-empty categories once data loads)
+        Render.typeChips();
 
-        // Rink scope chips (🌍 all / ⭐ mine / ✎ edit) — rebuilt on changes
+        // Rink scope chips (all / mine / edit) — rebuilt on changes
         Render.scopeChips();
 
         // Day options
@@ -175,21 +172,16 @@ window.SkateApp = (() => {
         fillSelect($('sort-filter'), CFG.sortOptions.map(o => ({ value: o.id, label: o.label })), v => v.label);
         $('sort-filter').value = S.sort;
 
-        // Age quick-picks (👶🧒🧑🧓 + exact input reveal)
+        // Age quick-picks (Kids / Teens / Adults / Seniors + exact input reveal)
         fillSelect($('age-preset'), CFG.agePresets.map(a => ({ value: a.id, label: a.label })), v => v.label);
 
         // Version chip + unseen-release dot
         $('version-label').textContent = 'v' + CFG.version;
         $('version-dot').classList.toggle('hidden', SkateSettings.get('lastSeenVersion') === CFG.version);
 
-        // Calendar toggle reflects the persisted mode
         $('show-paid-toggle').checked = S.paidVisible;
 
-        // Calendar legend: state markers + one colored dot per activity type
-        $('cal-legend').innerHTML = '❤️ saved · 💲 paid · 🚫 cancelled · ⚠️ alert · ❓ unverified ·' +
-            CFG.activityTags.map(t =>
-                `<span class="legend-dot ${t.cls}"></span>${escapeHtml(t.label.replace(/^\S+\s/, ''))}`
-            ).join('') + ' — tap a session for actions';
+        Render.calLegend();
 
         // Chat filter chips (muted chip starts hidden, like before)
         chips($('chat-filters'), CFG.chatFilters, {
@@ -213,6 +205,7 @@ window.SkateApp = (() => {
             items.forEach(it => host.appendChild(el('button', { dataset: { [attr]: it.id } }, [it.seg || it.label])));
         };
         seg($('settings-timefmt'), CFG.timeFormats, 'fmt');
+        seg($('settings-theme'), CFG.themes, 'theme');
         seg($('settings-exp'), CFG.experiences, 'exp');
         seg($('settings-sections'), CFG.sectionToggles, 'vis');
 
@@ -259,17 +252,106 @@ window.SkateApp = (() => {
             ...s,
             label: s.id === 'mine' && n ? `${s.label} (${n})` : s.label
         }));
-        items.push({ id: 'edit', label: '✎' });
-        if (S.nearRink) items.push({ id: 'nearclear', label: `📍 ${S.nearRink.name} ✕` });
+        items.push({ id: 'edit', label: 'Edit…' });
+        if (S.nearRink) items.push({ id: 'nearclear', label: `Only: ${S.nearRink.name} ✕` });
 
         chips($('scope-row'), items, {
             attr: 'scope', active: S.rinkScope,
             onPick: id => Actions.pickScope(id),
             extra: (btn, it) => {
-                if (it.id === 'edit') { btn.classList.add('scope-edit'); btn.title = 'Choose my rinks'; }
+                if (it.id === 'edit') { btn.classList.add('scope-edit'); btn.title = 'Choose which rinks count as yours'; }
                 if (it.id === 'nearclear') { btn.classList.add('scope-near'); btn.title = 'Showing one rink from the locator — tap to clear'; }
             }
         });
+    };
+
+    /**
+     * Activity-type chips, pruned to categories that actually EXIST in the
+     * current dataset — Speed/Adapted/Ringette vanish over the summer and
+     * reappear on their own when outdoor-season programming returns.
+     * The Saved chip is always shown, ♥-styled, with a live count.
+     */
+    Render.typeChips = function () {
+        const items = CFG.programTypes.filter(t => {
+            if (t.special) return true;                                  // All + Saved always
+            if (!S.programs.length) return true;                         // pre-data boot: show everything
+            return S.programs.some(p => P.matchesType(p, t.id));
+        });
+        // active type may have just been pruned (e.g. after a data refresh)
+        if (!items.some(t => t.id === S.type)) S.type = 'all';
+
+        chips($('type-filters'), items, {
+            attr: 'type', active: S.type,
+            onPick: id => { S.type = id; Actions.applyFilters(); },
+            extra: (btn, it) => {
+                if (it.special !== 'favorites') return;
+                btn.classList.add('chip-saved');
+                btn.textContent = '';
+                btn.append(
+                    el('span', { class: 'chip-heart', 'aria-hidden': 'true' }, ['♥']),
+                    document.createTextNode(' Saved')
+                );
+                const count = SkateChat.Favorites.count();
+                if (count) btn.appendChild(el('span', { class: 'chip-count' }, [String(count)]));
+                btn.title = count ? `${count} saved session${count === 1 ? '' : 's'}` : 'Sessions you saved with the heart button';
+            }
+        });
+    };
+
+    /** Calendar legend in words: colored dots per type + state samples. */
+    Render.calLegend = function () {
+        const types = CFG.activityTags.map(t =>
+            `<span class="legend-item"><span class="legend-dot ${t.cls}"></span>${escapeHtml(t.label.replace(/^\S+\s/, ''))}</span>`
+        ).join('');
+        $('cal-legend').innerHTML =
+            `<span class="legend-group">${types}</span>` +
+            `<span class="legend-group">
+                <span class="legend-item"><span class="legend-sample sample-saved"></span>saved</span>
+                <span class="legend-item"><span class="legend-sample sample-paid"></span>paid ($)</span>
+                <span class="legend-item"><span class="legend-sample sample-cancelled">✕</span>likely cancelled</span>
+                <span class="legend-item"><span class="legend-sample sample-warning"></span>service alert</span>
+                <span class="legend-item"><span class="legend-sample sample-unverified"></span>unverified</span>
+            </span>
+            <span class="legend-hint">Tap any session for details &amp; actions.</span>`;
+    };
+
+    /**
+     * "Next saved session" countdown card — the schedule's answer to a
+     * fridge note. Shows the soonest saved session that hasn't ended
+     * (live ones first), ticking via the 1-minute refresh.
+     */
+    Render.savedNext = function () {
+        const card = $('saved-next');
+        const nowMs = Date.now();
+        let best = null, bestSt = null;
+        S.programs.forEach(p => {
+            if (!SkateChat.Favorites.has(p)) return;
+            const st = SkateTime.status(p, nowMs);
+            if (st.phase === 'ended' || st.phase === 'undated') return;
+            const rank = (st.phase === 'live' ? 0 : 1);
+            const bestRank = bestSt ? (bestSt.phase === 'live' ? 0 : 1) : 9;
+            if (!best || rank < bestRank || (rank === bestRank && st.startEpoch < bestSt.startEpoch)) {
+                best = p; bestSt = st;
+            }
+        });
+        if (!best) { card.classList.add('hidden'); return; }
+
+        const when = bestSt.phase === 'live'
+            ? `On the ice now · ${SkateTime.fmtMins(bestSt.minsLeft)} left`
+            : bestSt.minsToStart < 24 * 60
+                ? `Starts in ${SkateTime.fmtMins(bestSt.minsToStart)}`
+                : parseLocalDate(P.dateStr(best)).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' }) + ' · ' + fmtClock(P.time(best));
+
+        card.classList.remove('hidden');
+        card.classList.toggle('is-live', bestSt.phase === 'live');
+        card.dataset.pid = P.id(best);
+        card.innerHTML = `
+            <span class="saved-next-heart" aria-hidden="true">♥</span>
+            <span class="saved-next-info">
+                <span class="saved-next-label">Next saved session</span>
+                <span class="saved-next-title">${escapeHtml(P.activity(best))} · ${escapeHtml(P.location(best))}</span>
+            </span>
+            <span class="saved-next-when">${escapeHtml(when)}</span>`;
     };
 
     /* ---------- Programs ---------- */
@@ -313,9 +395,14 @@ window.SkateApp = (() => {
         const chatState = SkateChat.getState();
         const now = new Date();
 
-        // stats line (shared by list + calendar views)
-        const paidHidden = !S.paidVisible ? S.programs.filter(p => p.Paid).length : 0;
-        $('stats-text').textContent = `${filtered.length} programs found` + (paidHidden ? ` · ${paidHidden} paid hidden 💰` : '');
+        // stats line (shared by list + calendar views). The paid toggle and
+        // its "hidden" hint only appear when the CURRENT rink scope actually
+        // contains paid sessions — a My-rinks view without a paid venue
+        // shouldn't advertise a toggle that does nothing there.
+        const paidInScope = S.paidInScope || 0;
+        $('paid-toggle-wrap').classList.toggle('hidden', paidInScope === 0);
+        const paidHidden = !S.paidVisible ? paidInScope : 0;
+        $('stats-text').textContent = `${filtered.length} sessions` + (paidHidden ? ` · ${paidHidden} paid hidden` : '');
         const metadata = SkateAPI.getMetadata();
         Render.dataWarnings(metadata, now);
         if (metadata?.lastUpdated) {
@@ -327,20 +414,20 @@ window.SkateApp = (() => {
             if (SkateAlerts.fetchedAt) $('data-updated').title = `Service-alert snapshot: ${new Date(SkateAlerts.fetchedAt).toLocaleString('en-CA')}`;
         }
 
-        // list ↔ calendar
+        Render.savedNext();
+
+        // list ↔ week (segmented switch)
+        $$('#view-mode-seg button').forEach(b => b.classList.toggle('active', (b.dataset.mode === 'week') === S.calMode));
         $('calendar-wrap').classList.toggle('hidden', !S.calMode);
         $('program-list').classList.toggle('hidden', S.calMode);
         $('pagination').classList.toggle('hidden', S.calMode);
         $('pagination-top').classList.toggle('hidden', S.calMode);
-        const calBtn = $('btn-cal-toggle');
-        calBtn.textContent = S.calMode ? '📋' : '📅';
-        calBtn.title = S.calMode ? 'Back to list view' : 'Switch to week-calendar view';
         if (S.calMode) return Render.calendar();
 
         if (!filtered.length) {
-            const empty = S.type === 'favorites' ? 'No saved programs yet. Tap ❤️ on any program to save it!'
-                : S.rinkScope === 'mine' ? 'Nothing at your rinks with these filters — tap 🌍 All rinks to widen the search.'
-                : 'No matching programs found';
+            const empty = S.type === 'favorites' ? 'Nothing saved yet — tap the heart on any session to keep it here.'
+                : S.rinkScope === 'mine' ? 'Nothing at your rinks with these filters — switch to "All rinks" to widen the search.'
+                : 'No matching sessions found';
             $('program-list').innerHTML = `<li class="loading">${empty}</li>`;
             Render.pagination(0);
             return;
@@ -408,7 +495,7 @@ window.SkateApp = (() => {
 
         // Paid venue extras: gold badge with price + register link
         const srcInfo = CFG.sourceInfo[p.Source];
-        const paidBadge = p.Paid ? `<span class="paid-badge" title="Paid venue${srcInfo ? ' — ' + escapeHtml(srcInfo.label) : ''}${srcInfo?.note ? '. ' + escapeHtml(srcInfo.note) : ''}">💲${p.Price != null ? p.Price : '?'}</span>` : '';
+        const paidBadge = p.Paid ? `<span class="paid-badge" title="Paid venue${srcInfo ? ' — ' + escapeHtml(srcInfo.label) : ''}${srcInfo?.note ? '. ' + escapeHtml(srcInfo.note) : ''}">$${p.Price != null ? p.Price : '?'}</span>` : '';
         const srcTag = (p.Source && p.Source !== 'city' && srcInfo) ? `<span class="src-tag" title="${escapeHtml(srcInfo.note || '')}">via ${escapeHtml(srcInfo.label)}</span>` : '';
         const registerBtn = (p.Paid && p.RegistrationUrl) ? `<a class="btn-register" href="${escapeHtml(p.RegistrationUrl)}" target="_blank" rel="noopener" title="Opens the venue's registration page">Register ↗</a>` : '';
 
@@ -419,7 +506,7 @@ window.SkateApp = (() => {
             if (live.status && live.status !== 'open' && st.phase !== 'ended') {
                 spotsBadge = '<span class="spots-badge closed-reg" title="The venue\'s online registration for this session is closed">Registration closed</span>';
             } else if (live.open != null) {
-                spotsBadge = `<span class="spots-badge${live.open <= 20 ? ' low' : ''}" title="Live from the venue's registration system">🎟 ${live.open}${live.capacity ? '/' + live.capacity : ''} spots</span>`;
+                spotsBadge = `<span class="spots-badge${live.open <= 20 ? ' low' : ''}" title="Live from the venue's registration system">${live.open}${live.capacity ? '/' + live.capacity : ''} spots left</span>`;
             }
         }
 
@@ -431,20 +518,25 @@ window.SkateApp = (() => {
         const note = CFG.locationNotes[String(p['Location ID'] ?? '')];
         const noteBtn = note ? `<button class="loc-note" data-note="${escapeHtml(note)}" title="${escapeHtml(note)}" aria-label="Location note">ℹ️</button>` : '';
 
-        // Action buttons from config (order + gating are data)
+        // Action buttons from config. The vote button is ALWAYS rendered —
+        // it used to vanish without an active group, which read as a bug
+        // (classic case: iOS home-screen apps get separate storage, so the
+        // installed app had no group and the button "disappeared"). Now a
+        // group-less tap explains how voting works instead.
         const votes = SkateChat.getVotes(p);
         const isFavorite = SkateChat.Favorites.has(p);
         const actionHtml = CFG.programActions.map(a => {
-            if (a.gated === 'activeGroup' && !chatState.activeGroup) return '';
             let title = a.title || '', text = a.text || '', extraCls = '';
             if (a.act === 'fav') {
                 title = isFavorite ? 'Remove from saved' : 'Save this program';
                 text = isFavorite ? '❤️' : '🤍';
                 extraCls = isFavorite ? ' active' : '';
             } else if (a.act === 'vote') {
-                title = `Vote for this time with ${escapeHtml(chatState.activeGroup.name)}`;
+                title = chatState.activeGroup
+                    ? `Vote for this time with ${escapeHtml(chatState.activeGroup.name)}`
+                    : 'Vote for this time with a group — open Chats to join or create one';
                 text = `👍 ${votes.count || ''}`;
-                extraCls = votes.mine ? ' voted' : '';
+                extraCls = (votes.mine ? ' voted' : '') + (chatState.activeGroup ? '' : ' inactive');
             }
             return `<button data-act="${a.act}" data-idx="${idx}" class="${a.cls}${extraCls}" title="${title}">${text}</button>`;
         }).join('');
@@ -452,7 +544,7 @@ window.SkateApp = (() => {
         const locationHtml = location ? `<a href="${mapsUrl(location)}" target="_blank" rel="noopener" class="program-location">📍 ${escapeHtml(location)} ↗</a>${noteBtn}` : '';
 
         return `
-            <li class="program-item${rowStateCls}${p.Paid ? ' is-paid' : ''}${alert ? (alert.level === 'closed' ? ' has-alert-closed' : ' has-alert') : ''}" data-pid="${pid}">
+            <li class="program-item${rowStateCls}${p.Paid ? ' is-paid' : ''}${isFavorite ? ' is-saved' : ''}${alert ? (alert.level === 'closed' ? ' has-alert-closed' : ' has-alert') : ''}" data-pid="${pid}">
                 <div class="program-header">
                     <div>
                         <div class="program-title">${escapeHtml(activity)}</div>
@@ -764,7 +856,9 @@ window.SkateApp = (() => {
 
     Render.settings = function () {
         const fmt = SkateSettings.get('timeFormat'), exp = SkateSettings.get('experience');
+        const theme = SkateSettings.get('theme') || 'system';
         $$('#settings-timefmt button').forEach(b => b.classList.toggle('active', b.dataset.fmt === fmt));
+        $$('#settings-theme button').forEach(b => b.classList.toggle('active', b.dataset.theme === theme));
         $$('#settings-exp button').forEach(b => b.classList.toggle('active', b.dataset.exp === exp));
         $$('#settings-sections button').forEach(b => b.classList.toggle('active', SkateSettings.get(b.dataset.vis) !== false));
         Render.notif();
@@ -813,8 +907,8 @@ window.SkateApp = (() => {
             ]));
             const starred = mine.has(key);
             row.appendChild(el('div', { class: 'locator-rink-actions' }, [
-                el('button', { class: 'btn-small', dataset: { locFilter: key, locName: r.name }, title: 'Show only this rink\'s sessions' }, ['🔎']),
-                el('button', { class: 'btn-small' + (starred ? ' starred' : ''), dataset: { locStar: key }, title: starred ? 'Remove from My rinks' : 'Add to My rinks' }, [starred ? '⭐' : '☆'])
+                el('button', { class: 'btn-small', dataset: { locFilter: key, locName: r.name }, title: 'Show only this rink\'s sessions' }, ['Filter']),
+                el('button', { class: 'btn-small' + (starred ? ' starred' : ''), dataset: { locStar: key }, title: starred ? 'Remove from My rinks' : 'Add to My rinks' }, [starred ? '★ Mine' : '☆ Add'])
             ]));
             wrap.appendChild(row);
         });
@@ -1057,7 +1151,7 @@ window.SkateApp = (() => {
         calBlock(p) {
             const fav = SkateChat.Favorites.has(p);
             const items = [
-                { label: fav ? '💔 Remove from saved' : '❤️ Save this session', onClick: () => { SkateChat.Favorites.toggle(p); Render.programs(); } },
+                { label: fav ? '💔 Remove from saved' : '❤️ Save this session', onClick: () => { SkateChat.Favorites.toggle(p); Render.typeChips(); Render.programs(); } },
                 { label: '📋 Show in list', onClick: () => {
                     S.calMode = false;
                     SkateSettings.set('calMode', false);
@@ -1084,19 +1178,20 @@ window.SkateApp = (() => {
      * ticker) — keeps the reader's current page instead of jumping to 1.
      */
     Actions.applyFilters = function (keepPage = false) {
-        let result = S.programs.filter(p => P.matchesType(p, S.type));
+        // Rink-scope predicate (my-rinks selection + single-rink chip) is
+        // needed twice: for the result set AND to know whether the current
+        // rink view contains any paid sessions at all (drives the Paid
+        // toggle's visibility — it hides when it would do nothing).
+        const mine = new Set(SkateSettings.get('myRinks') || []);
+        const inScope = (p) =>
+            (S.rinkScope !== 'mine' || !mine.size || mine.has(P.locKey(p))) &&
+            (!S.nearRink || P.locKey(p) === S.nearRink.key);
+        S.paidInScope = S.programs.filter(p => p.Paid && inScope(p)).length;
 
-        // Paid/private venues stay hidden until explicitly toggled on
+        let result = S.programs.filter(p => P.matchesType(p, S.type) && inScope(p));
+
+        // Paid venues stay hidden until explicitly toggled on
         if (!S.paidVisible) result = result.filter(p => !p.Paid);
-
-        // ⭐ My rinks scope
-        if (S.rinkScope === 'mine') {
-            const mine = new Set(SkateSettings.get('myRinks') || []);
-            if (mine.size) result = result.filter(p => mine.has(P.locKey(p)));
-        }
-
-        // Single-rink chip from the 📍 locator
-        if (S.nearRink) result = result.filter(p => P.locKey(p) === S.nearRink.key);
 
         if (S.search) {
             const term = S.search.toLowerCase();
@@ -1645,23 +1740,41 @@ window.SkateApp = (() => {
         Modal.open('settings-modal');
     };
 
-    Actions.applyDarkMode = function () {
-        document.body.classList.toggle('dark-mode', S.darkMode);
-        $('btn-dark-mode').textContent = S.darkMode ? '☀️' : '🌙';
+    /* ---------- Appearance (Settings → Auto / Light / Dark) ---------- */
+    const systemDark = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+    /** Current theme setting, migrating the pre-2.3 `darkMode` localStorage key once. */
+    function themeSetting() {
+        let t = SkateSettings.get('theme');
+        if (!t) {
+            t = localStorage.getItem('darkMode') === 'true' ? 'dark' : 'system';
+            SkateSettings.set('theme', t);
+        }
+        return t;
+    }
+
+    Actions.applyTheme = function () {
+        const t = themeSetting();
+        const dark = t === 'dark' || (t === 'system' && !!systemDark?.matches);
+        document.body.classList.toggle('dark-mode', dark);
     };
+    if (systemDark?.addEventListener) {
+        systemDark.addEventListener('change', () => { if (themeSetting() === 'system') Actions.applyTheme(); });
+    }
 
     Actions.refreshPrograms = async function () {
-        $('btn-refresh').disabled = true; $('btn-refresh').textContent = '⏳';
+        $('btn-refresh').disabled = true; $('btn-refresh').textContent = 'Refreshing…';
         try {
             SkateAPI._skatingPrograms = null;
             S.programs = (await SkateAPI.getSkatingPrograms(true)) || [];   // force: bypass HTTP cache
+            Render.typeChips();
             SkateAlerts.load();                 // re-pull the alert snapshot too
             SkateLive.load(S.programs, true);   // force-refresh live spots
             Actions.applyFilters();
             SkateChat.Notify.toast('Programs reloaded!', 'success', 2000);
             await SkateRefresh.requestCityRefresh();
         } catch (e) { SkateChat.Notify.toast('Refresh failed: ' + e.message, 'error'); }
-        finally { $('btn-refresh').disabled = false; $('btn-refresh').textContent = '🔄'; }
+        finally { $('btn-refresh').disabled = false; $('btn-refresh').textContent = 'Refresh'; }
     };
 
     /* ================= Bindings ================= */
@@ -1699,13 +1812,21 @@ window.SkateApp = (() => {
             Actions.applyFilters();
         };
         $('btn-near').onclick = Actions.openLocator;
-
-        // Calendar view
-        $('btn-cal-toggle').onclick = () => {
-            S.calMode = !S.calMode;
-            SkateSettings.set('calMode', S.calMode);
-            Render.programs();
+        $('saved-next').onclick = () => {
+            const pid = $('saved-next').dataset.pid;
+            if (pid) Actions.focusProgram(pid);
         };
+
+        // List ↔ Week segmented switch
+        delegate($('view-mode-seg'), [
+            ['button[data-mode]', (b) => {
+                const week = b.dataset.mode === 'week';
+                if (week === S.calMode) return;
+                S.calMode = week;
+                SkateSettings.set('calMode', S.calMode);
+                Render.programs();
+            }]
+        ]);
         $('btn-cal-prev').onclick = () => { S.calWeekOffset--; Render.calendar(); };
         $('btn-cal-next').onclick = () => { S.calWeekOffset++; Render.calendar(); };
         $('btn-cal-today').onclick = () => { S.calWeekOffset = 0; Render.calendar(); };
@@ -1765,11 +1886,14 @@ window.SkateApp = (() => {
         $('setup-pick').onclick = () => { Actions.finishSetup(); Actions.openMyRinks(true); };
 
         // Single button — the old <label>-wrapped version double-fired.
-        $('btn-dark-mode').onclick = () => {
-            S.darkMode = !S.darkMode;
-            Actions.applyDarkMode();
-            localStorage.setItem('darkMode', S.darkMode);
-        };
+        // Appearance segment (Settings modal)
+        delegate($('settings-theme'), [
+            ['button[data-theme]', (b) => {
+                SkateSettings.set('theme', b.dataset.theme);
+                Actions.applyTheme();
+                Render.settings();
+            }]
+        ]);
 
         const goPage = (hit) => {
             if (hit.dataset.p) { S.page = parseInt(hit.dataset.p); Render.programs(); $('programs-panel').scrollTop = 0; }
@@ -1783,8 +1907,11 @@ window.SkateApp = (() => {
                 const p = S.filtered[parseInt(btn.dataset.idx)];
                 if (!p) return;
                 const act = btn.dataset.act;
-                if (act === 'fav') { SkateChat.Favorites.toggle(p); Render.programs(); }
-                else if (act === 'vote') SkateChat.voteTime(p);
+                if (act === 'fav') { SkateChat.Favorites.toggle(p); Render.typeChips(); Render.programs(); }
+                else if (act === 'vote') {
+                    if (SkateChat.getState().activeGroup) SkateChat.voteTime(p);
+                    else SkateChat.Notify.toast('Voting is for planning with friends — open Chats and join or create a group first 👍', 'info', 4500);
+                }
                 else if (act === 'share') Actions.openSharePicker({ type: 'program', payload: p });
                 else if (act === 'copy') Popover.open(btn, Menus.programCopy(p));
             }]
@@ -1985,7 +2112,7 @@ window.SkateApp = (() => {
     /* ================= Boot ================= */
     async function init() {
         Render.bootstrap();
-        Actions.applyDarkMode();
+        Actions.applyTheme();
         bind();
 
         // Everyone lands on the schedule (the first tab), on every device.
@@ -2009,6 +2136,7 @@ window.SkateApp = (() => {
         try {
             const programs = await SkateAPI.getSkatingPrograms();
             S.programs = programs || [];
+            Render.typeChips();           // prune categories absent from this dataset
             Actions.applyFilters();
             SkateLive.load(S.programs);   // live venue spots (TTL-throttled)
             if (S.pendingProgramFocus) { Actions.focusProgram(S.pendingProgramFocus); S.pendingProgramFocus = null; }

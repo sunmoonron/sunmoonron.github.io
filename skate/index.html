@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Toronto Skating</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <!-- PWA: installable to the home screen; sw.js keeps the last-seen
@@ -16,7 +16,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=10">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=3">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=5">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=6">
 </head>
 <body>
     <div class="app" id="app">
@@ -25,7 +25,7 @@
             <h1>Toronto Skating</h1>
             <div class="top-bar-actions">
                 <button class="version-chip" id="btn-version" title="What's new in this version" aria-label="What's new"><span id="version-label">v?</span><span class="new-dot hidden" id="version-dot"></span></button>
-                <button class="btn-icon" id="btn-dark-mode" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
+                <!-- dark mode now lives in Settings → Appearance (Auto/Light/Dark) -->
                 <button class="btn-icon" id="btn-settings" title="Settings" aria-label="Settings">⚙️</button>
                 <button id="user-name" class="user-name" title="Your chat name — tap to change"></button>
             </div>
@@ -37,7 +37,7 @@
         <div class="main-content">
             <!-- Programs Panel -->
             <div class="view-panel panel-programs active" id="programs-panel">
-                <div class="panel-title">⛸️ Programs</div>
+                <div class="panel-title">⛸️ Schedule</div>
                 <div class="search-box">
                     <input type="text" id="search-input" placeholder="Search activities, locations, addresses…">
                     <button id="btn-search" aria-label="Search">🔍</button>
@@ -56,8 +56,8 @@
                     </select>
                     <select id="age-preset" title="Who's skating? Filters to sessions open to that age group"><!-- options generated from SkateConfig.agePresets --></select>
                     <input type="number" id="age-filter" placeholder="Age" min="0" max="120" style="max-width:80px" class="hidden" title="Exact age to filter by">
-                    <select id="sort-filter"><!-- options generated from SkateConfig.sortOptions --></select>
-                    <button id="btn-near" class="btn-near" title="Find the rinks closest to you">📍 Near</button>
+                    <select id="sort-filter" title="Ordering"><!-- options generated from SkateConfig.sortOptions --></select>
+                    <button id="btn-near" class="btn-near" title="Find the rinks closest to you">Near me</button>
                 </div>
 
                 <div class="stats-row" id="stats-row">
@@ -65,17 +65,23 @@
                         <span id="stats-text">Loading...</span>
                         <span id="data-updated" class="data-updated"></span>
                     </div>
-                    <label class="toggle-past toggle-paid" title="Show paid/private venues (e.g. Canlan York — prices shown per session)">
+                    <label class="toggle-past toggle-paid hidden" id="paid-toggle-wrap" title="Show paid venues (price shown on each session)">
                         <input type="checkbox" id="show-paid-toggle">
-                        <span>💰 Paid</span>
+                        <span>Paid</span>
                     </label>
-                    <label class="toggle-past" title="Show events that already happened">
+                    <label class="toggle-past" title="Show sessions that already ended">
                         <input type="checkbox" id="show-past-toggle">
                         <span>Past</span>
                     </label>
-                    <button class="btn-refresh" id="btn-cal-toggle" title="Switch between list and week-calendar view">📅</button>
-                    <button class="btn-refresh" id="btn-refresh" title="Reload programs">🔄</button>
+                    <div class="seg-control view-mode-seg" id="view-mode-seg" title="How the schedule is displayed">
+                        <button data-mode="list" class="active">List</button>
+                        <button data-mode="week">Week</button>
+                    </div>
+                    <button class="btn-refresh" id="btn-refresh" title="Re-download the schedule and alerts">Refresh</button>
                 </div>
+
+                <!-- Next saved session countdown (only when something is saved & upcoming) -->
+                <button class="saved-next hidden" id="saved-next" title="Jump to this session"></button>
 
                 <!-- Data-health warnings (stale schedule / failed source feeds) -->
                 <div id="data-warnings"></div>
@@ -305,6 +311,11 @@
                 <div class="seg-control" id="settings-timefmt"></div>
             </label>
             <label class="settings-field">
+                <span>Appearance</span>
+                <!-- Segments generated from SkateConfig.themes; Auto follows the device -->
+                <div class="seg-control" id="settings-theme"></div>
+            </label>
+            <label class="settings-field">
                 <span>Experience</span>
                 <!-- Segments generated from SkateConfig.experiences -->
                 <div class="seg-control" id="settings-exp"></div>
@@ -398,8 +409,8 @@
     <script src="../assets/js/nostr.bundle.js"></script>
     <!-- profanity-list.js is injected lazily by app.js bootCommunity() —
          schedule-only visits (community sections hidden) never download it -->
-    <script src="projects/js/config.js?v=4"></script>
-    <script src="projects/js/settings.js?v=3"></script>
+    <script src="projects/js/config.js?v=5"></script>
+    <script src="projects/js/settings.js?v=4"></script>
     <script src="projects/js/moderation.js?v=4"></script>
     <script src="projects/js/nostr-core.js?v=1"></script>
     <script src="projects/js/storage.js?v=10"></script>
@@ -411,8 +422,8 @@
     <script src="projects/js/chat-v2.js?v=3"></script>
     <script src="projects/js/guides.js?v=3"></script>
     <script src="projects/js/ui.js?v=1"></script>
-    <script src="projects/js/calendar.js?v=3"></script>
-    <script src="projects/js/app.js?v=5"></script>
+    <script src="projects/js/calendar.js?v=4"></script>
+    <script src="projects/js/app.js?v=6"></script>
     <script src="projects/js/refresh.js?v=2"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)
