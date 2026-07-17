@@ -15,8 +15,15 @@
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '2.6',
+    version: '2.7',
     changelog: [
+        {
+            v: '2.7', date: '2026-07-17', items: [
+                'Phone chat fixes: tapping the message box no longer zooms the page (and crops the send arrow)',
+                'The group name isn\'t covered by "#CODE • connected · N here now" anymore — status sits neatly under the title',
+                'Busy rooms show 2 members + a "+N more" button instead of flooding the screen with name chips'
+            ]
+        },
         {
             v: '2.6', date: '2026-07-17', items: [
                 'Theme defaults to Auto again — dark mode passed inspection 😎',

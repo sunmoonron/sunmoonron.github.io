@@ -617,6 +617,42 @@ body.dark-mode ::-webkit-scrollbar-track { background: transparent; }
 /* text selection matches the ice */
 body.dark-mode ::selection { background: rgba(70, 198, 234, 0.35); }
 
+/* ========== v2.7: mobile chat polish ========== */
+
+/* iOS Safari auto-zooms any focused field with font-size < 16px — that
+   zoom was cropping the send arrow and half the conversation. Keeping
+   controls at 16px on phones kills the zoom without touching pinch-zoom
+   accessibility (no maximum-scale hacks). */
+@media (max-width: 767px) {
+    input, select, textarea { font-size: 16px; }
+}
+
+/* Chat header: title on its own line, status UNDER it — the status spans
+   had no layout rules and sat in the same flex row as the title, so
+   "#95E63B • connected" and "5 here now" overlapped the group name. */
+.chat-header-info { flex-direction: column; align-items: flex-start; gap: 1px; }
+.chat-status {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; color: var(--text-muted);
+    min-width: 0; max-width: 100%;
+}
+.chat-status #chat-status-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.chat-online { flex-shrink: 0; white-space: nowrap; margin-left: 0; }
+
+/* Members bar: show a couple, tuck the crowd behind "+N more" */
+#members-list { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; min-width: 0; }
+#members-list.expanded { max-height: 96px; overflow-y: auto; }
+.members-more-btn {
+    background: var(--bg-white);
+    border: 1px solid color-mix(in srgb, var(--acc-chats) 45%, var(--border));
+    color: var(--acc-chats);
+    border-radius: 14px; padding: 3px 9px;
+    font-size: 12px; font-weight: 600;
+    cursor: pointer; white-space: nowrap;
+}
+.members-more-btn:hover { border-color: var(--acc-chats); }
+.members-bar { display: flex; align-items: flex-start; gap: 6px; }
+
 /* ========== v2.4: Nostr community box (Settings) ========== */
 .nostr-box {
     border: 1px solid color-mix(in srgb, #f7931a 50%, var(--border));

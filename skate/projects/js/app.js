@@ -775,6 +775,7 @@ window.SkateApp = (() => {
         S.lastVisibleCount = visible.length;
         if (convKey !== S.lastRenderedConv) {
             S.lastRenderedConv = convKey;
+            membersExpanded = false;   // fresh conversation → collapsed member bar
             S.jumpBase = visible.length;
             msgs.scrollTop = msgs.scrollHeight;
             $('jump-pill').classList.add('hidden');
@@ -791,16 +792,23 @@ window.SkateApp = (() => {
         }
     };
 
+    // Busy rooms were flooding the bar (and phones) with chips — show a
+    // couple, tuck the rest behind "+N more". Collapses again per convo.
+    let membersExpanded = false;
+    const MEMBERS_CAP = 2;
+
     Render.members = function (groupId) {
         const roster = SkateChat.getRoster(groupId);
         $('members-bar').classList.remove('hidden');
         const ml = $('members-list');
+        ml.classList.toggle('expanded', membersExpanded);
         ml.innerHTML = '';
         if (!roster.length) {
             ml.appendChild(el('span', { class: 'members-solo' }, ['Just you so far — messages wait here for whoever joins']));
             return;
         }
-        roster.slice(0, 8).forEach(r => {
+        const shown = membersExpanded ? roster : roster.slice(0, MEMBERS_CAP);
+        shown.forEach(r => {
             const chip = el('button', {
                 class: 'member-chip' + (r.muted ? ' is-muted' : ''),
                 dataset: { pk: r.pubkey, name: r.name },
@@ -809,7 +817,18 @@ window.SkateApp = (() => {
             chip.innerHTML = `${hueDot(r.pubkey)}${r.online ? '<span class="online-dot"></span>' : ''}${escapeHtml(r.name)}${r.muted ? ' 🔇' : ''}`;
             ml.appendChild(chip);
         });
-        if (roster.length > 8) ml.appendChild(el('span', { class: 'members-more' }, [`+${roster.length - 8}`]));
+        if (roster.length > MEMBERS_CAP) {
+            const more = el('button', {
+                class: 'members-more-btn',
+                title: membersExpanded ? 'Collapse the member list' : 'Show every member'
+            }, [membersExpanded ? 'Show less' : `+${roster.length - MEMBERS_CAP} more`]);
+            more.onclick = (e) => {
+                e.stopPropagation();
+                membersExpanded = !membersExpanded;
+                Render.members(groupId);
+            };
+            ml.appendChild(more);
+        }
     };
 
     Render.discoverRooms = function (chatState) {
