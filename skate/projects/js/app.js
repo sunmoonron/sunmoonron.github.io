@@ -91,11 +91,26 @@ window.SkateApp = (() => {
             return hit ? `<span class="tag ${hit.cls}">${hit.label}</span>` : '';
         },
 
+        /** Same keyword table → css class for the calendar's color coding. */
+        typeCls(p) {
+            const a = P.activity(p).toLowerCase();
+            const hit = CFG.activityTags.find(t => t.keywords.some(k => a.includes(k)));
+            return hit ? hit.cls : null;
+        },
+
+        /** "13" → 13, null/"None"/undefined → null. Data is normalized at
+         *  fetch time; stay defensive for older cached datasets. */
+        age(v) {
+            const n = parseInt(v, 10);
+            return Number.isFinite(n) ? n : null;
+        },
+
         ageBadge(p) {
-            const min = p['Age Min'], max = p['Age Max'];
-            if (min && max) return `<span class="age-badge">Ages ${min}-${max}</span>`;
-            if (min) return `<span class="age-badge">Ages ${min}+</span>`;
-            if (max) return `<span class="age-badge">Under ${max}</span>`;
+            let min = P.age(p['Age Min']), max = P.age(p['Age Max']);
+            if (min === 0) min = null;   // "0+" is just everyone
+            if (min != null && max != null) return `<span class="age-badge">Ages ${min}–${max}</span>`;
+            if (min != null) return `<span class="age-badge">${min >= 18 ? 'Adults' : 'Ages'} ${min}+</span>`;
+            if (max != null) return `<span class="age-badge">Up to ${max}</span>`;
             return '<span class="age-badge all-ages">All Ages</span>';
         }
     };
@@ -137,15 +152,9 @@ window.SkateApp = (() => {
 
     /** Generate every previously-hardcoded repeated structure from config. */
     Render.bootstrap = function () {
-        // View tabs
-        const tabs = $('view-tabs');
-        tabs.innerHTML = '';
-        CFG.views.forEach((v, i) => {
-            const btn = el('button', { class: 'view-tab' + (i === 0 ? ' active' : ''), dataset: { view: v.id } }, [v.label + (v.badgeId ? ' ' : '')]);
-            if (v.badgeId) btn.appendChild(el('span', { class: 'badge hidden', id: v.badgeId }, ['0']));
-            tabs.appendChild(btn);
-        });
-        tabs.onclick = e => {
+        // View tabs (rebuilt whenever section visibility changes)
+        Render.tabs();
+        $('view-tabs').onclick = e => {
             const t = e.target.closest('.view-tab');
             if (t) Actions.switchView(t.dataset.view);
         };
@@ -173,6 +182,12 @@ window.SkateApp = (() => {
         // Calendar toggle reflects the persisted mode
         $('show-paid-toggle').checked = S.paidVisible;
 
+        // Calendar legend: state markers + one colored dot per activity type
+        $('cal-legend').innerHTML = '❤️ saved · 💲 paid · 🚫 cancelled · ⚠️ alert · ❓ unverified ·' +
+            CFG.activityTags.map(t =>
+                `<span class="legend-dot ${t.cls}"></span>${escapeHtml(t.label.replace(/^\S+\s/, ''))}`
+            ).join('') + ' — tap a session for actions';
+
         // Chat filter chips (muted chip starts hidden, like before)
         chips($('chat-filters'), CFG.chatFilters, {
             attr: 'cf', active: 'all',
@@ -196,6 +211,7 @@ window.SkateApp = (() => {
         };
         seg($('settings-timefmt'), CFG.timeFormats, 'fmt');
         seg($('settings-exp'), CFG.experiences, 'exp');
+        seg($('settings-sections'), CFG.sectionToggles, 'vis');
 
         // Onboarding choices
         const ob = $('onboarding-choices');
@@ -212,6 +228,25 @@ window.SkateApp = (() => {
         $$('.view-tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
         $$('.view-panel').forEach(p => p.classList.remove('active'));
         $(view + '-panel').classList.add('active');
+    };
+
+    /* ---------- Section visibility (Settings → Sections) ---------- */
+    const viewVisible = v => !v.visKey || SkateSettings.get(v.visKey) !== false;
+
+    /** All tabs are always in the DOM (their badge elements are referenced
+     *  elsewhere) — hidden sections just get the .hidden class. */
+    Render.tabs = function () {
+        const tabs = $('view-tabs');
+        const current = document.querySelector('.view-panel.active')?.id.replace('-panel', '') || 'programs';
+        tabs.innerHTML = '';
+        CFG.views.forEach(v => {
+            const btn = el('button', {
+                class: 'view-tab' + (v.id === current ? ' active' : '') + (viewVisible(v) ? '' : ' hidden'),
+                dataset: { view: v.id }
+            }, [v.label + (v.badgeId ? ' ' : '')]);
+            if (v.badgeId) btn.appendChild(el('span', { class: 'badge hidden', id: v.badgeId }, ['0']));
+            tabs.appendChild(btn);
+        });
     };
 
     /* ---------- Rink scope (personalization) ---------- */
@@ -285,7 +320,8 @@ window.SkateApp = (() => {
             idFor: p => P.id(p),
             isSaved: p => SkateChat.Favorites.has(p),
             alertFor: p => SkateAlerts.forProgram(p),
-            statusFor: p => SkateTime.status(p)
+            statusFor: p => SkateTime.status(p),
+            typeFor: p => P.typeCls(p)
         });
         $('cal-label').textContent = `${res.label} · ${res.total} session${res.total === 1 ? '' : 's'}`;
     };
@@ -682,6 +718,7 @@ window.SkateApp = (() => {
         const fmt = SkateSettings.get('timeFormat'), exp = SkateSettings.get('experience');
         $$('#settings-timefmt button').forEach(b => b.classList.toggle('active', b.dataset.fmt === fmt));
         $$('#settings-exp button').forEach(b => b.classList.toggle('active', b.dataset.exp === exp));
+        $$('#settings-sections button').forEach(b => b.classList.toggle('active', SkateSettings.get(b.dataset.vis) !== false));
         Render.notif();
         Render.mutedList();
     };
@@ -1018,7 +1055,9 @@ window.SkateApp = (() => {
             result = result.filter(p => P.activity(p).toLowerCase().includes(term) || P.location(p).toLowerCase().includes(term));
         }
         if (S.day) result = result.filter(p => p['Day of Week'] === S.day);
-        if (S.age !== null) result = result.filter(p => S.age >= (p['Age Min'] || 0) && S.age <= (p['Age Max'] || 999));
+        // Parsed bounds so a stray "None"/"" can never silently exclude a row
+        if (S.age !== null) result = result.filter(p =>
+            S.age >= (P.age(p['Age Min']) ?? 0) && S.age <= (P.age(p['Age Max']) ?? 999));
 
         // Past filter on the real END time in Toronto — an event disappears
         // the minute it ends (not at midnight), and in-progress ones stay.
@@ -1174,6 +1213,55 @@ window.SkateApp = (() => {
         SkateChat.Notify.toast(`Showing only ${name} — tap the 📍 chip to clear`, 'info', 3500);
     };
 
+    /* ---------- Section visibility + first-visit setup ---------- */
+    let chatBooted = false;   // guards the badge refresh before SkateChat.init()
+
+    Actions.applyVisibility = function () {
+        document.body.classList.toggle('hide-guides', SkateSettings.get('showGuides') === false);
+        document.body.classList.toggle('hide-chats', SkateSettings.get('showChats') === false);
+        Render.tabs();
+        if (chatBooted) Render.chatUI(SkateChat.getState());   // repopulate the rebuilt badge
+        // never leave the user staring at a hidden panel
+        const active = document.querySelector('.view-panel.active');
+        if (active && ((active.id === 'guides-panel' && SkateSettings.get('showGuides') === false) ||
+                       (active.id === 'chats-panel' && SkateSettings.get('showChats') === false))) {
+            Actions.switchView('programs');
+        }
+    };
+
+    /** Deep links (shared guides, group invites, DMs) re-enable a hidden
+     *  section — following a link is an explicit request to see it. */
+    Actions.ensureSectionVisible = function (visKey) {
+        if (SkateSettings.get(visKey) === false) {
+            SkateSettings.set(visKey, true);
+            Actions.applyVisibility();
+            SkateChat.Notify.toast(`${visKey === 'showGuides' ? '📖 Guides' : '💬 Chats'} re-enabled — hide it again in ⚙️ Settings`, 'info', 3500);
+        }
+    };
+
+    Actions.maybeShowSetup = function () {
+        if (SkateSettings.get('setupDone')) return;
+        // Existing users (already chose an experience or renamed themselves)
+        // are grandfathered — no surprise popup on a site they already use.
+        if (SkateSettings.get('experience') || SkateSettings.get('displayName')) {
+            SkateSettings.set('setupDone', true);
+            return;
+        }
+        $('setup-guides').checked = SkateSettings.get('showGuides') !== false;
+        $('setup-chats').checked = SkateSettings.get('showChats') !== false;
+        Modal.open('setup-modal');
+    };
+
+    /** Persist the setup choices; safe to call twice (overlay + button). */
+    Actions.finishSetup = function () {
+        if (SkateSettings.get('setupDone')) return;
+        SkateSettings.set('showGuides', $('setup-guides').checked);
+        SkateSettings.set('showChats', $('setup-chats').checked);
+        SkateSettings.set('setupDone', true);
+        Modal.close('setup-modal');
+        Actions.applyVisibility();
+    };
+
     /* ---------- What's new ---------- */
     Actions.openWhatsNew = function () {
         Render.whatsNew();
@@ -1205,6 +1293,7 @@ window.SkateApp = (() => {
     };
 
     Actions.openGuide = function (id) {
+        Actions.ensureSectionVisible('showGuides');
         Actions.switchView('guides');
         const g = SkateGuides.get(id);
         if (!g) {
@@ -1310,6 +1399,7 @@ window.SkateApp = (() => {
 
     Actions.startDm = function (pubkey, name) {
         if (SkateChat.startDm(pubkey, name)) {
+            Actions.ensureSectionVisible('showChats');
             S.chatOpen = true;
             Actions.switchView('chats');
             Actions.focusChatInput();
@@ -1426,6 +1516,7 @@ window.SkateApp = (() => {
             S.pendingInvite = null;
             Modal.close('invite-modal');
             Actions.clearHash();
+            Actions.ensureSectionVisible('showChats');
             S.chatOpen = true;
             Actions.switchView('chats');
             Actions.focusChatInput();
@@ -1545,6 +1636,26 @@ window.SkateApp = (() => {
         // What's new
         $('btn-version').onclick = Actions.openWhatsNew;
         $('btn-whatsnew-close').onclick = () => Modal.close('whatsnew-modal');
+
+        // First-visit setup
+        $('setup-done').onclick = Actions.finishSetup;
+        $('setup-nearest').onclick = async () => {
+            const btn = $('setup-nearest');
+            btn.disabled = true; btn.textContent = '📡 Locating…';
+            try {
+                const loc = await SkateGeo.locateMe();
+                SkateGeo.setUserLocation(loc);
+                S.sort = 'near';
+                SkateSettings.set('sort', 'near');
+                $('sort-filter').value = 'near';
+                $('setup-rink-status').textContent = '✓ Got it — sessions will sort by distance from you.';
+                Actions.applyFilters(true);
+            } catch (e) {
+                $('setup-rink-status').textContent = e.message;
+            }
+            btn.disabled = false; btn.textContent = '📡 Find nearest';
+        };
+        $('setup-pick').onclick = () => { Actions.finishSetup(); Actions.openMyRinks(true); };
 
         // Single button — the old <label>-wrapped version double-fired.
         $('btn-dark-mode').onclick = () => {
@@ -1723,6 +1834,13 @@ window.SkateApp = (() => {
         delegate($('settings-exp'), [
             ['button[data-exp]', (b) => { Actions.applyExperience(b.dataset.exp); Render.settings(); }]
         ]);
+        delegate($('settings-sections'), [
+            ['button[data-vis]', (b) => {
+                SkateSettings.set(b.dataset.vis, SkateSettings.get(b.dataset.vis) === false);
+                Actions.applyVisibility();
+                Render.settings();
+            }]
+        ]);
         $('btn-enable-notif').onclick = async () => {
             await SkateChat.Notify.requestPermission();
             Render.notif();
@@ -1731,6 +1849,7 @@ window.SkateApp = (() => {
         Modal.bindOverlays((id) => {
             if (id === 'invite-modal') { S.pendingInvite = null; Actions.clearHash(); }
             if (id === 'myrinks-modal') Actions.closeMyRinks();
+            if (id === 'setup-modal') Actions.finishSetup();
         });
 
         // Keyboard: 1-N switch views, Esc walks back (popover → modal → conversation)
@@ -1743,6 +1862,7 @@ window.SkateApp = (() => {
                     if (modal.id === 'invite-modal') { S.pendingInvite = null; Actions.clearHash(); }
                     if (modal.id === 'onboarding-modal') S.pendingExpAction = null; // ask again next time
                     if (modal.id === 'myrinks-modal') Actions.closeMyRinks();
+                    if (modal.id === 'setup-modal') Actions.finishSetup();
                     return;
                 }
                 if (S.chatOpen && $('chats-panel').classList.contains('active')) return Actions.backToList();
@@ -1750,7 +1870,8 @@ window.SkateApp = (() => {
             }
             if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
             const n = parseInt(e.key);
-            if (n >= 1 && n <= CFG.views.length) Actions.switchView(CFG.views[n - 1].id);
+            const visibleViews = CFG.views.filter(viewVisible);
+            if (n >= 1 && n <= visibleViews.length) Actions.switchView(visibleViews[n - 1].id);
         });
     }
 
@@ -1760,9 +1881,12 @@ window.SkateApp = (() => {
         Actions.applyDarkMode();
         bind();
 
-        // No startup popup anymore: everyone lands on the schedule (the
-        // first tab), on every device. The experience question appears
-        // lazily via ensureExperience the first time it actually matters.
+        // Everyone lands on the schedule (the first tab), on every device.
+        // Brand-new visitors get ONE lightweight setup screen (sections +
+        // rinks, all skippable); existing users are grandfathered past it.
+        // The experience question stays lazy via ensureExperience.
+        Actions.applyVisibility();
+        Actions.maybeShowSetup();
 
         // Rink map + service alerts load in parallel with programs;
         // whichever lands last re-renders so badges/distances appear.
@@ -1787,6 +1911,7 @@ window.SkateApp = (() => {
         }, 60000);
 
         await SkateChat.init();
+        chatBooted = true;
         SkateChat.onUpdate(Render.chatUI);
         SkateGuides.load();
         SkateGuides.onUpdate(scheduleGuidesRender);

@@ -204,6 +204,42 @@ body.dark-mode .btn-register { color: #1a1a1a; }
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+/* ---- per-type color coding: same palette as the list's .tag badges ----
+   (--ct set per type; shared with the legend dots below) */
+.cal-type-hockey,   .legend-dot.hockey   { --ct: #cc4455; }
+.cal-type-figure,   .legend-dot.figure   { --ct: #5566cc; }
+.cal-type-speed,    .legend-dot.speed    { --ct: #b08a3d; }
+.cal-type-leisure,  .legend-dot.leisure  { --ct: #3aa07f; }
+.cal-type-adapted,  .legend-dot.adapted  { --ct: #8855bb; }
+.cal-type-ringette, .legend-dot.ringette { --ct: #bb4499; }
+
+.cal-block { position: relative; overflow: hidden; }
+.cal-block[class*="cal-type-"] {
+    background: color-mix(in srgb, var(--ct) 12%, var(--bg-white));
+    border-color: color-mix(in srgb, var(--ct) 45%, var(--border));
+}
+.cal-block[class*="cal-type-"]::before {
+    content: '';
+    position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+    background: var(--ct);
+}
+.cal-block[class*="cal-type-"] .cal-block-time { color: color-mix(in srgb, var(--ct) 80%, var(--text)); }
+body.dark-mode .cal-block[class*="cal-type-"] {
+    background: color-mix(in srgb, var(--ct) 20%, var(--bg-white));
+    border-color: color-mix(in srgb, var(--ct) 55%, var(--border));
+}
+body.dark-mode .cal-block[class*="cal-type-"] .cal-block-time { color: color-mix(in srgb, var(--ct) 55%, var(--text)); }
+
+.legend-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--ct, var(--text-muted));
+    margin: 0 3px 0 8px;
+    vertical-align: baseline;
+}
+
+/* paid identity wins the border/price, type still shows via bar + tint */
 .cal-block.cal-paid {
     background: color-mix(in srgb, var(--paid) 14%, var(--bg-white));
     border-color: color-mix(in srgb, var(--paid) 55%, var(--border));
@@ -347,6 +383,57 @@ body.dark-mode .btn-register { color: #1a1a1a; }
 .stats-row { flex-wrap: wrap; }
 .filter-selects { flex-wrap: wrap; }
 .filter-selects select { min-width: 104px; }
+
+/* ========== Section visibility (Settings → Sections) ==========
+   Tabs get .hidden from JS; panels are killed here so no route/keyboard
+   path can reveal them. The ≥1100px grid re-flows to the remaining columns. */
+body.hide-guides #guides-panel,
+body.hide-chats #chats-panel { display: none !important; }
+
+@media (min-width: 1100px) {
+    body.hide-guides:not(.hide-chats) .main-content {
+        grid-template-columns: minmax(400px, 1.6fr) minmax(340px, 460px);
+    }
+    body.hide-chats:not(.hide-guides) .main-content {
+        grid-template-columns: minmax(400px, 1.6fr) minmax(320px, 1fr);
+    }
+    body.hide-guides.hide-chats .main-content { grid-template-columns: 1fr; }
+    body.hide-guides.hide-chats .view-panel.panel-programs { border-right: none; }
+}
+
+/* ========== First-visit setup modal ========== */
+.setup-section { text-align: left; margin: 14px 0; }
+.setup-section h4 {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--text-muted);
+    margin-bottom: 8px;
+}
+.setup-toggle {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px; margin-bottom: 8px;
+    font-size: 13px; cursor: pointer;
+    transition: border-color 0.15s;
+}
+.setup-toggle:hover { border-color: var(--primary); }
+.setup-toggle input { margin-top: 2px; cursor: pointer; }
+.setup-rinks { display: flex; gap: 8px; margin-bottom: 6px; }
+.setup-rinks button {
+    flex: 1; padding: 10px; font-size: 13px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.setup-rinks button:hover { border-color: var(--acc-programs); }
+.setup-done { width: 100%; padding: 12px; font-size: 14px; margin-top: 4px; }
+.onboard-skip {
+    background: none; border: none; color: var(--text-muted);
+    font-size: 12px; text-decoration: underline; margin-top: 2px;
+}
+.onboard-skip:hover { color: var(--text); }
+
+/* Settings → Sections: independent on/off buttons (not radio) */
+.seg-control.seg-multi button { opacity: 0.55; }
+.seg-control.seg-multi button.active { opacity: 1; }
 
 /* ========== Dark-mode & motion sanity ========== */
 body.dark-mode .cal-block { background: color-mix(in srgb, var(--acc-programs) 14%, var(--bg-white)); }

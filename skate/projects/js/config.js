@@ -15,8 +15,17 @@
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '2.0',
+    version: '2.1',
     changelog: [
+        {
+            v: '2.1', date: '2026-07-16', items: [
+                '🏒→🚫 Ball hockey (a gym sport!) no longer clutters the ice-skating list',
+                '🎨 Calendar sessions are now color-coded by type — same colors as the list badges (hockey red, figure blue, leisure green…)',
+                '👤 Age labels make sense now: "Adults 19+", "Ages 8–12", "Up to 12" — and the age filter works on every row',
+                '🪖 Moss Park Arena ℹ️ note: CSA-approved helmet mandatory, kids ≤7 accompanied by an adult',
+                '👁️ Guides & Chats can be hidden — toggle them in ⚙️ Settings; new visitors get a one-time setup screen'
+            ]
+        },
         {
             v: '2.0', date: '2026-07-16', items: [
                 '🚨 Live service alerts from toronto.ca — sessions at closed rinks are flagged, other alerts show a warning with the city\'s note',
@@ -36,11 +45,19 @@ window.SkateConfig = {
         }
     ],
 
-    /* ---------- Top-level views (tabs + panels) ---------- */
+    /* ---------- Top-level views (tabs + panels) ----------
+       visKey = the SkateSettings boolean that shows/hides the section
+       (Programs has none — the schedule is always on). */
     views: [
         { id: 'programs', label: '⛸️ Programs' },
-        { id: 'guides',   label: '📖 Guides' },
-        { id: 'chats',    label: '💬 Chats', badgeId: 'chats-badge' }
+        { id: 'guides',   label: '📖 Guides', visKey: 'showGuides' },
+        { id: 'chats',    label: '💬 Chats', badgeId: 'chats-badge', visKey: 'showChats' }
+    ],
+
+    // Settings → Sections toggle buttons (independent, not radio)
+    sectionToggles: [
+        { id: 'showGuides', seg: '📖 Guides' },
+        { id: 'showChats',  seg: '💬 Chats' }
     ],
 
     /* ---------- Programs panel ---------- */
@@ -86,7 +103,8 @@ window.SkateConfig = {
     /* ---------- Per-location footnotes (keyed by city Location ID) ---------- */
     // Shown as a tappable ℹ️ next to the location name.
     locationNotes: {
-        '712': 'Don Montgomery has a live rink-info TV on site — the lobby screen shows today\'s actual ice times, worth a glance when you arrive.'
+        '712': 'Don Montgomery has a live rink-info TV on site — the lobby screen shows today\'s actual ice times, worth a glance when you arrive.',
+        '3491': 'Moss Park Arena: a CSA-approved helmet is MANDATORY for all public skaters, and kids 7 and under must be accompanied on the ice by an adult.'
     },
 
     /* ---------- Data-source hints (keyed by program.Source) ---------- */

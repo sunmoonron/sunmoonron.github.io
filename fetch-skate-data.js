@@ -192,22 +192,36 @@ async function fetchAllRecords(resourceId, resourceName) {
 }
 
 /**
- * Filter for skating-related programs only
+ * Filter for ICE-skating programs only.
+ *
+ * The city's ice programs all live under Section "Skate - Drop-In" /
+ * "Skating - Drop-In"; the title keywords are only a fallback in case a
+ * future section is named differently. NON_ICE guards the fallback from
+ * gym/pavement sports that share hockey vocabulary — "Ball Hockey" alone
+ * was 78 records of bloat on an ice-skating site.
  */
+const NON_ICE = /(ball|floor|street|road|dek|cosom)\s*hockey|skateboard|inline|roller/i;
+
 function filterSkatingPrograms(programs) {
     return programs.filter(p => {
         // Field names from the actual API
         const courseTitle = (p['Course Title'] || '').toLowerCase();
         const section = (p['Section'] || '').toLowerCase();
 
-        return section.includes('skate') ||
+        if (NON_ICE.test(courseTitle) || NON_ICE.test(section)) return false;
+        return section.includes('skat') ||
                courseTitle.includes('skate') ||
                courseTitle.includes('shinny') ||
                courseTitle.includes('hockey') ||
                courseTitle.includes('ringette') ||
-               courseTitle.includes('stick and puck') ||
-               section.includes('skating');
+               courseTitle.includes('stick and puck');
     });
+}
+
+/** "13" → 13, "None"/""/garbage → null (the raw feed mixes all three). */
+function cleanAge(v) {
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) ? n : null;
 }
 
 /* ================= Rink inventory → rinks.json ================= */
@@ -707,6 +721,11 @@ async function main() {
                 // Normalize field names for the frontend
                 Activity: program['Course Title'],
                 Category: program['Section'],
+                // Ages arrive as "13" / "None" / "" — make them numbers or null
+                // (the string "None" both looked awful in badges and silently
+                // broke the numeric age filter)
+                'Age Min': cleanAge(program['Age Min']),
+                'Age Max': cleanAge(program['Age Max']),
                 LocationName: location['Location Name'] || '',
                 LocationType: location['Location Type'] || '',
                 Address: address,

@@ -7,7 +7,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <link rel="stylesheet" href="assets/css/style.css?v=10">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=3">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=3">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=4">
 </head>
 <body>
     <div class="app" id="app">
@@ -76,7 +76,8 @@
                         <button class="btn-icon" id="btn-cal-next" title="Next week" aria-label="Next week">›</button>
                     </div>
                     <div id="calendar-view"></div>
-                    <p class="cal-legend">❤️ saved · 💲 paid · 🚫 alert-cancelled · ⚠️ service alert · ❓ unverified — tap a session for actions</p>
+                    <!-- legend content generated from SkateConfig.activityTags -->
+                    <p class="cal-legend" id="cal-legend"></p>
                 </div>
 
                 <div class="pagination pagination-top" id="pagination-top"></div>
@@ -194,6 +195,36 @@
         </div>
     </div>
 
+    <!-- First-visit setup (one-time; everything editable later in ⚙️ Settings) -->
+    <div class="modal-overlay hidden" id="setup-modal">
+        <div class="modal onboarding">
+            <div class="onboard-ice">⛸️</div>
+            <h2>Welcome — set up your view</h2>
+            <p>The schedule is always on. Pick what else you'd like:</p>
+            <div class="setup-section">
+                <h4>Community sections</h4>
+                <label class="setup-toggle">
+                    <input type="checkbox" id="setup-guides" checked>
+                    <span><strong>📖 Guides</strong> — community rink write-ups &amp; tips</span>
+                </label>
+                <label class="setup-toggle">
+                    <input type="checkbox" id="setup-chats" checked>
+                    <span><strong>💬 Chats</strong> — public rooms, private groups &amp; DMs</span>
+                </label>
+            </div>
+            <div class="setup-section">
+                <h4>Your rinks</h4>
+                <div class="setup-rinks">
+                    <button id="setup-nearest">📡 Find nearest</button>
+                    <button id="setup-pick">⭐ Pick my rinks</button>
+                </div>
+                <p class="settings-hint" id="setup-rink-status">Or do nothing — you'll see every rink city-wide.</p>
+            </div>
+            <button class="btn-primary setup-done" id="setup-done">Done — take me to the ice ⛸️</button>
+            <p class="onboard-note">Everything here can be changed anytime in ⚙️ Settings.</p>
+        </div>
+    </div>
+
     <!-- Closest-rink locator -->
     <div class="modal-overlay hidden" id="locator-modal">
         <div class="modal">
@@ -265,6 +296,12 @@
                 <!-- Segments generated from SkateConfig.experiences -->
                 <div class="seg-control" id="settings-exp"></div>
             </label>
+            <div class="settings-field">
+                <span>Sections — hide what you don't use</span>
+                <!-- Toggle buttons generated from SkateConfig.sectionToggles -->
+                <div class="seg-control seg-multi" id="settings-sections"></div>
+                <p class="settings-hint">The ⛸️ schedule is always on. Hidden sections keep their data — nothing is deleted.</p>
+            </div>
             <div class="settings-field">
                 <span>Desktop notifications</span>
                 <button class="btn-primary" id="btn-enable-notif">Enable notifications</button>
@@ -347,8 +384,8 @@
          calendar.js reads SkateUI at load so it must come after ui.js) -->
     <script src="../assets/js/nostr.bundle.js"></script>
     <script src="projects/js/profanity-list.js"></script>
-    <script src="projects/js/config.js?v=2"></script>
-    <script src="projects/js/settings.js?v=2"></script>
+    <script src="projects/js/config.js?v=3"></script>
+    <script src="projects/js/settings.js?v=3"></script>
     <script src="projects/js/moderation.js?v=3"></script>
     <script src="projects/js/nostr-core.js?v=1"></script>
     <script src="projects/js/storage.js?v=10"></script>
@@ -359,8 +396,8 @@
     <script src="projects/js/chat-v2.js?v=3"></script>
     <script src="projects/js/guides.js?v=3"></script>
     <script src="projects/js/ui.js?v=1"></script>
-    <script src="projects/js/calendar.js?v=2"></script>
-    <script src="projects/js/app.js?v=2"></script>
+    <script src="projects/js/calendar.js?v=3"></script>
+    <script src="projects/js/app.js?v=3"></script>
     <script src="projects/js/refresh.js?v=2"></script>
 </body>
 </html>

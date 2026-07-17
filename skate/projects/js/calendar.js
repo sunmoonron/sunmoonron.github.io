@@ -74,6 +74,8 @@ window.SkateCalendar = (() => {
                 const alert = opts.alertFor(p);
                 const st = opts.statusFor(p);
                 let cls = 'cal-block';
+                const type = opts.typeFor && opts.typeFor(p);
+                if (type) cls += ` cal-type-${type}`;   // same palette as the list badges
                 if (p.Paid) cls += ' cal-paid';
                 if (saved) cls += ' cal-saved';
                 if (alert) cls += alert.level === 'closed' ? ' cal-closed' : ' cal-warning';

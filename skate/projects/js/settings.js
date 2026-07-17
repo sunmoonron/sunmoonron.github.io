@@ -12,6 +12,8 @@
  *  - calMode: list ↔ week-calendar toggle for the programs panel
  *  - userLoc: {lat,lng,label,ts} from the 📍 locator (null = unset)
  *  - lastSeenVersion: for the 🆕 what's-new dot
+ *  - showGuides / showChats: section visibility (Settings → Sections)
+ *  - setupDone: the one-time first-visit setup screen has been handled
  */
 const SkateSettings = (() => {
     'use strict';
@@ -20,7 +22,9 @@ const SkateSettings = (() => {
     const defaults = {
         timeFormat: '12h', experience: null, displayName: null,
         paidVisible: false, rinkScope: 'all', myRinks: [],
-        sort: 'time', calMode: false, userLoc: null, lastSeenVersion: null
+        sort: 'time', calMode: false, userLoc: null, lastSeenVersion: null,
+        // section visibility (⚙️ Settings → Sections; first-visit setup screen)
+        showGuides: true, showChats: true, setupDone: false
     };
     let settings = { ...defaults };
     const cbs = [];
