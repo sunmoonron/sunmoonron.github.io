@@ -203,7 +203,15 @@ const SkateMod = (() => {
         });
     }
 
-    return { check, checkLocal, clean, POW, mine, getPow, eventPow };
+    /**
+     * Rebuild the local regex on next use. Needed because the profanity
+     * list is lazily injected (only when community sections boot) — if a
+     * check ran before the list arrived, localRegex latched to `false`
+     * and would silently stay disabled for the whole session.
+     */
+    function resetLocal() { localRegex = null; }
+
+    return { check, checkLocal, clean, POW, mine, getPow, eventPow, resetLocal };
 })();
 
 if (typeof module !== 'undefined') module.exports = SkateMod;

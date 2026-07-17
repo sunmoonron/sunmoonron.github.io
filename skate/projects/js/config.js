@@ -15,8 +15,19 @@
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '2.1',
+    version: '2.2',
     changelog: [
+        {
+            v: '2.2', date: '2026-07-17', items: [
+                '🎟 LIVE spots-left on paid sessions (e.g. "197/200 spots" at Canlan York) — fetched straight from the venue\'s registration system every few minutes',
+                '📲 Install as an app! Add to your home screen (CN-Tower-on-a-skate icon 😌) — the last-loaded schedule even works offline at the rink',
+                '👶🧒🧑🧓 Age filter got quick picks: Kids / Teens / Adults / Seniors, plus an exact-age option',
+                '🔎 Search now also matches street addresses and postal codes',
+                '🚑 If the schedule data ever goes stale (auto-updater down) or a venue feed fails, a warning banner now says so instead of quietly showing old times',
+                '🪶 Schedule-only setups (Guides & Chats hidden) now skip the chat network entirely — fewer connections, less data',
+                '🧹 Fixed: setup-screen checkboxes were huge and squished their text off-centre; page title unified to "Toronto Skating"'
+            ]
+        },
         {
             v: '2.1', date: '2026-07-16', items: [
                 '🏒→🚫 Ball hockey (a gym sport!) no longer clutters the ice-skating list',
@@ -91,6 +102,18 @@ window.SkateConfig = {
     sortOptions: [
         { id: 'time', label: 'Sort: Soonest' },
         { id: 'near', label: 'Sort: Nearest' }
+    ],
+
+    // Age quick-picks. Each preset filters with a representative age
+    // (a 30-year-old can't join a 60+ session, a kid preset must clear
+    // "6+" minimums, etc). 'exact' reveals the precise-age input.
+    agePresets: [
+        { id: '',      label: 'Any age' },
+        { id: '8',     label: '👶 Kids' },
+        { id: '15',    label: '🧒 Teens' },
+        { id: '30',    label: '🧑 Adults' },
+        { id: '65',    label: '🧓 Seniors 60+' },
+        { id: 'exact', label: 'Exact age…' }
     ],
 
     // Rink scope segmented control (personalization). 'mine' filters every

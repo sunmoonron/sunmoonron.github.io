@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Toronto Skating app icon: the CN Tower riding a skate blade.
+       Everything sits inside the centre ~80% so the same art works as a
+       maskable icon (Android can crop up to a circle). -->
+  <defs>
+    <linearGradient id="ice" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3aaed4"/>
+      <stop offset="1" stop-color="#1d7ba0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- background -->
+  <rect width="512" height="512" rx="96" fill="url(#ice)"/>
+
+  <!-- CN Tower (white silhouette) -->
+  <g fill="#ffffff">
+    <!-- mast tip -->
+    <path d="M256 66 L263 96 L249 96 Z"/>
+    <!-- mast -->
+    <rect x="251" y="92" width="10" height="58" rx="4"/>
+    <!-- sky pod -->
+    <ellipse cx="256" cy="158" rx="17" ry="10"/>
+    <!-- upper shaft -->
+    <rect x="249" y="162" width="14" height="26"/>
+    <!-- main pod -->
+    <ellipse cx="256" cy="200" rx="56" ry="22"/>
+    <rect x="228" y="206" width="56" height="14" rx="6"/>
+    <!-- tapering shaft -->
+    <path d="M243 222 L237 368 L275 368 L269 222 Z"/>
+    <!-- skate stanchions (boot-to-blade holders) -->
+    <rect x="220" y="366" width="16" height="34" rx="4"/>
+    <rect x="276" y="366" width="16" height="34" rx="4"/>
+  </g>
+
+  <!-- skate blade with an upturned toe -->
+  <path d="M128 412 H352 Q398 412 410 372"
+        fill="none" stroke="#ffffff" stroke-width="17" stroke-linecap="round"/>
+
+  <!-- ice sparkle accents -->
+  <g fill="#ffffff" opacity="0.85">
+    <circle cx="150" cy="170" r="7"/>
+    <circle cx="176" cy="140" r="4"/>
+    <circle cx="366" cy="150" r="7"/>
+    <circle cx="390" cy="184" r="4"/>
+  </g>
+</svg>

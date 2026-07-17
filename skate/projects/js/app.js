@@ -175,6 +175,9 @@ window.SkateApp = (() => {
         fillSelect($('sort-filter'), CFG.sortOptions.map(o => ({ value: o.id, label: o.label })), v => v.label);
         $('sort-filter').value = S.sort;
 
+        // Age quick-picks (👶🧒🧑🧓 + exact input reveal)
+        fillSelect($('age-preset'), CFG.agePresets.map(a => ({ value: a.id, label: a.label })), v => v.label);
+
         // Version chip + unseen-release dot
         $('version-label').textContent = 'v' + CFG.version;
         $('version-dot').classList.toggle('hidden', SkateSettings.get('lastSeenVersion') === CFG.version);
@@ -270,6 +273,39 @@ window.SkateApp = (() => {
     };
 
     /* ---------- Programs ---------- */
+    /**
+     * Data-health banners above the list: the whole site is CI-committed
+     * static data, so if GitHub Actions ever silently dies, THIS is how
+     * anyone finds out. Escalates loudly past 8 days (data refreshes
+     * weekly, so >8d means at least one missed run), and surfaces any
+     * external source that failed at the last pipeline run.
+     */
+    Render.dataWarnings = function (metadata, now) {
+        const wrap = $('data-warnings');
+        wrap.innerHTML = '';
+        if (!metadata) return;
+
+        if (metadata.lastUpdated) {
+            const daysAgo = Math.floor((now - new Date(metadata.lastUpdated)) / 86400000);
+            if (daysAgo > 8) {
+                wrap.innerHTML += `<div class="alert-banner closed">
+                    <strong>⚠️ Schedule data is ${daysAgo} days old.</strong>
+                    The auto-updater may be down — sessions shown here could have changed.
+                    Tap 🔄 to request a refresh, and double-check with the venue before travelling.
+                </div>`;
+            }
+        }
+
+        Object.entries(metadata.sources || {}).forEach(([key, s]) => {
+            if (s.ok !== false) return;
+            const label = CFG.sourceInfo[key]?.label || key;
+            wrap.innerHTML += `<div class="alert-banner warning">
+                <strong>⚠️ ${escapeHtml(label)} feed failed at the last update</strong>
+                — its sessions may be missing or stale${s.count ? ` (showing ${s.count} salvaged from the previous run)` : ''}.
+            </div>`;
+        });
+    };
+
     Render.programs = function () {
         const { filtered, page, perPage } = S;
         const start = (page - 1) * perPage;
@@ -281,6 +317,7 @@ window.SkateApp = (() => {
         const paidHidden = !S.paidVisible ? S.programs.filter(p => p.Paid).length : 0;
         $('stats-text').textContent = `${filtered.length} programs found` + (paidHidden ? ` · ${paidHidden} paid hidden 💰` : '');
         const metadata = SkateAPI.getMetadata();
+        Render.dataWarnings(metadata, now);
         if (metadata?.lastUpdated) {
             const updated = new Date(metadata.lastUpdated);
             const daysAgo = Math.floor((now - updated) / 86400000);
@@ -375,6 +412,17 @@ window.SkateApp = (() => {
         const srcTag = (p.Source && p.Source !== 'city' && srcInfo) ? `<span class="src-tag" title="${escapeHtml(srcInfo.note || '')}">via ${escapeHtml(srcInfo.label)}</span>` : '';
         const registerBtn = (p.Paid && p.RegistrationUrl) ? `<a class="btn-register" href="${escapeHtml(p.RegistrationUrl)}" target="_blank" rel="noopener" title="Opens the venue's registration page">Register ↗</a>` : '';
 
+        // Live spots (fetched from the venue's registration API in-browser)
+        const live = p.Paid ? SkateLive.forProgram(p) : null;
+        let spotsBadge = '';
+        if (live) {
+            if (live.status && live.status !== 'open' && st.phase !== 'ended') {
+                spotsBadge = '<span class="spots-badge closed-reg" title="The venue\'s online registration for this session is closed">Registration closed</span>';
+            } else if (live.open != null) {
+                spotsBadge = `<span class="spots-badge${live.open <= 20 ? ' low' : ''}" title="Live from the venue's registration system">🎟 ${live.open}${live.capacity ? '/' + live.capacity : ''} spots</span>`;
+            }
+        }
+
         // Distance badge once a location is set via the 📍 locator
         const km = SkateGeo.distanceForProgram(p);
         const distBadge = km != null ? `<div class="dist-badge">📍 ${SkateGeo.fmtKm(km)}</div>` : '';
@@ -419,7 +467,7 @@ window.SkateApp = (() => {
                 </div>
                 ${alertHtml}${unverifiedHtml}
                 <div class="program-footer">
-                    <div class="program-badges">${P.tagFor(p)} ${paidBadge} ${P.ageBadge(p)} ${srcTag}</div>
+                    <div class="program-badges">${P.tagFor(p)} ${paidBadge} ${spotsBadge} ${P.ageBadge(p)} ${srcTag}</div>
                     <div class="program-actions">${registerBtn}${actionHtml}</div>
                 </div>
             </li>`;
@@ -1052,7 +1100,13 @@ window.SkateApp = (() => {
 
         if (S.search) {
             const term = S.search.toLowerCase();
-            result = result.filter(p => P.activity(p).toLowerCase().includes(term) || P.location(p).toLowerCase().includes(term));
+            // Postal codes compare space-insensitively ("M5A3S5" finds "M5A 3S5")
+            const postalTerm = term.replace(/\s+/g, '');
+            result = result.filter(p =>
+                P.activity(p).toLowerCase().includes(term) ||
+                P.location(p).toLowerCase().includes(term) ||
+                (p.Address || '').toLowerCase().includes(term) ||
+                (postalTerm && (p.PostalCode || '').toLowerCase().replace(/\s+/g, '').includes(postalTerm)));
         }
         if (S.day) result = result.filter(p => p['Day of Week'] === S.day);
         // Parsed bounds so a stray "None"/"" can never silently exclude a row
@@ -1095,6 +1149,7 @@ window.SkateApp = (() => {
             S.type = 'all'; S.search = ''; S.day = ''; S.age = null; S.showPast = true;
             S.paidVisible = true; S.rinkScope = 'all'; S.nearRink = null;
             $('search-input').value = ''; $('day-filter').value = ''; $('age-filter').value = '';
+            $('age-preset').value = ''; $('age-filter').classList.add('hidden');
             $('show-past-toggle').checked = true;
             $('show-paid-toggle').checked = true;
             $$('#type-filters .filter-chip').forEach(c => c.classList.toggle('active', c.dataset.type === 'all'));
@@ -1216,11 +1271,44 @@ window.SkateApp = (() => {
     /* ---------- Section visibility + first-visit setup ---------- */
     let chatBooted = false;   // guards the badge refresh before SkateChat.init()
 
+    /**
+     * Boot the community stack (profanity list → relays → guides) exactly
+     * once, and only when a community section is actually visible. A
+     * schedule-only visit (both sections hidden) opens zero websockets
+     * and never downloads the profanity list.
+     */
+    let communityBootPromise = null;
+    Actions.bootCommunity = function () {
+        if (communityBootPromise) return communityBootPromise;
+        communityBootPromise = (async () => {
+            // The word list is display-critical (incoming messages run
+            // through SkateMod.clean), so it loads BEFORE the relays connect.
+            await new Promise(resolve => {
+                const s = el('script', { src: 'projects/js/profanity-list.js' });
+                s.onload = resolve;
+                s.onerror = resolve;   // moderation degrades gracefully (remote checks remain)
+                document.head.appendChild(s);
+            });
+            SkateMod.resetLocal();     // un-latch, in case anything checked early
+            await SkateChat.init();
+            chatBooted = true;
+            SkateChat.onUpdate(Render.chatUI);
+            SkateGuides.load();
+            SkateGuides.onUpdate(scheduleGuidesRender);
+            Render.chatUI(SkateChat.getState());
+        })();
+        return communityBootPromise;
+    };
+
+    const communityWanted = () =>
+        SkateSettings.get('showGuides') !== false || SkateSettings.get('showChats') !== false;
+
     Actions.applyVisibility = function () {
         document.body.classList.toggle('hide-guides', SkateSettings.get('showGuides') === false);
         document.body.classList.toggle('hide-chats', SkateSettings.get('showChats') === false);
         Render.tabs();
         if (chatBooted) Render.chatUI(SkateChat.getState());   // repopulate the rebuilt badge
+        if (communityWanted()) Actions.bootCommunity();        // late enable → boot now
         // never leave the user staring at a hidden panel
         const active = document.querySelector('.view-panel.active');
         if (active && ((active.id === 'guides-panel' && SkateSettings.get('showGuides') === false) ||
@@ -1512,6 +1600,10 @@ window.SkateApp = (() => {
         const btn = $('btn-invite-join');
         btn.disabled = true;
         try {
+            // invite link on a chats-hidden install: make chats visible and
+            // wait for the community stack before joining
+            Actions.ensureSectionVisible('showChats');
+            await Actions.bootCommunity();
             await SkateChat.acceptInvite(inv, $('invite-pw-input').value || null);
             S.pendingInvite = null;
             Modal.close('invite-modal');
@@ -1562,8 +1654,9 @@ window.SkateApp = (() => {
         $('btn-refresh').disabled = true; $('btn-refresh').textContent = '⏳';
         try {
             SkateAPI._skatingPrograms = null;
-            S.programs = (await SkateAPI.getSkatingPrograms()) || [];
-            SkateAlerts.load();   // re-pull the alert snapshot too
+            S.programs = (await SkateAPI.getSkatingPrograms(true)) || [];   // force: bypass HTTP cache
+            SkateAlerts.load();                 // re-pull the alert snapshot too
+            SkateLive.load(S.programs, true);   // force-refresh live spots
             Actions.applyFilters();
             SkateChat.Notify.toast('Programs reloaded!', 'success', 2000);
             await SkateRefresh.requestCityRefresh();
@@ -1578,6 +1671,20 @@ window.SkateApp = (() => {
         $('search-input').onkeypress = e => { if (e.key === 'Enter') { S.search = $('search-input').value.trim(); Actions.applyFilters(); } };
         $('btn-refresh').onclick = Actions.refreshPrograms;
         $('day-filter').onchange = () => { S.day = $('day-filter').value; Actions.applyFilters(); };
+        $('age-preset').onchange = () => {
+            const v = $('age-preset').value;
+            if (v === 'exact') {
+                // reveal the precise input; filter applies as they type
+                $('age-filter').classList.remove('hidden');
+                $('age-filter').focus();
+                S.age = $('age-filter').value ? parseInt($('age-filter').value) : null;
+            } else {
+                $('age-filter').classList.add('hidden');
+                $('age-filter').value = '';
+                S.age = v ? parseInt(v) : null;
+            }
+            Actions.applyFilters();
+        };
         $('age-filter').onchange = () => { S.age = $('age-filter').value ? parseInt($('age-filter').value) : null; Actions.applyFilters(); };
         $('show-past-toggle').onchange = () => { S.showPast = $('show-past-toggle').checked; Actions.applyFilters(); };
         $('show-paid-toggle').onchange = () => {
@@ -1885,7 +1992,10 @@ window.SkateApp = (() => {
         // Brand-new visitors get ONE lightweight setup screen (sections +
         // rinks, all skippable); existing users are grandfathered past it.
         // The experience question stays lazy via ensureExperience.
-        Actions.applyVisibility();
+        // Favorites are loaded here, not in the community boot — the ❤️
+        // hearts must work even on a schedule-only (no chat/guides) visit.
+        SkateChat.Favorites.load();
+        Actions.applyVisibility();   // also kicks off bootCommunity() if a section is visible
         Actions.maybeShowSetup();
 
         // Rink map + service alerts load in parallel with programs;
@@ -1894,11 +2004,13 @@ window.SkateApp = (() => {
         SkateAlerts.load();
         SkateGeo.onUpdate(() => { if (S.programs.length) Actions.applyFilters(true); });
         SkateAlerts.onUpdate(() => { if (S.programs.length) Render.programs(); });
+        SkateLive.onUpdate(() => { if (S.programs.length) Render.programs(); });
 
         try {
             const programs = await SkateAPI.getSkatingPrograms();
             S.programs = programs || [];
             Actions.applyFilters();
+            SkateLive.load(S.programs);   // live venue spots (TTL-throttled)
             if (S.pendingProgramFocus) { Actions.focusProgram(S.pendingProgramFocus); S.pendingProgramFocus = null; }
         } catch (e) {
             $('program-list').innerHTML = '<li class="loading">Could not load programs 😕 — pull to refresh or try again later.</li>';
@@ -1906,16 +2018,18 @@ window.SkateApp = (() => {
 
         // Keep "Starts in Xm / On now · Xm left" honest and let just-ended
         // sessions drop off — re-filter once a minute, preserving the page.
+        // Same tick refreshes live venue spots (SkateLive self-throttles).
         setInterval(() => {
-            if (S.programs.length && document.visibilityState !== 'hidden') Actions.applyFilters(true);
+            if (S.programs.length && document.visibilityState !== 'hidden') {
+                Actions.applyFilters(true);
+                SkateLive.load(S.programs);
+            }
         }, 60000);
 
-        await SkateChat.init();
-        chatBooted = true;
-        SkateChat.onUpdate(Render.chatUI);
-        SkateGuides.load();
-        SkateGuides.onUpdate(scheduleGuidesRender);
-        SkateSettings.onChange(() => { Render.programs(); Render.chatUI(SkateChat.getState()); });
+        // Community stack (chat + guides + relays) boots only when a
+        // community section is visible; deep links await it via route paths.
+        if (communityWanted()) await Actions.bootCommunity();
+        SkateSettings.onChange(() => { Render.programs(); if (chatBooted) Render.chatUI(SkateChat.getState()); });
 
         Actions.route();
         window.addEventListener('hashchange', Actions.route);

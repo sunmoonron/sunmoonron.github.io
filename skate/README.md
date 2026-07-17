@@ -236,10 +236,10 @@ gate publishing:
 ### Data & preferences layer
 
 **`projects/js/api.js`** — `SkateAPI`. Loads program data from
-`projects/data/*.json` (or a Firebase Storage URL if configured — `.json`
-URLs used verbatim, otherwise treated as a folder), normalizes it, and
-caches through SkateStorage. Also exposes `getMetadata()` (the
-"Updated today/yesterday" stamp from `meta.json`).
+`projects/data/skating-programs.json` and caches metadata through
+SkateStorage. Also exposes `getMetadata()` (the "Updated today/yesterday"
+stamp) and `needsRefresh()`. The old Firebase Storage branch and the
+locations/facilities loaders were dead code and were removed in v2.2.
 
 **`projects/js/storage.js`** — `SkateStorage`, a lean localStorage cache
 for the city data (`skate_` prefix): 1-hour TTL that also expires at the
@@ -301,6 +301,23 @@ in app.js via `data-pid` delegation. Careful: no `scroll-snap` on the
 grid — a freshly created snap container re-snaps to its first column,
 which silently undoes the scroll-to-today.
 
+**`projects/js/live.js`** — `SkateLive` (v2.2). Live "spots left" for
+paid venues, fetched by the BROWSER from DaySmart's CORS-open API (one
+batched `filter[id__in]` request joined on the records' `ExternalId`,
+TTL-throttled to 5 min, ≤60 ids). Renders as the 🎟 badge / "Registration
+closed" chip on paid rows. Cross-origin failures are silent — the badge
+just doesn't show.
+
+### PWA (v2.2)
+
+**`manifest.webmanifest` + `sw.js` + `assets/icons/`** — installable app
+(CN-Tower-on-a-skate icon; the SVG master is rasterized to 512/192/180
+PNGs). The service worker is deliberately boring: NETWORK-FIRST for every
+same-origin GET with cache fallback — zero staleness while online, and
+the last-loaded schedule stays browsable offline. Cross-origin requests
+(relays, DaySmart, Nominatim) are never intercepted. Bump the `CACHE`
+constant in sw.js on releases that must evict old assets.
+
 ### Styles
 
 **`assets/css/style.css`** — the original base stylesheet. Deliberately
@@ -330,15 +347,16 @@ live prices, Moss Park Arena scraped from their site and marked
 `Unverified`), `rinks.json` (every indoor/outdoor pad with coordinates +
 kinds, feeds the locator and alert matching), `alerts.json` (toronto.ca
 service-alert snapshot, refreshed every ~30 min by the listener workflow
-— only committed when content changes), `locations.json`,
-`facilities.json`, `meta.json` (`lastUpdated` + per-source health).
-Written by `fetch-skate-data.js` in CI; treated as read-only by the app.
+— only committed when content changes), `meta.json` (`lastUpdated` +
+per-source health). Written by `fetch-skate-data.js` in CI; treated as
+read-only by the app. (`locations.json` / `facilities.json` were removed
+in v2.2 — nothing loaded them and CI hadn't updated them since v1.)
 External program records reuse the exact city field names plus
-`Source / Paid / Price / RegistrationUrl / InfoUrl / Unverified / Lat /
-Lng` — adding a venue is a config entry in `EXTERNAL_SOURCES` at the top
-of `fetch-skate-data.js` (an optional `ANTHROPIC_API_KEY` secret upgrades
-the Moss Park scrape to an LLM parse; the regex parser is the always-on
-fallback).
+`Source / ExternalId / Paid / Price / RegistrationUrl / InfoUrl /
+Unverified / Lat / Lng` — adding a venue is a config entry in
+`EXTERNAL_SOURCES` at the top of `fetch-skate-data.js` (an optional
+`ANTHROPIC_API_KEY` secret upgrades the Moss Park scrape to an LLM parse;
+the regex parser is the always-on fallback).
 
 **`../assets/js/nostr.bundle.js`** — the `nostr-tools` browser bundle
 (keys, signatures, nip44 encryption, event hashing). Lives at the **repo

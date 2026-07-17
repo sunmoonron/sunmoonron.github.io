@@ -46,8 +46,6 @@ jobs:
 
       - name: Fetch skating data
         if: steps.check.outputs.refresh == 'true'
-        env:
-          SKIP_EXTRAS: '1'
         run: node fetch-skate-data.js
 
       - name: Refresh service alerts (every tick, cheap)

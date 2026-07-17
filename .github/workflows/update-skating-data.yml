@@ -26,8 +26,6 @@ jobs:
           node-version: '22'
 
       - name: Fetch skating data
-        env:
-          SKIP_EXTRAS: '1'   # UI never loads locations.json / facilities.json — skip them
         run: node fetch-skate-data.js
 
       - name: Commit updated data

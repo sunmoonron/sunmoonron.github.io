@@ -30,9 +30,6 @@ const BASE_URL = 'https://ckan0.cf.opendata.inter.prod-toronto.ca/api/3/action';
 // Script lives at the repo root, but the app reads from skate/projects/data/
 const OUTPUT_DIR = path.join(__dirname, 'skate', 'projects', 'data');
 
-// Set SKIP_EXTRAS=1 to skip writing locations.json / facilities.json
-// (the UI never loads them — program records already carry the joined location fields)
-const SKIP_EXTRAS = process.env.SKIP_EXTRAS === '1';
 const ALERTS_ONLY = process.argv.includes('--alerts-only');
 
 /* ================= External source registry =================
@@ -380,6 +377,10 @@ function externalRecord(cfg, sourceKey, { activity, date, startTime, endTime, pr
         'Last Date': date,
         // ---- extras the client understands ----
         Source: sourceKey,
+        // Venue-system event id (e.g. DaySmart event id) — lets the client
+        // fetch LIVE per-session data like spots remaining (their API is
+        // CORS-open, unlike toronto.ca's).
+        ExternalId: externalId != null ? String(externalId) : null,
         Paid: !!cfg.paid,
         Price: cfg.paid ? (price ?? null) : 0,
         RegistrationUrl: cfg.registrationUrl ? cfg.registrationUrl(date) : (cfg.infoUrl || ''),
@@ -653,7 +654,6 @@ async function main() {
             if (name.includes('drop')) resourceMap.dropin = r;
             else if (name.includes('registered')) resourceMap.registered = r;
             else if (name.includes('location')) resourceMap.locations = r;
-            else if (name.includes('facilit')) resourceMap.facilities = r;
         });
 
         console.log('Resources identified:');
@@ -674,11 +674,6 @@ async function main() {
             const allDropin = await fetchAllRecords(resourceMap.dropin.id, 'Drop-in Programs');
             datasets.dropin = filterSkatingPrograms(allDropin);
             console.log(`   🎯 Filtered to ${datasets.dropin.length} skating programs`);
-        }
-
-        // Facilities (only needed if we're writing the extras files)
-        if (resourceMap.facilities && !SKIP_EXTRAS) {
-            datasets.facilities = await fetchAllRecords(resourceMap.facilities.id, 'Facilities');
         }
 
         // Step 3: Create a combined skating dataset with location info
@@ -782,7 +777,6 @@ async function main() {
                 skatingPrograms: allPrograms.length,
                 cityPrograms: enrichedPrograms.length,
                 locations: datasets.locations?.length || 0,
-                facilities: datasets.facilities?.length || 0,
                 rinks: rinks.length,
                 alerts: alertsInfo.count
             },
@@ -815,25 +809,10 @@ async function main() {
         fs.writeFileSync(metaFile, JSON.stringify(metadata));
         console.log(`   ✅ ${metaFile}`);
 
-        if (!SKIP_EXTRAS) {
-            // Save locations (smaller, useful for map features)
-            const locationsFile = path.join(OUTPUT_DIR, 'locations.json');
-            fs.writeFileSync(locationsFile, JSON.stringify({
-                metadata: { ...metadata, type: 'locations' },
-                locations: datasets.locations || []
-            }));
-            console.log(`   ✅ ${locationsFile} (${(fs.statSync(locationsFile).size / 1024).toFixed(1)} KB)`);
-
-            // Save facilities
-            const facilitiesFile = path.join(OUTPUT_DIR, 'facilities.json');
-            fs.writeFileSync(facilitiesFile, JSON.stringify({
-                metadata: { ...metadata, type: 'facilities' },
-                facilities: datasets.facilities || []
-            }));
-            console.log(`   ✅ ${facilitiesFile} (${(fs.statSync(facilitiesFile).size / 1024).toFixed(1)} KB)`);
-        } else {
-            console.log('   ⏭️  SKIP_EXTRAS=1 — locations.json / facilities.json not written');
-        }
+        // (locations.json / facilities.json are no longer written — the UI
+        //  never loaded them; program records carry the joined location
+        //  fields and rinks.json covers the locator. The city locations
+        //  dataset is still FETCHED above because the program join needs it.)
 
         console.log('\n✨ Done! Data files are ready in:', OUTPUT_DIR);
         console.log('\nNext steps:');

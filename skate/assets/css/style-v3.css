@@ -384,6 +384,37 @@ body.dark-mode .cal-block[class*="cal-type-"] .cal-block-time { color: color-mix
 .filter-selects { flex-wrap: wrap; }
 .filter-selects select { min-width: 104px; }
 
+/* schedule-only mode (both community sections hidden): the chat identity
+   button is meaningless — community never even boots */
+body.hide-guides.hide-chats .user-name { display: none; }
+
+/* data-health banners sit above the list/calendar */
+#data-warnings .alert-banner { margin: 0 0 8px; }
+
+/* live spots-left badge on paid sessions (fetched from the venue's API) */
+.spots-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--live) 55%, transparent);
+    color: var(--live);
+    background: color-mix(in srgb, var(--live) 10%, transparent);
+    white-space: nowrap;
+}
+.spots-badge.low {
+    border-color: color-mix(in srgb, var(--alert-amber) 60%, transparent);
+    color: var(--alert-amber);
+    background: var(--alert-amber-bg);
+}
+.spots-badge.closed-reg {
+    border-color: var(--border-dark);
+    color: var(--text-muted);
+    background: var(--bg);
+}
+
 /* ========== Section visibility (Settings → Sections) ==========
    Tabs get .hidden from JS; panels are killed here so no route/keyboard
    path can reveal them. The ≥1100px grid re-flows to the remaining columns. */
@@ -414,10 +445,23 @@ body.hide-chats #chats-panel { display: none !important; }
     border-radius: var(--radius);
     padding: 10px 12px; margin-bottom: 8px;
     font-size: 13px; cursor: pointer;
+    text-align: left;
     transition: border-color 0.15s;
 }
 .setup-toggle:hover { border-color: var(--primary); }
-.setup-toggle input { margin-top: 2px; cursor: pointer; }
+/* style.css's `.modal input { width:100% }` (meant for text fields) hits
+   these checkboxes too — it blew them up to ~130px wide, squeezing the
+   label text into a narrow off-centre column. Pin the box + let the text
+   take the rest of the row. */
+.setup-toggle input[type="checkbox"] {
+    width: 18px; height: 18px;
+    flex: 0 0 18px;
+    margin: 1px 0 0;
+    padding: 0;
+    cursor: pointer;
+    accent-color: var(--primary);
+}
+.setup-toggle span { flex: 1; min-width: 0; }
 .setup-rinks { display: flex; gap: 8px; margin-bottom: 6px; }
 .setup-rinks button {
     flex: 1; padding: 10px; font-size: 13px;

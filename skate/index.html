@@ -3,11 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Toronto Ice Skating</title>
+    <title>Toronto Skating</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <!-- PWA: installable to the home screen; sw.js keeps the last-seen
+         schedule browsable offline (network-first, so never stale online) -->
+    <meta name="theme-color" content="#2f9fc4">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=10">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=3">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=4">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=5">
 </head>
 <body>
     <div class="app" id="app">
@@ -30,7 +39,7 @@
             <div class="view-panel panel-programs active" id="programs-panel">
                 <div class="panel-title">⛸️ Programs</div>
                 <div class="search-box">
-                    <input type="text" id="search-input" placeholder="Search activities or locations...">
+                    <input type="text" id="search-input" placeholder="Search activities, locations, addresses…">
                     <button id="btn-search" aria-label="Search">🔍</button>
                 </div>
 
@@ -45,7 +54,8 @@
                         <option value="">Any Day</option>
                         <!-- day options generated from SkateConfig.days -->
                     </select>
-                    <input type="number" id="age-filter" placeholder="Age" style="max-width:80px">
+                    <select id="age-preset" title="Who's skating? Filters to sessions open to that age group"><!-- options generated from SkateConfig.agePresets --></select>
+                    <input type="number" id="age-filter" placeholder="Age" min="0" max="120" style="max-width:80px" class="hidden" title="Exact age to filter by">
                     <select id="sort-filter"><!-- options generated from SkateConfig.sortOptions --></select>
                     <button id="btn-near" class="btn-near" title="Find the rinks closest to you">📍 Near</button>
                 </div>
@@ -66,6 +76,9 @@
                     <button class="btn-refresh" id="btn-cal-toggle" title="Switch between list and week-calendar view">📅</button>
                     <button class="btn-refresh" id="btn-refresh" title="Reload programs">🔄</button>
                 </div>
+
+                <!-- Data-health warnings (stale schedule / failed source feeds) -->
+                <div id="data-warnings"></div>
 
                 <!-- Week calendar (list ↔ calendar toggled by 📅) -->
                 <div id="calendar-wrap" class="hidden">
@@ -383,21 +396,29 @@
     <!-- Scripts (order matters: config → modules → ui → calendar → app;
          calendar.js reads SkateUI at load so it must come after ui.js) -->
     <script src="../assets/js/nostr.bundle.js"></script>
-    <script src="projects/js/profanity-list.js"></script>
-    <script src="projects/js/config.js?v=3"></script>
+    <!-- profanity-list.js is injected lazily by app.js bootCommunity() —
+         schedule-only visits (community sections hidden) never download it -->
+    <script src="projects/js/config.js?v=4"></script>
     <script src="projects/js/settings.js?v=3"></script>
-    <script src="projects/js/moderation.js?v=3"></script>
+    <script src="projects/js/moderation.js?v=4"></script>
     <script src="projects/js/nostr-core.js?v=1"></script>
     <script src="projects/js/storage.js?v=10"></script>
-    <script src="projects/js/api.js?v=11"></script>
+    <script src="projects/js/api.js?v=13"></script>
     <script src="projects/js/time.js?v=1"></script>
-    <script src="projects/js/geo.js?v=1"></script>
+    <script src="projects/js/geo.js?v=2"></script>
+    <script src="projects/js/live.js?v=1"></script>
     <script src="projects/js/alerts.js?v=1"></script>
     <script src="projects/js/chat-v2.js?v=3"></script>
     <script src="projects/js/guides.js?v=3"></script>
     <script src="projects/js/ui.js?v=1"></script>
     <script src="projects/js/calendar.js?v=3"></script>
-    <script src="projects/js/app.js?v=3"></script>
+    <script src="projects/js/app.js?v=5"></script>
     <script src="projects/js/refresh.js?v=2"></script>
+    <script>
+        // PWA install + offline (no-op where unsupported / file://)
+        if ('serviceWorker' in navigator) {
+            addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+        }
+    </script>
 </body>
 </html>
