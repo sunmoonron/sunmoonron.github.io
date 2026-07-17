@@ -26,8 +26,11 @@ const SkateSettings = (() => {
         // section visibility (⚙️ Settings → Sections; first-visit setup screen)
         showGuides: true, showChats: true, setupDone: false,
         // 'system' | 'light' | 'dark' — null migrates from the old
-        // standalone `darkMode` localStorage key on first read
-        theme: null
+        // standalone `darkMode` localStorage key on first read.
+        // themeChosen: true once the USER picks in Settings — distinguishes
+        // an explicit "Auto" from the silently-migrated default (site
+        // defaults to light until someone actually chooses).
+        theme: null, themeChosen: false
     };
     let settings = { ...defaults };
     const cbs = [];

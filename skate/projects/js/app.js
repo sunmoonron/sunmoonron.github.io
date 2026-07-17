@@ -876,7 +876,7 @@ window.SkateApp = (() => {
 
     Render.settings = function () {
         const fmt = SkateSettings.get('timeFormat'), exp = SkateSettings.get('experience');
-        const theme = SkateSettings.get('theme') || 'system';
+        const theme = themeSetting();   // resolved: unchosen 'system' shows as Light
         $$('#settings-timefmt button').forEach(b => b.classList.toggle('active', b.dataset.fmt === fmt));
         $$('#settings-theme button').forEach(b => b.classList.toggle('active', b.dataset.theme === theme));
         $$('#settings-exp button').forEach(b => b.classList.toggle('active', b.dataset.exp === exp));
@@ -1786,13 +1786,21 @@ window.SkateApp = (() => {
     /* ---------- Appearance (Settings → Auto / Light / Dark) ---------- */
     const systemDark = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
-    /** Current theme setting, migrating the pre-2.3 `darkMode` localStorage key once. */
+    /**
+     * Current theme setting. Site DEFAULTS TO LIGHT: "Auto" only follows
+     * the device when the user explicitly picked it in Settings
+     * (themeChosen) — otherwise a migrated/unset 'system' reads as light.
+     * Pre-2.3 `darkMode` key migrates once (that WAS an explicit choice).
+     */
     function themeSetting() {
         let t = SkateSettings.get('theme');
         if (!t) {
-            t = localStorage.getItem('darkMode') === 'true' ? 'dark' : 'system';
+            const legacyDark = localStorage.getItem('darkMode') === 'true';
+            t = legacyDark ? 'dark' : 'light';
             SkateSettings.set('theme', t);
+            if (legacyDark) SkateSettings.set('themeChosen', true);
         }
+        if (t === 'system' && !SkateSettings.get('themeChosen')) t = 'light';
         return t;
     }
 
@@ -1800,6 +1808,9 @@ window.SkateApp = (() => {
         const t = themeSetting();
         const dark = t === 'dark' || (t === 'system' && !!systemDark?.matches);
         document.body.classList.toggle('dark-mode', dark);
+        // keep the browser/OS chrome (PWA status bar, mobile URL bar) in step
+        const meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.content = dark ? '#0e141b' : '#2f9fc4';
     };
     if (systemDark?.addEventListener) {
         systemDark.addEventListener('change', () => { if (themeSetting() === 'system') Actions.applyTheme(); });
@@ -1936,6 +1947,7 @@ window.SkateApp = (() => {
         delegate($('settings-theme'), [
             ['button[data-theme]', (b) => {
                 SkateSettings.set('theme', b.dataset.theme);
+                SkateSettings.set('themeChosen', true);   // explicit pick — Auto now really follows the device
                 Actions.applyTheme();
                 Render.settings();
             }]

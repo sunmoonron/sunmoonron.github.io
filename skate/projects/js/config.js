@@ -15,8 +15,15 @@
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '2.4',
+    version: '2.5',
     changelog: [
+        {
+            v: '2.5', date: '2026-07-17', items: [
+                'Dark mode got a real design: a "night rink" theme — deep ice-blue surfaces with actual depth, glowing cyan accents, calm chips, native dark controls and scrollbars',
+                'The site now defaults to light; Auto (follow your device) and Dark are one tap away in Settings → Appearance',
+                'Your phone\'s status bar / browser chrome now matches the theme'
+            ]
+        },
         {
             v: '2.4', date: '2026-07-17', items: [
                 'Dark mode actually looks good now — titles, filter pills, tags and badges all re-tuned for contrast instead of glowing pastels',
