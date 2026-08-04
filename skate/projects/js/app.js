@@ -382,9 +382,29 @@ window.SkateApp = (() => {
      * weekly, so >8d means at least one missed run), and surfaces any
      * external source that failed at the last pipeline run.
      */
+    // Alert feed counts as delayed past this age. Budget: 15-min cron
+    // (delayed up to ~1h under GitHub load) + 2h heartbeat + Pages deploy.
+    const ALERTS_STALE_MS = 3.5 * 3600 * 1000;
+
     Render.dataWarnings = function (metadata, now) {
         const wrap = $('data-warnings');
         wrap.innerHTML = '';
+
+        // Service-alert feed gone quiet? Say so BEFORE someone travels on
+        // "no alerts shown" — that silence might be a dead checker, not a
+        // healthy rink. (Aug 4 lesson.)
+        if (SkateAlerts.loaded && SkateAlerts.checkedAt) {
+            const ageMs = now - new Date(SkateAlerts.checkedAt);
+            if (ageMs > ALERTS_STALE_MS) {
+                const hrs = Math.round(ageMs / 3600000);
+                wrap.innerHTML += `<div class="alert-banner warning">
+                    <strong>⚠️ Service alerts last checked ~${hrs}h ago</strong>
+                    — the alert checker may be delayed, so a rink could be closed without a banner here.
+                    Confirm with the venue before travelling.
+                </div>`;
+            }
+        }
+
         if (!metadata) return;
 
         if (metadata.lastUpdated) {
@@ -430,9 +450,19 @@ window.SkateApp = (() => {
             const updated = new Date(metadata.lastUpdated);
             const daysAgo = Math.floor((now - updated) / 86400000);
             const dateStr = updated.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
-            $('data-updated').textContent = daysAgo === 0 ? 'Updated today' : daysAgo === 1 ? 'Updated yesterday' : `Updated ${dateStr}`;
-            $('data-updated').classList.toggle('stale', daysAgo > 7);
-            if (SkateAlerts.fetchedAt) $('data-updated').title = `Service-alert snapshot: ${new Date(SkateAlerts.fetchedAt).toLocaleString('en-CA')}`;
+            let stamp = daysAgo === 0 ? 'Updated today' : daysAgo === 1 ? 'Updated yesterday' : `Updated ${dateStr}`;
+            let alertsStale = false;
+            // Visible trust cue: WHEN the alert feed was last confirmed —
+            // the difference between "no alerts" and "we wouldn't know".
+            if (SkateAlerts.checkedAt) {
+                const chk = new Date(SkateAlerts.checkedAt);
+                alertsStale = (now - chk) > ALERTS_STALE_MS;
+                stamp += ` · alerts ${SkateSettings.formatTime(chk.getTime())}`;
+                $('data-updated').title = `Service alerts last checked ${chk.toLocaleString('en-CA')}` +
+                    (SkateAlerts.fetchedAt ? ` (last change ${new Date(SkateAlerts.fetchedAt).toLocaleString('en-CA')})` : '');
+            }
+            $('data-updated').textContent = stamp;
+            $('data-updated').classList.toggle('stale', daysAgo > 7 || alertsStale);
         }
 
         Render.savedNext();
@@ -1835,16 +1865,22 @@ window.SkateApp = (() => {
         systemDark.addEventListener('change', () => { if (themeSetting() === 'system') Actions.applyTheme(); });
     }
 
+    /** Silent full data reload (programs + alerts + spots) — shared by the
+     *  Refresh button and the resume-from-background path. */
+    Actions.reloadData = async function () {
+        SkateAPI._skatingPrograms = null;
+        S.programs = (await SkateAPI.getSkatingPrograms(true)) || [];   // force: bypass HTTP cache
+        Render.typeChips();
+        Render.scopeChips();
+        SkateAlerts.load(true);             // force (still ≥60s-gapped internally)
+        SkateLive.load(S.programs, true);
+        Actions.applyFilters(true);
+    };
+
     Actions.refreshPrograms = async function () {
         $('btn-refresh').disabled = true; $('btn-refresh').textContent = 'Refreshing…';
         try {
-            SkateAPI._skatingPrograms = null;
-            S.programs = (await SkateAPI.getSkatingPrograms(true)) || [];   // force: bypass HTTP cache
-            Render.typeChips();
-            Render.scopeChips();
-            SkateAlerts.load();                 // re-pull the alert snapshot too
-            SkateLive.load(S.programs, true);   // force-refresh live spots
-            Actions.applyFilters();
+            await Actions.reloadData();
             // The success/failure story belongs to the city-refresh request —
             // no premature "reloaded!" that survives a cancelled confirm.
             const res = await SkateRefresh.requestCityRefresh();   // toasts on queued/failed itself
@@ -2226,13 +2262,36 @@ window.SkateApp = (() => {
 
         // Keep "Starts in Xm / On now · Xm left" honest and let just-ended
         // sessions drop off — re-filter once a minute, preserving the page.
-        // Same tick refreshes live venue spots (SkateLive self-throttles).
+        // Same tick refreshes live venue spots AND service alerts (both
+        // self-throttle: spots 5 min, alerts ~5 min) — an open tab is never
+        // more than minutes behind the deployed alert snapshot.
         setInterval(() => {
             if (S.programs.length && document.visibilityState !== 'hidden') {
                 Actions.applyFilters(true);
                 SkateLive.load(S.programs);
+                SkateAlerts.load();
             }
         }, 60000);
+
+        // Resume-from-background (phone unlock, PWA/bookmark reopen, bfcache
+        // restore): the Aug 4 incident's second half — a page loaded in the
+        // morning silently showed morning alerts all day. On wake: force-pull
+        // alerts + spots, recompute status chips; after 24h+ asleep, reload
+        // the whole dataset too (the schedule itself may have shifted).
+        const bootAt = Date.now();
+        let lastFullReload = bootAt;
+        const resumeFreshness = () => {
+            if (!S.programs.length || document.visibilityState === 'hidden') return;
+            SkateAlerts.load(true);           // ≥60s-gapped internally, so tab-flapping is harmless
+            SkateLive.load(S.programs);
+            Actions.applyFilters(true);       // "Starts in Xm" chips recompute instantly
+            if (Date.now() - lastFullReload > 24 * 3600 * 1000) {
+                lastFullReload = Date.now();
+                Actions.reloadData().catch(() => {});
+            }
+        };
+        document.addEventListener('visibilitychange', resumeFreshness);
+        window.addEventListener('pageshow', (e) => { if (e.persisted) resumeFreshness(); });
 
         // Community stack (chat + guides + relays) boots only when a
         // community section is visible; deep links await it via route paths.

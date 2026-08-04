@@ -15,8 +15,16 @@
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '2.8',
+    version: '2.9',
     changelog: [
+        {
+            v: '2.9', date: '2026-08-04', items: [
+                'Service alerts are now genuinely live on every open page: tabs, phones and installed bookmarks re-check every ~5 minutes AND the instant you come back to the app — no more "loaded this morning, blind all day"',
+                'The alert checker runs twice as often (every 15 min) and stamps a heartbeat, so the site can tell "no alerts" apart from "checker is down"',
+                'You can SEE alert freshness now: "· alerts 1:13 PM" next to the update stamp, and a loud warning banner if the feed hasn\'t checked in for hours',
+                'Alert matching hardened against the city renaming categories (today\'s cancellation used a different label than July\'s did)'
+            ]
+        },
         {
             v: '2.8', date: '2026-07-17', items: [
                 'Desktop no longer has a dead strip to the right of Chats — all three columns stretch to fill the window',

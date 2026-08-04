@@ -326,6 +326,11 @@ async function fetchAlerts() {
                 Status: a.Status,
                 Category: a.Category || '',
                 Type: a.Type || '',
+                // The city's Category taxonomy drifts between feeds
+                // ("Skate" in the aggregate, "Indoor Ice Rink" in the
+                // per-location feed) — carry DisplayAlertName too so the
+                // client can match on any of them.
+                DisplayAlertName: a.DisplayAlertName || '',
                 PostedDate: a.PostedDate || ''
             });
         });
@@ -337,18 +342,28 @@ async function fetchAlerts() {
     let previous = null;
     try { previous = JSON.parse(fs.readFileSync(alertsFile, 'utf8')); } catch {}
 
+    const now = new Date().toISOString();
     const changed = !previous || JSON.stringify(previous.alerts) !== JSON.stringify(all);
-    if (changed) {
+    // Heartbeat: even with no content change, refresh checkedAt every ~2h so
+    // clients can tell "feed quiet" apart from "checker dead" and warn people
+    // before they travel on stale data. ≤12 commits/day of overhead.
+    const lastChecked = previous?.checkedAt || previous?.fetchedAt;
+    const heartbeatDue = !lastChecked || (Date.now() - new Date(lastChecked).getTime()) > 2 * 3600 * 1000;
+
+    if (changed || heartbeatDue) {
         fs.writeFileSync(alertsFile, JSON.stringify({
-            fetchedAt: new Date().toISOString(),
+            fetchedAt: changed ? now : (previous?.fetchedAt || now),  // last CONTENT change
+            checkedAt: now,                                           // last successful check
             source: 'toronto.ca live parks data',
             alerts: all
         }));
-        console.log(`   ✅ alerts.json updated (${all.length} alerts)`);
+        console.log(changed
+            ? `   ✅ alerts.json updated (${all.length} alerts)`
+            : `   💓 alerts heartbeat stamped (${all.length} alerts, unchanged)`);
     } else {
         console.log(`   ⏸  alerts unchanged (${all.length} alerts) — file not rewritten`);
     }
-    return { changed, count: all.length };
+    return { changed: changed || heartbeatDue, count: all.length };
 }
 
 /* ================= External source fetchers ================= */

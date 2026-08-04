@@ -3,3 +3,6 @@ node_modules/
 
 # Local dev tooling (Claude Code launch config for the static server)
 .claude/
+
+# macOS junk
+.DS_Store

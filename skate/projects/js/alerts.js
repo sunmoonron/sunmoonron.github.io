@@ -33,33 +33,71 @@ window.SkateAlerts = (() => {
 
     const DATA_URL = 'projects/data/alerts.json';
 
-    let byLocation = {};   // locationid(string) → [alert, …]  (Category Skate only)
-    let fetchedAt = null;
+    let byLocation = {};   // locationid(string) → [alert, …]  (skate alerts only)
+    let fetchedAt = null;  // when alert CONTENT last changed (CI stamp)
+    let checkedAt = null;  // when the CI checker last confirmed the feed (heartbeat)
     let loaded = false;
+    let lastOkAt = 0;      // client-side: last successful fetch of alerts.json
+    let inFlight = null;
     const listeners = [];
+
+    // Auto-refresh cadence. Alerts are the travel-safety data: the Aug 4
+    // Centennial trip happened because clients loaded alerts once and never
+    // again. This TTL + the app's ticker/resume hooks keep every open page
+    // (tab, phone, installed PWA) within ~5 min of the deployed snapshot.
+    // Only GitHub Pages is hit — toronto.ca never sees browsers.
+    const TTL_MS = 4.5 * 60000;
+    const FORCE_MIN_GAP_MS = 60000;   // even "force" won't spam more than 1/min
 
     /* ---------- loading ---------- */
 
-    async function load() {
-        try {
-            const res = await fetch(`${DATA_URL}?t=${Math.floor(Date.now() / 600000)}`); // 10-min cache key
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
-            index(data.alerts || []);
-            fetchedAt = data.fetchedAt || null;
-            loaded = true;
-            listeners.forEach(cb => { try { cb(); } catch {} });
-        } catch (e) {
-            console.warn('[SkateAlerts] could not load alerts.json:', e.message);
-            loaded = true; // don't block rendering — site just shows no alerts
-        }
+    function load(force = false) {
+        if (inFlight) return inFlight;
+        const since = Date.now() - lastOkAt;
+        if (force && since < FORCE_MIN_GAP_MS) force = false;
+        if (!force && since < TTL_MS) return Promise.resolve();
+
+        // 5-min URL bucket rides through GH Pages' max-age=600 CDN cache;
+        // force uses a unique key so "user just woke the phone" is current.
+        const bust = force ? Date.now() : Math.floor(Date.now() / 300000);
+        inFlight = (async () => {
+            try {
+                const res = await fetch(`${DATA_URL}?t=${bust}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                index(data.alerts || []);
+                fetchedAt = data.fetchedAt || null;
+                checkedAt = data.checkedAt || data.fetchedAt || null;
+                lastOkAt = Date.now();
+                loaded = true;
+                listeners.forEach(cb => { try { cb(); } catch {} });
+            } catch (e) {
+                console.warn('[SkateAlerts] could not load alerts.json:', e.message);
+                loaded = true; // don't block rendering — site just shows no alerts
+            } finally {
+                inFlight = null;
+            }
+        })();
+        return inFlight;
+    }
+
+    /**
+     * Is this alert about skating? The city's taxonomy drifts between
+     * feeds ("Skate" in the aggregate we snapshot, "Indoor Ice Rink" in
+     * the per-location feed, DisplayAlertName "Skate" in both) — match
+     * on ANY of them so a feed-side rename can't silently blind us again.
+     */
+    function isSkateAlert(a) {
+        const cat = `${a.Category || ''} ${a.Type || ''}`.toLowerCase();
+        return (a.DisplayAlertName || '') === 'Skate' ||
+               /skat|rink|\bice\b/.test(cat);
     }
 
     function index(alerts) {
         byLocation = {};
         alerts.forEach(a => {
             if (!a || a.LocationID == null) return;
-            if ((a.Category || '') !== 'Skate') return;
+            if (!isSkateAlert(a)) return;
             (byLocation[String(a.LocationID)] ||= []).push(a);
         });
     }
@@ -209,8 +247,9 @@ window.SkateAlerts = (() => {
         load, onUpdate, forProgram, forLocation,
         get loaded() { return loaded; },
         get fetchedAt() { return fetchedAt; },
+        get checkedAt() { return checkedAt; },
         // exposed for testing
-        _classifyHelpers: { alertKind, coversLocation, dateWindows, textSaysRinkClosed, index }
+        _classifyHelpers: { alertKind, coversLocation, dateWindows, textSaysRinkClosed, index, isSkateAlert }
     };
 })();
 

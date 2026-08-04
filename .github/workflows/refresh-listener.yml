@@ -18,7 +18,12 @@ name: Refresh Listener (Nostr)
 
 on:
   schedule:
-    - cron: '*/30 * * * *'   # GitHub can delay these to ~45-60 min at busy times; that's fine
+    # Every 15 min: this is the SERVICE-ALERT freshness ceiling — the Aug 4
+    # incident (rink alert posted 11:05, captured 13:13, user travelled in
+    # between) was mostly GitHub cron delay on a */30 schedule. */15 halves
+    # the median gap; toronto.ca sees at most 96 tiny GETs/day, which is
+    # nothing (their own site polls the same feed on every visit).
+    - cron: '*/15 * * * *'
   workflow_dispatch:
 
 concurrency:
