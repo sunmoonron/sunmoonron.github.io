@@ -308,6 +308,30 @@ TTL-throttled to 5 min, ≤60 ids). Renders as the 🎟 badge / "Registration
 closed" chip on paid rows. Cross-origin failures are silent — the badge
 just doesn't show.
 
+### v3.0 layer (map · weather · tour · privacy)
+
+**`projects/js/map.js`** — `SkateMap`. Interactive rink map: Leaflet is
+VENDORED (`assets/vendor/leaflet/`) and lazy-injected on first open, so
+non-map visitors download zero map bytes. OSM tiles (attributed); dark
+mode re-inks tiles with a CSS filter. Pin popups come from app.js via
+`configure({popupHtml,userPoint})` — same content/chrome split as the
+calendar. `open({filter:'outdoor'})` powers the winter banner.
+
+**`projects/js/weather.js`** — `SkateWeather`. Open-Meteo current
+conditions (30-min TTL, CC BY attribution) for the stats-line chip;
+follows the user's saved 📍 location, falls back to central Toronto.
+
+**`projects/js/tour.js`** — `SkateTour`. 20-second spotlight tour; steps
+live in `config.tourSteps` (missing/hidden targets auto-skip). Runs once
+after first-visit setup, replayable from Settings. Big Skip, Esc skips.
+
+**Markham (PerfectMind)** — `EXTERNAL_SOURCES['markham']` posts to the
+city's own `ClassesV2` widget endpoint; records carry `ExtLocationKey`
+(per-venue key) so one multi-venue calendar becomes many locations.
+Adding a venue's coordinates = one line in `venues{}`. Privacy toggles
+(👻 invisible, ✉️ DMs) gate presence pings / incoming DM ingestion in
+chat-v2 via `SkateSettings`.
+
 ### PWA (v2.2)
 
 **`manifest.webmanifest` + `sw.js` + `assets/icons/`** — installable app

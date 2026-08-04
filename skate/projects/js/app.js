@@ -70,6 +70,7 @@ window.SkateApp = (() => {
          * last resort → normalized name.
          */
         locKey(p) {
+            if (p.ExtLocationKey) return p.ExtLocationKey;   // multi-venue sources (per-venue key)
             if (p['Location ID'] != null) return String(p['Location ID']);
             if (p.Source && p.Source !== 'city') return 'ext-' + p.Source;
             return 'name:' + P.location(p).toLowerCase();
@@ -208,6 +209,7 @@ window.SkateApp = (() => {
         seg($('settings-theme'), CFG.themes, 'theme');
         seg($('settings-exp'), CFG.experiences, 'exp');
         seg($('settings-sections'), CFG.sectionToggles, 'vis');
+        seg($('settings-privacy'), CFG.privacyToggles, 'priv');
 
         // Onboarding choices
         const ob = $('onboarding-choices');
@@ -466,6 +468,7 @@ window.SkateApp = (() => {
         }
 
         Render.savedNext();
+        Render.winterBanner();
 
         // list ↔ week (segmented switch)
         $$('#view-mode-seg button').forEach(b => b.classList.toggle('active', (b.dataset.mode === 'week') === S.calMode));
@@ -732,6 +735,12 @@ window.SkateApp = (() => {
             const loc = m.data.location;
             const locLink = loc ? `<a href="${mapsUrl(loc)}" target="_blank" rel="noopener">📍 ${escapeHtml(loc)} ↗</a>` : '';
             content = `<strong>⛸️ ${escapeHtml(m.data.activity)}</strong><br>${locLink}<br>🗓️ ${escapeHtml(m.data.date || '')}${m.data.time ? ' • ' + fmtClock(m.data.time) : ''}${m.data.endTime ? '–' + fmtClock(m.data.endTime) : ''}`;
+            // Paid heads-up on shared cards (price sanitized — it rode the wire)
+            if (m.data.paid) {
+                const p = Number(m.data.price);
+                const priceTxt = Number.isFinite(p) && p > 0 && p < 1000 ? `$${p % 1 ? p.toFixed(2) : p}` : 'fee applies';
+                content += `<br><span class="share-paid-badge" title="This venue charges — check their site for exact rates by age">Paid session · ${priceTxt}</span>`;
+            }
             if (m.data.programId) content += `<br><span class="share-open" data-open-program="${escapeHtml(m.data.programId)}">Open in Programs →</span>`;
         } else if (m.type === 'guide' && m.data) {
             const cat = SkateGuides.CATEGORIES[m.data.category];
@@ -931,8 +940,25 @@ window.SkateApp = (() => {
         $$('#settings-theme button').forEach(b => b.classList.toggle('active', b.dataset.theme === theme));
         $$('#settings-exp button').forEach(b => b.classList.toggle('active', b.dataset.exp === exp));
         $$('#settings-sections button').forEach(b => b.classList.toggle('active', SkateSettings.get(b.dataset.vis) !== false));
+        // privacy toggles: 'active' means the setting equals its `on` value
+        $$('#settings-privacy button').forEach(b => {
+            const def = CFG.privacyToggles.find(t => t.id === b.dataset.priv);
+            const val = SkateSettings.get(def.id);
+            const effective = val == null ? !!def.default : val;
+            b.classList.toggle('active', effective === def.on);
+        });
         Render.notif();
         Render.mutedList();
+    };
+
+    /* ---------- Weather chip (Open-Meteo) ---------- */
+    Render.weather = function () {
+        const chip = $('weather-chip');
+        const w = SkateWeather.current;
+        if (!w) { chip.classList.add('hidden'); return; }
+        chip.classList.remove('hidden');
+        chip.textContent = `${w.emoji} ${w.temp}°`;
+        chip.title = `${w.text} near ${w.label}: ${w.temp}°C, feels like ${w.feels}°C — tap for details (Open-Meteo)`;
     };
 
     Render.notif = function () {
@@ -1405,6 +1431,7 @@ window.SkateApp = (() => {
         try {
             const loc = await SkateGeo.locateMe();
             SkateGeo.setUserLocation(loc);
+            SkateWeather.load(true);
             Render.locator();
             Actions.applyFilters(true);
         } catch (e) {
@@ -1420,6 +1447,7 @@ window.SkateApp = (() => {
         try {
             const loc = await SkateGeo.geocode($('locator-input').value);
             SkateGeo.setUserLocation(loc);
+            SkateWeather.load(true);
             Render.locator();
             Actions.applyFilters(true);
         } catch (e) {
@@ -1540,9 +1568,96 @@ window.SkateApp = (() => {
         SkateSettings.set('setupDone', true);
         Modal.close('setup-modal');
         Actions.applyVisibility();
+        // Brand-new visitor: run the 20-second spotlight tour right away —
+        // its Skip button is front and centre, so it costs one tap at most.
+        if (!SkateSettings.get('tourDone')) {
+            setTimeout(() => SkateTour.start(), 350);
+        }
     };
 
     /* ---------- What's new ---------- */
+    /* ---------- QR share (vendored generator, lazy-injected) ---------- */
+    let qrLibReady = null;
+    Actions.openQr = async function () {
+        Modal.open('qr-modal');
+        $('qr-url').textContent = CFG.siteUrl;
+        if (!qrLibReady) {
+            qrLibReady = new Promise((resolve, reject) => {
+                const s = el('script', { src: 'assets/vendor/qrcode.js' });
+                s.onload = resolve;
+                s.onerror = () => reject(new Error('QR generator failed to load'));
+                document.head.appendChild(s);
+            }).catch(e => { qrLibReady = null; throw e; });
+        }
+        try {
+            await qrLibReady;
+            const qr = window.qrcode(0, 'M');
+            qr.addData(CFG.siteUrl);
+            qr.make();
+            // generous white quiet zone so it scans off dark-mode screens
+            $('qr-holder').innerHTML = qr.createImgTag(6, 12);
+        } catch (e) {
+            $('qr-holder').innerHTML = '<p class="settings-hint">Could not build the QR — the Copy link button still works.</p>';
+        }
+    };
+
+    /* ---------- Interactive rink map ---------- */
+    Actions.openMap = async function (opts = {}) {
+        try {
+            await SkateMap.open(opts);
+        } catch (e) {
+            SkateChat.Notify.toast('Map couldn\'t load — check your connection and try again', 'error');
+        }
+    };
+
+    /** Popup body for a rink pin (SkateMap calls this per open). */
+    function mapPopupHtml(r) {
+        const key = String(r.locationid);
+        const user = SkateGeo.getUserLocation();
+        const km = user && r.lat != null ? SkateGeo.distanceKm(user, { lat: r.lat, lng: r.lng }) : null;
+        const sessions = upcomingCountFor(key);
+        const alerts = SkateAlerts.forLocation(key);
+        const mine = (SkateSettings.get('myRinks') || []).includes(key);
+        const kinds = (r.kinds || []).map(k => k === 'indoor' ? '🏠 indoor' : '🌳 outdoor').join(' · ');
+        return `<div class="map-pop">
+            <strong>${escapeHtml(r.name)}</strong>
+            <span class="map-pop-meta">${kinds}${r.paid ? ' · 💲 paid' : ''}${km != null ? ` · ${SkateGeo.fmtKm(km)}` : ''}</span>
+            <span class="map-pop-meta">${sessions ? `${sessions} upcoming session${sessions === 1 ? '' : 's'}` : 'no drop-ins listed'}${alerts.length ? ' · <span class="map-pop-alert">⚠️ service alert</span>' : ''}</span>
+            <span class="map-pop-actions">
+                ${sessions ? `<button class="btn-small" data-map-sessions="${escapeHtml(key)}" data-map-name="${escapeHtml(r.name)}">Show sessions</button>` : ''}
+                <button class="btn-small${mine ? ' starred' : ''}" data-map-star="${escapeHtml(key)}">${mine ? '★ Mine' : '☆ Add to my rinks'}</button>
+            </span>
+        </div>`;
+    }
+
+    /* ---------- Outdoor (winter) season banner ---------- */
+    function winterSeasonState() {
+        const w = CFG.winter;
+        const today = SkateTime.todayKey().slice(5);          // 'MM-DD'
+        const inWindow = w.fromMonthDay > w.toMonthDay        // window wraps the new year
+            ? (today >= w.fromMonthDay || today <= w.toMonthDay)
+            : (today >= w.fromMonthDay && today <= w.toMonthDay);
+        const debug = window.location.hash.includes('winter');
+        if (!inWindow && !debug) return { on: false, open: 0 };
+        const outdoor = (SkateGeo.rinks || []).filter(r => (r.kinds || []).includes('outdoor'));
+        const open = outdoor.filter(r => {
+            const alerts = SkateAlerts.forLocation(r.locationid);
+            return !alerts.some(a => a.Status === 0 && /season/i.test(a.Reason || ''));
+        }).length;
+        return { on: debug || open >= w.minOpen, open: debug ? Math.max(open, outdoor.length) : open };
+    }
+
+    Render.winterBanner = function () {
+        const btn = $('winter-banner');
+        const st = (SkateGeo.loaded && SkateAlerts.loaded) ? winterSeasonState() : { on: false };
+        btn.classList.toggle('hidden', !st.on);
+        if (st.on) {
+            btn.innerHTML = `<span class="winter-emoji">🌳❄️</span>
+                <span class="winter-text"><strong>Outdoor rinks are in season</strong> — ${st.open} with no closure alerts. Open skating is drop-in, no schedule needed.</span>
+                <span class="winter-cta">View map →</span>`;
+        }
+    };
+
     Actions.openWhatsNew = function () {
         Render.whatsNew();
         SkateSettings.set('lastSeenVersion', CFG.version);
@@ -1981,6 +2096,63 @@ window.SkateApp = (() => {
         $('btn-version').onclick = Actions.openWhatsNew;
         $('btn-whatsnew-close').onclick = () => Modal.close('whatsnew-modal');
 
+        // QR share
+        $('btn-show-qr').onclick = () => Actions.openQr();
+        $('btn-qr-close').onclick = () => Modal.close('qr-modal');
+        const copySite = () => copyText(CFG.siteUrl, 'Site link copied — send it anywhere 🔗');
+        $('btn-copy-site').onclick = copySite;
+        $('btn-qr-copy').onclick = copySite;
+
+        // Weather chip → friendly details toast
+        $('weather-chip').onclick = () => {
+            const w = SkateWeather.current;
+            if (!w) return;
+            SkateChat.Notify.toast(`${w.emoji} ${w.text} near ${w.label}: ${w.temp}°C (feels ${w.feels}°C) — data by Open-Meteo`, 'info', 5000);
+            SkateWeather.load();   // TTL'd opportunistic refresh
+        };
+
+        // Interactive map
+        $('btn-open-map').onclick = () => { Modal.close('locator-modal'); Actions.openMap(); };
+        $('btn-map-close').onclick = () => SkateMap.close();
+        delegate($('map-filter-seg'), [
+            ['button[data-mapfilter]', (b) => SkateMap.setFilter(b.dataset.mapfilter)]
+        ]);
+        // popup buttons render inside the Leaflet container → one delegate
+        delegate($('map-canvas'), [
+            ['[data-map-sessions]', (b) => {
+                SkateMap.close();
+                Actions.filterToRink(b.dataset.mapSessions, b.dataset.mapName);
+            }],
+            ['[data-map-star]', (b) => {
+                Actions.toggleMyRink(b.dataset.mapStar);
+                SkateMap.refresh();
+                const mine = (SkateSettings.get('myRinks') || []).includes(b.dataset.mapStar);
+                SkateChat.Notify.toast(mine ? 'Added to My rinks ⭐' : 'Removed from My rinks', 'success', 2000);
+            }]
+        ]);
+
+        // Winter banner → map, outdoor pins only
+        $('winter-banner').onclick = () => Actions.openMap({ filter: 'outdoor' });
+
+        // Privacy toggles (👻 invisible / ✉️ DMs)
+        delegate($('settings-privacy'), [
+            ['button[data-priv]', (b) => {
+                const def = CFG.privacyToggles.find(t => t.id === b.dataset.priv);
+                const cur = SkateSettings.get(def.id);
+                const effective = cur == null ? !!def.default : cur;
+                SkateSettings.set(def.id, !effective);
+                if (chatBooted) SkateChat.applyPrivacy();
+                Render.settings();
+            }]
+        ]);
+
+        // Quick tour (replay any time; targets live on the Schedule panel)
+        $('btn-start-tour').onclick = () => {
+            Modal.close('settings-modal');
+            Actions.switchView('programs');
+            SkateTour.start();
+        };
+
         // First-visit setup
         $('setup-done').onclick = Actions.finishSetup;
         $('setup-nearest').onclick = async () => {
@@ -2244,9 +2416,17 @@ window.SkateApp = (() => {
         // whichever lands last re-renders so badges/distances appear.
         SkateGeo.load();
         SkateAlerts.load();
+        SkateWeather.load();
         SkateGeo.onUpdate(() => { if (S.programs.length) Actions.applyFilters(true); });
         SkateAlerts.onUpdate(() => { if (S.programs.length) Render.programs(); });
         SkateLive.onUpdate(() => { if (S.programs.length) Render.programs(); });
+        SkateWeather.onUpdate(Render.weather);
+
+        // Map popups pull their content/actions from app-side data
+        SkateMap.configure({
+            popupHtml: mapPopupHtml,
+            userPoint: () => SkateGeo.getUserLocation()
+        });
 
         try {
             const programs = await SkateAPI.getSkatingPrograms();
@@ -2270,6 +2450,7 @@ window.SkateApp = (() => {
                 Actions.applyFilters(true);
                 SkateLive.load(S.programs);
                 SkateAlerts.load();
+                SkateWeather.load();   // 30-min TTL inside
             }
         }, 60000);
 

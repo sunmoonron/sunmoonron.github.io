@@ -16,7 +16,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=10">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=3">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=11">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=12">
 </head>
 <body>
     <div class="app" id="app">
@@ -64,6 +64,8 @@
                     <div class="stats-info">
                         <span id="stats-text">Loading...</span>
                         <span id="data-updated" class="data-updated"></span>
+                        <!-- current conditions near you/Toronto (Open-Meteo) — dress for it -->
+                        <button id="weather-chip" class="weather-chip hidden" aria-label="Current weather"></button>
                     </div>
                     <label class="toggle-past toggle-paid hidden" id="paid-toggle-wrap" title="Show paid venues (price shown on each session)">
                         <input type="checkbox" id="show-paid-toggle">
@@ -82,6 +84,10 @@
 
                 <!-- Next saved session countdown (only when something is saved & upcoming) -->
                 <button class="saved-next hidden" id="saved-next" title="Jump to this session"></button>
+
+                <!-- Outdoor season banner (appears Nov–Apr when the city's
+                     outdoor rinks aren't season-closed; opens the map) -->
+                <button class="winter-banner hidden" id="winter-banner" title="See outdoor rinks on the map"></button>
 
                 <!-- Data-health warnings (stale schedule / failed source feeds) -->
                 <div id="data-warnings"></div>
@@ -253,6 +259,7 @@
                 <button class="btn-icon" id="btn-locator-close" aria-label="Close">✕</button>
             </div>
             <button class="btn-primary btn-locate" id="btn-share-location">📡 Use my location</button>
+            <button class="btn-locate btn-open-map" id="btn-open-map">🗺️ Browse the rink map</button>
             <p class="settings-hint locator-or">— or —</p>
             <div class="settings-inline">
                 <input type="text" id="locator-input" placeholder="Address or postal code (e.g. M5A 3S5)" autocomplete="off">
@@ -309,6 +316,18 @@
                 <!-- Segments generated from SkateConfig.themes; Auto follows the device -->
                 <div class="seg-control" id="settings-theme"></div>
             </label>
+            <div class="settings-field">
+                <span>Share this site</span>
+                <div class="settings-inline">
+                    <button class="btn-primary" id="btn-show-qr">Show QR code</button>
+                    <button id="btn-copy-site">Copy link</button>
+                </div>
+                <p class="settings-hint">Point a phone camera at the QR, or paste the link anywhere.</p>
+            </div>
+            <div class="settings-field">
+                <span>Quick tour</span>
+                <button id="btn-start-tour">Replay the 20-second tour</button>
+            </div>
 
             <!-- Community features ride the open Nostr network — boxed apart
                  so app prefs (above) and network-y bits (below) read distinct -->
@@ -319,6 +338,12 @@
                     <!-- Toggle buttons generated from SkateConfig.sectionToggles -->
                     <div class="seg-control seg-multi" id="settings-sections"></div>
                     <p class="settings-hint">The ⛸️ schedule is always on. Turning a section off closes its network connections; nothing is deleted.</p>
+                </div>
+                <div class="settings-field">
+                    <span>Privacy</span>
+                    <!-- Toggle buttons generated from SkateConfig.privacyToggles -->
+                    <div class="seg-control seg-multi" id="settings-privacy"></div>
+                    <p class="settings-hint">Invisible: you stop appearing in member lists and "here now" counts (you still read and send fine). DMs off: new private messages are ignored on this device — senders aren't notified.</p>
                 </div>
                 <label class="settings-field">
                     <span>Display name</span>
@@ -341,8 +366,42 @@
                     <span>Muted users</span>
                     <ul id="muted-list" class="muted-list"><li class="muted-empty">No one muted. Tap a name in any chat to mute someone.</li></ul>
                 </div>
+                <p class="settings-hint"><strong>Moderation:</strong> messages to PUBLIC rooms and guide posts are checked by third-party profanity services (profanity.dev, PurgoMalum) before sending. Private groups and DMs are never sent anywhere for moderation — only a local on-device wordlist runs, so their text never leaves your browser.</p>
                 <p class="settings-hint">Your identity is a keypair that lives only in this browser — no account, no email. Clearing site data resets it.</p>
             </div>
+            <p class="settings-hint">Schedule &amp; alert data: contains information licensed under the <a href="https://open.toronto.ca/open-data-licence/" target="_blank" rel="noopener">Open Government Licence – Toronto</a>, plus official Markham &amp; venue feeds. Weather by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0). Map © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors.</p>
+        </div>
+    </div>
+
+    <!-- QR share modal -->
+    <div class="modal-overlay hidden" id="qr-modal">
+        <div class="modal qr-modal-box">
+            <div class="modal-header">
+                <h3>Share Toronto Skating</h3>
+                <button class="btn-icon" id="btn-qr-close" aria-label="Close">✕</button>
+            </div>
+            <div id="qr-holder" class="qr-holder"><div class="loading">Generating…</div></div>
+            <p class="qr-url" id="qr-url"></p>
+            <button class="btn-primary qr-copy" id="btn-qr-copy">Copy link</button>
+        </div>
+    </div>
+
+    <!-- Interactive rink map -->
+    <div class="modal-overlay hidden" id="map-modal">
+        <div class="modal map-modal-box">
+            <div class="modal-header">
+                <h3 id="map-title">🗺️ Rink map</h3>
+                <div class="map-header-actions">
+                    <div class="seg-control map-filter-seg" id="map-filter-seg">
+                        <button data-mapfilter="all" class="active">All</button>
+                        <button data-mapfilter="indoor">Indoor</button>
+                        <button data-mapfilter="outdoor">Outdoor</button>
+                    </div>
+                    <button class="btn-icon" id="btn-map-close" aria-label="Close map">✕</button>
+                </div>
+            </div>
+            <div id="map-canvas" class="map-canvas"><div class="loading">Loading map…</div></div>
+            <p class="settings-hint map-hint">Tap a pin for sessions, distance and actions. Blue dot = your saved 📍 location.</p>
         </div>
     </div>
 
@@ -416,8 +475,8 @@
     <script src="../assets/js/nostr.bundle.js"></script>
     <!-- profanity-list.js is injected lazily by app.js bootCommunity() —
          schedule-only visits (community sections hidden) never download it -->
-    <script src="projects/js/config.js?v=11"></script>
-    <script src="projects/js/settings.js?v=6"></script>
+    <script src="projects/js/config.js?v=12"></script>
+    <script src="projects/js/settings.js?v=7"></script>
     <script src="projects/js/moderation.js?v=4"></script>
     <script src="projects/js/nostr-core.js?v=1"></script>
     <script src="projects/js/storage.js?v=10"></script>
@@ -425,12 +484,15 @@
     <script src="projects/js/time.js?v=1"></script>
     <script src="projects/js/geo.js?v=2"></script>
     <script src="projects/js/live.js?v=1"></script>
+    <script src="projects/js/weather.js?v=1"></script>
     <script src="projects/js/alerts.js?v=2"></script>
-    <script src="projects/js/chat-v2.js?v=4"></script>
+    <script src="projects/js/chat-v2.js?v=5"></script>
     <script src="projects/js/guides.js?v=3"></script>
     <script src="projects/js/ui.js?v=1"></script>
     <script src="projects/js/calendar.js?v=4"></script>
-    <script src="projects/js/app.js?v=13"></script>
+    <script src="projects/js/map.js?v=1"></script>
+    <script src="projects/js/tour.js?v=1"></script>
+    <script src="projects/js/app.js?v=14"></script>
     <script src="projects/js/refresh.js?v=3"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)

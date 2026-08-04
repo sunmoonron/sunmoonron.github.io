@@ -61,6 +61,30 @@ const EXTERNAL_SOURCES = {
         registrationUrl: (date) => `https://apps.daysmartrecreation.com/dash/x/#/online/canlan/event-registration?date=${date}&facility_ids=5&program_types=51`,
         infoUrl: 'https://apps.daysmartrecreation.com/dash/x/#/online/canlan/event-registration?facility_ids=5&program_types=51'
     },
+    'markham': {
+        kind: 'perfectmind',
+        // City of Markham drop-in skating — official PerfectMind booking
+        // API (the same JSON their booking page loads). One calendar
+        // covers all skating drop-ins city-wide; each record names its
+        // venue in `Location`, so one source can serve many buildings.
+        base: 'https://cityofmarkham.perfectmind.com',
+        widgetId: '6825ea71-e5b7-4c2a-948f-9195507ad90a',
+        calendarId: 'ecf5202d-4c97-4f89-b4e3-42966a1cc453',
+        daysAhead: 28,
+        paid: true,
+        // Venue coordinates/addresses (PerfectMind doesn't return them).
+        // Unlisted venues still get records — just no locator distance
+        // until someone adds a line here.
+        venues: {
+            'Angus Glen Community Centre': {
+                address: '3990 Major Mackenzie Dr E', district: 'Markham',
+                postalCode: 'L6C 1P8', lat: 43.904173, lng: -79.308765
+            }
+        },
+        defaultDistrict: 'Markham',
+        registrationUrl: () => 'https://cityofmarkham.perfectmind.com/Clients/BookMe4BookingPages/Classes?calendarId=ecf5202d-4c97-4f89-b4e3-42966a1cc453&widgetId=6825ea71-e5b7-4c2a-948f-9195507ad90a&embed=False',
+        infoUrl: 'https://www.markham.ca/sports-recreation-fitness/sports-recreation-programs/programs/drop-programs'
+    },
     'mosspark': {
         kind: 'scrape',
         url: 'https://mossparkarena.com/home/skating/public-skating/',
@@ -127,6 +151,39 @@ async function fetchJSON(url, headers = {}) {
     } catch (e) {
         throw new Error(`Failed to parse JSON: ${e.message}`);
     }
+}
+
+/** POST form-encoded → JSON (PerfectMind-style widget endpoints). */
+function httpPostJSON(url, formBody, headers = {}) {
+    return new Promise((resolve, reject) => {
+        const body = new URLSearchParams(formBody).toString();
+        const req = https.request(url, {
+            method: 'POST',
+            headers: {
+                'User-Agent': 'toronto-skating-site-data-fetcher',
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Length': Buffer.byteLength(body),
+                ...headers
+            }
+        }, (res) => {
+            if (res.statusCode !== 200) {
+                res.resume();
+                return reject(new Error(`HTTP ${res.statusCode} for POST ${url.substring(0, 80)}`));
+            }
+            let data = '';
+            res.on('data', c => data += c);
+            res.on('end', () => {
+                try { resolve(JSON.parse(data)); }
+                catch (e) { reject(new Error(`Failed to parse JSON: ${e.message}`)); }
+            });
+            res.on('error', reject);
+        });
+        req.on('error', reject);
+        req.setTimeout(45000, () => req.destroy(new Error(`Timeout for POST ${url.substring(0, 80)}`)));
+        req.write(body);
+        req.end();
+    });
 }
 
 /* ================= Toronto-time helpers (CI runs in UTC) ================= */
@@ -273,6 +330,30 @@ async function fetchRinkInventory() {
 
     // External sources join the same universe (locator + calendar need them).
     Object.entries(EXTERNAL_SOURCES).forEach(([key, cfg]) => {
+        // Multi-venue sources (PerfectMind calendars) emit ONE entry per
+        // configured venue, keyed like the program records' ExtLocationKey.
+        if (cfg.venues) {
+            Object.entries(cfg.venues).forEach(([name, v]) => {
+                const locId = venueKey(key, name);
+                byLocation[locId] = {
+                    locationid: locId,
+                    name,
+                    address: v.address || '',
+                    postal: v.postalCode || '',
+                    district: v.district || cfg.defaultDistrict || '',
+                    lat: v.lat ?? null, lng: v.lng ?? null,
+                    kinds: ['indoor'],
+                    pads: 1,
+                    operator: 'External',
+                    source: 'external',
+                    externalSource: key,
+                    website: cfg.infoUrl,
+                    paid: !!cfg.paid
+                };
+            });
+            return;
+        }
+
         const locId = cfg.locationId ? String(cfg.locationId) : `ext-${key}`;
         const existing = byLocation[locId];
         if (existing) {
@@ -369,7 +450,15 @@ async function fetchAlerts() {
 /* ================= External source fetchers ================= */
 
 /** Shared shape for generated program records (mirrors the city schema). */
-function externalRecord(cfg, sourceKey, { activity, date, startTime, endTime, price, externalId }) {
+/**
+ * `venue` (optional) overrides the cfg-level location for multi-venue
+ * sources (PerfectMind calendars span several buildings): { name,
+ * address, district, postalCode, lat, lng, extKey }. extKey becomes
+ * ExtLocationKey — the client's locKey uses it so two Markham venues
+ * don't collapse into one "location" in scopes/locator/map.
+ */
+function externalRecord(cfg, sourceKey, { activity, date, startTime, endTime, price, externalId, venue, ageMin, ageMax }) {
+    const v = venue || {};
     return {
         _id: `${sourceKey}-${externalId || `${date}-${startTime}`}`,
         'Location ID': cfg.locationId || null,
@@ -377,12 +466,14 @@ function externalRecord(cfg, sourceKey, { activity, date, startTime, endTime, pr
         Section: 'Skating - Drop-In',
         Activity: activity,
         Category: 'Skating - Drop-In',
-        LocationName: cfg.locationName,
+        LocationName: v.name || cfg.locationName,
         LocationType: 'arena',
-        Address: cfg.address || '',
-        District: cfg.district || '',
-        PostalCode: cfg.postalCode || '',
+        Address: v.address ?? cfg.address ?? '',
+        District: v.district ?? cfg.district ?? '',
+        PostalCode: v.postalCode ?? cfg.postalCode ?? '',
         Accessibility: '', TTCInfo: '', Intersection: '',
+        'Age Min': ageMin ?? null,
+        'Age Max': ageMax ?? null,
         'Start Time': startTime,
         'End Time': endTime,
         'Day of Week': weekdayOf(date),
@@ -396,13 +487,19 @@ function externalRecord(cfg, sourceKey, { activity, date, startTime, endTime, pr
         // fetch LIVE per-session data like spots remaining (their API is
         // CORS-open, unlike toronto.ca's).
         ExternalId: externalId != null ? String(externalId) : null,
+        ...(v.extKey ? { ExtLocationKey: v.extKey } : {}),
         Paid: !!cfg.paid,
         Price: cfg.paid ? (price ?? null) : 0,
         RegistrationUrl: cfg.registrationUrl ? cfg.registrationUrl(date) : (cfg.infoUrl || ''),
         InfoUrl: cfg.infoUrl || '',
         Unverified: !!cfg.unverified,
-        Lat: cfg.lat, Lng: cfg.lng
+        Lat: v.lat ?? cfg.lat, Lng: v.lng ?? cfg.lng
     };
+}
+
+/** Stable per-venue key for multi-venue sources: 'ext-markham-angus-glen-…'. */
+function venueKey(sourceKey, venueName) {
+    return `ext-${sourceKey}-${String(venueName).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
 }
 
 /** DaySmart Recreation (Canlan): published events on the configured rinks. */
@@ -447,6 +544,65 @@ async function fetchDaySmart(sourceKey, cfg) {
         }));
     });
     console.log(`   ✅ ${sourceKey}: ${records.length} sessions (${start} → ${end})`);
+    return records;
+}
+
+/**
+ * PerfectMind (Markham etc.): the official JSON the city's booking page
+ * loads. One POST returns ~a month of drop-in classes across all venues
+ * on the calendar. Not paginated here on purpose: the response already
+ * spans our daysAhead window; if the feed ever shrinks below it, the
+ * nextKey warning in the log says so.
+ */
+async function fetchPerfectMind(sourceKey, cfg) {
+    const today = torontoDateStr();
+    const end = addDays(today, cfg.daysAhead);
+    const json = await httpPostJSON(`${cfg.base}/Clients/BookMe4BookingPagesV2/ClassesV2`, {
+        calendarId: cfg.calendarId,
+        widgetId: cfg.widgetId,
+        page: 0
+    });
+    const classes = json.classes || [];
+    if (json.nextKey && String(json.nextKey) < end) {
+        console.warn(`   ⚠️ ${sourceKey}: feed ends ${json.nextKey}, window wants ${end} — later sessions missing this run`);
+    }
+
+    const timeRe = /(\d{1,2}):(\d{2})\s*(am|pm)\s*-\s*(\d{1,2}):(\d{2})\s*(am|pm)/i;
+    const unknownVenues = new Set();
+    const records = [];
+    classes.forEach(c => {
+        const od = String(c.OccurrenceDate || '');
+        if (!/^\d{8}$/.test(od)) return;
+        const date = `${od.slice(0, 4)}-${od.slice(4, 6)}-${od.slice(6, 8)}`;
+        if (date < today || date > end) return;
+
+        const t = timeRe.exec(c.EventTimeDescription || '');
+        if (!t) return;
+        const startTime = to24h(t[1], t[2], t[3], false);
+        const endTime = to24h(t[4], t[5], t[6], false);
+        if (!startTime || !endTime) return;
+
+        // "$0.00 - $5.02" → 5.02 (max = standard adult rate; 0 = free tiers)
+        const prices = [...String(c.PriceRange || '').matchAll(/\$([\d.]+)/g)].map(m => parseFloat(m[1]));
+        const price = prices.length ? Math.max(...prices) : null;
+
+        const venueName = c.Location || cfg.locationName || 'Markham venue';
+        const known = (cfg.venues || {})[venueName];
+        if (!known) unknownVenues.add(venueName);
+
+        records.push(externalRecord(cfg, sourceKey, {
+            activity: String(c.EventName || 'Drop-In Skate').trim(),
+            date, startTime, endTime, price,
+            externalId: `${c.EventId || c.CourseIdTrimmed || 'x'}-${od}`,
+            ageMin: c.NoAgeRestriction ? null : (Number.isFinite(c.MinAge) && c.MinAge > 0 ? c.MinAge : null),
+            ageMax: c.NoAgeRestriction ? null : (Number.isFinite(c.MaxAge) && c.MaxAge > 0 && c.MaxAge < 120 ? c.MaxAge : null),
+            venue: { name: venueName, ...(known || {}), extKey: venueKey(sourceKey, venueName) }
+        }));
+    });
+    if (unknownVenues.size) {
+        console.warn(`   📍 ${sourceKey}: venues without coords in config (add to venues{}): ${[...unknownVenues].join(', ')}`);
+    }
+    console.log(`   ✅ ${sourceKey}: ${records.length} sessions (${today} → ${end})`);
     return records;
 }
 
@@ -629,7 +785,9 @@ async function fetchExternalSources() {
     for (const [key, cfg] of Object.entries(EXTERNAL_SOURCES)) {
         console.log(`\n🌐 External source: ${key}`);
         try {
-            bySource[key] = { ok: true, records: cfg.kind === 'daysmart' ? await fetchDaySmart(key, cfg) : await fetchScraped(key, cfg) };
+            const fetcher = { daysmart: fetchDaySmart, perfectmind: fetchPerfectMind, scrape: fetchScraped }[cfg.kind];
+            if (!fetcher) throw new Error(`unknown source kind '${cfg.kind}'`);
+            bySource[key] = { ok: true, records: await fetcher(key, cfg) };
         } catch (e) {
             console.warn(`   ⚠️ ${key} failed: ${e.message}`);
             bySource[key] = { ok: false, error: e.message, records: salvageExisting(key) };

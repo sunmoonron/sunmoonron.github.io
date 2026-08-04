@@ -28,7 +28,11 @@ const SkateSettings = (() => {
         // 'system' | 'light' | 'dark' — null migrates from the old
         // standalone `darkMode` localStorage key on first read; default
         // is 'system' (Auto follows the device).
-        theme: null
+        theme: null,
+        // v3.0: community privacy + one-time tour flag
+        invisible: false,      // 👻 skip presence pings (never listed as online)
+        dmsAllowed: true,      // ✉️ incoming DMs accepted on this device
+        tourDone: false
     };
     let settings = { ...defaults };
     const cbs = [];

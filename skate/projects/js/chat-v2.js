@@ -546,6 +546,12 @@ const SkateChat = (() => {
         if (!isForMe && !isFromMe) return;
 
         const otherPubkey = isFromMe ? pTag[1] : event.pubkey;
+
+        // ✉️ DMs disabled: silently drop INCOMING private messages (no
+        // thread, no notification — senders aren't told). Your own sent
+        // DMs still echo so conversations you start keep working.
+        if (!isFromMe && window.SkateSettings?.get('dmsAllowed') === false) return;
+
         const plain = Crypto.decryptDm(event.content, state.mySecretKey, otherPubkey);
         if (!plain) return;
         let c;
@@ -701,11 +707,19 @@ const SkateChat = (() => {
             const d = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(dateStr);
             dateDisplay = d.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
         }
-        return {
+        const card = {
             activity, location, date: dateDisplay,
             time: program['Start Time'] || '', endTime: program['End Time'] || '',
             programId: Favorites.getId(program)
         };
+        // Paid venues: the recipient must know money changes hands BEFORE
+        // they show up — carry the flag + exact price on the wire.
+        if (program.Paid) {
+            card.paid = true;
+            const p = Number(program.Price);
+            if (Number.isFinite(p) && p > 0) card.price = p;
+        }
+        return card;
     }
 
     async function shareTo(dest, payload) {
@@ -802,9 +816,14 @@ const SkateChat = (() => {
         }, state.mySecretKey);
     }
 
+    // 👻 Invisible mode: skip every outgoing presence ping — others stop
+    // seeing you in rosters/"here now"; you still read & send normally.
+    const isInvisible = () => window.SkateSettings?.get('invisible') === true;
+
     function startPresence() {
         stopPresence();
         const beat = () => {
+            if (isInvisible()) return;
             allGroupIds().forEach(gid => {
                 const group = getGroupOrRoom(gid);
                 if (!group) return;
@@ -813,6 +832,13 @@ const SkateChat = (() => {
         };
         beat();
         state.presenceTimer = setInterval(beat, CONFIG.PRESENCE_INTERVAL);
+    }
+
+    /** Called when the privacy toggles flip: going invisible broadcasts a
+     *  bye so existing "online" entries clear instead of aging out. */
+    function applyPrivacy() {
+        if (isInvisible()) sendBye(allGroupIds());
+        notifyUpdate();
     }
     function stopPresence() {
         if (state.presenceTimer) { clearInterval(state.presenceTimer); state.presenceTimer = null; }
@@ -1202,6 +1228,7 @@ const SkateChat = (() => {
         getConversations, getRoster,
         setDisplayName, getIdentity,
         onUpdate, getState, getConnectionStatus, getPublicRooms,
+        applyPrivacy,
         Notify, Favorites, Crypto, Mutes
     };
 })();

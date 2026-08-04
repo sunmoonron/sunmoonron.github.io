@@ -15,8 +15,20 @@
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '2.9',
+    version: '3.0',
     changelog: [
+        {
+            v: '3.0', date: '2026-08-04', items: [
+                '🗺️ Interactive rink map — every rink as a pin, free scroll & pinch, distances from your 📍 spot, tap a pin for sessions/alerts/actions (find it via Near me)',
+                '🏒 New city: Markham! Angus Glen drop-in skating (official booking data, prices & real age limits included) — more Markham venues are one config line away',
+                '🌡️ Live temperature chip in the schedule header (feels-like included) so you dress right — follows your saved location',
+                '🌳 Winter-ready: when the city\'s outdoor rinks come back (Nov–Apr), a banner appears and the map grows an Outdoor filter — it wakes up on its own',
+                '💲 Shared sessions in chat now show a Paid badge with the exact price — nobody shows up surprised',
+                '👻 Privacy: go Invisible (never listed as online) and switch DMs off entirely — both in Settings',
+                '📱 QR code in Settings to beam the site to any phone; plus a replayable 20-second tour for newcomers (big Skip, promise)',
+                '🔍 Fine print added: what gets checked by third-party moderation (public rooms only — DMs never leave your device) and data attributions'
+            ]
+        },
         {
             v: '2.9', date: '2026-08-04', items: [
                 'Service alerts are now genuinely live on every open page: tabs, phones and installed bookmarks re-check every ~5 minutes AND the instant you come back to the app — no more "loaded this morning, blind all day"',
@@ -130,6 +142,35 @@ window.SkateConfig = {
         { id: 'showChats',  seg: '💬 Chats' }
     ],
 
+    // Settings → Privacy toggle buttons (nostr box). `on` = the settings
+    // value that renders the button ACTIVE (invisible is opt-in true,
+    // DMs are opt-out false).
+    privacyToggles: [
+        { id: 'invisible',  seg: '👻 Invisible', on: true },
+        { id: 'dmsAllowed', seg: '✉️ Allow DMs', on: true, default: true }
+    ],
+
+    // Canonical URL the QR code + share links point at (location.href
+    // would leak localhost/dev paths into shared codes).
+    siteUrl: 'https://sunmoonron.github.io/skate/',
+
+    /* ---------- Quick tour (spotlight steps; missing/hidden targets auto-skip) ---------- */
+    tourSteps: [
+        { sel: '#type-filters',   title: 'Filter the schedule',  text: 'Tap a chip to see just Leisure, Hockey, Figure… "Saved" keeps everything you ❤️.' },
+        { sel: '#view-mode-seg',  title: 'List or Calendar',     text: 'Calendar shows the whole week at a glance — sessions are color-coded by type.' },
+        { sel: '#btn-near',       title: 'Rinks near you',       text: 'Share your location or type a postal code to sort by distance and see a map.' },
+        { sel: '#scope-row',      title: 'Your rinks',           text: 'Pick your usual spots under "My rinks" and the whole site filters to them.' },
+        { sel: '#weather-chip',   title: 'Dress for it',         text: 'Live temperature near you — feels-like included.' },
+        { sel: '#btn-settings',   title: 'Everything else',      text: 'Theme, sharing QR, community & privacy toggles all live in Settings. Enjoy the ice! ⛸️' }
+    ],
+
+    /* ---------- Outdoor (winter) season detection ---------- */
+    winter: {
+        fromMonthDay: '11-01',   // watch window: Nov 1 …
+        toMonthDay: '04-15',     // … Apr 15
+        minOpen: 5               // ≥N outdoor rinks not "closed for season" → season is ON
+    },
+
     /* ---------- Programs panel ---------- */
     // Filter chips. `keywords` drive the generic matcher; `special` ids get
     // custom handling ('all' = no filter, 'favorites' = saved list).
@@ -137,8 +178,8 @@ window.SkateConfig = {
         { id: 'all',       label: 'All',       special: 'all' },
         // 'favorites' renders as the ♥-styled chip with a live count
         { id: 'favorites', label: 'Saved',     special: 'favorites' },
-        { id: 'leisure',   label: 'Leisure',   keywords: ['leisure', 'public skat'] },
-        { id: 'hockey',    label: 'Hockey',    keywords: ['shinny', 'hockey'] },
+        { id: 'leisure',   label: 'Leisure',   keywords: ['leisure', 'public skat', 'recreational skat'] },
+        { id: 'hockey',    label: 'Hockey',    keywords: ['shinny', 'hockey', 'stick'] },
         { id: 'figure',    label: 'Figure',    keywords: ['figure'] },
         { id: 'speed',     label: 'Speed',     keywords: ['speed'] },
         { id: 'adapted',   label: 'Adapted',   keywords: ['adapted'] },
@@ -147,10 +188,10 @@ window.SkateConfig = {
 
     // Activity → badge tag. First keyword hit wins (order matters).
     activityTags: [
-        { keywords: ['shinny', 'hockey'],        cls: 'hockey',   label: '🏒 Hockey' },
+        { keywords: ['shinny', 'hockey', 'stick'], cls: 'hockey',  label: '🏒 Hockey' },
         { keywords: ['figure'],                  cls: 'figure',   label: '⛸️ Figure' },
         { keywords: ['speed'],                   cls: 'speed',    label: '⛸️ Speed' },
-        { keywords: ['leisure', 'public skat'],  cls: 'leisure',  label: '⛸️ Leisure' },
+        { keywords: ['leisure', 'public skat', 'recreational skat'], cls: 'leisure', label: '⛸️ Leisure' },
         { keywords: ['adapted'],                 cls: 'adapted',  label: '♿ Adapted' },
         { keywords: ['ringette'],                cls: 'ringette', label: '🥏 Ringette' }
     ],
@@ -203,6 +244,8 @@ window.SkateConfig = {
         'city':        { label: 'City of Toronto', verified: true },
         'canlan-york': { label: 'Canlan Sports (York)', verified: true,
                          note: 'Third-party paid venue — register on their site; sessions can sell out or change.' },
+        'markham':     { label: 'City of Markham', verified: true,
+                         note: 'Official Markham booking data — prices vary by age ($0 for some groups); most drop-ins open for booking 21h before start.' },
         'mosspark':    { label: 'mossparkarena.com', verified: false,
                          note: 'Schedule scraped from their website — there is NO live feed for this arena.' }
     },
