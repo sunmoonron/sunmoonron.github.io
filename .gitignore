@@ -6,3 +6,6 @@ node_modules/
 
 # macOS junk
 .DS_Store
+
+# local scratch files
+omen.html
