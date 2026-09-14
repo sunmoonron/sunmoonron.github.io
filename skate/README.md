@@ -635,5 +635,8 @@ NixOS) takes over the parts GitHub does badly. Status as of v3.1:
   acceptable way for the daemon to ask GitHub to commit. The GitHub cron
   stays as the degraded-mode fallback — never retire it.
 - **What it buys.** Alert and live-check freshness in minutes instead of
-  the ~3-hour cron reality, and the Moss Park scrape's LLM assist can run
-  on local Ollama instead of an API key.
+  the ~3-hour cron reality. The Moss Park scrape's LLM assist already
+  prefers a local model: set `OLLAMA_URL` (and optionally
+  `OLLAMA_MODEL`) where the pipeline runs and no key or cloud call is
+  needed; `ANTHROPIC_API_KEY` is the second choice, the regex parser the
+  floor.

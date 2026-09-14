@@ -1351,47 +1351,71 @@ function parseScheduleText(text) {
 }
 
 /**
- * Optional LLM assist: if ANTHROPIC_API_KEY is set, ask Claude to read the
- * scraped page text and return the schedule as strict JSON. Falls back to
- * the regex parser on ANY failure — the pipeline never depends on the key.
+ * Optional LLM assist for scraped pages, in order of preference:
+ *   1. OLLAMA_URL (+ OLLAMA_MODEL, default llama3.1) — a local model, e.g.
+ *      the Dell's Ollama over WireGuard: no key, no data leaves the LAN.
+ *   2. ANTHROPIC_API_KEY — Claude Haiku.
+ *   3. neither → null, and the regex parser runs (it always can).
+ * Any failure at any step falls through — the pipeline never depends on a
+ * model being reachable.
  */
+const SCHEDULE_PROMPT = (text) => `Extract the public skating schedule from this arena webpage text. Reply with ONLY a JSON array, no prose. Each item: {"weekday":"Monday".."Sunday","start":"HH:MM","end":"HH:MM"(24h),"from":"YYYY-MM-DD"(optional, only if that line is limited to a date range),"to":"YYYY-MM-DD"(optional)}. Times like "12 – 1 pm" are 12:00-13:00. If a line says a special range like "Saturdays June 27 to July 18 2026 from 12noon to 2pm", include from/to.\n\nPAGE TEXT:\n${text.slice(0, 4000)}`;
+
+/** Raw HTTP(S) POST → response text (small helper shared by both model calls). */
+function postText(url, body, headers, timeoutMs = 60000) {
+    return new Promise((resolve, reject) => {
+        const u = new URL(url);
+        const mod = u.protocol === 'http:' ? require('http') : https;
+        const req = mod.request(u, { method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body), ...headers } }, (r) => {
+            let d = '';
+            r.on('data', c => d += c);
+            r.on('end', () => resolve(d));
+            r.on('error', reject);
+        });
+        req.on('error', reject);
+        req.setTimeout(timeoutMs, () => req.destroy(new Error('LLM timeout')));
+        req.write(body); req.end();
+    });
+}
+
+/** Model reply text → validated schedule rules (or null). */
+function rulesFromModelText(textOut, label) {
+    const jsonMatch = String(textOut || '').match(/\[[\s\S]*\]/);
+    const rules = JSON.parse(jsonMatch ? jsonMatch[0] : textOut);
+    if (!Array.isArray(rules)) return null;
+    const ok = rules.filter(r => WEEKDAYS.includes(r.weekday) && /^\d{2}:\d{2}$/.test(r.start || '') && /^\d{2}:\d{2}$/.test(r.end || ''));
+    console.log(`   🤖 ${label} parsed ${ok.length} schedule rules`);
+    return ok.length ? ok : null;
+}
+
 async function llmParseSchedule(text) {
+    const ollama = (process.env.OLLAMA_URL || '').replace(/\/+$/, '');
+    if (ollama) {
+        try {
+            const model = process.env.OLLAMA_MODEL || 'llama3.1';
+            const res = await postText(`${ollama}/api/chat`, JSON.stringify({
+                model, stream: false, format: 'json',
+                options: { temperature: 0 },
+                messages: [{ role: 'user', content: SCHEDULE_PROMPT(text) }]
+            }), {}, 120000);
+            const parsed = JSON.parse(res);
+            const out = parsed.message?.content ?? parsed.response ?? '';
+            const rules = rulesFromModelText(out, `Ollama (${model})`);
+            if (rules) return rules;
+        } catch (e) {
+            console.warn(`   🤖 Ollama parse skipped (${e.message})`);
+        }
+    }
     const key = process.env.ANTHROPIC_API_KEY;
     if (!key) return null;
     try {
-        const body = JSON.stringify({
+        const res = await postText('https://api.anthropic.com/v1/messages', JSON.stringify({
             model: 'claude-haiku-4-5-20251001',
             max_tokens: 1000,
-            messages: [{
-                role: 'user',
-                content: `Extract the public skating schedule from this arena webpage text. Reply with ONLY a JSON array, no prose. Each item: {"weekday":"Monday".."Sunday","start":"HH:MM","end":"HH:MM"(24h),"from":"YYYY-MM-DD"(optional, only if that line is limited to a date range),"to":"YYYY-MM-DD"(optional)}. Times like "12 – 1 pm" are 12:00-13:00. If a line says a special range like "Saturdays June 27 to July 18 2026 from 12noon to 2pm", include from/to.\n\nPAGE TEXT:\n${text.slice(0, 4000)}`
-            }]
-        });
-        const res = await new Promise((resolve, reject) => {
-            const req = https.request('https://api.anthropic.com/v1/messages', {
-                method: 'POST',
-                headers: {
-                    'x-api-key': key, 'anthropic-version': '2023-06-01',
-                    'content-type': 'application/json', 'content-length': Buffer.byteLength(body)
-                }
-            }, (r) => {
-                let d = '';
-                r.on('data', c => d += c);
-                r.on('end', () => resolve(d));
-                r.on('error', reject);
-            });
-            req.on('error', reject);
-            req.setTimeout(30000, () => req.destroy(new Error('LLM timeout')));
-            req.write(body); req.end();
-        });
+            messages: [{ role: 'user', content: SCHEDULE_PROMPT(text) }]
+        }), { 'x-api-key': key, 'anthropic-version': '2023-06-01' }, 30000);
         const parsed = JSON.parse(res);
-        const textOut = parsed.content?.[0]?.text || '';
-        const jsonMatch = textOut.match(/\[[\s\S]*\]/);
-        const rules = JSON.parse(jsonMatch ? jsonMatch[0] : textOut);
-        if (!Array.isArray(rules)) return null;
-        const ok = rules.filter(r => WEEKDAYS.includes(r.weekday) && /^\d{2}:\d{2}$/.test(r.start || '') && /^\d{2}:\d{2}$/.test(r.end || ''));
-        console.log(`   🤖 LLM parsed ${ok.length} schedule rules`);
-        return ok.length ? ok : null;
+        return rulesFromModelText(parsed.content?.[0]?.text || '', 'Claude');
     } catch (e) {
         console.warn(`   🤖 LLM parse skipped (${e.message}) — using regex parser`);
         return null;
@@ -1674,4 +1698,6 @@ async function main() {
     }
 }
 
-main();
+if (require.main === module) main();
+module.exports = { llmParseSchedule, parseScheduleText, fetchLiveCheck, EXTERNAL_SOURCES };
+
