@@ -421,8 +421,14 @@ hardcoded. One landmine documented inline: never add an **unscoped**
 **`projects/data/`** — `skating-programs.json` (the schedule: city
 drop-ins **plus** external venues — five Canlan Sports rinks (York,
 Etobicoke, Scarborough, Oakville, Oshawa) via the DaySmart API with live
-prices, City of Markham via PerfectMind, Moss Park Arena scraped from
-their site and marked `Unverified`), `rinks.json` (every indoor/outdoor
+prices; Markham, Vaughan, Brampton, Oakville and Burlington via their
+PerfectMind booking calendars; Mississauga and Richmond Hill (Ed
+Sackfield) via ActiveNet drop-in calendars; Moss Park Arena scraped from
+their site and marked `Unverified`. Researched and *not* wired, as of
+Sep 2026: Ajax and Whitchurch-Stouffville publish PDFs only, Oshawa's
+booking site sits behind a queue-cookie gate, Pickering is a plain HTML
+grid (free skates; a small grid parser would do), and Richmond Hill's
+other arenas only exist as weekly activity patterns), `rinks.json` (every indoor/outdoor
 pad with coordinates + kinds, feeds the locator and alert matching),
 `alerts.json` (toronto.ca service-alert snapshot — only rewritten when
 content changes or the 2-hour heartbeat is due), **`live-check.json`**
@@ -533,6 +539,17 @@ tradeoff of accountless.
   `daysmart`, its ice-rink `resourceIds` — their API ignores facility
   filters — coordinates, `registrationUrl`), a `SOURCES` line in
   `live.js` for live spots, and a `sourceInfo` row in config.
+- **Add a PerfectMind city** — an `EXTERNAL_SOURCES` entry with `base`
+  (org path included), `widgetId`/`calendarId` (from the city's booking
+  page network calls), `windowDays` small enough that no window returns
+  ~50 classes (their `ClassesV2` truncates windows silently and `page`
+  skips ahead 14 days regardless — the fetcher uses the Date Range filter
+  and re-fetches day by day when a window looks clipped), an `include`
+  regex to keep only public skates, and `venues{}` for the rink
+  inventory (coordinates also get learned from the feed's Address block).
+- **Add an ActiveNet city** — kind `activenet` with the calendar id,
+  category ids, centre ids and `programs` rules carrying price + ages
+  (that API exposes neither).
 - **Add a weather spot** — a row in `config.weatherSpots`.
 - **Change relays** — `RELAYS` in `nostr-core.js` (chat/guides) and in
   `refresh.js` (must overlap with what the GitHub Action polls). The

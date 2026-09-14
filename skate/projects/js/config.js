@@ -28,6 +28,7 @@ window.SkateConfig = {
                 '📱 Pull down to refresh in the installed / home-screen app',
                 '💲 Paid-only rinks (e.g. Markham) no longer read "0 sessions" while Paid is off — pickers show "N paid", and picking such a rink turns Paid on for you',
                 '🎟 Fixed the "-1 spots left" badge on Canlan sessions',
+                '🏒 More rinks: Canlan Etobicoke, Scarborough, Oakville & Oshawa (paid public skates), and six more cities via their official feeds — Mississauga (10 arenas), Brampton (7), Oakville (7), Burlington (7), Vaughan (5, free!) and Richmond Hill\'s Ed Sackfield Arena. Markham no longer loses sessions to a booking-page quirk, shows the adult price instead of the family ticket, and all six Markham venues are on the map at their real coordinates',
                 '▶️ New auto-playing 60-second guide with highlighted regions, next to the quick tour — Skip is always one tap away',
                 '⚡ The site\'s own relay joins the pool alongside the public ones, gated by the same proof-of-work — chats and guides no longer depend on public relays alone'
             ]
@@ -305,6 +306,18 @@ window.SkateConfig = {
                          note: 'Third-party paid venue — register on their site; sessions can sell out or change.' },
         'markham':     { label: 'City of Markham', verified: true, site: 'markham.ca',
                          note: 'Official Markham booking data — prices vary by age ($0 for some groups); most drop-ins open for booking 21h before start.' },
+        'vaughan':     { label: 'City of Vaughan', verified: true, site: 'vaughan.ca',
+                         note: 'Official Vaughan booking data — drop-in skating and shinny are free for residents (20% non-resident surcharge on paid items); Ticket Ice figure skating $10.50.' },
+        'richmondhill': { label: 'City of Richmond Hill', verified: true, site: 'richmondhill.ca',
+                         note: 'Official Richmond Hill calendar (Ed Sackfield Arena) — adult $5.90 skate, $8.70 shinny/figure/stick & puck; tickets at the arena desk from 30 min before.' },
+        'brampton':    { label: 'City of Brampton', verified: true, site: 'brampton.ca',
+                         note: 'Official Brampton booking data — adult $2.96 + tax, child/youth $2.15, 65+ residents free; registration opens 25 h ahead for residents.' },
+        'oakville':    { label: 'Town of Oakville', verified: true, site: 'oakville.ca',
+                         note: 'Official Oakville booking data — adult $5.38, child/youth/65+ $4.31 (+ tax); members $0.' },
+        'burlington':  { label: 'City of Burlington', verified: true, site: 'burlington.ca',
+                         note: 'Official Burlington booking data — flat $3.50 per skate; pass holders $0.' },
+        'mississauga': { label: 'City of Mississauga', verified: true, site: 'mississauga.ca',
+                         note: 'Official Mississauga drop-in calendar — adult $5.21, child/youth/55+ $4.17 incl. tax (by-law rates; not sold online — tickets at the door 30 min before); 65+ residents and kids 3 and under free.' },
         'mosspark':    { label: 'mossparkarena.com', verified: false, site: 'mossparkarena.com',
                          note: 'Schedule scraped from their website — there is NO live feed for this arena.' }
     },

@@ -1489,10 +1489,14 @@ window.SkateApp = (() => {
             const term = S.search.toLowerCase();
             // Postal codes compare space-insensitively ("M5A3S5" finds "M5A 3S5")
             const postalTerm = term.replace(/\s+/g, '');
+            // District joins the haystack now that the schedule spans nine
+            // municipalities — "Brampton" finds Brampton's arenas even
+            // though none of them carry the city in their name.
             result = result.filter(p =>
                 P.activity(p).toLowerCase().includes(term) ||
                 P.location(p).toLowerCase().includes(term) ||
                 (p.Address || '').toLowerCase().includes(term) ||
+                (p.District || '').toLowerCase().includes(term) ||
                 (postalTerm && (p.PostalCode || '').toLowerCase().replace(/\s+/g, '').includes(postalTerm)));
         }
         if (S.day) result = result.filter(p => p['Day of Week'] === S.day);

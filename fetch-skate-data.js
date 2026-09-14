@@ -164,18 +164,190 @@ const EXTERNAL_SOURCES = {
         calendarId: 'ecf5202d-4c97-4f89-b4e3-42966a1cc453',
         daysAhead: 28,
         paid: true,
-        // Venue coordinates/addresses (PerfectMind doesn't return them).
-        // Unlisted venues still get records — just no locator distance
-        // until someone adds a line here.
+        // PriceRange's max is the FAMILY ticket for skates ($13.45); the adult
+        // drop-in is $5.02 + HST. Shinny/stick-and-puck ranges top out at the
+        // adult tier already, so only skates get the override.
+        priceRules: [{ match: /skate/i, price: 5.17 }],
+        // Names must equal PerfectMind's `Location` string exactly. Coords =
+        // the feed's own Address block, Nominatim-checked (the old hand-typed
+        // Angus Glen point was 2.4 km off). Unlisted venues are learned from
+        // the feed at run time.
         venues: {
-            'Angus Glen Community Centre': {
-                address: '3990 Major Mackenzie Dr E', district: 'Markham',
-                postalCode: 'L6C 1P8', lat: 43.904173, lng: -79.308765
-            }
+            'Angus Glen Community Centre':      { address: '3990 Major Mackenzie Dr E', district: 'Markham', postalCode: 'L6C 1P8', lat: 43.895354, lng: -79.336539 },
+            'Crosby Community Centre':          { address: '210 Main St Unionville',     district: 'Markham', postalCode: 'L3R 2G9', lat: 43.868535, lng: -79.313304 },
+            'Milliken Mills Community Centre':  { address: '7600 Kennedy Rd',            district: 'Markham', postalCode: 'L3R 9S5', lat: 43.840228, lng: -79.305006 },
+            'Thornhill Community Centre':       { address: '7755 Bayview Ave',           district: 'Markham', postalCode: 'L3T 4P1', lat: 43.820032, lng: -79.399873 },
+            'Markham Village Community Centre': { address: '6041 Highway 7',             district: 'Markham', postalCode: 'L3P 3A7', lat: 43.873298, lng: -79.258153 },
+            'Mount Joy Community Centre':       { address: '6140 16th Ave E',            district: 'Markham', postalCode: 'L3P 3K8', lat: 43.895012, lng: -79.262293 }
         },
         defaultDistrict: 'Markham',
         registrationUrl: () => 'https://cityofmarkham.perfectmind.com/Clients/BookMe4BookingPages/Classes?calendarId=ecf5202d-4c97-4f89-b4e3-42966a1cc453&widgetId=6825ea71-e5b7-4c2a-948f-9195507ad90a&embed=False',
         infoUrl: 'https://www.markham.ca/sports-recreation-fitness/sports-recreation-programs/programs/drop-programs'
+    },
+    'vaughan': {
+        kind: 'perfectmind',
+        // City of Vaughan — PerfectMind org 25076, calendar "Skating & Shinny
+        // Hockey". Drop-in skating and shinny are FREE ("No fee" → $0, so
+        // rows aren't hidden behind the Paid toggle); Ticket Ice figure
+        // skating is $10.50 and keeps its own price. ~85 sessions/week →
+        // 3-day windows stay under the ClassesV2 truncation.
+        base: 'https://vaughan.perfectmind.com/25076',
+        widgetId: 'dff88c8a-0b78-4a94-9dde-250040385300',
+        calendarId: '84142d20-1da8-48ed-800d-31dc0c30121d',
+        daysAhead: 28,
+        windowDays: 3,
+        paid: true,
+        venues: {
+            'Al Palladini Community Centre':       { address: '9201 Islington Ave',      district: 'Vaughan', postalCode: 'L4L 1A7', lat: 43.816528,  lng: -79.597205 },
+            'Rosemount Community Centre':          { address: '1000 New Westminster Dr', district: 'Vaughan', postalCode: 'L4J 8G3', lat: 43.817858,  lng: -79.453424 },
+            'Garnet A. Williams Community Centre': { address: '501 Clark Ave W',         district: 'Vaughan', postalCode: 'L4J 4E5', lat: 43.803966,  lng: -79.439973 },
+            'Woodbridge Pool & Memorial Arena':    { address: '5020 Highway 7',          district: 'Vaughan', postalCode: 'L4L 1T1', lat: 43.7802455, lng: -79.5916837 },
+            'Maple Community Centre':              { address: '10190 Keele St',          district: 'Vaughan', postalCode: 'L6A 1R7', lat: 43.859882,  lng: -79.514834 }
+        },
+        defaultDistrict: 'Vaughan',
+        registrationUrl: () => 'https://vaughan.perfectmind.com/25076/Clients/BookMe4BookingPages/Classes?calendarId=84142d20-1da8-48ed-800d-31dc0c30121d&widgetId=dff88c8a-0b78-4a94-9dde-250040385300&embed=False',
+        infoUrl: 'https://www.vaughan.ca/residential/recreation-programs-and-fitness/skating-hockey'
+    },
+    'richmondhill': {
+        kind: 'activenet',
+        // City of Richmond Hill — ActiveNet online calendar 12 "Skating &
+        // Shinny", which carries Ed Sackfield Arena only (the other arenas'
+        // drop-ins exist as weekly activity patterns, not calendar rows —
+        // not wired yet). The calendar period rolls ~3 weeks ahead.
+        base: 'https://anc.ca.apm.activecommunities.com/richmondhill/rest',
+        calendarId: 12,
+        categoryIds: [],
+        centerIds: [27],
+        daysAhead: 28,
+        paid: true,                     // tickets at the arena desk from 30 min before (not sold online)
+        programs: [
+            { match: /public skating/i,   activity: 'Public Skating',       defaultPrice: 5.90 },
+            { match: /40\+.*shinny/i,      activity: 'Shinny 40+',           defaultPrice: 8.70, ageMin: 40 },
+            { match: /shinny/i,           activity: 'Shinny',               defaultPrice: 8.70, ageMin: 18 },
+            { match: /stick (and|&) puck/i, activity: 'Stick & Puck',       defaultPrice: 8.70 },
+            { match: /figure skat/i,      activity: 'Figure Skating (drop-in)', defaultPrice: 8.70 },
+            { match: /ringette/i,         activity: 'Ringette (drop-in)',   defaultPrice: 8.70 }
+        ],
+        venues: {
+            'Ed Sackfield Arena and Fitness Centre': { address: '311 Valleymede Dr', district: 'Richmond Hill', postalCode: 'L4B 2E1', lat: 43.8571076, lng: -79.3989503 }
+        },
+        defaultDistrict: 'Richmond Hill',
+        registrationUrl: () => 'https://www.richmondhill.ca/en/things-to-do/Skating.aspx',
+        infoUrl: 'https://www.richmondhill.ca/en/things-to-do/Skating.aspx'
+    },
+    'brampton': {
+        kind: 'perfectmind',
+        // City of Brampton — PerfectMind org 23782, calendar "Drop-In → Skating".
+        // Busiest calendar around (up to 32 sessions/day): 1-day windows keep
+        // every request under the server's ~50-class truncation (see
+        // fetchPerfectMind). Feed carries venue coordinates; venues{} below
+        // is the rink-inventory list + override.
+        base: 'https://cityofbrampton.perfectmind.com/23782',
+        widgetId: '15f6af07-39c5-473e-b053-96653f77a406',
+        calendarId: '66a6c983-2ead-42a9-8445-d926fa974fbf',
+        daysAhead: 28,
+        windowDays: 1,
+        include: /public skate/i,                       // drop shinny / shoot-around / figure
+        cleanName: (n) => n.replace(/\s*\|.*$/, ''),   // "Public Skate Drop-In (All Ages) | Susan Fennell 12:00-12:50pm"
+        paid: true,                                     // adult $2.96 + tax; 65+ residents free
+        venues: {
+            'Cassie Campbell Community Centre':           { address: '1050 Sandalwood Pkwy W', district: 'Brampton', postalCode: 'L7A 0K9', lat: 43.696632, lng: -79.824842 },
+            'Century Gardens Recreation Centre':          { address: '340 Vodden St E',        district: 'Brampton', postalCode: 'L6V 2N2', lat: 43.708429, lng: -79.753575 },
+            'Earnscliffe Recreation Centre':              { address: '44 Eastbourne Dr',       district: 'Brampton', postalCode: 'L6T 2B2', lat: 43.723334, lng: -79.699493 },
+            'Greenbriar Recreation Centre':               { address: '1100 Central Park Dr',   district: 'Brampton', postalCode: 'L6S 2C9', lat: 43.735986, lng: -79.717288 },
+            'Jim Archdekin Recreation Centre':            { address: '292 Conestoga Dr',       district: 'Brampton', postalCode: 'L6Z 3M1', lat: 43.71733,  lng: -79.789659 },
+            "Susan Fennell Sportsplex (South Fletcher's)": { address: '500 Ray Lawson Blvd',   district: 'Brampton', postalCode: 'L6Y 5B3', lat: 43.652793, lng: -79.735956 },
+            'Terry Miller Recreation Centre':             { address: '1295 Williams Pkwy',     district: 'Brampton', postalCode: 'L6S 3J8', lat: 43.73265,  lng: -79.730347 }
+        },
+        defaultDistrict: 'Brampton',
+        registrationUrl: () => 'https://cityofbrampton.perfectmind.com/23782/Clients/BookMe4BookingPages/Classes?calendarId=66a6c983-2ead-42a9-8445-d926fa974fbf&widgetId=15f6af07-39c5-473e-b053-96653f77a406&embed=False',
+        infoUrl: 'https://www.brampton.ca/EN/residents/Recreation/Programs-Activities/Pages/Skating.aspx'
+    },
+    'oakville': {
+        kind: 'perfectmind',
+        // Town of Oakville — PerfectMind org 24974, calendar "Recreational
+        // Skating and Shinny Hockey" (shinny filtered out by `include`).
+        base: 'https://townofoakville.perfectmind.com/24974',
+        widgetId: 'e621581b-5db2-4635-a887-4f02b9585807',
+        calendarId: '332fd288-9a60-4b8f-9b7b-373c4e1bed5d',
+        daysAhead: 28,
+        windowDays: 7,
+        include: /recreation(al)?\s+skat/i,
+        paid: true,                                     // adult $5.38, child/youth/65+ $4.31 + tax
+        venues: {
+            'Glen Abbey Community Centre':     { address: '1415 Third Line',        district: 'Oakville', postalCode: 'L6M 3G2', lat: 43.435554, lng: -79.739041 },
+            "Joshua's Creek Arenas":           { address: '1663 North Service Rd E', district: 'Oakville', postalCode: 'L6H 7G5', lat: 43.491731, lng: -79.676112 },
+            'Kinoak Arena':                    { address: '363 Warminster Dr',      district: 'Oakville', postalCode: 'L6L 4N1', lat: 43.4198,   lng: -79.699932 },
+            'Maple Grove Arena':               { address: '2237 Devon Rd',          district: 'Oakville', postalCode: 'L6J 5M1', lat: 43.479078, lng: -79.643756 },
+            'River Oaks Community Centre':     { address: '2400 Sixth Line',        district: 'Oakville', postalCode: 'L6H 3N8', lat: 43.47104,  lng: -79.72358 },
+            'Sixteen Mile Sports Complex':     { address: '3070 Neyagawa Blvd',     district: 'Oakville', postalCode: 'L6M 4L6', lat: 43.465913, lng: -79.749331 },
+            'Trafalgar Park Community Centre': { address: '133 Rebecca St',         district: 'Oakville', postalCode: 'L6K 1J4', lat: 43.439878, lng: -79.677705 }
+        },
+        venueAliases: { 'Trafalgar Park Community Centre-133 Rebecca': 'Trafalgar Park Community Centre' },
+        defaultDistrict: 'Oakville',
+        registrationUrl: () => 'https://townofoakville.perfectmind.com/24974/Clients/BookMe4BookingPages/Classes?calendarId=332fd288-9a60-4b8f-9b7b-373c4e1bed5d&widgetId=e621581b-5db2-4635-a887-4f02b9585807&embed=False',
+        infoUrl: 'https://www.oakville.ca/parks-recreation-culture/programs-activities/skating/'
+    },
+    'burlington': {
+        kind: 'perfectmind',
+        // City of Burlington — PerfectMind org 22818; one shared calendar
+        // holds skating + sticks-and-pucks (filtered by `include`).
+        base: 'https://cityofburlington.perfectmind.com/22818',
+        widgetId: '8d8b4749-9c4e-4762-be93-fe54f1e1203b',
+        calendarId: '517e0420-1478-458e-8a6f-ad813e278ec0',
+        daysAhead: 28,
+        windowDays: 3,
+        include: /^(public skate|skate 19\+|sensory skate)/i,
+        paid: true,                                     // flat $3.50 (pass holders $0)
+        venues: {
+            'Aldershot Arena':                { address: '494 Townsend Ave',     district: 'Burlington', postalCode: 'L7T 2B3', lat: 43.316465, lng: -79.833132 },
+            'Appleby Ice Centre':             { address: '1201 Appleby Line',    district: 'Burlington', postalCode: 'L7S 1E4', lat: 43.38674,  lng: -79.775557 },
+            'Central Arena':                  { address: '519 Drury Lane',       district: 'Burlington', postalCode: 'L7R 2H2', lat: 43.335167, lng: -79.792986 },
+            'Mainway Ice Centre':             { address: '4015 Mainway',         district: 'Burlington', postalCode: 'L7P 3N9', lat: 43.372749, lng: -79.795877 },
+            'Mountainside Community Centre':  { address: '2205 Mount Forest Dr', district: 'Burlington', postalCode: 'L7P 1H4', lat: 43.352526, lng: -79.822977 },
+            'Nelson Arena':                   { address: '4235 New St',          district: 'Burlington', postalCode: 'L7L 5M9', lat: 43.360767, lng: -79.763181 },
+            'Skyway Community Centre':        { address: '129 Kenwood Ave',      district: 'Burlington', postalCode: 'L7M 1V8', lat: 43.368761, lng: -79.733246 }
+        },
+        defaultDistrict: 'Burlington',
+        registrationUrl: () => 'https://cityofburlington.perfectmind.com/22818/Clients/BookMe4BookingPages/Classes?calendarId=517e0420-1478-458e-8a6f-ad813e278ec0&widgetId=8d8b4749-9c4e-4762-be93-fe54f1e1203b&embed=False',
+        infoUrl: 'https://www.burlington.ca/en/recreation/skating.aspx'
+    },
+    'mississauga': {
+        kind: 'activenet',
+        // City of Mississauga — ActiveNet online calendar (calendar 1 = "Drop
+        // In Programs", category 52 = "Skating & Hockey"). One POST returns
+        // every dated session for the whole season across the listed arenas;
+        // the server ignores date bounds, so we window client-side. No CORS.
+        base: 'https://anc.ca.apm.activecommunities.com/activemississauga/rest',
+        calendarId: 1,
+        categoryIds: [52],
+        centerIds: [290, 248, 240, 250, 252, 253, 100, 82, 128, 106],
+        daysAhead: 28,
+        paid: true,
+        // Prices aren't in the API (only a free flag) → 2026 by-law rates + HST.
+        programs: [
+            { match: /^At Play-?\s*Fun Skate$/i,      activity: 'Fun Skate (Youth 10–17, free)', defaultPrice: 0,     ageMin: 10, ageMax: 17 },
+            { match: /^Fun Skate$/i,                   activity: 'Fun Skate',                      defaultPrice: 5.21,  ageMin: 3 },
+            { match: /Adult & Older Adult Skate/i,     activity: 'Adult & Older Adult Skate',      defaultPrice: 5.21,  ageMin: 18 },
+            { match: /Adult Skate Fit/i,               activity: 'Adult Skate Fit',                defaultPrice: 19.46, ageMin: 18 }
+        ],
+        venues: {
+            'Burnhamthorpe Community Centre':       { address: '1500 Gulleden Dr',             district: 'Mississauga', postalCode: 'L4X 2T7', lat: 43.6227, lng: -79.5988 },
+            'Carmen Corbasson Community Centre':    { address: '1399 Cawthra Rd',              district: 'Mississauga', postalCode: 'L5G 4L1', lat: 43.5782, lng: -79.5767 },
+            'Clarkson Community Centre':            { address: '2475 Truscott Dr',             district: 'Mississauga', postalCode: 'L5J 2B3', lat: 43.5116, lng: -79.6503 },
+            'Erin Mills Twin Arena':                { address: '3205 Unity Dr',                district: 'Mississauga', postalCode: 'L5L 4L5', lat: 43.5371, lng: -79.7116 },
+            'Huron Park Recreation Centre':         { address: '830 Paisley Blvd W',           district: 'Mississauga', postalCode: 'L5C 3P5', lat: 43.5591, lng: -79.6331 },
+            'Iceland Arena':                        { address: '705 Matheson Blvd E',          district: 'Mississauga', postalCode: 'L4Z 3X9', lat: 43.628,  lng: -79.6494 },
+            'Meadowvale 4 Rinks':                   { address: '2160 Torquay Mews',            district: 'Mississauga', postalCode: 'L5N 2M6', lat: 43.5952, lng: -79.7409 },
+            'Mississauga Valley Community Centre':  { address: '1275 Mississauga Valley Blvd', district: 'Mississauga', postalCode: 'L5A 3R8', lat: 43.597,  lng: -79.6239 },
+            'Paul Coffey Arena':                    { address: '6990 Goreway Dr',              district: 'Mississauga', postalCode: 'L4T 1A9', lat: 43.7125, lng: -79.6311 },
+            'Port Credit Memorial Arena':           { address: '40 Stavebank Rd',              district: 'Mississauga', postalCode: 'L5G 2T8', lat: 43.553,  lng: -79.589 }
+        },
+        defaultDistrict: 'Mississauga',
+        // No per-session online booking (tickets sold 30 min before) — the
+        // fetcher deep-links each event's own activity page instead.
+        registrationUrl: () => 'https://anc.ca.apm.activecommunities.com/activemississauga/activity/search?activity_select_param=2&activity_keyword=skate',
+        infoUrl: 'https://www.mississauga.ca/recreation-and-sports/sports-and-activities/skating-and-hockey/'
     },
     'mosspark': {
         kind: 'scrape',
@@ -289,6 +461,39 @@ function httpPostJSON(url, formBody, headers = {}) {
         });
         req.on('error', reject);
         req.setTimeout(45000, () => req.destroy(new Error(`Timeout for POST ${url.substring(0, 80)}`)));
+        req.write(body);
+        req.end();
+    });
+}
+
+/** POST a JSON body → JSON (ActiveNet REST). */
+function httpPostJSONBody(url, obj, headers = {}) {
+    return new Promise((resolve, reject) => {
+        const body = JSON.stringify(obj);
+        const req = https.request(url, {
+            method: 'POST',
+            headers: {
+                'User-Agent': 'toronto-skating-site-data-fetcher',
+                'Content-Type': 'application/json;charset=UTF-8',
+                'Accept': 'application/json',
+                'Content-Length': Buffer.byteLength(body),
+                ...headers
+            }
+        }, (res) => {
+            if (res.statusCode !== 200) {
+                res.resume();
+                return reject(new Error(`HTTP ${res.statusCode} for POST ${url.substring(0, 80)}`));
+            }
+            const chunks = [];
+            res.on('data', c => chunks.push(c));
+            res.on('end', () => {
+                try { resolve(JSON.parse(decodeBody(Buffer.concat(chunks)))); }
+                catch (e) { reject(new Error(`Failed to parse JSON: ${e.message}`)); }
+            });
+            res.on('error', reject);
+        });
+        req.on('error', reject);
+        req.setTimeout(60000, () => req.destroy(new Error(`Timeout for POST ${url.substring(0, 80)}`)));
         req.write(body);
         req.end();
     });
@@ -441,7 +646,8 @@ async function fetchRinkInventory() {
         // Multi-venue sources (PerfectMind calendars) emit ONE entry per
         // configured venue, keyed like the program records' ExtLocationKey.
         if (cfg.venues) {
-            Object.entries(cfg.venues).forEach(([name, v]) => {
+            const all = { ...(discoveredVenues[key] || {}), ...cfg.venues };
+            Object.entries(all).forEach(([name, v]) => {
                 const locId = venueKey(key, name);
                 byLocation[locId] = {
                     locationid: locId,
@@ -764,7 +970,7 @@ async function fetchLiveCheck(programs) {
  * ExtLocationKey — the client's locKey uses it so two Markham venues
  * don't collapse into one "location" in scopes/locator/map.
  */
-function externalRecord(cfg, sourceKey, { activity, date, startTime, endTime, price, externalId, venue, ageMin, ageMax }) {
+function externalRecord(cfg, sourceKey, { activity, date, startTime, endTime, price, externalId, venue, ageMin, ageMax, registrationUrl }) {
     const v = venue || {};
     return {
         _id: `${sourceKey}-${externalId || `${date}-${startTime}`}`,
@@ -795,9 +1001,12 @@ function externalRecord(cfg, sourceKey, { activity, date, startTime, endTime, pr
         // CORS-open, unlike toronto.ca's).
         ExternalId: externalId != null ? String(externalId) : null,
         ...(v.extKey ? { ExtLocationKey: v.extKey } : {}),
-        Paid: !!cfg.paid,
-        Price: cfg.paid ? (price ?? null) : 0,
-        RegistrationUrl: cfg.registrationUrl ? cfg.registrationUrl(date) : (cfg.infoUrl || ''),
+        // A venue can charge in general yet run free sessions (Mississauga's
+        // youth Fun Skate, Oakville's Senior Skate): an explicit $0 price
+        // means "free", so the row isn't hidden behind the Paid toggle.
+        Paid: !!cfg.paid && price !== 0,
+        Price: (cfg.paid && price !== 0) ? (price ?? null) : 0,
+        RegistrationUrl: registrationUrl || (cfg.registrationUrl ? cfg.registrationUrl(date) : (cfg.infoUrl || '')),
         InfoUrl: cfg.infoUrl || '',
         Unverified: !!cfg.unverified,
         Lat: v.lat ?? cfg.lat, Lng: v.lng ?? cfg.lng
@@ -864,33 +1073,85 @@ async function fetchDaySmart(sourceKey, cfg) {
 }
 
 /**
- * PerfectMind (Markham etc.): the official JSON the city's booking page
- * loads. One POST returns ~a month of drop-in classes across all venues
- * on the calendar. Not paginated here on purpose: the response already
- * spans our daysAhead window; if the feed ever shrinks below it, the
- * nextKey warning in the log says so.
+ * Venues learned from the PerfectMind feeds themselves (each class carries
+ * Address {Street, City, PostalCode, Latitude, Longitude}). Filled by
+ * fetchPerfectMind, read by fetchRinkInventory so unlisted venues still get
+ * a pin and locator distance; cfg.venues stays the override.
+ */
+const discoveredVenues = {};   // sourceKey → { venueName → {address, postalCode, district, lat, lng} }
+
+/**
+ * PerfectMind (Markham, Brampton, Oakville, Burlington…): the official
+ * JSON the city's booking page loads.
+ *
+ * ClassesV2 quirks (verified 2026-09-14 against four towns): `page=N` is
+ * a 14-day window starting today+14N, every date parameter is ignored,
+ * and a window is silently TRUNCATED after the first whole days that
+ * reach ~50 classes — the next page then jumps 14 days ahead, so busy
+ * calendars lose whole days (Brampton lost 20 of 28). The widget's Date
+ * Range filter (values[0][valueKind]=6) returns complete windows, so we
+ * walk the horizon in `windowDays` slices and, if a slice still comes
+ * back suspiciously full, re-fetch it day by day.
  */
 async function fetchPerfectMind(sourceKey, cfg) {
     const today = torontoDateStr();
     const end = addDays(today, cfg.daysAhead);
-    const json = await httpPostJSON(`${cfg.base}/Clients/BookMe4BookingPagesV2/ClassesV2`, {
-        calendarId: cfg.calendarId,
-        widgetId: cfg.widgetId,
-        page: 0
-    });
-    const classes = json.classes || [];
-    if (json.nextKey && String(json.nextKey) < end) {
-        console.warn(`   ⚠️ ${sourceKey}: feed ends ${json.nextKey}, window wants ${end} — later sessions missing this run`);
+    const url = `${cfg.base}/Clients/BookMe4BookingPagesV2/ClassesV2`;
+    const TRUNCATION_HINT = 48;   // the server cuts windows at ~50 classes
+    const windowDays = Math.max(1, cfg.windowDays || 7);
+
+    const fetchWindow = async (from, to) => {
+        const json = await httpPostJSON(url, {
+            calendarId: cfg.calendarId,
+            widgetId: cfg.widgetId,
+            page: 0,
+            'values[0][value]': from,
+            'values[0][value2]': to,
+            'values[0][valueKind]': 6
+        });
+        return json.classes || [];
+    };
+
+    const classes = [];
+    const seen = new Set();
+    let requests = 0;
+    for (let from = today; from <= end; from = addDays(from, windowDays)) {
+        let to = addDays(from, windowDays - 1);
+        if (to > end) to = end;
+        let batch = await fetchWindow(from, to);
+        requests++;
+        if (batch.length >= TRUNCATION_HINT && windowDays > 1) {
+            // possibly clipped — walk the slice one day at a time instead
+            batch = [];
+            for (let d = from; d <= to; d = addDays(d, 1)) {
+                await sleep(LIVE_REQUEST_GAP_MS);
+                batch.push(...await fetchWindow(d, d));
+                requests++;
+            }
+        }
+        batch.forEach(c => {
+            const k = `${c.EventId || c.CourseIdTrimmed || 'x'}|${c.OccurrenceDate || ''}`;
+            if (seen.has(k)) return;
+            seen.add(k);
+            classes.push(c);
+        });
+        await sleep(LIVE_REQUEST_GAP_MS);
     }
 
     const timeRe = /(\d{1,2}):(\d{2})\s*(am|pm)\s*-\s*(\d{1,2}):(\d{2})\s*(am|pm)/i;
     const unknownVenues = new Set();
+    const learned = (discoveredVenues[sourceKey] ||= {});
     const records = [];
+    let skipped = 0;
     classes.forEach(c => {
         const od = String(c.OccurrenceDate || '');
         if (!/^\d{8}$/.test(od)) return;
         const date = `${od.slice(0, 4)}-${od.slice(4, 6)}-${od.slice(6, 8)}`;
         if (date < today || date > end) return;
+
+        let name = String(c.EventName || 'Drop-In Skate').trim();
+        if (cfg.cleanName) name = cfg.cleanName(name).trim();
+        if (cfg.include && !cfg.include.test(name)) { skipped++; return; }
 
         const t = timeRe.exec(c.EventTimeDescription || '');
         if (!t) return;
@@ -898,16 +1159,33 @@ async function fetchPerfectMind(sourceKey, cfg) {
         const endTime = to24h(t[4], t[5], t[6], false);
         if (!startTime || !endTime) return;
 
-        // "$0.00 - $5.02" → 5.02 (max = standard adult rate; 0 = free tiers)
-        const prices = [...String(c.PriceRange || '').matchAll(/\$([\d.]+)/g)].map(m => parseFloat(m[1]));
-        const price = prices.length ? Math.max(...prices) : null;
+        // "$0.00 - $5.02" → 5.02 (max = standard adult rate; 0 = free tiers);
+        // "No fee" (Vaughan) → 0; cfg.priceRules override where the max is a
+        // family tier (Markham skates).
+        const rangeStr = String(c.PriceRange || '');
+        const prices = [...rangeStr.matchAll(/\$([\d.]+)/g)].map(m => parseFloat(m[1]));
+        let price = prices.length ? Math.max(...prices) : (/no fee|free/i.test(rangeStr) ? 0 : null);
+        const priceRule = (cfg.priceRules || []).find(r => r.match.test(name));
+        if (priceRule && price !== 0) price = priceRule.price;
 
-        const venueName = c.Location || cfg.locationName || 'Markham venue';
-        const known = (cfg.venues || {})[venueName];
-        if (!known) unknownVenues.add(venueName);
+        const rawVenue = String(c.Location || cfg.locationName || `${sourceKey} venue`).trim();
+        const venueName = (cfg.venueAliases || {})[rawVenue] || rawVenue;
+        let known = (cfg.venues || {})[venueName];
+        if (!known) {
+            // take coordinates from the feed's Address block when present
+            const a = c.Address || {};
+            if (typeof a.Latitude === 'number' && typeof a.Longitude === 'number' && a.Latitude) {
+                known = learned[venueName] ||= {
+                    address: String(a.Street || '').trim(), postalCode: String(a.PostalCode || '').trim(),
+                    district: String(a.City || cfg.defaultDistrict || '').trim(), lat: a.Latitude, lng: a.Longitude
+                };
+            } else {
+                unknownVenues.add(venueName);
+            }
+        }
 
         records.push(externalRecord(cfg, sourceKey, {
-            activity: String(c.EventName || 'Drop-In Skate').trim(),
+            activity: name,
             date, startTime, endTime, price,
             externalId: `${c.EventId || c.CourseIdTrimmed || 'x'}-${od}`,
             ageMin: c.NoAgeRestriction ? null : (Number.isFinite(c.MinAge) && c.MinAge > 0 ? c.MinAge : null),
@@ -916,9 +1194,71 @@ async function fetchPerfectMind(sourceKey, cfg) {
         }));
     });
     if (unknownVenues.size) {
-        console.warn(`   📍 ${sourceKey}: venues without coords in config (add to venues{}): ${[...unknownVenues].join(', ')}`);
+        console.warn(`   📍 ${sourceKey}: venues without coords (feed had none either — add to venues{}): ${[...unknownVenues].join(', ')}`);
     }
-    console.log(`   ✅ ${sourceKey}: ${records.length} sessions (${today} → ${end})`);
+    if (Object.keys(learned).length) {
+        console.log(`   📍 ${sourceKey}: coordinates learned from the feed for ${Object.keys(learned).join(', ')}`);
+    }
+    console.log(`   ✅ ${sourceKey}: ${records.length} sessions (${today} → ${end}; ${classes.length} classes, ${skipped} filtered, ${requests} requests)`);
+    return records;
+}
+
+/**
+ * ActiveNet (Mississauga): the online-calendar "multicenter events" feed
+ * the city's drop-in calendar page loads. Category-filtered server-side,
+ * date-windowed here (the API ignores its own date bounds and returns the
+ * whole season, ~2 MB). Titles map to `programs` rules that also carry the
+ * by-law price and age band, since the API exposes neither.
+ */
+async function fetchActiveNet(sourceKey, cfg) {
+    const today = torontoDateStr();
+    const end = addDays(today, cfg.daysAhead);
+    const json = await httpPostJSONBody(`${cfg.base}/onlinecalendar/multicenter/events?locale=en-US`, {
+        calendar_id: cfg.calendarId,
+        center_ids: cfg.centerIds,
+        display_all: 0,
+        search_start_time: today,
+        search_end_time: end,
+        facility_ids: [],
+        activity_category_ids: cfg.categoryIds || [],
+        activity_sub_category_ids: [], activity_ids: [],
+        activity_min_age: null, activity_max_age: null, event_type_ids: []
+    });
+    const centers = json.body?.center_events || [];
+    const records = [];
+    const seen = new Set();
+    let total = 0, skipped = 0;
+    const unknownVenues = new Set();
+    centers.forEach(ce => {
+        (ce.events || []).forEach(ev => {
+            total++;
+            const rule = (cfg.programs || []).find(r => r.match.test(String(ev.title || '').trim()));
+            if (!rule) { skipped++; return; }
+            const start = String(ev.start_time || ''), endT = String(ev.end_time || '');
+            const date = start.slice(0, 10);
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < today || date > end) return;
+            const startTime = start.slice(11, 16), endTime = endT.slice(11, 16);
+            if (!/^\d{2}:\d{2}$/.test(startTime)) return;
+            const externalId = `${ev.event_item_id || 'x'}-${date}-${startTime.replace(':', '')}`;
+            if (seen.has(externalId)) return;
+            seen.add(externalId);
+            const venueName = String(ev.center_name || ce.center_name || cfg.locationName || 'Mississauga arena').trim();
+            const known = (cfg.venues || {})[venueName];
+            if (!known) unknownVenues.add(venueName);
+            const free = !!(ev.price && ev.price.free);
+            records.push(externalRecord(cfg, sourceKey, {
+                activity: rule.activity || ev.title.trim(),
+                date, startTime, endTime,
+                price: free ? 0 : (rule.defaultPrice ?? null),
+                externalId,
+                ageMin: rule.ageMin ?? null, ageMax: rule.ageMax ?? null,
+                registrationUrl: /^https?:\/\//.test(ev.activity_detail_url || '') ? ev.activity_detail_url : null,
+                venue: { name: venueName, ...(known || {}), extKey: venueKey(sourceKey, venueName) }
+            }));
+        });
+    });
+    if (unknownVenues.size) console.warn(`   📍 ${sourceKey}: venues without coords in config (add to venues{}): ${[...unknownVenues].join(', ')}`);
+    console.log(`   ✅ ${sourceKey}: ${records.length} sessions (${today} → ${end}; ${total} season events, ${skipped} non-skate)`);
     return records;
 }
 
@@ -1101,7 +1441,7 @@ async function fetchExternalSources() {
     for (const [key, cfg] of Object.entries(EXTERNAL_SOURCES)) {
         console.log(`\n🌐 External source: ${key}`);
         try {
-            const fetcher = { daysmart: fetchDaySmart, perfectmind: fetchPerfectMind, scrape: fetchScraped }[cfg.kind];
+            const fetcher = { daysmart: fetchDaySmart, perfectmind: fetchPerfectMind, activenet: fetchActiveNet, scrape: fetchScraped }[cfg.kind];
             if (!fetcher) throw new Error(`unknown source kind '${cfg.kind}'`);
             bySource[key] = { ok: true, records: await fetcher(key, cfg) };
         } catch (e) {
