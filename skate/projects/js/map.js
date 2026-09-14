@@ -94,8 +94,8 @@ window.SkateMap = (() => {
         document.querySelectorAll('#map-filter-seg button').forEach(b =>
             b.classList.toggle('active', b.dataset.mapfilter === f));
         const n = renderPins();
-        const title = document.getElementById('map-title');
-        if (title) title.textContent = `🗺️ Rink map${f === 'all' ? '' : ` — ${f}`}${n != null ? ` (${n})` : ''}`;
+        const title = document.getElementById('rinks-title');
+        if (title) title.textContent = `🗺️ Rinks${f === 'all' ? '' : ` — ${f}`}${n != null ? ` (${n})` : ''}`;
     }
 
     /**
@@ -103,11 +103,11 @@ window.SkateMap = (() => {
      * Returns after the map is live (or throws if Leaflet can't load).
      */
     async function open(opts = {}) {
-        document.getElementById('map-modal').classList.remove('hidden');
+        document.getElementById('rinks-modal').classList.remove('hidden');
         try {
             await ensureLeaflet();
         } catch (e) {
-            document.getElementById('map-modal').classList.add('hidden');
+            document.getElementById('rinks-modal').classList.add('hidden');
             throw e;
         }
         initMap();
@@ -120,13 +120,13 @@ window.SkateMap = (() => {
     }
 
     function close() {
-        document.getElementById('map-modal').classList.add('hidden');
+        document.getElementById('rinks-modal').classList.add('hidden');
     }
 
     /** Re-render pins in place (e.g. after starring a rink from a popup). */
     function refresh() { if (map) renderPins(); }
 
-    return { configure, open, close, setFilter, refresh, get isOpen() { return !document.getElementById('map-modal').classList.contains('hidden'); } };
+    return { configure, open, close, setFilter, refresh, get isOpen() { return !document.getElementById('rinks-modal').classList.contains('hidden'); } };
 })();
 
 if (typeof module !== 'undefined') module.exports = window.SkateMap;

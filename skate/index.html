@@ -16,7 +16,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=10">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=3">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=13">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=14">
 </head>
 <body>
     <div class="app" id="app">
@@ -24,78 +24,48 @@
         <div class="top-bar">
             <h1>Toronto Skating</h1>
             <div class="top-bar-actions">
-                <button class="version-chip" id="btn-version" title="What's new in this version" aria-label="What's new"><span id="version-label">v?</span><span class="new-dot hidden" id="version-dot"></span></button>
-                <!-- dark mode now lives in Settings → Appearance (Auto/Light/Dark) -->
-                <button class="btn-icon" id="btn-settings" title="Settings" aria-label="Settings">⚙️</button>
-                <button id="user-name" class="user-name" title="Your chat name — tap to change"></button>
+                <button class="btn-icon btn-settings" id="btn-settings" title="Settings" aria-label="Settings">⚙️<span class="new-dot hidden" id="settings-dot"></span></button>
             </div>
         </div>
 
-        <!-- Tabs: generated from SkateConfig.views -->
+        <!-- Tabs: generated from SkateConfig.views; hidden entirely when only the schedule is on -->
         <div class="view-tabs" id="view-tabs"></div>
 
         <div class="main-content">
-            <!-- Programs Panel -->
+            <!-- Programs Panel — v3.2 calm layout: search, three text buttons,
+                 active-filter pills, one status line, then the list grouped
+                 by day. Every filter control lives in the Filters sheet. -->
             <div class="view-panel panel-programs active" id="programs-panel">
                 <!-- pull-to-refresh indicator (touch only; grows as you pull) -->
                 <div class="ptr" id="ptr" aria-hidden="true"><span class="ptr-icon">↓</span><span class="ptr-text">Pull to refresh</span></div>
                 <div class="panel-title">⛸️ Schedule</div>
                 <div class="search-box">
-                    <input type="text" id="search-input" placeholder="Search activities, locations, addresses…">
-                    <button id="btn-search" aria-label="Search">🔍</button>
+                    <input type="text" id="search-input" placeholder="Search rinks, cities, sessions…" autocomplete="off" aria-label="Search">
+                    <button id="btn-search-clear" class="search-clear hidden" aria-label="Clear search">✕</button>
                 </div>
 
-                <!-- Rink scope: generated from SkateConfig.rinkScopes (🌍 all / ⭐ mine) -->
-                <div class="scope-row" id="scope-row"></div>
-
-                <!-- Type chips: generated from SkateConfig.programTypes -->
-                <div class="filter-row" id="type-filters"></div>
-
-                <div class="filter-selects">
-                    <select id="day-filter">
-                        <option value="">Any Day</option>
-                        <!-- day options generated from SkateConfig.days -->
-                    </select>
-                    <select id="age-preset" title="Who's skating? Filters to sessions open to that age group"><!-- options generated from SkateConfig.agePresets --></select>
-                    <input type="number" id="age-filter" placeholder="Age" min="0" max="120" style="max-width:80px" class="hidden" title="Exact age to filter by">
-                    <select id="sort-filter" title="Ordering"><!-- options generated from SkateConfig.sortOptions --></select>
-                    <button id="btn-near" class="btn-near" title="Find the rinks closest to you">📍 Near me</button>
-                    <button id="btn-map" class="btn-near btn-map" title="Interactive rink map — every rink as a pin, distances from your chosen spot">🗺️ Map</button>
+                <div class="toolbar" id="toolbar">
+                    <button id="btn-filters" class="tb-btn" title="Type, age, day, city, saved, paid, order">Filters<span class="tb-count hidden" id="filters-count"></span></button>
+                    <button id="btn-rinks" class="tb-btn" title="Map of every rink, distances from your spot, your rinks">Rinks &amp; map</button>
+                    <button id="btn-week" class="tb-btn" title="Week-at-a-glance calendar">Week</button>
                 </div>
 
-                <div class="stats-row" id="stats-row">
-                    <div class="stats-info">
-                        <span id="stats-text">Loading...</span>
-                        <span id="data-updated" class="data-updated"></span>
-                        <!-- current conditions (Open-Meteo) — tap to pick a spot; dress for it -->
-                        <button id="weather-chip" class="weather-chip hidden" aria-label="Current weather — tap to choose the spot"></button>
-                    </div>
-                    <label class="toggle-past toggle-paid hidden" id="paid-toggle-wrap" title="Show paid venues (price shown on each session)">
-                        <input type="checkbox" id="show-paid-toggle">
-                        <span>Paid</span>
-                    </label>
-                    <label class="toggle-past" title="Include sessions that already ended">
-                        <input type="checkbox" id="show-past-toggle">
-                        <span>Show past</span>
-                    </label>
-                    <div class="seg-control view-mode-seg" id="view-mode-seg" title="How the schedule is displayed">
-                        <button data-mode="list" class="active" title="One session per row">List</button>
-                        <button data-mode="week" title="Week-at-a-glance calendar">Calendar</button>
-                    </div>
-                    <button class="btn-refresh" id="btn-refresh" title="Re-download the schedule and alerts">Refresh</button>
+                <!-- active filters as removable pills (generated) -->
+                <div class="pills" id="active-filters"></div>
+
+                <!-- one quiet line: count + data freshness (tap for details) + weather (tap to pick a spot) -->
+                <div class="status-line">
+                    <button class="status-btn" id="status-data" title="Data freshness — tap for details and refresh">Loading…</button>
+                    <button class="status-btn weather-chip hidden" id="weather-chip" aria-label="Current weather — tap to choose the spot"></button>
                 </div>
 
                 <!-- Next saved session countdown (only when something is saved & upcoming) -->
                 <button class="saved-next hidden" id="saved-next" title="Jump to this session"></button>
 
-                <!-- Outdoor season banner (appears Nov–Apr when the city's
-                     outdoor rinks aren't season-closed; opens the map) -->
-                <button class="winter-banner hidden" id="winter-banner" title="See outdoor rinks on the map"></button>
-
                 <!-- Data-health warnings (stale schedule / failed source feeds) -->
                 <div id="data-warnings"></div>
 
-                <!-- Week calendar (list ↔ calendar toggled by 📅) -->
+                <!-- Week calendar (list ↔ week toggled by the Week button) -->
                 <div id="calendar-wrap" class="hidden">
                     <div class="cal-nav">
                         <button class="btn-icon" id="btn-cal-prev" title="Previous week" aria-label="Previous week">‹</button>
@@ -108,9 +78,8 @@
                     <p class="cal-legend" id="cal-legend"></p>
                 </div>
 
-                <div class="pagination pagination-top" id="pagination-top"></div>
                 <ul class="program-list" id="program-list"><li class="loading">Loading...</li></ul>
-                <div class="pagination" id="pagination"></div>
+                <div class="show-more" id="show-more"></div>
             </div>
 
             <!-- Guides Panel -->
@@ -211,85 +180,32 @@
         </div>
     </div>
 
-    <!-- Onboarding modal — no longer shown at startup; appears the first
-         time someone uses chat or writes a guide (or from ⚙️ settings). -->
-    <div class="modal-overlay hidden" id="onboarding-modal">
-        <div class="modal onboarding">
-            <div class="onboard-ice">⛸️</div>
-            <h2>Welcome to Toronto Skating</h2>
-            <p>Quick question so we can set things up for you:</p>
-            <!-- Choice buttons: generated from SkateConfig.experiences -->
-            <div id="onboarding-choices"></div>
-            <button class="onboard-skip" id="onboard-skip">Skip for now</button>
-            <p class="onboard-note">You can change this anytime in ⚙️ settings.</p>
-        </div>
-    </div>
-
     <!-- First-visit setup (one-time; everything editable later in ⚙️ Settings) -->
     <div class="modal-overlay hidden" id="setup-modal">
         <div class="modal onboarding">
             <div class="onboard-ice">⛸️</div>
-            <h2>Welcome — set up your view</h2>
-            <p>The schedule is always on. Pick what else you'd like:</p>
+            <h2>Welcome</h2>
+            <p>Public skating across Toronto and the GTA. Two optional extras:</p>
             <div class="setup-section">
-                <h4>Community — off unless you want it</h4>
                 <label class="setup-toggle">
                     <input type="checkbox" id="setup-guides">
-                    <span><strong>📖 Guides</strong> — community rink write-ups &amp; tips</span>
+                    <span><strong>📖 Guides</strong> — rink write-ups &amp; tips from skaters</span>
                 </label>
                 <label class="setup-toggle">
                     <input type="checkbox" id="setup-chats">
-                    <span><strong>💬 Chats</strong> — public rooms, private groups &amp; DMs</span>
+                    <span><strong>💬 Chats</strong> — public rooms, private groups, DMs</span>
                 </label>
-                <p class="settings-hint">Community runs on the open Nostr network — nothing loads unless you turn these on.</p>
+                <p class="settings-hint">Both run on the open Nostr network and connect only if you turn them on.</p>
             </div>
             <div class="setup-section">
-                <h4>Your rinks</h4>
                 <div class="setup-rinks">
-                    <button id="setup-nearest">📡 Find nearest</button>
+                    <button id="setup-nearest">📍 Rinks near me</button>
                     <button id="setup-pick">⭐ Pick my rinks</button>
                 </div>
-                <p class="settings-hint" id="setup-rink-status">Or do nothing — you'll see every rink city-wide.</p>
+                <p class="settings-hint" id="setup-rink-status">Or skip — every rink shows.</p>
             </div>
-            <button class="btn-primary setup-done" id="setup-done">Done — take me to the ice ⛸️</button>
-            <p class="onboard-note">Everything here can be changed anytime in ⚙️ Settings.</p>
-        </div>
-    </div>
-
-    <!-- Closest-rink locator -->
-    <div class="modal-overlay hidden" id="locator-modal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>📍 Rinks near you</h3>
-                <button class="btn-icon" id="btn-locator-close" aria-label="Close">✕</button>
-            </div>
-            <button class="btn-primary btn-locate" id="btn-share-location">📡 Use my location</button>
-            <button class="btn-locate btn-open-map" id="btn-open-map">🗺️ Browse the rink map</button>
-            <p class="settings-hint locator-or">— or —</p>
-            <div class="settings-inline">
-                <input type="text" id="locator-input" placeholder="Address or postal code (e.g. M5A 3S5)" autocomplete="off">
-                <button class="btn-primary" id="btn-locator-search">Search</button>
-            </div>
-            <p class="settings-hint" id="locator-status"></p>
-            <div id="locator-results" class="locator-results"></div>
-            <p class="settings-hint">Address search by OpenStreetMap Nominatim. Your location is only stored in this browser.</p>
-        </div>
-    </div>
-
-    <!-- My rinks picker (personalization) -->
-    <div class="modal-overlay hidden" id="myrinks-modal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>⭐ My rinks</h3>
-                <button class="btn-icon" id="btn-myrinks-close" aria-label="Close">✕</button>
-            </div>
-            <p class="settings-hint">Pick your usual spots — the ⭐ My rinks scope shows only these, everywhere (list, calendar, search). <strong id="myrinks-count"></strong></p>
-            <input type="text" id="myrinks-search" placeholder="Filter locations…" autocomplete="off">
-            <ul id="myrinks-list" class="myrinks-list"></ul>
-            <div class="settings-inline myrinks-actions">
-                <button class="btn-primary" id="btn-myrinks-done">Done</button>
-                <button id="btn-myrinks-clear">Clear all</button>
-            </div>
+            <button class="btn-primary setup-done" id="setup-done">Take me to the ice ⛸️</button>
+            <p class="onboard-note">Change any of this later in ⚙️ Settings.</p>
         </div>
     </div>
 
@@ -313,12 +229,10 @@
             </div>
             <label class="settings-field">
                 <span>Time format</span>
-                <!-- Segments generated from SkateConfig.timeFormats -->
                 <div class="seg-control" id="settings-timefmt"></div>
             </label>
             <label class="settings-field">
                 <span>Appearance</span>
-                <!-- Segments generated from SkateConfig.themes; Auto follows the device -->
                 <div class="seg-control" id="settings-theme"></div>
             </label>
             <div class="settings-field">
@@ -327,58 +241,39 @@
                     <button class="btn-primary" id="btn-show-qr">Show QR code</button>
                     <button id="btn-copy-site">Copy link</button>
                 </div>
-                <p class="settings-hint">Point a phone camera at the QR, or paste the link anywhere.</p>
             </div>
             <div class="settings-field">
-                <span>Tour &amp; guide</span>
+                <span>Learn the app</span>
                 <div class="settings-inline tour-buttons">
-                    <button class="btn-primary" id="btn-play-guide">▶️ Watch the 60-second guide</button>
+                    <button class="btn-primary" id="btn-play-guide">▶️ Watch the guide</button>
                     <button id="btn-start-tour">Quick tour</button>
+                    <button id="btn-whatsnew">What's new</button>
                 </div>
-                <p class="settings-hint">Both spotlight the real controls on screen. Skip is always the first button (or press Esc).</p>
             </div>
 
-            <!-- Community features ride the open Nostr network — boxed apart
-                 so app prefs (above) and network-y bits (below) read distinct -->
+            <!-- Community features ride the open Nostr network — boxed apart -->
             <div class="nostr-box">
                 <div class="nostr-box-head"><span class="nostr-bolt">⚡</span> Community · powered by Nostr</div>
                 <div class="settings-field">
-                    <span>Sections — Guides &amp; Chats are opt-in</span>
-                    <!-- Toggle buttons generated from SkateConfig.sectionToggles -->
+                    <span>Sections</span>
                     <div class="seg-control seg-multi" id="settings-sections"></div>
-                    <p class="settings-hint">The ⛸️ schedule is always on. Turning a section off closes its network connections; nothing is deleted.</p>
+                    <p class="settings-hint">The schedule is always on. Off = no network connections for that section.</p>
                 </div>
                 <div class="settings-field">
                     <span>Privacy</span>
-                    <!-- Toggle buttons generated from SkateConfig.privacyToggles -->
                     <div class="seg-control seg-multi" id="settings-privacy"></div>
-                    <p class="settings-hint">Invisible: you never appear in member lists or "here now" counts, and your messages don't count as presence (you still read and send fine). DMs off: new private messages are ignored on this device — senders aren't notified. Cloud filter: see Moderation below.</p>
+                    <p class="settings-hint">Invisible: never listed as online. Allow DMs: accept private messages on this device. Cloud filter: public rooms and guides go through a third-party profanity check before sending; off = the on-device word list only (it always runs). DMs and private groups never leave your device either way.</p>
                 </div>
                 <label class="settings-field">
-                    <span>Display name</span>
+                    <span>Chat name</span>
                     <div class="settings-inline">
                         <input type="text" id="settings-name" maxlength="24" placeholder="Your chat name">
                         <button class="btn-primary" id="btn-save-name">Save</button>
                     </div>
                 </label>
-                <label class="settings-field">
-                    <span>Experience</span>
-                    <!-- Segments generated from SkateConfig.experiences -->
-                    <div class="seg-control" id="settings-exp"></div>
-                </label>
-                <div class="settings-field">
-                    <span>Desktop notifications</span>
-                    <button class="btn-primary" id="btn-enable-notif">Enable notifications</button>
-                    <p class="settings-hint" id="notif-hint"></p>
-                </div>
-                <div class="settings-field">
-                    <span>Muted users</span>
-                    <ul id="muted-list" class="muted-list"><li class="muted-empty">No one muted. Tap a name in any chat to mute someone.</li></ul>
-                </div>
-                <p class="settings-hint"><strong>Moderation:</strong> with 🛡️ Cloud filter ON, messages to PUBLIC rooms and guide posts are sent to third-party profanity services (profanity.dev, PurgoMalum) before publishing. Switch it OFF and only the mandatory on-device word list runs (it always does, either way). Private groups and DMs are NEVER sent to any third party — they're checked on-device only, so that text never leaves your browser.</p>
-                <p class="settings-hint">Your identity is a keypair that lives only in this browser — no account, no email. Clearing site data resets it.</p>
+                <p class="settings-hint">Your identity is a keypair in this browser — no account, no email. Clearing site data resets it. Muted people are unmuted from their name in any chat.</p>
             </div>
-            <p class="settings-hint">Schedule &amp; alert data: contains information licensed under the <a href="https://open.toronto.ca/open-data-licence/" target="_blank" rel="noopener">Open Government Licence – Toronto</a>, plus official Markham &amp; venue feeds. Weather by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0). Map © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors.</p>
+            <p class="settings-hint">Schedule &amp; alerts: <a href="https://open.toronto.ca/open-data-licence/" target="_blank" rel="noopener">Open Government Licence – Toronto</a> plus official Markham, Vaughan, Richmond Hill, Mississauga, Brampton, Oakville, Burlington and Canlan feeds. Weather by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0). Map © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors.</p>
         </div>
     </div>
 
@@ -395,22 +290,49 @@
         </div>
     </div>
 
-    <!-- Interactive rink map -->
-    <div class="modal-overlay hidden" id="map-modal">
-        <div class="modal map-modal-box">
+    <!-- Filters sheet (bottom sheet on phones) — body generated by Render.filters -->
+    <div class="modal-overlay hidden sheet-overlay" id="filters-modal">
+        <div class="modal sheet">
             <div class="modal-header">
-                <h3 id="map-title">🗺️ Rink map</h3>
+                <h3>Filters</h3>
+                <button class="btn-icon" id="btn-filters-close" aria-label="Close">✕</button>
+            </div>
+            <div id="filters-body"></div>
+            <div class="sheet-footer">
+                <button id="btn-filters-reset">Reset</button>
+                <button class="btn-primary" id="btn-filters-apply">Show sessions</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rinks & map: one view for the map, "near me", and your rinks -->
+    <div class="modal-overlay hidden" id="rinks-modal">
+        <div class="modal rinks-box">
+            <div class="modal-header">
+                <h3 id="rinks-title">🗺️ Rinks</h3>
                 <div class="map-header-actions">
                     <div class="seg-control map-filter-seg" id="map-filter-seg">
                         <button data-mapfilter="all" class="active">All</button>
                         <button data-mapfilter="indoor">Indoor</button>
                         <button data-mapfilter="outdoor">Outdoor</button>
                     </div>
-                    <button class="btn-icon" id="btn-map-close" aria-label="Close map">✕</button>
+                    <button class="btn-icon" id="btn-rinks-close" aria-label="Close">✕</button>
                 </div>
             </div>
-            <div id="map-canvas" class="map-canvas"><div class="loading">Loading map…</div></div>
-            <p class="settings-hint map-hint">Tap a pin for sessions, distance and actions. Blue dot = your saved 📍 location.</p>
+            <div class="rinks-locate">
+                <button class="btn-primary" id="btn-share-location" title="Distances from where you are right now">📍 Use my location</button>
+                <input type="text" id="locator-input" placeholder="Address or postal code" autocomplete="off" aria-label="Address or postal code">
+                <button id="btn-locator-search">Go</button>
+            </div>
+            <p class="settings-hint locator-status" id="locator-status"></p>
+            <div class="rinks-split">
+                <div id="map-canvas" class="map-canvas"><div class="loading">Loading map…</div></div>
+                <div class="rinks-list-wrap">
+                    <input type="text" id="rinks-search" placeholder="Find a rink…" autocomplete="off" aria-label="Find a rink">
+                    <div id="rinks-list" class="rinks-list"></div>
+                </div>
+            </div>
+            <p class="settings-hint rinks-hint">★ marks your rinks (the ⭐ My rinks pill filters to them). Address search by OpenStreetMap; your location stays in this browser.</p>
         </div>
     </div>
 
@@ -484,7 +406,7 @@
     <script src="../assets/js/nostr.bundle.js"></script>
     <!-- profanity-list.js is injected lazily by app.js bootCommunity() —
          schedule-only visits (community sections hidden) never download it -->
-    <script src="projects/js/config.js?v=14"></script>
+    <script src="projects/js/config.js?v=15"></script>
     <script src="projects/js/settings.js?v=7"></script>
     <script src="projects/js/moderation.js?v=4"></script>
     <script src="projects/js/nostr-core.js?v=2"></script>
@@ -495,13 +417,13 @@
     <script src="projects/js/live.js?v=2"></script>
     <script src="projects/js/weather.js?v=2"></script>
     <script src="projects/js/alerts.js?v=3"></script>
-    <script src="projects/js/chat-v2.js?v=6"></script>
+    <script src="projects/js/chat-v2.js?v=7"></script>
     <script src="projects/js/guides.js?v=4"></script>
     <script src="projects/js/ui.js?v=1"></script>
     <script src="projects/js/calendar.js?v=4"></script>
-    <script src="projects/js/map.js?v=1"></script>
-    <script src="projects/js/tour.js?v=2"></script>
-    <script src="projects/js/app.js?v=16"></script>
+    <script src="projects/js/map.js?v=2"></script>
+    <script src="projects/js/tour.js?v=3"></script>
+    <script src="projects/js/app.js?v=17"></script>
     <script src="projects/js/refresh.js?v=4"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)

@@ -24,8 +24,18 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.1',
+    version: '3.2',
     changelog: [
+        {
+            v: '3.2', date: '2026-09-14', items: [
+                '🧘 A calmer schedule: one search box, three buttons (Filters · Rinks & map · Week), your active filters as removable pills, and one quiet status line — instead of eight rows of controls',
+                '🎛️ Filters that remember: pick Leisure → adult / older adult / child & family / youth, same for Hockey, Figure and the rest; choose cities (Toronto, Markham, Vaughan, Mississauga…), a day, your rinks, paid venues, and the order — all saved on this device',
+                '🗺️ Rinks & map is one view now: use your current location or type an address, see the nearest rinks listed beside the map with distances and session counts, star the ones that are yours',
+                '📅 Sessions are grouped under day headers (Today, Tomorrow, …) so rows carry less text',
+                '🏙️ City labels everywhere, and Vaughan sessions say plainly that they are free for Vaughan residents only',
+                '🧹 Cut: the vote button, the new-skater question, desktop notifications, the winter banner, the muted list in Settings, the version chip and name pill up top. What\'s new lives in Settings; the tab bar hides when only the schedule is on'
+            ]
+        },
         {
             v: '3.1', date: '2026-09-14', items: [
                 '🔎 Live cross-check against toronto.ca: every City session in the next two weeks is now verified against that rink\'s LIVE schedule on toronto.ca. The City\'s weekly data export lags its live system — a Malvern "Leisure Skate" the City had dropped stayed listed for days and someone travelled for nothing. Dropped sessions are struck out with a red flag, and every City row links to its toronto.ca page so you can verify yourself',
@@ -210,34 +220,38 @@ window.SkateConfig = {
     /* ---------- Quick tour (spotlight steps; missing/hidden targets auto-skip) ---------- */
     // `sec` = how long the auto-playing guide lingers on the step.
     tourSteps: [
-        { sel: '#type-filters',          title: 'Filter the schedule',  text: 'Tap a chip to see just Leisure, Hockey, Figure… "Saved" keeps everything you ❤️.', sec: 5 },
-        { sel: '#day-filter',            title: 'Day, age & order',     text: 'Pick a day, who\'s skating (Kids / Teens / Adults / Seniors) and sort by soonest or nearest.', sec: 5 },
-        { sel: '#view-mode-seg',         title: 'List or Calendar',     text: 'Calendar shows the whole week at a glance — sessions are color-coded by type.', sec: 5 },
-        { sel: '#btn-map',               title: 'Rink map',             text: 'Every rink as a pin. Scroll and pinch freely; tap a pin for sessions, distance and actions.', sec: 5 },
-        { sel: '#btn-near',              title: 'Rinks near you',       text: 'Share your location or type a postal code to sort by distance.', sec: 4 },
-        { sel: '#scope-row',             title: 'Your rinks',           text: 'Pick your usual spots under "My rinks" and the whole site filters to them.', sec: 5 },
-        { sel: '#program-list .program-item', title: 'A session',       text: 'Time, rink and age at a glance. Red flags mean the City no longer lists it or a rink alert is up — the toronto.ca link lets you verify.', sec: 7 },
-        { sel: '#program-list .btn-copy', title: 'Copy · share · calendar', text: 'The 📋 menu copies details, shares into a chat, or adds the session to your calendar app.', sec: 6 },
-        { sel: '#weather-chip',          title: 'Dress for it',         text: 'Live temperature and feels-like. Tap to pick a spot (Scarborough, Markham, Mississauga…).', sec: 5 },
-        { sel: '#btn-refresh',           title: 'Fresh data',           text: 'Refresh re-downloads schedule and alerts. In the installed app you can also pull down to refresh.', sec: 5 },
-        { sel: '.view-tab[data-view="chats"]', title: 'Chats',          text: 'Public rooms, private groups and encrypted DMs — powered by Nostr, no account needed.', sec: 5 },
-        { sel: '#btn-settings',          title: 'Everything else',      text: 'Theme, sharing QR, community & privacy toggles all live in Settings. Enjoy the ice! ⛸️', sec: 5 }
+        { sel: '#search-input',          title: 'Search',                text: 'Type a rink, a city or a session name — results filter as you type.', sec: 4 },
+        { sel: '#btn-filters',           title: 'Filters',               text: 'Leisure, hockey, figure and their age groups; a day; cities; your rinks; paid venues; order. Your picks are remembered.', sec: 6 },
+        { sel: '#btn-rinks',             title: 'Rinks & map',           text: 'Every rink on a map with distances from your location or an address you type. Star the ones that are yours.', sec: 6 },
+        { sel: '#btn-week',              title: 'Week view',             text: 'The whole week at a glance, colour-coded by type.', sec: 4 },
+        { sel: '#status-data',           title: 'How fresh is this?',    text: 'When the schedule, rink alerts and the toronto.ca cross-check were last updated. Tap to refresh.', sec: 5 },
+        { sel: '#program-list .program-item', title: 'A session',        text: 'Time, rink, ages. Red flags mean the City no longer lists it or a rink alert is up — the 🏛️ link lets you verify.', sec: 7 },
+        { sel: '#program-list .btn-copy', title: 'Copy · share · calendar', text: 'Copy details, share into a chat, or add the session to your calendar app.', sec: 5 },
+        { sel: '#weather-chip',          title: 'Dress for it',          text: 'Live temperature. Tap to pick a spot (Scarborough, Markham, Mississauga…).', sec: 4 },
+        { sel: '.view-tab[data-view="chats"]', title: 'Chats',           text: 'Public rooms, private groups and encrypted DMs — no account needed.', sec: 5 },
+        { sel: '#btn-settings',          title: 'Settings',              text: 'Theme, sharing, guides & chats, privacy. Enjoy the ice! ⛸️', sec: 4 }
     ],
 
-    /* ---------- Outdoor (winter) season detection ---------- */
-    winter: {
-        fromMonthDay: '11-01',   // watch window: Nov 1 …
-        toMonthDay: '04-15',     // … Apr 15
-        minOpen: 5               // ≥N outdoor rinks not "closed for season" → season is ON
-    },
 
     /* ---------- Programs panel ---------- */
     // Filter chips. `keywords` drive the generic matcher; `special` ids get
     // custom handling ('all' = no filter, 'favorites' = saved list).
+    // Age/audience sub-types inside each category (classified from the
+    // session's title and age bounds — see P.subType in app.js). Order = UI order.
+    subTypes: [
+        { id: 'all',   label: 'All ages' },
+        { id: 'child', label: 'Child & family' },
+        { id: 'youth', label: 'Youth' },
+        { id: 'adult', label: 'Adult' },
+        { id: 'older', label: 'Older adult 55+' },
+        { id: 'women', label: 'Women & girls' }
+    ],
+    // City order in the Filters sheet (anything else sorts after, A–Z).
+    cityOrder: ['Toronto', 'Markham', 'Vaughan', 'Richmond Hill', 'Mississauga', 'Brampton', 'Oakville', 'Burlington', 'Oshawa'],
+
+    // Activity categories (Filters → Type). The keyword matcher classifies
+    // each session; sessions matching nothing fall into 'other'.
     programTypes: [
-        { id: 'all',       label: 'All',       special: 'all' },
-        // 'favorites' renders as the ♥-styled chip with a live count
-        { id: 'favorites', label: 'Saved',     special: 'favorites' },
         // Leisure keywords cover every city's naming: Toronto "Leisure Skate",
         // Canlan/Brampton "Public Skate", Markham "Recreational Skate",
         // Oakville "Recreation Skate", Mississauga "Fun Skate" / "Adult &
@@ -248,7 +262,8 @@ window.SkateConfig = {
         { id: 'figure',    label: 'Figure',    keywords: ['figure'] },
         { id: 'speed',     label: 'Speed',     keywords: ['speed'] },
         { id: 'adapted',   label: 'Adapted',   keywords: ['adapted', 'adaptive'] },
-        { id: 'ringette',  label: 'Ringette',  keywords: ['ringette'] }
+        { id: 'ringette',  label: 'Ringette',  keywords: ['ringette'] },
+        { id: 'other',     label: 'Other',     keywords: [] }
     ],
 
     // Activity → badge tag. First keyword hit wins (order matters).
@@ -307,32 +322,32 @@ window.SkateConfig = {
     /* ---------- Data-source hints (keyed by program.Source) ---------- */
     // `site` = the short name shown on the per-row "verify" link.
     sourceInfo: {
-        'city':        { label: 'City of Toronto', verified: true, site: 'toronto.ca' },
-        'canlan-york': { label: 'Canlan Sports (York)', verified: true, site: 'Canlan',
+        'city':        { city: 'Toronto', label: 'City of Toronto', verified: true, site: 'toronto.ca' },
+        'canlan-york': { city: 'Toronto', label: 'Canlan Sports (York)', verified: true, site: 'Canlan',
                          note: 'Third-party paid venue — register on their site; sessions can sell out or change.' },
-        'canlan-etobicoke':   { label: 'Canlan Sports (Etobicoke)', verified: true, site: 'Canlan',
+        'canlan-etobicoke':   { city: 'Toronto', label: 'Canlan Sports (Etobicoke)', verified: true, site: 'Canlan',
                          note: 'Third-party paid venue — register on their site; sessions can sell out or change.' },
-        'canlan-scarborough': { label: 'Canlan Sports (Scarborough)', verified: true, site: 'Canlan',
+        'canlan-scarborough': { city: 'Toronto', label: 'Canlan Sports (Scarborough)', verified: true, site: 'Canlan',
                          note: 'Third-party paid venue — register on their site; sessions can sell out or change.' },
-        'canlan-oakville':    { label: 'Canlan Sports (Oakville)', verified: true, site: 'Canlan',
+        'canlan-oakville':    { city: 'Oakville', label: 'Canlan Sports (Oakville)', verified: true, site: 'Canlan',
                          note: 'Third-party paid venue — register on their site; Senior Skate is listed at $0.' },
-        'canlan-oshawa':      { label: 'Canlan Sports (Oshawa)', verified: true, site: 'Canlan',
+        'canlan-oshawa':      { city: 'Oshawa', label: 'Canlan Sports (Oshawa)', verified: true, site: 'Canlan',
                          note: 'Third-party paid venue — register on their site; sessions can sell out or change.' },
-        'markham':     { label: 'City of Markham', verified: true, site: 'markham.ca',
+        'markham':     { city: 'Markham', label: 'City of Markham', verified: true, site: 'markham.ca',
                          note: 'Official Markham booking data — prices vary by age ($0 for some groups); most drop-ins open for booking 21h before start.' },
-        'vaughan':     { label: 'City of Vaughan', verified: true, site: 'vaughan.ca',
-                         note: 'Official Vaughan booking data — drop-in skating and shinny are free for residents (20% non-resident surcharge on paid items); Ticket Ice figure skating $10.50.' },
-        'richmondhill': { label: 'City of Richmond Hill', verified: true, site: 'richmondhill.ca',
+        'vaughan':     { city: 'Vaughan', label: 'City of Vaughan', verified: true, site: 'vaughan.ca',
+                         note: 'Official Vaughan booking data — drop-in skating and shinny are free for Vaughan RESIDENTS only (proof of address); non-residents pay a drop-in fee at the desk. Ticket Ice figure skating $10.50.' },
+        'richmondhill': { city: 'Richmond Hill', label: 'City of Richmond Hill', verified: true, site: 'richmondhill.ca',
                          note: 'Official Richmond Hill calendar (Ed Sackfield Arena) — adult $5.90 skate, $8.70 shinny/figure/stick & puck; tickets at the arena desk from 30 min before.' },
-        'brampton':    { label: 'City of Brampton', verified: true, site: 'brampton.ca',
+        'brampton':    { city: 'Brampton', label: 'City of Brampton', verified: true, site: 'brampton.ca',
                          note: 'Official Brampton booking data — adult $2.96 + tax, child/youth $2.15, 65+ residents free; registration opens 25 h ahead for residents.' },
-        'oakville':    { label: 'Town of Oakville', verified: true, site: 'oakville.ca',
+        'oakville':    { city: 'Oakville', label: 'Town of Oakville', verified: true, site: 'oakville.ca',
                          note: 'Official Oakville booking data — adult $5.38, child/youth/65+ $4.31 (+ tax); members $0.' },
-        'burlington':  { label: 'City of Burlington', verified: true, site: 'burlington.ca',
+        'burlington':  { city: 'Burlington', label: 'City of Burlington', verified: true, site: 'burlington.ca',
                          note: 'Official Burlington booking data — flat $3.50 per skate; pass holders $0.' },
-        'mississauga': { label: 'City of Mississauga', verified: true, site: 'mississauga.ca',
+        'mississauga': { city: 'Mississauga', label: 'City of Mississauga', verified: true, site: 'mississauga.ca',
                          note: 'Official Mississauga drop-in calendar — adult $5.21, child/youth/55+ $4.17 incl. tax (by-law rates; not sold online — tickets at the door 30 min before); 65+ residents and kids 3 and under free.' },
-        'mosspark':    { label: 'mossparkarena.com', verified: false, site: 'mossparkarena.com',
+        'mosspark':    { city: 'Toronto', label: 'mossparkarena.com', verified: false, site: 'mossparkarena.com',
                          note: 'Schedule scraped from their website — there is NO live feed for this arena.' }
     },
 
@@ -341,8 +356,7 @@ window.SkateConfig = {
     // icon on every row.
     programActions: [
         { act: 'fav',   cls: 'btn-favorite' },
-        { act: 'copy',  cls: 'btn-copy', title: 'Copy, share or add to calendar', text: '📋' },
-        { act: 'vote',  cls: 'btn-vote' }
+        { act: 'copy',  cls: 'btn-copy', title: 'Copy, share or add to calendar', text: '📋' }
     ],
 
     /* ---------- Chats panel ---------- */
@@ -381,13 +395,7 @@ window.SkateConfig = {
         ideas:     { name: 'Suggestions',       emoji: '💡' }
     },
 
-    /* ---------- Onboarding / settings segments ---------- */
-    experiences: [
-        { id: 'new',     seg: '🐣 New skater', emoji: '🐣', title: 'New to skating',
-          sub: 'Show me guides, beginner-friendly sessions & the New Skaters room' },
-        { id: 'regular', seg: '🏒 Regular',    emoji: '🏒', title: 'I skate regularly',
-          sub: "Straight to the schedule — I know what I'm looking for" }
-    ],
+    /* ---------- Settings segments ---------- */
     timeFormats: [
         { id: '12h', label: '12h · 2:30 PM' },
         { id: '24h', label: '24h · 14:30' }

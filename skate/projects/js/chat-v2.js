@@ -84,20 +84,6 @@ const SkateChat = (() => {
 
     // ========== NOTIFICATIONS ==========
     const Notify = {
-        permission() { return ('Notification' in window) ? Notification.permission : 'unsupported'; },
-        async requestPermission() {
-            if (!('Notification' in window)) return 'unsupported';
-            try { return await Notification.requestPermission(); } catch { return Notification.permission; }
-        },
-        browser(title, body, onClick = null) {
-            if (!('Notification' in window)) return;
-            if (Notification.permission !== 'granted' || document.hasFocus()) return;
-            try {
-                const n = new Notification(title, { body, tag: 'skate-chat' });
-                if (onClick) n.onclick = onClick;
-                setTimeout(() => n.close(), 5000);
-            } catch {}
-        },
         toast(message, type = 'info', duration = 4000) {
             const container = document.getElementById('toast-container') || this._createContainer();
             const el = document.createElement('div');
@@ -339,7 +325,7 @@ const SkateChat = (() => {
         delete g.members;
         delete g.memberPubkeys;
         if (!g.messages) g.messages = [];
-        if (!g.votes) g.votes = {};
+        delete g.votes;              // v3.2: time votes were cut
         g.connected = false;
         return g;
     }
@@ -456,12 +442,7 @@ const SkateChat = (() => {
         // the timestamp. (Old bug: any chat message counted as presence.)
         trackMember(group, c.from, event.pubkey, c.inv ? 0 : ts);
 
-        if (c.type === 'vote') {
-            applyVote(group, c.programId, event.pubkey, c.from, c.voted);
-            saveState();
-            notifyUpdate();
-            return;
-        }
+        if (c.type === 'vote') return;   // v3.2: time votes were cut; older clients may still send them
 
         if (c.type === 'rename') {
             // last-writer-wins by relay timestamp; block muted users from renaming your view
@@ -491,12 +472,8 @@ const SkateChat = (() => {
             data: c.data, replyTo: sanitizeReplyRef(c.replyTo), status: 'sent'
         };
         const wasNew = addMessage(group, msg);
-        if (wasNew && !mine && !c.system && ts > (group.lastReadTs || 0)) {
-            if (state.activeGroupId !== group.id) {
-                if (!Mutes.has(event.pubkey)) Notify.browser(`${c.from} in ${group.name}`, c.text || '');
-            } else {
-                group.lastReadTs = ts; // viewing it live: auto-read
-            }
+        if (wasNew && !mine && !c.system && ts > (group.lastReadTs || 0) && state.activeGroupId === group.id) {
+            group.lastReadTs = ts; // viewing it live: auto-read
         }
         saveState();
         notifyUpdate();
@@ -540,14 +517,6 @@ const SkateChat = (() => {
             .sort((a, b) => (b.online - a.online) || (b.last - a.last));
     }
 
-    function applyVote(group, programId, pubkey, name, voted) {
-        if (!programId) return;
-        if (!group.votes) group.votes = {};
-        if (!group.votes[programId]) group.votes[programId] = {};
-        if (voted) group.votes[programId][pubkey] = name;
-        else delete group.votes[programId][pubkey];
-    }
-
     // ========== DMs ==========
     function handleDm(event) {
         const pTag = (event.tags || []).find(t => t[0] === 'p');
@@ -588,10 +557,7 @@ const SkateChat = (() => {
         else { thread.messages.push(msg); thread.messages.sort((a, b) => a.ts - b.ts); }
         if (thread.messages.length > 100) thread.messages = thread.messages.slice(-100);
 
-        if (!isFromMe && ts > (thread.lastReadTs || 0)) {
-            if (state.activeDmRecipient === otherPubkey) thread.lastReadTs = ts;
-            else if (!Mutes.has(otherPubkey)) Notify.browser(`DM from ${thread.name}`, c.text || '');
-        }
+        if (!isFromMe && ts > (thread.lastReadTs || 0) && state.activeDmRecipient === otherPubkey) thread.lastReadTs = ts;
         saveState();
         notifyUpdate();
     }
@@ -738,6 +704,7 @@ const SkateChat = (() => {
             const p = Number(program.Price);
             if (Number.isFinite(p) && p > 0) card.price = p;
         }
+        if (program.PriceNote) card.note = String(program.PriceNote).slice(0, 120);   // e.g. residents-only free
         return card;
     }
 
@@ -805,26 +772,6 @@ const SkateChat = (() => {
         return ok;
     }
 
-    async function voteTime(program) {
-        const group = getGroupOrRoom(state.activeGroupId);
-        if (!group) return false;
-        const programId = typeof program === 'string' ? program : Favorites.getId(program);
-        const votedNow = !(group.votes?.[programId]?.[state.myPublicKey]);
-        applyVote(group, programId, state.myPublicKey, state.myName, votedNow);
-        saveState();
-        notifyUpdate();
-        const { ok } = await publishToGroup(state.activeGroupId,
-            { type: 'vote', programId, from: state.myName, voted: votedNow }, SkateMod.POW.vote);
-        return ok;
-    }
-
-    function getVotes(program) {
-        const group = getGroupOrRoom(state.activeGroupId);
-        const programId = typeof program === 'string' ? program : Favorites.getId(program);
-        const bucket = group?.votes?.[programId] || {};
-        return { count: Object.keys(bucket).length, mine: !!bucket[state.myPublicKey] };
-    }
-
     // ========== PRESENCE ==========
     function presenceTemplate(group, gid, status) {
         return {
@@ -886,7 +833,7 @@ const SkateChat = (() => {
         return {
             id, name, secret,
             roster: { [state.myPublicKey]: { name: state.myName, last: Date.now() } },
-            messages: [], votes: {}, connected: false,
+            messages: [], connected: false,
             lastReadTs: Date.now(), createdAt: Date.now(),
             ...extra
         };
@@ -1252,7 +1199,7 @@ const SkateChat = (() => {
     return {
         init, createGroup, joinPublicRoom, leaveGroup, switchGroup, renameGroup,
         parseInviteHash, acceptInvite, getInviteInfo,
-        sendMessage, shareProgram, shareGuide, voteTime, getVotes, retryMessage,
+        sendMessage, shareProgram, shareGuide, retryMessage,
         startDm, sendDm, closeDm, openConversation, deleteDmThread, clearHistory,
         getConversations, getRoster,
         setDisplayName, getIdentity,

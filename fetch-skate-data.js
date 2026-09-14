@@ -197,6 +197,9 @@ const EXTERNAL_SOURCES = {
         daysAhead: 28,
         windowDays: 3,
         paid: true,
+        // The booking page lists every tier as "Free", but that is the resident
+        // rate; non-residents pay at the desk. Say so on every free row.
+        priceNote: (price) => price === 0 ? 'Free for Vaughan residents · non-residents pay a drop-in fee at the desk' : '',
         venues: {
             'Al Palladini Community Centre':       { address: '9201 Islington Ave',      district: 'Vaughan', postalCode: 'L4L 1A7', lat: 43.816528,  lng: -79.597205 },
             'Rosemount Community Centre':          { address: '1000 New Westminster Dr', district: 'Vaughan', postalCode: 'L4J 8G3', lat: 43.817858,  lng: -79.453424 },
@@ -1006,6 +1009,8 @@ function externalRecord(cfg, sourceKey, { activity, date, startTime, endTime, pr
         // means "free", so the row isn't hidden behind the Paid toggle.
         Paid: !!cfg.paid && price !== 0,
         Price: (cfg.paid && price !== 0) ? (price ?? null) : 0,
+        // Short honesty note shown beside the price ("free for residents…")
+        PriceNote: typeof cfg.priceNote === 'function' ? (cfg.priceNote(price) || '') : (cfg.priceNote || ''),
         RegistrationUrl: registrationUrl || (cfg.registrationUrl ? cfg.registrationUrl(date) : (cfg.infoUrl || '')),
         InfoUrl: cfg.infoUrl || '',
         Unverified: !!cfg.unverified,

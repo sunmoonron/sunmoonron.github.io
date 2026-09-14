@@ -66,16 +66,18 @@ shell whose only job is naming the mount points.
 ### Presentation layer
 
 **`index.html`** — Static shell only; the only inline script registers the
-service worker. Contains: the top bar, the three view panels
-(`#programs-panel`, `#guides-panel`, `#chats-panel`), eleven modal
-skeletons (onboarding, first-visit setup, locator, my-rinks, what's-new,
-settings, QR, map, discover, invite, share), the floating `#popover`, the
-pull-to-refresh indicator, and *empty containers* that `app.js` populates
-from config at boot: `#view-tabs`, `#type-filters`, `#scope-row`,
-`#day-filter` options, `#age-preset`, `#sort-filter`, `#chat-filters`,
-`#guide-cat-filters`, `#guide-cat-input`, `#settings-timefmt`,
-`#settings-theme`, `#settings-exp`, `#settings-sections`,
-`#settings-privacy`, `#onboarding-choices`. Script order at the bottom
+service worker. The schedule panel (v3.2 "calm" layout) is: one search
+field, three text buttons (Filters · Rinks & map · Week), the
+active-filter `#active-filters` pills, one `#status-data` line, the saved
+countdown card, data warnings, then the list under day headers with a
+"Show more" button. Nine modal skeletons (first-visit setup, filters
+sheet, rinks & map, what's-new, settings, QR, discover, invite, share),
+the floating `#popover`, the pull-to-refresh indicator, and *empty
+containers* that `app.js` populates from config at boot: `#view-tabs`,
+`#filters-body`, `#rinks-list`, `#chat-filters`, `#guide-cat-filters`,
+`#guide-cat-input`, `#settings-timefmt`, `#settings-theme`,
+`#settings-sections`, `#settings-privacy`. The tab bar hides itself when
+only the schedule is on. Script order at the bottom
 matters: bundle → **config** → settings → moderation → nostr-core →
 storage → api → time → geo → live → weather → alerts → chat-v2 → guides →
 **ui** → calendar → map → tour → **app** → refresh. (`profanity-list.js`
@@ -88,22 +90,23 @@ The tables and what consumes them:
 
 | Table | Drives | Consumed by |
 |---|---|---|
-| `version`, `changelog` | The version chip and the 🆕 What's new modal (this is the change ledger — there is no CHANGES.md) | `Render.bootstrap`, `Render.whatsNew` |
+| `version`, `changelog` | The 🆕 What's new modal in Settings and the unseen-release dot on ⚙️ (this is the change ledger — there is no CHANGES.md) | `Render.bootstrap`, `Render.whatsNew` |
 | `dataBase` | Optional alternate origin for the data JSONs (home server); `null` = committed copies | `SkateAPI.dataUrl` |
 | `views` | The 3 tabs + which gets an unread badge | `Render.bootstrap`, keyboard `1..N` |
 | `privacyToggles` | 👻 Invisible / ✉️ Allow DMs / 🛡️ Cloud filter buttons in Settings | `Render.settings`, chat-v2, guides, moderation |
+| `subTypes`, `cityOrder` | Age-group checkboxes under each category, and the city chip order in Filters | `Render.filters`, `P.subType`, `P.city` |
 | `tourSteps` | Spotlight steps (selector, copy, `sec` for the auto-playing guide); hidden targets auto-skip | `tour.js` |
 | `weatherSpots` | The pick-list behind the weather chip | `weather.js`, `Menus.weather` |
 | `sourceInfo` | Per-source label, `verified` flag, `site` (the 🏛️ verify-link text) and footnote | `Render.programRow`, `officialSite` |
-| `programTypes` | Filter chips + keyword matcher (`special: 'all'/'favorites'` for the two non-keyword ones) | `P.matchesType`, chips |
+| `programTypes` | The categories in Filters (keyword matcher; `other` catches the rest) | `P.category`, `P.matchesTypes`, `Render.filters` |
 | `activityTags` | Activity-name → colored badge (first keyword hit wins, so order matters) | `P.tagFor` |
 | `days` | Day dropdown options | `Render.bootstrap` |
-| `programActions` | The per-row button set (❤️ 📋 📤 👍), order + `gated:'activeGroup'` for the vote | `Render.programRow` |
+| `programActions` | The per-row button set (❤️ 📋) | `Render.programRow` |
 | `chatFilters` | All/Groups/DMs/Muted chips, incl. their badge element ids | chips, `Render.conversations` |
 | `rooms` | The default public rooms: name, passphrase, emoji, blurb, `autoJoin`, `defaultActive` | `chat-v2` (room list + first-run seeding) |
 | `identity` | Adjective/noun pools for random display names | `chat-v2.initIdentity` |
 | `guideCategories` | Guide chips, write-form select, category labels everywhere | `guides.js`, `app.js` |
-| `experiences`, `timeFormats` | Onboarding choice cards + the two settings segments | `Render.bootstrap`, settings |
+| `timeFormats` | The 12h/24h segment in Settings | `Render.bootstrap`, settings |
 | `actions` | Every context-menu label (with `{name}` templating + `danger` flag) | `Menus.*` via the `A()` resolver |
 | `routes` | Hash prefixes `#p=` / `#guide=` → action names; anything else falls through to invite parsing | `Actions.route` |
 
@@ -128,16 +131,27 @@ container, a `[selector, handler]` table, first `closest()` match wins.
 **`projects/js/app.js`** — `window.SkateApp`, the application layer.
 Internal structure:
 
-- **`S`** — the single app-state object: current filters, page,
-  dark-mode flag, which guide/conversation is open, composer reply state,
-  share context, pending deep-links, and the jump-pill bookkeeping.
+- **`S`** — the single app-state object: the filters (`types` = per
+  category `'all'` or a list of age sub-types, `cities`, `day`, `age`,
+  `savedOnly`, `paidVisible`, `rinkScope`, `sort`, `nearRink`), the list
+  `limit` ("Show more"), which guide/conversation is open, composer reply
+  state, share context, pending deep-links, and the jump-pill
+  bookkeeping. Types, cities, paid, scope and order persist via
+  `SkateSettings`; day, age, saved-only and ended-shown are per visit.
   Module-owned state (messages, rosters, votes) stays in the modules; `S`
   is only what the *UI* needs to remember.
 - **`P`** — program field helpers (the city JSON has inconsistent column
-  names like `Activity` vs `Activity Title`) plus the config-driven
-  `matchesType` and `tagFor`.
+  names like `Activity` vs `Activity Title`) plus the classifiers:
+  `category` (keyword table → hockey/leisure/…/other), `subType` (title
+  words + age bounds → all/child/youth/adult/older/women — what the
+  age-group checkboxes filter on), `city` (source-level label, else
+  District) and `matchesTypes`.
 - **`Render.*`** — DOM generation. `bootstrap()` builds everything the
-  HTML used to hardcode; `programs/programRow/pagination`,
+  HTML used to hardcode; `pills` (active filters as removable pills, plus
+  the standing ⭐ My rinks toggle), `filters` (the sheet, with live
+  counts per category, age group and city), `status` (one line: count ·
+  ✓/⚠️ freshness), `programs/programRow/showMore` (rows grouped under
+  sticky day headers), `rinks` (map + nearest list + star toggles),
   `chatUI/conversations/activeChat/members/discoverRooms/sharePicker/
   mutedList/settings/notif`, `guides/guideDetail` (which builds the
   threaded comment tree: roots chronological, all descendants one visual
@@ -149,10 +163,13 @@ Internal structure:
   action-ids; `A()` resolves the label template from `config.actions`,
   availability and handlers stay in code.
 - **`Actions.*`** — every user intent as a named function
-  (`applyFilters`, `focusProgram` — which widens filters if a deep-linked
-  program is hidden, then flashes it —, `openGuide`, `toggleGuideVote`,
-  `sendCurrent`, `confirmInvite`, `route`, …). The delegation tables in
-  `bind()` map `data-*` attributes to these.
+  (`applyFilters` over the pure `computeFiltered()`, `setType /
+  toggleCity / setDay / setAge / setSort / setFlag / removePill /
+  resetFilters`, `openRinks / useMyLocation / searchLocation /
+  filterToRink / toggleMyRink`, `focusProgram` — which widens filters if a
+  deep-linked program is hidden, then flashes it —, `openGuide`,
+  `toggleGuideVote`, `sendCurrent`, `confirmInvite`, `route`, …). The
+  delegation tables in `bind()` map `data-*` attributes to these.
 - **`init()`** — boot sequence, see §3.
 
 ### Social / network layer
@@ -188,10 +205,9 @@ DMs, presence, votes, invites, mutes, favorites.
   confirmation modal; nothing autojoins from a URL.
 - *First-run seeding.* On a device's first visit, every config room with
   `autoJoin: true` is joined silently and the `defaultActive` room
-  (General Chat) becomes the open conversation — which is also what makes
-  the program 👍 vote button exist from day one (it's gated on having an
-  active group). A persisted `seededRooms` flag makes this run exactly
-  once, so leaving a room later is respected forever.
+  (General Chat) becomes the open conversation. A persisted `seededRooms`
+  flag makes this run exactly once, so leaving a room later is respected
+  forever.
 - *DMs.* **Kind 4** envelopes with **nip44** payloads (modern crypto in
   the classic-DM kind so relays index it by `#p`), fetched both directions
   (to-me and from-me) so your own sent history survives a reinstall.
@@ -204,8 +220,8 @@ DMs, presence, votes, invites, mutes, favorites.
   tags every outgoing payload with `inv`, so receivers keep your name but
   never your "last seen" — a message from an invisible member no longer
   flips them "online" for everyone else (the v3.0 bug).
-- *Time votes (👍 on programs).* Group-scoped tallies carried in the
-  encrypted group stream — latest action per member wins, togglable.
+- *Time votes* were cut in v3.2; incoming `vote` payloads from older
+  clients are ignored.
 - *Local-only niceties.* Favorites (`skate_favorites_v2`) and mutes
   (`skate_muted_v1`) never touch the network; muting filters messages,
   pings, and unread counts on your device only.
@@ -278,8 +294,10 @@ persistence in `chat-v2.js`.
 **`projects/js/settings.js`** — `SkateSettings`
 (`skate_settings_v1`): `timeFormat` (12h/24h — every timestamp in the app
 funnels through `formatClock/formatWhen`, so the toggle applies
-everywhere at once), `experience` (new/regular — drives onboarding fork +
-default filters), `displayName`. Fires `onChange` so the UI repaints.
+everywhere at once), `displayName`, the persisted filter state, theme,
+section visibility and privacy toggles (see the localStorage map). Fires
+`onChange` so the UI repaints. (`experience` lingers from the retired
+new-skater question and only grandfathers old installs past setup.)
 
 **`projects/js/refresh.js`** — `SkateRefresh`, the cleverest small file:
 lets any visitor request a city-data refresh *from a static page*. It
@@ -354,7 +372,9 @@ VENDORED (`assets/vendor/leaflet/`) and lazy-injected on first open, so
 non-map visitors download zero map bytes. OSM tiles (attributed); dark
 mode re-inks tiles with a CSS filter. Pin popups come from app.js via
 `configure({popupHtml,userPoint})` — same content/chrome split as the
-calendar. `open({filter:'outdoor'})` powers the winter banner.
+calendar. It now lives inside the Rinks & map view (`#rinks-modal`),
+next to the nearest-rinks list; `open({filter:'outdoor'})` is still there
+for callers that want the outdoor pins only.
 
 **`projects/js/weather.js`** — `SkateWeather`. Open-Meteo current
 conditions (30-min TTL, CC BY attribution) for the stats-line chip.
@@ -471,7 +491,7 @@ root**, shared with the parent site. Also `importScripts`-loaded into the
 PoW worker.
 
 **Change ledger** — `config.js` → `changelog` (rendered by the 🆕 What's
-new modal, with the version chip dot for unseen releases). Root-cause
+new modal in Settings, with a dot on ⚙️ for unseen releases). Root-cause
 writeups live in the module headers.
 
 ---
@@ -481,7 +501,8 @@ writeups live in the module headers.
 1. Scripts load in dependency order (see §2); nothing renders yet.
 2. `SkateApp.init()` runs: `Render.bootstrap()` generates tabs/chips/
    options/segments from config → dark mode applied → `bind()` attaches
-   all delegation tables → onboarding modal if no `experience` set.
+   all delegation tables → the first-visit setup sheet on a brand-new
+   install.
 3. `SkateAPI.getSkatingPrograms()` (cache-first) → `Actions.applyFilters()`
    → schedule renders. A pending `#p=` deep-link resolves here.
 4. `SkateChat.init()`: load/migrate state → identity → derive room
@@ -510,7 +531,7 @@ publish → revert + toast on total relay failure) → module `notifyUpdate`
 | `skate_identity_v1` | chat-v2 | Your Nostr keypair + display name (this browser **is** your account) |
 | `skate_favorites_v2` | chat-v2 | Saved program ids |
 | `skate_muted_v1` | chat-v2 | Muted pubkeys (local only) |
-| `skate_settings_v1` | settings | timeFormat, experience, displayName, paidVisible, rinkScope, myRinks, sort, calMode, userLoc, theme, showGuides/showChats, setupDone, tourDone, invisible, dmsAllowed, remoteModeration, weatherSpot, lastSeenVersion |
+| `skate_settings_v1` | settings | timeFormat, displayName, typeSel, cities, paidVisible, rinkScope, myRinks, sort, calMode, userLoc, theme, showGuides/showChats, setupDone, tourDone, invisible, dmsAllowed, remoteModeration, weatherSpot, lastSeenVersion |
 | `darkMode` | app | `'true'`/`'false'` |
 | `skate_<dataset>` + `_meta` | storage | Cached city JSON with TTL |
 | *(session)* `skate_seen_this_session` | app | Suppresses the guides-first redirect for returning "new skater" users within a tab session |
@@ -525,10 +546,16 @@ tradeoff of accountless.
 - **Add a public room** — one entry in `config.rooms` with a *unique*
   passphrase. `autoJoin: true` if newcomers should be seeded into it
   (only affects devices that haven't seeded yet).
-- **Add a guide category / program filter / day / menu label** — add a
-  row to the matching config table. Chips, selects, and matchers follow.
+- **Add a guide category / activity category / age group / menu label**
+  — add a row to the matching config table (`programTypes` keywords,
+  `subTypes` — extend `P.subType` if a new group needs new words). The
+  Filters sheet, pills and matchers follow.
 - **Add a per-program button** — a row in `config.programActions` + a
   branch in the `program-list` delegation handler in `app.js`.
+- **Add a price note** — `priceNote` (string or `price => string`) on the
+  source in `fetch-skate-data.js` lands on each record as `PriceNote` and
+  shows on the row, in shares and in calendar exports (Vaughan's
+  "free for residents only" uses it).
 - **Swap the data source** — set `SkateConfig.dataBase` (or call
   `SkateAPI.configure({ dataBase })` before boot) to another origin that
   serves the same five JSON files with CORS for this site; the committed
