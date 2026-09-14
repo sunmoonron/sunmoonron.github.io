@@ -12,6 +12,15 @@
  * tables is byte-identical to the previous hardcoded markup, so existing
  * CSS and any external scripts keep working untouched.
  */
+// Shared by the Leisure filter chip and the Leisure badge (see programTypes).
+// Never a bare "unsupervised": Toronto's "Shinny: Adult (Unsupervised)" is hockey.
+const LEISURE_WORDS = [
+    'leisure', 'public skat', 'recreational skat', 'recreation skat', 'fun skate',
+    'skating - unsupervised', 'skating - adult only', 'skating - older adult',
+    'senior skate', 'older adult skate', 'adult skate fit', 'sensory skate',
+    'parent & tot skate', 'parent and tot skate', 'skate 19+', 'family skate', 'daytime skate'
+];
+
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
@@ -229,11 +238,16 @@ window.SkateConfig = {
         { id: 'all',       label: 'All',       special: 'all' },
         // 'favorites' renders as the ♥-styled chip with a live count
         { id: 'favorites', label: 'Saved',     special: 'favorites' },
-        { id: 'leisure',   label: 'Leisure',   keywords: ['leisure', 'public skat', 'recreational skat'] },
+        // Leisure keywords cover every city's naming: Toronto "Leisure Skate",
+        // Canlan/Brampton "Public Skate", Markham "Recreational Skate",
+        // Oakville "Recreation Skate", Mississauga "Fun Skate" / "Adult &
+        // Older Adult Skate", Vaughan "Skating - Unsupervised", Burlington
+        // "Skate 19+" / "Sensory Skate", Richmond Hill "Public Skating".
+        { id: 'leisure',   label: 'Leisure',   keywords: LEISURE_WORDS },
         { id: 'hockey',    label: 'Hockey',    keywords: ['shinny', 'hockey', 'stick'] },
         { id: 'figure',    label: 'Figure',    keywords: ['figure'] },
         { id: 'speed',     label: 'Speed',     keywords: ['speed'] },
-        { id: 'adapted',   label: 'Adapted',   keywords: ['adapted'] },
+        { id: 'adapted',   label: 'Adapted',   keywords: ['adapted', 'adaptive'] },
         { id: 'ringette',  label: 'Ringette',  keywords: ['ringette'] }
     ],
 
@@ -242,8 +256,8 @@ window.SkateConfig = {
         { keywords: ['shinny', 'hockey', 'stick'], cls: 'hockey',  label: '🏒 Hockey' },
         { keywords: ['figure'],                  cls: 'figure',   label: '⛸️ Figure' },
         { keywords: ['speed'],                   cls: 'speed',    label: '⛸️ Speed' },
-        { keywords: ['leisure', 'public skat', 'recreational skat'], cls: 'leisure', label: '⛸️ Leisure' },
-        { keywords: ['adapted'],                 cls: 'adapted',  label: '♿ Adapted' },
+        { keywords: LEISURE_WORDS,               cls: 'leisure',  label: '⛸️ Leisure' },
+        { keywords: ['adapted', 'adaptive'],     cls: 'adapted',  label: '♿ Adapted' },
         { keywords: ['ringette'],                cls: 'ringette', label: '🥏 Ringette' }
     ],
 
