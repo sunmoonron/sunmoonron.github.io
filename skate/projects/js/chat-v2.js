@@ -705,6 +705,10 @@ const SkateChat = (() => {
             if (Number.isFinite(p) && p > 0) card.price = p;
         }
         if (program.PriceNote) card.note = String(program.PriceNote).slice(0, 120);   // e.g. residents-only free
+        // Municipality for the recipient's map link (external venues sit in
+        // Stouffville, Oshawa, Vaughan… — the same rule as the app's city chips).
+        const city = window.SkateConfig?.sourceInfo?.[program.Source || 'city']?.city || program.District || '';
+        if (city && city !== 'Toronto') card.city = String(city).slice(0, 40);
         return card;
     }
 

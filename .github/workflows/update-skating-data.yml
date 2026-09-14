@@ -29,6 +29,11 @@ jobs:
         with:
           node-version: '22'
 
+      # pdftotext (poppler) reads the two PDF-only cities (Whitchurch-Stouffville, Ajax);
+      # without it those sources fail cleanly and keep their previous rows.
+      - name: Install poppler-utils
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends poppler-utils >/dev/null
+
       - name: Fetch skating data
         run: node fetch-skate-data.js
 

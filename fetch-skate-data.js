@@ -43,6 +43,8 @@ const BASE_URL = 'https://ckan0.cf.opendata.inter.prod-toronto.ca/api/3/action';
 const OUTPUT_DIR = path.join(__dirname, 'skate', 'projects', 'data');
 
 const ALERTS_ONLY = process.argv.includes('--alerts-only');
+// Dev: `--only=stouffville,ajax` runs just those external sources and writes nothing.
+const ONLY = (process.argv.find(a => a.startsWith('--only=')) || '').slice(7).split(',').map(s => s.trim()).filter(Boolean);
 
 /* ================= External source registry =================
  * kind 'daysmart' — DaySmart Recreation JSON:API (Canlan etc.)
@@ -199,7 +201,7 @@ const EXTERNAL_SOURCES = {
         paid: true,
         // The booking page lists every tier as "Free", but that is the resident
         // rate; non-residents pay at the desk. Say so on every free row.
-        priceNote: (price) => price === 0 ? 'Free for Vaughan residents · non-residents pay a drop-in fee at the desk' : '',
+        priceNote: (price) => price === 0 ? 'Free for Vaughan residents · non-residents: ask at the desk (city fees carry a 20% non-resident surcharge)' : '',
         venues: {
             'Al Palladini Community Centre':       { address: '9201 Islington Ave',      district: 'Vaughan', postalCode: 'L4L 1A7', lat: 43.816528,  lng: -79.597205 },
             'Rosemount Community Centre':          { address: '1000 New Westminster Dr', district: 'Vaughan', postalCode: 'L4J 8G3', lat: 43.817858,  lng: -79.453424 },
@@ -368,6 +370,132 @@ const EXTERNAL_SOURCES = {
         paid: false,
         unverified: true,     // schedule comes from their website, no live feed → tell users to double-check
         infoUrl: 'https://mossparkarena.com/home/skating/public-skating/'
+    },
+    /* ---- York & Durham cities without an API (see skate/docs/data-sources/york-durham.md) ---- */
+    'stouffville': {
+        kind: 'pdf',
+        layout: 'weekday-grid',
+        // Whitchurch-Stouffville publishes its drop-in sheet as a PDF (grid:
+        // Activity | Age | Monday … Sunday, one block per arena). The Town's
+        // ActiveNet "Skating & Shinny" calendar (3) is checked first — it
+        // was published empty for fall 2026 but is the better source if it
+        // ever fills up. The PDF's path changes per revision → discovered
+        // from the drop-in page each run; pdfUrl is only the fallback.
+        activenet: { base: 'https://anc.ca.apm.activecommunities.com/townofws/rest', calendarId: 3, centerIds: [13, 14] },
+        discover: {
+            page: 'https://www.townofws.ca/play/recreation/programs/drop-in-programs/',
+            hops: [/href="([^"]*\/media\/[^"]*skating-[^"]*dropin[^"]*\.pdf)"/i]
+        },
+        pdfUrl: 'https://www.townofws.ca/media/zkrbulbm/skating-f26_dropin_sep9.pdf',
+        grid: { stopAt: /Important Information/i },
+        daysAhead: 28,
+        paid: true,
+        // Adult drop-in fees incl. HST (fall 2026 sheet): skate $5.50, stick & puck / shinny $7.50.
+        programs: [
+            { match: /shinny|stick/i, price: 7.50 },
+            { match: /./,             price: 5.50 }
+        ],
+        priceNote: 'Adult price at the door (15 min before) · youth & 60+ $3.50 / $5.50, tots $2.50 / $4.50, family $12.50 / $17.50',
+        venues: {
+            'Stouffville Clippers Sports Complex': { address: '120 Weldon Rd',     district: 'Stouffville', postalCode: 'L4A 1N2', lat: 43.9650556, lng: -79.2617345 },
+            'Stouffville Arena':                   { address: '12483 Ninth Line', district: 'Stouffville', postalCode: 'L4A 1J3', lat: 43.9742243, lng: -79.2553137 }
+        },
+        district: 'Stouffville',
+        unverified: true,      // PDF, no live feed — check before a long drive
+        infoUrl: 'https://www.townofws.ca/play/recreation/programs/drop-in-programs/'
+    },
+    'ajax': {
+        kind: 'pdf',
+        layout: 'weekday-lines',
+        // ajax.ca → Publitas flipbook → its PDF: three plain GETs. The
+        // flipbook name embeds the season, so it is rediscovered each run.
+        discover: {
+            page: 'https://ajax.ca/explore/parks-recreation/sports-recreation/skating/',
+            hops: [
+                /(https:\/\/view\.publitas\.com\/ajax\/skating-schedule[^"'\s<>]*)/i,
+                /(https:\/\/view\.publitas\.com\/\d+\/\d+\/pdfs\/[^"]+\.pdf[^"]*)/i
+            ]
+        },
+        daysAhead: 28,
+        paid: true,
+        locationName: 'Ajax Community Centre',
+        // Fall 2026 admissions: skating adult $5.25 (youth & 65+ $3.50), shinny/sledge adult $7.90 (youth & 65+ $5.65).
+        programs: [
+            { match: /ticket ice/i,                   skip: true },   // Skate Canada members with a coach only
+            { match: /parent\s*(?:&|and)\s*tot/i,     activity: 'Parent & Tot Skate',   ageMax: 5,  price: 5.25 },
+            { match: /public skat/i,                  activity: 'Public Skating',                    price: 5.25 },
+            { match: /adult skate/i,                  activity: 'Adult Skate',          ageMin: 18, price: 5.25 },
+            { match: /stick\s*(?:n|&|and)\s*puck/i,   activity: 'Adult Stick & Puck',   ageMin: 18, price: 5.25 },
+            { match: /ladies shinny/i,                activity: 'Ladies Shinny',        ageMin: 18, price: 7.90 },
+            { match: /sledge/i,                       activity: 'Sledge Shinny (adapted)',           price: 7.90 },
+            { match: /shinny/i,                       activity: 'Adult Shinny',         ageMin: 18, price: 7.90 }
+        ],
+        priceNote: 'Adult price · youth & 65+ $3.50 (shinny $5.65) · 3 & under free · pay at the desk',
+        venues: {
+            'Ajax Community Centre': { address: '75 Centennial Rd', district: 'Ajax', postalCode: 'L1S 4L1', lat: 43.8393724, lng: -79.0206406 }
+        },
+        district: 'Ajax',
+        unverified: true,
+        infoUrl: 'https://ajax.ca/explore/parks-recreation/sports-recreation/skating/'
+    },
+    'oshawa': {
+        kind: 'intelligenz',
+        // "activeOshawa Online" (Intelligenz) behind a Queue-it gate: one
+        // VenueClasses page per arena carries every dated session for the
+        // window. Harman Park Arena (829 Douglas St, 43.8786429,
+        // -78.8469186) had no fall ice sessions published yet — add its GUID
+        // (first row's VenueClasses link on category SKATEHP) when it does.
+        base: 'https://register.oshawa.ca/OSHAWA',
+        daysAhead: 28,
+        paid: true,
+        activityMatch: /skate|shinny|stick|ticket ice/i,
+        venues: {
+            'Delpark Homes Centre':       { guid: '0c780b98-9e2c-4f79-a226-a6106d010224', address: '1661 Harmony Rd N', district: 'Oshawa', postalCode: 'L1H 7K5', lat: 43.9485033, lng: -78.8512963 },
+            'Donevan Recreation Complex': { guid: '96bac799-82c0-45ed-b6ab-065a198d48a5', address: '171 Harmony Rd S',  district: 'Oshawa', postalCode: 'L1H 6T9', lat: 43.8999743, lng: -78.8305996 }
+        },
+        // 2026 admissions: leisure skate adult $5.25, shinny adult $8.50, figure/ticket ice $11.25.
+        programs: [
+            { match: /ticket ice/i, activity: 'Ticket Ice (figure skating practice)', price: 11.25 },
+            { match: /shinny/i,     price: 8.50 },
+            { match: /./,           price: 5.25 }
+        ],
+        priceNote: 'Adult price · child/youth/student $3.50, family $10.75, Oshawa 55+ $1.50 · shinny youth $6.50 · pay at the desk',
+        district: 'Oshawa',
+        registrationUrl: () => 'https://register.oshawa.ca/OSHAWA/public/category/browse/SKATEDHC',
+        infoUrl: 'https://www.oshawa.ca/explore-play/recreation/hockey-and-skating/leisure-skating/'
+    },
+    'pickering': {
+        kind: 'html-grid',
+        // pickering.ca embeds the season's grids as plain tables (row =
+        // weekday, column = program) with the season dates and cancellation
+        // list in the text around them. Admission is free.
+        url: 'https://www.pickering.ca/parks-recreation-culture/arenas-and-skating/',
+        daysAhead: 28,
+        paid: false,
+        venues: {
+            'Chestnut Hill Developments Recreation Complex': { address: '1867 Valley Farm Rd', district: 'Pickering', postalCode: 'L1V 3Y7', lat: 43.8392345, lng: -79.0814572 },
+            'Don Beer Arena':                                { address: '940 Dillingham Rd',   district: 'Pickering', postalCode: 'L1W 1Z6', lat: 43.8246758, lng: -79.0671679 }
+        },
+        venueAliases: { 'CHD Rec Complex': 'Chestnut Hill Developments Recreation Complex', 'CHDRC': 'Chestnut Hill Developments Recreation Complex' },
+        programs: [
+            { match: /^daytime/i,             activity: 'Daytime Skate' },
+            { match: /^public/i,              activity: 'Public Skate' },
+            { match: /p\s*&\s*c stick/i,      activity: 'Parent & Child Stick & Puck' },
+            { match: /p\s*&\s*c skate/i,      activity: 'Parent & Child Skate' }
+        ],
+        seasons: [
+            { label: /Daytime Skating:/i,                      match: /daytime/i },
+            { label: /Parent\s*&\s*Child\s*\/\s*Stick\s*&\s*Puck:/i, match: /parent & child/i },
+            { label: /Public Skating:/i,                       match: /public skate/i }
+        ],
+        cancelGroups: [
+            { label: /Public Skating:/i,   match: /public skate/i,   matchSample: 'Public Skate' },
+            { label: /Daytime Skating:/i,  match: /daytime/i,        matchSample: 'Daytime Skate' },
+            { label: /Parent\s*&\s*Child/i, match: /parent & child/i, matchSample: 'Parent & Child Skate' }
+        ],
+        district: 'Pickering',
+        unverified: true,
+        infoUrl: 'https://www.pickering.ca/parks-recreation-culture/arenas-and-skating/'
     }
 };
 
@@ -1277,6 +1405,9 @@ function stripHtml(html) {
         .replace(/&#8211;|&ndash;|&#8212;|&mdash;/g, '–')
         .replace(/&#8217;|&rsquo;/g, "'")
         .replace(/&nbsp;/g, ' ')
+        .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(parseInt(n, 10)))
+        .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+        .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>')
         .replace(/&amp;/g, '&')
         .replace(/\s+/g, ' ')
         .trim();
@@ -1452,6 +1583,475 @@ async function fetchScraped(sourceKey, cfg) {
     return records;
 }
 
+/* ================= HTML / PDF cities (Stouffville, Ajax, Oshawa, Pickering) =================
+ *
+ * Four municipalities publish no API: two ship a PDF (Whitchurch-Stouffville,
+ * Ajax), one hides a server-rendered booking site behind a Queue-it cookie
+ * gate (Oshawa) and one embeds plain HTML tables (Pickering). Everything
+ * below is dependency-free except `pdftotext` (poppler) for the PDFs, which
+ * the workflow apt-installs; without it those two sources fail cleanly and
+ * their previous rows are salvaged like any other failed source.
+ */
+
+const { execFileSync } = require('child_process');
+const os = require('os');
+
+/** One HTTP(S) hop → { status, headers, body: Buffer } (no redirects). */
+function httpRequestOnce(url, { headers = {} } = {}) {
+    return new Promise((resolve, reject) => {
+        const u = new URL(url);
+        const mod = u.protocol === 'http:' ? require('http') : https;
+        const req = mod.request(u, { method: 'GET', headers: { 'User-Agent': 'toronto-skating-site-data-fetcher', ...headers } }, (res) => {
+            const chunks = [];
+            res.on('data', c => chunks.push(c));
+            res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
+            res.on('error', reject);
+        });
+        req.on('error', reject);
+        req.setTimeout(60000, () => req.destroy(new Error(`Timeout for ${url.substring(0, 90)}`)));
+        req.end();
+    });
+}
+
+/** GET → Buffer, following redirects (binary-safe: PDFs). */
+async function httpGetBuffer(url, headers = {}) {
+    let cur = url;
+    for (let hop = 0; hop < 6; hop++) {
+        const r = await httpRequestOnce(cur, { headers });
+        if ([301, 302, 303, 307, 308].includes(r.status) && r.headers.location) { cur = new URL(r.headers.location, cur).href; continue; }
+        if (r.status !== 200) throw new Error(`HTTP ${r.status} for ${cur.substring(0, 90)}`);
+        return r.body;
+    }
+    throw new Error(`too many redirects for ${url.substring(0, 90)}`);
+}
+
+/**
+ * GET with a cookie jar and a manual redirect loop. Oshawa's booking site
+ * bounces through a Queue-it waiting room (4 redirects, each setting a
+ * cookie the next hop needs); Node's fetch drops cookies between hops and
+ * dies with "redirect count exceeded". jar: Map<host, Map<name, value>>.
+ */
+async function httpGetWithCookies(url, jar, headers = {}) {
+    let cur = url;
+    for (let hop = 0; hop < 12; hop++) {
+        const host = new URL(cur).host;
+        const cookies = jar.get(host);
+        const cookieHeader = cookies && cookies.size ? { Cookie: [...cookies].map(([k, v]) => `${k}=${v}`).join('; ') } : {};
+        const r = await httpRequestOnce(cur, { headers: { ...headers, ...cookieHeader } });
+        (r.headers['set-cookie'] || []).forEach(sc => {
+            const [pair] = sc.split(';');
+            const eq = pair.indexOf('=');
+            if (eq < 1) return;
+            if (!jar.has(host)) jar.set(host, new Map());
+            jar.get(host).set(pair.slice(0, eq).trim(), pair.slice(eq + 1).trim());
+        });
+        if ([301, 302, 303, 307, 308].includes(r.status) && r.headers.location) { cur = new URL(r.headers.location, cur).href; continue; }
+        if (r.status !== 200) throw new Error(`HTTP ${r.status} for ${cur.substring(0, 90)}`);
+        return decodeBody(r.body);
+    }
+    throw new Error(`too many redirects for ${url.substring(0, 90)}`);
+}
+
+/** Follow a chain of pages; each regex's first capture group is the next URL. */
+async function discoverUrl(start, hops) {
+    let url = start;
+    for (const re of hops) {
+        const html = await httpGetText(url);
+        const m = html.match(re);
+        if (!m) throw new Error(`discovery: nothing matched ${re} on ${url.substring(0, 80)}`);
+        url = new URL(m[1].replace(/&amp;/g, '&'), url).href;
+    }
+    return url;
+}
+
+/** PDF bytes → layout-preserving text (poppler's pdftotext; CI installs poppler-utils). */
+function pdfToLayoutText(buffer) {
+    const tmp = path.join(os.tmpdir(), `skate-${process.pid}-${Date.now()}.pdf`);
+    fs.writeFileSync(tmp, buffer);
+    try {
+        return execFileSync('pdftotext', ['-layout', tmp, '-'], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+    } catch (e) {
+        throw new Error(e.code === 'ENOENT' ? 'pdftotext not installed (apt-get install poppler-utils)' : `pdftotext failed: ${e.message}`);
+    } finally {
+        try { fs.unlinkSync(tmp); } catch { /* ignore */ }
+    }
+}
+
+const MONTH_RE = '(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\.?';
+const MONTH_NUM = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+const ymd = (y, m, d) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+/** "September 14 – December 20, 2026" / "Effective September 8 to December 18, 2026" → {from, to}. */
+function parseSeasonRange(text) {
+    const m = String(text || '').match(new RegExp(`${MONTH_RE}\\s+(\\d{1,2})(?:,\\s*(\\d{4}))?\\s*(?:–|—|-|to)\\s*${MONTH_RE}\\s+(\\d{1,2}),?\\s*(\\d{4})`, 'i'));
+    if (!m) return null;
+    const y2 = parseInt(m[6], 10), y1 = m[3] ? parseInt(m[3], 10) : y2;
+    return { from: ymd(y1, MONTH_NUM[m[1].toLowerCase()], parseInt(m[2], 10)), to: ymd(y2, MONTH_NUM[m[4].toLowerCase()], parseInt(m[5], 10)) };
+}
+
+/** "Oct. 12" / "Oct 10, Nov 7, Dec 24, 31" → ['2026-10-12', …]; months before the season start roll into next year. */
+function parseDateList(text, season) {
+    const out = [];
+    const base = season?.from || torontoDateStr();
+    const fromY = parseInt(base.slice(0, 4), 10), fromM = parseInt(base.slice(5, 7), 10);
+    const re = new RegExp(`${MONTH_RE}\\s+(\\d{1,2})((?:,\\s*\\d{1,2}(?![\\d:]))*)`, 'gi');
+    let m;
+    while ((m = re.exec(String(text || '')))) {
+        const mo = MONTH_NUM[m[1].toLowerCase()];
+        const year = mo < fromM ? fromY + 1 : fromY;
+        [m[2], ...(m[3] || '').split(',').map(s => s.trim()).filter(Boolean)].forEach(d => out.push(ymd(year, mo, parseInt(d, 10))));
+    }
+    return out;
+}
+
+/** "Monday, September 14, 2026" → '2026-09-14'. */
+function parseLongDate(s) {
+    const m = String(s || '').match(new RegExp(`${MONTH_RE}\\s+(\\d{1,2}),?\\s*(\\d{4})`, 'i'));
+    return m ? ymd(parseInt(m[3], 10), MONTH_NUM[m[1].toLowerCase()], parseInt(m[2], 10)) : null;
+}
+
+const TIME_RANGE_RE = /(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|noon)?\s*(?:–|—|-|to)\s*(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|noon)?/i;
+
+/**
+ * "6:15pm – 8:15pm", "10 - 11 a.m.", "11:45 a.m. - 1:15 p.m.", "9:15 AM - 10:05 AM"
+ * → { start, end } in 24h. A side without am/pm borrows the other side's;
+ * "11:45 - 1:15 p.m." flips the start back to the morning when borrowing
+ * would put it after the end.
+ */
+function parseTimeRange(s, { requireMeridiem = false } = {}) {
+    const t = String(s || '').match(TIME_RANGE_RE);
+    if (!t) return null;
+    const norm = x => (x || '').toLowerCase().replace(/\./g, '');
+    let sufS = norm(t[3]), sufE = norm(t[6]);
+    if (!sufS && !sufE) {
+        if (requireMeridiem) return null;
+        const start = to24h(t[1], t[2], '', true), end = to24h(t[4], t[5], '', true);
+        return start && end && end > start ? { start, end } : null;
+    }
+    if (!sufS) sufS = sufE;
+    if (!sufE) sufE = sufS;
+    let start = to24h(t[1], t[2], sufS, false);
+    const end = to24h(t[4], t[5], sufE, false);
+    if (start && end && end <= start && !t[3]) {
+        const flipped = to24h(t[1], t[2], sufS === 'pm' ? 'am' : 'pm', false);
+        if (flipped && flipped < end) start = flipped;
+    }
+    return start && end && end > start ? { start, end } : null;
+}
+
+/** "18+", "(7-12 yrs)", "6 yrs & under", "All ages" → { ageMin, ageMax } (null = open). */
+function parseAgeText(s) {
+    const t = String(s || '').toLowerCase();
+    let m;
+    if ((m = t.match(/(\d{1,2})\s*(?:yrs?|years?)?\s*(?:&|and)\s*under/))) return { ageMin: null, ageMax: parseInt(m[1], 10) };
+    if ((m = t.match(/(\d{1,2})\s*-\s*(\d{1,2})/))) return { ageMin: parseInt(m[1], 10), ageMax: parseInt(m[2], 10) };
+    if ((m = t.match(/(\d{1,2})\s*\+/))) return { ageMin: parseInt(m[1], 10), ageMax: null };
+    return { ageMin: null, ageMax: null };
+}
+
+/**
+ * Source-level program rules (first match wins): rename, fix ages, price,
+ * or `skip` a program. No rule → the venue's own name and the source's
+ * priceRules / defaultPrice.
+ */
+function applyProgramRules(cfg, rawName) {
+    const name = String(rawName || '').replace(/\s+/g, ' ').trim();
+    if (!name) return null;
+    const rule = (cfg.programs || []).find(r => r.match.test(name));
+    if (rule?.skip) return null;
+    const price = rule?.price ?? rule?.defaultPrice ?? (cfg.priceRules || []).find(r => r.match.test(name))?.price ?? cfg.defaultPrice ?? null;
+    return { activity: rule?.activity || name, ageMin: rule?.ageMin ?? null, ageMax: rule?.ageMax ?? null, price };
+}
+
+/**
+ * Weekly rules → dated records over cfg.daysAhead. Rule: { venue, activity,
+ * weekday, start, end, ageMin, ageMax, price, from, to, except[] }.
+ */
+function expandWeekly(cfg, sourceKey, rules) {
+    const today = torontoDateStr();
+    const records = [];
+    const seen = new Set();
+    for (let i = 0; i < cfg.daysAhead; i++) {
+        const date = addDays(today, i);
+        const weekday = weekdayOf(date);
+        rules.forEach(r => {
+            if (r.weekday !== weekday) return;
+            if (r.from && date < r.from) return;
+            if (r.to && date > r.to) return;
+            if (r.except && r.except.includes(date)) return;
+            const venueName = r.venue || cfg.locationName;
+            const known = (cfg.venues || {})[venueName] || {};
+            const externalId = `${venueKey(sourceKey, venueName).replace(/^ext-[^-]+-/, '')}-${date}-${r.start.replace(':', '')}-${normTitle(r.activity).slice(0, 24)}`;
+            if (seen.has(externalId)) return;
+            seen.add(externalId);
+            records.push(externalRecord(cfg, sourceKey, {
+                activity: r.activity, date, startTime: r.start, endTime: r.end,
+                price: r.price ?? null, externalId,
+                ageMin: r.ageMin ?? null, ageMax: r.ageMax ?? null,
+                venue: { name: venueName, ...known, extKey: venueKey(sourceKey, venueName) }
+            }));
+        });
+    }
+    return records;
+}
+
+const describeRules = (rules) => rules.slice(0, 14).map(r => `${r.weekday.slice(0, 3)} ${r.start}-${r.end} ${r.activity}${r.venue ? ` @ ${r.venue.split(' ')[0]}` : ''}`).join(', ') + (rules.length > 14 ? `, … +${rules.length - 14}` : '');
+
+/** "Ages 11-14: 7:00pm – 8:00pm Ages 14-17: 8:00pm – 9:00pm" → [{start, end, age?, note?}, …]. */
+function splitGridCell(txt) {
+    const out = [];
+    const re = new RegExp(TIME_RANGE_RE.source, 'gi');
+    let m, lastEnd = 0;
+    while ((m = re.exec(txt))) {
+        const tr = parseTimeRange(m[0], { requireMeridiem: true });
+        if (!tr) continue;                      // "11-14" inside an age label is not a time
+        const label = txt.slice(lastEnd, m.index);
+        lastEnd = m.index + m[0].length;
+        out.push({ ...tr, age: label.match(/ages?\s*[\d\s\-&+]+/i)?.[0] || null, note: label.match(/pad\s*[a-z0-9]+/i)?.[0] || null });
+    }
+    return out;
+}
+
+/**
+ * Layout text of a weekday-grid PDF (Whitchurch-Stouffville's drop-in
+ * sheet). Per venue block a header line "Activity  Age  Monday … Sunday"
+ * fixes the column offsets; each blank-line-separated group of lines is one
+ * activity, its cells like "6:15pm – 8:15pm", "PAD 2: 11:15am – 12:15pm" or
+ * "Ages 11-14: 7:00pm – 8:00pm". Cells are whole tokens (runs of text with
+ * single spaces) assigned to the header whose centre is nearest — a cell
+ * may overflow into the next column's half, so fixed slicing would
+ * truncate it. Parsing stops at cfg.grid.stopAt.
+ */
+function parseWeekdayGridText(text, cfg) {
+    const venueNames = Object.keys(cfg.venues || {});
+    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const season = parseSeasonRange(text);
+    const rules = [];
+    let venue = null, starts = null, group = [];
+    const flush = () => {
+        if (venue && starts && group.length) {
+            const activityParts = [], ageParts = [];
+            const cells = dayNames.map(() => []);
+            // A token belongs to the column whose header centre is nearest
+            // its own centre (cells are centred under their headers).
+            const centres = starts.map((x, i) => x + ['Activity', 'Age', ...dayNames][i].length / 2);
+            group.forEach(line => {
+                for (const m of line.matchAll(/\S+(?: \S+)*/g)) {
+                    const mid = m.index + m[0].length / 2;
+                    let col = 0;
+                    centres.forEach((c, i) => { if (Math.abs(c - mid) < Math.abs(centres[col] - mid)) col = i; });
+                    if (col === 0) activityParts.push(m[0]);
+                    else if (col === 1) ageParts.push(m[0]);
+                    else cells[col - 2].push(m[0]);
+                }
+            });
+            const cls = activityParts.length ? applyProgramRules(cfg, activityParts.join(' ')) : null;
+            const ageText = ageParts.join(' ');
+            if (cls) {
+                dayNames.forEach((weekday, i) => {
+                    splitGridCell(cells[i].join(' ')).forEach(c => {
+                        const age = parseAgeText(c.age || ageText);
+                        rules.push({ venue, activity: cls.activity, weekday, start: c.start, end: c.end,
+                            ageMin: cls.ageMin ?? age.ageMin, ageMax: cls.ageMax ?? age.ageMax, price: cls.price,
+                            from: season?.from, to: season?.to });
+                    });
+                });
+            }
+        }
+        group = [];
+    };
+    for (const raw of text.split('\n')) {
+        const line = raw.replace(/\t/g, '    ');
+        if (cfg.grid?.stopAt && cfg.grid.stopAt.test(line)) { flush(); break; }
+        const vn = venueNames.find(v => line.trim().toLowerCase().startsWith(v.toLowerCase()));
+        if (vn) { flush(); venue = vn; starts = null; continue; }
+        if (/^\s*Activity\s+Age\s+Monday/i.test(line)) {
+            flush();
+            const found = ['Activity', 'Age', ...dayNames].map(n => line.indexOf(n));
+            starts = found.some(x => x < 0) ? null : found;
+            continue;
+        }
+        if (!line.trim()) { flush(); continue; }
+        group.push(line);
+    }
+    flush();
+    return rules;
+}
+
+/**
+ * Layout text of a per-weekday PDF (Ajax): a line that is just a weekday
+ * opens that day; every following "time  activity  pad  exceptions" line is
+ * one weekly session ("Unavailable Oct. 9, Nov. 27" → those dates skipped).
+ */
+function parseWeekdayLinesText(text, cfg) {
+    const season = parseSeasonRange(text);
+    const rules = [];
+    let weekday = null;
+    for (const raw of text.split('\n')) {
+        const line = raw.trim();
+        if (!line) continue;
+        const wd = WEEKDAYS.find(w => line.toLowerCase() === w.toLowerCase());
+        if (wd) { weekday = wd; continue; }
+        if (!weekday) continue;
+        const m = line.match(TIME_RANGE_RE);
+        if (!m) continue;
+        const tr = parseTimeRange(m[0], { requireMeridiem: true });
+        if (!tr) continue;
+        const parts = line.slice(m.index + m[0].length).trim().split(/\s{2,}/);
+        const cls = applyProgramRules(cfg, parts[0]);
+        if (!cls) continue;
+        const except = parseDateList((parts.slice(1).join(' ').match(/unavailable[\s\S]*$/i) || [''])[0], season);
+        rules.push({ venue: cfg.locationName, activity: cls.activity, weekday, start: tr.start, end: tr.end,
+            ageMin: cls.ageMin, ageMax: cls.ageMax, price: cls.price, from: season?.from, to: season?.to, except });
+    }
+    return rules;
+}
+
+/** PDF schedule (weekday grid or weekday lines), discovered from a listing page each run. */
+async function fetchPdfSchedule(sourceKey, cfg) {
+    if (cfg.activenet) {
+        // The Town's ActiveNet calendar exists but was published empty for
+        // fall 2026; if it ever fills up it is the better (dated) source.
+        try {
+            const rows = await fetchActiveNet(sourceKey, { ...cfg, ...cfg.activenet });
+            if (rows.length) return rows;
+            console.log(`   ↪ ${sourceKey}: ActiveNet calendar is empty — reading the PDF instead`);
+        } catch (e) {
+            console.warn(`   ↪ ${sourceKey}: ActiveNet check failed (${e.message}) — reading the PDF instead`);
+        }
+    }
+    let pdfUrl = cfg.pdfUrl;
+    if (cfg.discover) {
+        try { pdfUrl = await discoverUrl(cfg.discover.page, cfg.discover.hops); }
+        catch (e) { if (!pdfUrl) throw e; console.warn(`   ↪ ${sourceKey}: ${e.message} — using the last known PDF URL`); }
+    }
+    console.log(`   📄 ${sourceKey}: ${pdfUrl.substring(0, 110)}`);
+    const text = pdfToLayoutText(await httpGetBuffer(pdfUrl));
+    const rules = cfg.layout === 'weekday-lines' ? parseWeekdayLinesText(text, cfg) : parseWeekdayGridText(text, cfg);
+    if (!rules.length) throw new Error('no sessions parsed from the PDF');
+    const season = parseSeasonRange(text);
+    console.log(`   📋 ${rules.length} weekly rules${season ? ` (season ${season.from} → ${season.to})` : ''}: ${describeRules(rules)}`);
+    const records = expandWeekly(cfg, sourceKey, rules);
+    console.log(`   ✅ ${sourceKey}: ${records.length} sessions over next ${cfg.daysAhead} days`);
+    return records;
+}
+
+/**
+ * Intelligenz booking site (Oshawa's "activeOshawa Online"): one
+ * server-rendered VenueClasses page per venue covers the whole window; each
+ * session is a card with its own date, time, location and capacity.
+ */
+async function fetchIntelligenz(sourceKey, cfg) {
+    const today = torontoDateStr();
+    const end = addDays(today, cfg.daysAhead);
+    const jar = new Map();
+    const records = [];
+    const seen = new Set();
+    let total = 0, skipped = 0;
+    for (const [venueName, v] of Object.entries(cfg.venues || {})) {
+        if (!v.guid) continue;
+        const url = `${cfg.base}/public/Booking/VenueClasses?GUID=${v.guid}&StartDate=${today}&EndDate=${end}&Participant=00000000-0000-0000-0000-000000000000`;
+        const html = await httpGetWithCookies(url, jar);
+        html.split(/<div class="card mb-4">/).slice(1).forEach(card => {
+            const title = stripHtml((card.match(/<h4[^>]*>([\s\S]*?)<\/h4>/) || [])[1] || '').replace(/\s*★\s*$/, '');
+            if (!title) return;
+            const dateM = card.match(/Date:\s*<\/span>\s*([A-Za-z]+,\s*[A-Za-z]+\s+\d{1,2},\s*\d{4})/);
+            const timeM = card.match(/Time:\s*<\/span>\s*([^<]+)/);
+            if (!dateM || !timeM) return;
+            total++;
+            if (!cfg.activityMatch.test(title)) { skipped++; return; }
+            const date = parseLongDate(dateM[1]);
+            const tr = parseTimeRange(timeM[1]);
+            if (!date || !tr || date < today || date > end) return;
+            const cls = applyProgramRules(cfg, title.replace(/\s*\([^)]*\)\s*$/, ''));
+            if (!cls) return;
+            const age = parseAgeText(title);
+            const externalId = `${v.guid.slice(0, 8)}-${date}-${tr.start.replace(':', '')}-${normTitle(title).slice(0, 20)}`;
+            if (seen.has(externalId)) return;
+            seen.add(externalId);
+            records.push(externalRecord(cfg, sourceKey, {
+                activity: cls.activity, date, startTime: tr.start, endTime: tr.end,
+                price: cls.price, externalId,
+                ageMin: cls.ageMin ?? age.ageMin, ageMax: cls.ageMax ?? age.ageMax,
+                venue: { name: venueName, address: v.address, district: v.district, postalCode: v.postalCode, lat: v.lat, lng: v.lng, extKey: venueKey(sourceKey, venueName) }
+            }));
+        });
+    }
+    console.log(`   ✅ ${sourceKey}: ${records.length} sessions (${today} → ${end}; ${total} venue bookings seen, ${skipped} non-skate)`);
+    return records;
+}
+
+/** Minimal HTML table reader → [[cell, …], …] per table (tags stripped). */
+function parseHtmlTables(html) {
+    return [...html.matchAll(/<table[\s\S]*?<\/table>/gi)].map(t =>
+        [...t[0].matchAll(/<tr[\s\S]*?<\/tr>/gi)].map(r =>
+            [...r[0].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(c => stripHtml(c[1]))));
+}
+
+/**
+ * Weekday-grid HTML tables (Pickering): per venue a table whose first row is
+ * the venue name, second row the program columns, then one row per weekday.
+ * Season per program and the "Cancellation Dates" list come from the page
+ * text around the tables.
+ */
+async function fetchHtmlGrid(sourceKey, cfg) {
+    const html = await httpGetText(cfg.url);
+    const text = stripHtml(html);
+    const venueNames = Object.keys(cfg.venues || {});
+    const resolveVenue = (label) => {
+        const l = String(label || '').toLowerCase().replace(/\s+/g, ' ');
+        return venueNames.find(v => l.startsWith(v.toLowerCase()))
+            || Object.entries(cfg.venueAliases || {}).find(([a]) => l.startsWith(a.toLowerCase()))?.[1] || null;
+    };
+    const seasonFor = (activity) => {
+        const s = (cfg.seasons || []).find(x => x.match.test(activity));
+        if (!s) return null;
+        const i = text.search(s.label);
+        return i >= 0 ? parseSeasonRange(text.slice(i, i + 120)) : null;
+    };
+    // Cancellation block: "<label>: [<venue> - ]Oct 10, Nov 7 …" per program group.
+    const cancels = [];
+    const ci = text.search(/Cancellation Dates/i);
+    if (ci >= 0) {
+        const block = text.slice(ci, ci + 900);
+        const marks = (cfg.cancelGroups || []).map(g => ({ g, i: block.search(g.label) })).filter(x => x.i >= 0).sort((a, b) => a.i - b.i);
+        marks.forEach((mk, k) => {
+            const seg = block.slice(mk.i, marks[k + 1] ? marks[k + 1].i : undefined);
+            const hits = [...venueNames.map(n => [n, n]), ...Object.entries(cfg.venueAliases || {})]
+                .map(([alias, name]) => ({ name, i: seg.toLowerCase().indexOf(alias.toLowerCase()) })).filter(h => h.i >= 0).sort((a, b) => a.i - b.i);
+            const season = seasonFor(mk.g.matchSample || '') || null;
+            if (!hits.length) { cancels.push({ match: mk.g.match, venue: null, dates: parseDateList(seg, season) }); return; }
+            hits.forEach((h, j) => cancels.push({ match: mk.g.match, venue: h.name, dates: parseDateList(seg.slice(h.i, hits[j + 1] ? hits[j + 1].i : undefined), season) }));
+        });
+    }
+    const rules = [];
+    parseHtmlTables(html).forEach(rows => {
+        if (rows.length < 3 || rows[0].length !== 1) return;
+        const venue = resolveVenue(rows[0][0]);
+        if (!venue) return;
+        const header = rows[1];
+        rows.slice(2).forEach(row => {
+            const weekday = WEEKDAYS.find(w => w.toLowerCase() === String(row[0] || '').trim().toLowerCase());
+            if (!weekday) return;
+            row.slice(1).forEach((cell, i) => {
+                const tr = parseTimeRange(cell, { requireMeridiem: true });
+                if (!tr) return;
+                const cls = applyProgramRules(cfg, header[i + 1]);
+                if (!cls) return;
+                const season = seasonFor(cls.activity);
+                const except = cancels.filter(c => c.match.test(cls.activity) && (!c.venue || c.venue === venue)).flatMap(c => c.dates);
+                rules.push({ venue, activity: cls.activity, weekday, start: tr.start, end: tr.end, ageMin: cls.ageMin, ageMax: cls.ageMax, price: cls.price, from: season?.from, to: season?.to, except });
+            });
+        });
+    });
+    if (!rules.length) throw new Error('no schedule tables parsed from the page');
+    console.log(`   📋 ${rules.length} weekly rules: ${describeRules(rules)}`);
+    if (cancels.length) console.log(`   🚫 cancellations: ${cancels.map(c => `${c.venue ? c.venue.split(' ')[0] + ' ' : ''}${c.match.source} ${c.dates.join(' ')}`).join(' | ')}`);
+    const records = expandWeekly(cfg, sourceKey, rules);
+    console.log(`   ✅ ${sourceKey}: ${records.length} sessions over next ${cfg.daysAhead} days`);
+    return records;
+}
+
 /** If a source fails today, keep its still-future records from the previous file. */
 function salvageExisting(sourceKey) {
     try {
@@ -1465,12 +2065,15 @@ function salvageExisting(sourceKey) {
     }
 }
 
+/** Source kind → fetcher. */
+const FETCHERS = { daysmart: fetchDaySmart, perfectmind: fetchPerfectMind, activenet: fetchActiveNet, scrape: fetchScraped, pdf: fetchPdfSchedule, intelligenz: fetchIntelligenz, 'html-grid': fetchHtmlGrid };
+
 async function fetchExternalSources() {
     const bySource = {};
     for (const [key, cfg] of Object.entries(EXTERNAL_SOURCES)) {
         console.log(`\n🌐 External source: ${key}`);
         try {
-            const fetcher = { daysmart: fetchDaySmart, perfectmind: fetchPerfectMind, activenet: fetchActiveNet, scrape: fetchScraped }[cfg.kind];
+            const fetcher = FETCHERS[cfg.kind];
             if (!fetcher) throw new Error(`unknown source kind '${cfg.kind}'`);
             bySource[key] = { ok: true, records: await fetcher(key, cfg) };
         } catch (e) {
@@ -1488,6 +2091,22 @@ async function main() {
     console.log('================================\n');
 
     try {
+        if (ONLY.length) {
+            for (const key of ONLY) {
+                const cfg = EXTERNAL_SOURCES[key];
+                if (!cfg) { console.warn(`⚠️ unknown source '${key}' (known: ${Object.keys(EXTERNAL_SOURCES).join(', ')})`); continue; }
+                console.log(`\n🌐 External source: ${key} (dry run)`);
+                try {
+                    const rows = await FETCHERS[cfg.kind](key, cfg);
+                    rows.slice(0, 10).forEach(r => console.log(`     ${r['Start Date']} ${r['Day of Week'].slice(0, 3)} ${r['Start Time']}–${r['End Time']}  ${r.Activity}  @ ${r.LocationName}` +
+                        `${r.Paid ? `  $${r.Price}` : '  free'}${r['Age Min'] != null || r['Age Max'] != null ? `  ages ${r['Age Min'] ?? ''}–${r['Age Max'] ?? ''}` : ''}`));
+                    if (rows.length > 10) console.log(`     … ${rows.length - 10} more`);
+                } catch (e) {
+                    console.warn(`   ⚠️ ${key} failed: ${e.message}`);
+                }
+            }
+            return;
+        }
         if (ALERTS_ONLY) {
             await fetchAlerts();
             try {
@@ -1699,5 +2318,5 @@ async function main() {
 }
 
 if (require.main === module) main();
-module.exports = { llmParseSchedule, parseScheduleText, fetchLiveCheck, EXTERNAL_SOURCES };
+module.exports = { llmParseSchedule, parseScheduleText, fetchLiveCheck, EXTERNAL_SOURCES, parseTimeRange, parseSeasonRange, parseDateList, parseWeekdayGridText, parseWeekdayLinesText };
 

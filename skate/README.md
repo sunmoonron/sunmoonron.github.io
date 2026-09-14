@@ -443,12 +443,19 @@ drop-ins **plus** external venues — five Canlan Sports rinks (York,
 Etobicoke, Scarborough, Oakville, Oshawa) via the DaySmart API with live
 prices; Markham, Vaughan, Brampton, Oakville and Burlington via their
 PerfectMind booking calendars; Mississauga and Richmond Hill (Ed
-Sackfield) via ActiveNet drop-in calendars; Moss Park Arena scraped from
-their site and marked `Unverified`. Researched and *not* wired, as of
-Sep 2026: Ajax and Whitchurch-Stouffville publish PDFs only, Oshawa's
-booking site sits behind a queue-cookie gate, Pickering is a plain HTML
-grid (free skates; a small grid parser would do), and Richmond Hill's
-other arenas only exist as weekly activity patterns), `rinks.json` (every indoor/outdoor
+Sackfield) via ActiveNet drop-in calendars; Oshawa's two city arenas via
+its Intelligenz booking pages (kind `intelligenz`: a cookie-jar redirect
+loop through the Queue-it gate, one server-rendered page per arena);
+Whitchurch-Stouffville and Ajax from the PDFs their towns publish (kind
+`pdf`: discovered from the listing page each run, `pdftotext -layout`,
+a weekday-grid parser for Stouffville's sheet and a weekday-lines parser
+for Ajax's flipbook, "Unavailable" dates honoured); Pickering from the
+plain tables on pickering.ca (kind `html-grid`, season dates and the
+cancellation list read from the surrounding text, free); Moss Park Arena
+scraped from their site. Every scraped or PDF source is marked
+`Unverified`. Researched and *not* wired: Richmond Hill's other arenas
+only exist as weekly activity patterns, and Oshawa's Harman Park Arena
+had no fall ice published (see `docs/data-sources/`)), `rinks.json` (every indoor/outdoor
 pad with coordinates + kinds, feeds the locator and alert matching),
 `alerts.json` (toronto.ca service-alert snapshot — only rewritten when
 content changes or the 2-hour heartbeat is due), **`live-check.json`**
@@ -459,7 +466,11 @@ External program records reuse the exact city field names plus
 Unverified / Lat / Lng` — adding a venue is a config entry in
 `EXTERNAL_SOURCES` at the top of `fetch-skate-data.js` (an optional
 `ANTHROPIC_API_KEY` secret upgrades the Moss Park scrape to an LLM parse;
-the regex parser is the always-on fallback).
+the regex parser is the always-on fallback). `node fetch-skate-data.js
+--only=stouffville,ajax` dry-runs the named sources and writes nothing —
+the way to develop a parser. The two PDF sources need `pdftotext`
+(poppler); the workflow apt-installs it, and without it they fail
+cleanly and keep their previous rows like any other failed source.
 
 **The live cross-check (`live-check.json`, v3.1) — the Malvern lesson.**
 The City's open-data drop-in export is refreshed *weekly* and lags the
@@ -577,6 +588,26 @@ tradeoff of accountless.
 - **Add an ActiveNet city** — kind `activenet` with the calendar id,
   category ids, centre ids and `programs` rules carrying price + ages
   (that API exposes neither).
+- **Add a PDF-only town** — kind `pdf` with `discover` (listing page +
+  one regex per hop to the PDF; `pdfUrl` as the fallback), `layout:
+  'weekday-grid'` (a header row `Activity | Age | Monday … Sunday` per
+  venue block, like Stouffville's sheet — tokens land in the column whose
+  header centre is nearest, never in fixed slices) or `'weekday-lines'`
+  (a weekday on its own line, then `time  activity  pad  Unavailable …`
+  lines, like Ajax's), `programs` rules for names, ages, prices and
+  `skip`, `venues{}` and `unverified: true`. Test with `--only=`; the
+  season range on the sheet bounds the expansion, `grid.stopAt` ends the
+  grid before the fee tables.
+- **Add an Intelligenz booking site** — kind `intelligenz` with `base`,
+  `venues{}` carrying each arena's `guid` (from its VenueClasses link),
+  `activityMatch` to drop the yoga and pilates on the same page, and
+  `programs` price rules; the fetcher keeps the Queue-it cookies across
+  the redirect chain by itself.
+- **Add an HTML weekday grid** — kind `html-grid`: `url`, `venues{}`
+  (+ `venueAliases` for the short names the page uses), `programs`
+  renames, `seasons` (a label regex per program group → the date range
+  that follows it) and `cancelGroups` (label regex → program regex under
+  "Cancellation Dates"; venue-qualified lines apply to that venue only).
 - **Add a weather spot** — a row in `config.weatherSpots`.
 - **Change relays** — `RELAYS` in `nostr-core.js` (chat/guides) and in
   `refresh.js` (must overlap with what the GitHub Action polls). The

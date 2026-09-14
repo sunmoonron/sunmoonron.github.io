@@ -25,8 +25,10 @@ window.SkateUI = (() => {
         if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
         return new Date(str);
     }
-    function mapsUrl(location) {
-        return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(location + ', Toronto, ON');
+    /** Google Maps search for a venue; `town` is the municipality (external
+     *  venues sit in Stouffville, Oshawa, Vaughan… — not Toronto). */
+    function mapsUrl(location, town = 'Toronto') {
+        return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(location + ', ' + town + ', ON');
     }
 
     /* ---------- identity visuals ---------- */

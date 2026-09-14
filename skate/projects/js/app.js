@@ -176,6 +176,9 @@ window.SkateApp = (() => {
         return url ? `<a class="${cls}" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="Official page — verify the schedule before you go">🏛️ ${escapeHtml(site)} ↗</a>` : '';
     }
 
+    /** 7.5 → "7.50", 5 → "5", null → "?" — prices read like a price tag. */
+    function fmtPrice(n) { return n == null ? '?' : Number(n).toFixed(2).replace(/\.00$/, ''); }
+
     /** "Ages 13–18" / "Adults 19+" / "Up to 12" / "All ages" as plain text. */
     function ageText(p) {
         let min = P.age(p['Age Min']), max = P.age(p['Age Max']);
@@ -209,7 +212,7 @@ window.SkateApp = (() => {
         const details = [
             `${P.activity(p)} · ${ageText(p)}`,
             addr ? `${P.location(p)}, ${addr}` : P.location(p),
-            p.Paid ? `Paid session${p.Price != null ? ` · $${p.Price}` : ''}${p.RegistrationUrl ? ` · Register: ${p.RegistrationUrl}` : ''}` : (p.PriceNote || 'Free drop-in'),
+            p.Paid ? `Paid session${p.Price != null ? ` · $${fmtPrice(p.Price)}` : ''}${p.RegistrationUrl ? ` · ${p.RegistrationUrl === p.InfoUrl ? 'Details' : 'Register'}: ${p.RegistrationUrl}` : ''}` : (p.PriceNote || 'Free drop-in'),
             p.Unverified ? 'UNVERIFIED schedule (scraped) — confirm with the venue' : '',
             off ? `Verify on ${officialSite(p)}: ${off}` : '',
             `Toronto Skating: ${baseUrl()}#p=${P.id(p)}`
@@ -783,9 +786,14 @@ window.SkateApp = (() => {
         // Paid venue extras: gold badge with price + register link; price notes
         // (e.g. "free for Vaughan residents") ride as a small muted badge
         const srcInfo = CFG.sourceInfo[p.Source];
-        const paidBadge = p.Paid ? `<span class="paid-badge" title="Paid venue${srcInfo ? ' — ' + escapeHtml(srcInfo.label) : ''}${srcInfo?.note ? '. ' + escapeHtml(srcInfo.note) : ''}">$${p.Price != null ? p.Price : '?'}</span>` : '';
+        const paidBadge = p.Paid ? `<span class="paid-badge" title="Paid venue${srcInfo ? ' — ' + escapeHtml(srcInfo.label) : ''}${srcInfo?.note ? '. ' + escapeHtml(srcInfo.note) : ''}">$${fmtPrice(p.Price)}</span>` : '';
         const noteBadge = p.PriceNote ? `<span class="note-badge" title="${escapeHtml(p.PriceNote)}">${escapeHtml(p.PriceNote)}</span>` : '';
-        const registerBtn = (p.Paid && p.RegistrationUrl) ? `<a class="btn-register" href="${escapeHtml(p.RegistrationUrl)}" target="_blank" rel="noopener" title="Opens the venue's registration page">Register ↗</a>` : '';
+        // Venues without online booking (PDF/HTML towns) link their schedule page instead → say so.
+        const registerBtn = (p.Paid && p.RegistrationUrl)
+            ? (p.RegistrationUrl === p.InfoUrl
+                ? `<a class="btn-register" href="${escapeHtml(p.RegistrationUrl)}" target="_blank" rel="noopener" title="Opens the venue's schedule page — pay at the door">Details ↗</a>`
+                : `<a class="btn-register" href="${escapeHtml(p.RegistrationUrl)}" target="_blank" rel="noopener" title="Opens the venue's registration page">Register ↗</a>`)
+            : '';
 
         // Live spots (fetched from the venue's registration API in-browser).
         // DaySmart semantics (verified 2026-09-14): open_slots -1 = no cap,
@@ -827,7 +835,7 @@ window.SkateApp = (() => {
 
         const city = P.city(p);
         const cityTag = city !== 'Toronto' ? `<span class="city-tag">${escapeHtml(city)}</span>` : '';
-        const locationHtml = location ? `<a href="${mapsUrl(location)}" target="_blank" rel="noopener" class="program-location">📍 ${escapeHtml(location)} ↗</a>${cityTag}${noteBtn} ${officialLinkHtml(off, officialSite(p))}` : '';
+        const locationHtml = location ? `<a href="${mapsUrl(location, P.city(p))}" target="_blank" rel="noopener" class="program-location">📍 ${escapeHtml(location)} ↗</a>${cityTag}${noteBtn} ${officialLinkHtml(off, officialSite(p))}` : '';
 
         return `
             <li class="program-item${rowStateCls}${p.Paid ? ' is-paid' : ''}${isFavorite ? ' is-saved' : ''}${alert ? (alert.level === 'closed' ? ' has-alert-closed' : ' has-alert') : ''}" data-pid="${pid}">
@@ -939,7 +947,8 @@ window.SkateApp = (() => {
         let content = escapeHtml(m.text || '');
         if (m.type === 'share' && m.data) {
             const loc = m.data.location;
-            const locLink = loc ? `<a href="${mapsUrl(loc)}" target="_blank" rel="noopener">📍 ${escapeHtml(loc)} ↗</a>` : '';
+            const town = String(m.data.city || 'Toronto').slice(0, 40);   // rode the wire — clamp it
+            const locLink = loc ? `<a href="${mapsUrl(loc, town)}" target="_blank" rel="noopener">📍 ${escapeHtml(loc)} ↗</a>` : '';
             content = `<strong>⛸️ ${escapeHtml(m.data.activity)}</strong><br>${locLink}<br>🗓️ ${escapeHtml(m.data.date || '')}${m.data.time ? ' • ' + fmtClock(m.data.time) : ''}${m.data.endTime ? '–' + fmtClock(m.data.endTime) : ''}`;
             // Paid heads-up on shared cards (price sanitized — it rode the wire)
             if (m.data.paid) {

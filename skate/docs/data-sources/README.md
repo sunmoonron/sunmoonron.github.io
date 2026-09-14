@@ -9,11 +9,18 @@ summarizes, plus the cities that were researched but not wired.
 |---|---|---|
 | `canlan-daysmart.md` | Canlan Sports York / Etobicoke / Scarborough / Oakville / Oshawa (DaySmart API), the `open_slots = -1` semantics | yes |
 | `peel-halton.md` | Mississauga (ActiveNet), Brampton, Oakville, Burlington (PerfectMind) and the `ClassesV2` truncation behaviour | yes |
-| `york-durham.md` | Markham corrections, Vaughan (PerfectMind), Richmond Hill (ActiveNet), Whitchurch-Stouffville, Ajax, Oshawa, Pickering | Markham, Vaughan, Richmond Hill (Ed Sackfield) |
+| `york-durham.md` | Markham corrections, Vaughan (PerfectMind), Richmond Hill (ActiveNet), Whitchurch-Stouffville (PDF), Ajax (Publitas PDF), Oshawa (Intelligenz behind Queue-it), Pickering (HTML grid) | all but Richmond Hill's other three arenas |
 
-Not wired yet and why: Ajax and Whitchurch-Stouffville publish PDFs only;
-Oshawa's booking site sits behind a Queue-it cookie gate; Pickering is a
-plain HTML weekday grid (free skates — a small grid parser would do);
-Richmond Hill's Tom Graham / Bond Lake / Elgin Barrow drop-ins exist only
-as ActiveNet weekly activity patterns (`activities/list` +
-`meetingandregistrationdates/{id}`), not calendar rows.
+Wired later the same day (kinds `pdf`, `intelligenz`, `html-grid` in
+`fetch-skate-data.js`): Whitchurch-Stouffville's drop-in PDF (weekday grid,
+`pdftotext -layout`, discovered from the drop-in page; its empty ActiveNet
+calendar is checked first), Ajax's Publitas flipbook PDF (weekday lines with
+"Unavailable" dates), Oshawa's VenueClasses pages (cookie-jar redirect loop
+through Queue-it, one page per arena) and Pickering's tables (season dates
+and cancellation list from the surrounding text).
+
+Still not wired: Richmond Hill's Tom Graham / Bond Lake / Elgin Barrow
+drop-ins exist only as ActiveNet weekly activity patterns
+(`activities/list` + `meetingandregistrationdates/{id}`), not calendar
+rows; Oshawa's Harman Park Arena had no fall ice published (add its GUID to
+the `oshawa` entry when category SKATEHP shows rows).

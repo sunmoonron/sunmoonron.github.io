@@ -18,14 +18,23 @@ const LEISURE_WORDS = [
     'leisure', 'public skat', 'recreational skat', 'recreation skat', 'fun skate',
     'skating - unsupervised', 'skating - adult only', 'skating - older adult',
     'senior skate', 'older adult skate', 'adult skate fit', 'sensory skate',
-    'parent & tot skate', 'parent and tot skate', 'skate 19+', 'family skate', 'daytime skate'
+    'parent & tot skate', 'parent and tot skate', 'skate 19+', 'family skate', 'daytime skate',
+    // Stouffville "Adult/Senior Free Skate", Ajax/Oshawa "Adult Skate" / "Parent & Tot", Pickering "Parent & Child Skate"
+    'free skate', 'adult skate', 'parent & tot', 'parent and tot', 'parent & child skate'
 ];
 
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.2',
+    version: '3.3',
     changelog: [
+        {
+            v: '3.3', date: '2026-09-14', items: [
+                '🏙️ Four more towns: Stouffville (Clippers Sports Complex + Stouffville Arena), Ajax (Community Centre), Oshawa\'s city arenas (Delpark Homes Centre, Donevan Recreation Complex) and Pickering (Chestnut Hill Developments Rec Complex, Don Beer Arena) — Pickering\'s public skates are free',
+                '📄 Stouffville and Ajax publish their schedules as PDFs and Pickering as a web table, so those rows are marked unverified and drop the dates their towns list as cancelled; Oshawa comes from its booking system',
+                '🏷️ Vaughan\'s note now says what the city says: fees are resident prices with a 20% non-resident surcharge — ask at the desk'
+            ]
+        },
         {
             v: '3.2', date: '2026-09-14', items: [
                 '🧘 A calmer schedule: one search box, three buttons (Filters · Rinks & map · Week), your active filters as removable pills, and one quiet status line — instead of eight rows of controls',
@@ -247,7 +256,7 @@ window.SkateConfig = {
         { id: 'women', label: 'Women & girls' }
     ],
     // City order in the Filters sheet (anything else sorts after, A–Z).
-    cityOrder: ['Toronto', 'Markham', 'Vaughan', 'Richmond Hill', 'Mississauga', 'Brampton', 'Oakville', 'Burlington', 'Oshawa'],
+    cityOrder: ['Toronto', 'Markham', 'Vaughan', 'Richmond Hill', 'Stouffville', 'Mississauga', 'Brampton', 'Oakville', 'Burlington', 'Pickering', 'Ajax', 'Oshawa'],
 
     // Activity categories (Filters → Type). The keyword matcher classifies
     // each session; sessions matching nothing fall into 'other'.
@@ -259,7 +268,7 @@ window.SkateConfig = {
         // "Skate 19+" / "Sensory Skate", Richmond Hill "Public Skating".
         { id: 'leisure',   label: 'Leisure',   keywords: LEISURE_WORDS },
         { id: 'hockey',    label: 'Hockey',    keywords: ['shinny', 'hockey', 'stick'] },
-        { id: 'figure',    label: 'Figure',    keywords: ['figure'] },
+        { id: 'figure',    label: 'Figure',    keywords: ['figure', 'ticket ice'] },
         { id: 'speed',     label: 'Speed',     keywords: ['speed'] },
         { id: 'adapted',   label: 'Adapted',   keywords: ['adapted', 'adaptive'] },
         { id: 'ringette',  label: 'Ringette',  keywords: ['ringette'] },
@@ -269,7 +278,7 @@ window.SkateConfig = {
     // Activity → badge tag. First keyword hit wins (order matters).
     activityTags: [
         { keywords: ['shinny', 'hockey', 'stick'], cls: 'hockey',  label: '🏒 Hockey' },
-        { keywords: ['figure'],                  cls: 'figure',   label: '⛸️ Figure' },
+        { keywords: ['figure', 'ticket ice'],    cls: 'figure',   label: '⛸️ Figure' },
         { keywords: ['speed'],                   cls: 'speed',    label: '⛸️ Speed' },
         { keywords: LEISURE_WORDS,               cls: 'leisure',  label: '⛸️ Leisure' },
         { keywords: ['adapted', 'adaptive'],     cls: 'adapted',  label: '♿ Adapted' },
@@ -336,7 +345,7 @@ window.SkateConfig = {
         'markham':     { city: 'Markham', label: 'City of Markham', verified: true, site: 'markham.ca',
                          note: 'Official Markham booking data — prices vary by age ($0 for some groups); most drop-ins open for booking 21h before start.' },
         'vaughan':     { city: 'Vaughan', label: 'City of Vaughan', verified: true, site: 'vaughan.ca',
-                         note: 'Official Vaughan booking data — drop-in skating and shinny are free for Vaughan RESIDENTS only (proof of address); non-residents pay a drop-in fee at the desk. Ticket Ice figure skating $10.50.' },
+                         note: 'Official Vaughan booking data — drop-in skating and shinny are free for Vaughan RESIDENTS (proof of address); the city adds a 20% non-resident surcharge to its fees, so non-residents should ask at the desk. Ticket Ice figure skating $10.50.' },
         'richmondhill': { city: 'Richmond Hill', label: 'City of Richmond Hill', verified: true, site: 'richmondhill.ca',
                          note: 'Official Richmond Hill calendar (Ed Sackfield Arena) — adult $5.90 skate, $8.70 shinny/figure/stick & puck; tickets at the arena desk from 30 min before.' },
         'brampton':    { city: 'Brampton', label: 'City of Brampton', verified: true, site: 'brampton.ca',
@@ -348,7 +357,15 @@ window.SkateConfig = {
         'mississauga': { city: 'Mississauga', label: 'City of Mississauga', verified: true, site: 'mississauga.ca',
                          note: 'Official Mississauga drop-in calendar — adult $5.21, child/youth/55+ $4.17 incl. tax (by-law rates; not sold online — tickets at the door 30 min before); 65+ residents and kids 3 and under free.' },
         'mosspark':    { city: 'Toronto', label: 'mossparkarena.com', verified: false, site: 'mossparkarena.com',
-                         note: 'Schedule scraped from their website — there is NO live feed for this arena.' }
+                         note: 'Schedule scraped from their website — there is NO live feed for this arena.' },
+        'stouffville': { city: 'Stouffville', label: 'Whitchurch-Stouffville', verified: false, site: 'townofws.ca',
+                         note: 'Weekly schedule read from the Town\'s drop-in PDF (no live feed) — adult $5.50 skate / $7.50 shinny & stick and puck, youth & 60+ less; cash, debit or credit at the door.' },
+        'ajax':        { city: 'Ajax', label: 'Town of Ajax', verified: false, site: 'ajax.ca',
+                         note: 'Weekly schedule read from the Town\'s skating PDF (no live feed) — adult $5.25 skate / $7.90 shinny, youth & 65+ $3.50 / $5.65; check ajax.ca/skating for cancellations.' },
+        'oshawa':      { city: 'Oshawa', label: 'City of Oshawa', verified: true, site: 'oshawa.ca',
+                         note: 'Official Oshawa booking data (activeOshawa) — adult $5.25 skate / $8.50 shinny, child & youth $3.50, family $10.75; pay at the desk, drop in only.' },
+        'pickering':   { city: 'Pickering', label: 'City of Pickering', verified: false, site: 'pickering.ca',
+                         note: 'Weekly schedule read from pickering.ca (no live feed) — public skating is FREE at both arenas; listed cancellation dates are already removed.' }
     },
 
     // Per-program action buttons, in render order. Share lives inside the
