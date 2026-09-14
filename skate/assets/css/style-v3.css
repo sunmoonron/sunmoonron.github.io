@@ -947,3 +947,98 @@ body.dark-mode .tour-card { background: #1a2430; border-color: #26323f; }
 /* map/QR buttons in the locator + settings */
 .btn-open-map { width: 100%; margin-top: 8px; background: var(--bg); border: 1px solid var(--border); }
 .btn-open-map:hover { border-color: var(--acc-programs); }
+
+/* ============================================================
+   v3.1 — live cross-check flags, verify links, calendar menu,
+   weather picker, pull-to-refresh, chat privacy line, guide
+   ============================================================ */
+
+/* ---- "the City dropped this session" flag (reuses the closed banner) ---- */
+.alert-banner.live-flag { border-style: solid; }
+.alert-banner .verify-link {
+    display: inline-block; margin-left: 4px;
+    color: inherit; font-weight: 700; text-decoration: underline;
+    white-space: nowrap;
+}
+
+/* ---- compact official-page link beside the map link ---- */
+.official-link {
+    display: inline-block; margin-left: 6px; margin-top: 2px;
+    font-size: 11px; color: var(--text-muted);
+    text-decoration: none; white-space: nowrap;
+    border: 1px dashed var(--border-dark); border-radius: 10px; padding: 0 6px;
+}
+.official-link:hover { color: var(--acc-programs); border-color: var(--acc-programs); }
+.share-official { font-size: 12px; color: var(--primary); font-weight: 600; text-decoration: none; }
+.share-official:hover { text-decoration: underline; }
+
+/* ---- venue live badges ---- */
+.spots-badge.full {
+    border-color: color-mix(in srgb, var(--alert-red) 60%, transparent);
+    color: var(--alert-red);
+    background: var(--alert-red-bg);
+}
+
+/* ---- picker counts: paid-only rinks read "N paid", not "0 sessions" ---- */
+.myrinks-count.paid-only { color: var(--paid); background: color-mix(in srgb, var(--paid) 14%, transparent); }
+
+/* ---- weather chip now carries the spot name; picker is a tall popover ---- */
+.weather-chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.popover { max-height: min(70vh, 520px); overflow-y: auto; }
+
+/* ---- toolbar map button sits next to Near me ---- */
+.btn-map { margin-left: 0; }
+
+/* ---- pull-to-refresh indicator (touch; grows with the pull) ---- */
+.ptr {
+    height: 0; overflow: hidden;
+    display: flex; align-items: flex-end; justify-content: center; gap: 6px;
+    font-size: 12px; font-weight: 600; color: var(--text-muted);
+    transition: height 0.12s;
+    margin: -10px -10px 0;          /* bleed to the panel edges */
+}
+.ptr.visible { padding-bottom: 8px; }
+.ptr-icon { display: inline-block; transition: transform 0.15s; }
+.ptr.armed { color: var(--acc-programs); }
+.ptr.armed .ptr-icon { transform: rotate(180deg); }
+.ptr.busy .ptr-icon { animation: ptr-spin 0.9s linear infinite; }
+@keyframes ptr-spin { to { transform: rotate(360deg); } }
+/* keep the pull inside the panel — no chained rubber-banding of the page */
+.view-panel { overscroll-behavior-y: contain; }
+
+/* ---- chat: who can read this, right above the composer ---- */
+.chat-privacy-hint {
+    flex-shrink: 0;
+    padding: 5px 12px;
+    font-size: 11px; line-height: 1.35;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    background: var(--bg-white);
+}
+.chat-privacy-hint.public { border-left: 3px solid var(--acc-chats); }
+.chat-privacy-hint.private { border-left: 3px solid var(--live); }
+
+/* ---- settings: tour + guide buttons ---- */
+.tour-buttons { flex-wrap: wrap; }
+.tour-buttons button { flex: 1 1 auto; }
+
+/* ---- auto-playing guide: progress bar + pause ---- */
+.tour-progress {
+    height: 4px; border-radius: 2px;
+    background: color-mix(in srgb, var(--acc-programs) 18%, var(--border));
+    overflow: hidden; margin: 0 0 8px;
+}
+.tour-progress-bar { height: 100%; width: 0; background: var(--acc-programs); transition: width 0.1s linear; }
+.tour-nav-btns { display: flex; gap: 6px; }
+.tour-pause {
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+    font-size: 12px; padding: 6px 10px;
+}
+.tour-pause:hover { border-color: var(--border-dark); }
+
+/* ---- dark mode ---- */
+body.dark-mode .official-link { border-color: #38485a; }
+body.dark-mode .chat-privacy-hint { background: #16202a; border-top-color: #26323f; }
+body.dark-mode .ptr.armed { color: var(--acc-programs); }
+body.dark-mode .tour-pause { background: #1b2530; color: var(--text); border-color: #38485a; }
+body.dark-mode .spots-badge.full { background: var(--alert-red-bg); }

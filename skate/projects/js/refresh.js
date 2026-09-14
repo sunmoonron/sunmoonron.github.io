@@ -22,7 +22,7 @@ const SkateRefresh = (() => {
 
     async function dataAgeDays() {
         try {
-            const res = await fetch(`${META_URL}?t=${Date.now()}`, { cache: 'no-store' });
+            const res = await fetch(window.SkateAPI?.dataUrl ? SkateAPI.dataUrl(META_URL, Date.now()) : `${META_URL}?t=${Date.now()}`, { cache: 'no-store' });
             if (!res.ok) return null;
             const meta = await res.json();
             return (Date.now() - new Date(meta.lastUpdated).getTime()) / 86400000;

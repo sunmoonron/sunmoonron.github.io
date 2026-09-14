@@ -3,9 +3,10 @@
 Toronto's public skating schedule with a community layer on top — group
 chats, DMs, community-written guides, voting — running **entirely as a
 static page**. No backend, no accounts, no database. City data comes from
-JSON files committed by CI; everything social rides on public
-[Nostr](https://nostr.com) relays over WebSockets; identity and history
-live in your browser's localStorage.
+JSON files committed by CI (and, since v3.1, cross-checked against
+toronto.ca's *live* per-rink schedules); everything social rides on
+[Nostr](https://nostr.com) relays over WebSockets — three public ones plus
+the site's own; identity and history live in your browser's localStorage.
 
 To run it yourself:
 
@@ -46,7 +47,7 @@ the whole UI with zero markup changes.
 │  moderation.js (profanity + PoW)         nostr-core.js (relay pool)    │
 │                                               │ WebSockets             │
 │  api.js ◄── storage.js   settings.js          ▼                        │
-│  (city data)  (cache)    (prefs)         damus / nos.lol / primal      │
+│  (city data)  (cache)    (prefs)   damus / nos.lol / primal / own relay │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -55,7 +56,7 @@ Why this shape: the previous build kept all of this in a 1,700-line
 logic, and user strings inside inline `onclick` handlers (which was an
 actual XSS). Splitting data from rendering makes the repetition
 declarative, kills the injection surface (all user content renders via
-`textContent`-safe builders + delegation), and makes the HTML a 287-line
+`textContent`-safe builders + delegation), and makes the HTML a ~500-line
 shell whose only job is naming the mount points.
 
 ---
@@ -64,25 +65,36 @@ shell whose only job is naming the mount points.
 
 ### Presentation layer
 
-**`index.html`** — Static shell only; zero inline script. Contains: the
-top bar, the three view panels (`#programs-panel`, `#guides-panel`,
-`#chats-panel`), five modal skeletons (onboarding, settings, discover,
-invite, share), the floating `#popover`, and *empty containers* that
-`app.js` populates from config at boot: `#view-tabs`, `#type-filters`,
-`#day-filter` options, `#chat-filters`, `#guide-cat-filters`,
-`#guide-cat-input`, `#settings-timefmt`, `#settings-exp`,
-`#onboarding-choices`. Script order at the bottom matters: bundle →
-profanity list → **config** → settings → moderation → nostr-core →
-storage → api → chat-v2 → guides → **ui** → **app** → refresh. The `?v=`
-query params are the cache-busting mechanism — bump them when you change
-a file.
+**`index.html`** — Static shell only; the only inline script registers the
+service worker. Contains: the top bar, the three view panels
+(`#programs-panel`, `#guides-panel`, `#chats-panel`), eleven modal
+skeletons (onboarding, first-visit setup, locator, my-rinks, what's-new,
+settings, QR, map, discover, invite, share), the floating `#popover`, the
+pull-to-refresh indicator, and *empty containers* that `app.js` populates
+from config at boot: `#view-tabs`, `#type-filters`, `#scope-row`,
+`#day-filter` options, `#age-preset`, `#sort-filter`, `#chat-filters`,
+`#guide-cat-filters`, `#guide-cat-input`, `#settings-timefmt`,
+`#settings-theme`, `#settings-exp`, `#settings-sections`,
+`#settings-privacy`, `#onboarding-choices`. Script order at the bottom
+matters: bundle → **config** → settings → moderation → nostr-core →
+storage → api → time → geo → live → weather → alerts → chat-v2 → guides →
+**ui** → calendar → map → tour → **app** → refresh. (`profanity-list.js`
+has no script tag — `bootCommunity()` injects it lazily, so schedule-only
+visits never download it.) The `?v=` query params are the cache-busting
+mechanism — bump them when you change a file.
 
 **`projects/js/config.js`** — `window.SkateConfig`, pure data, zero logic.
 The tables and what consumes them:
 
 | Table | Drives | Consumed by |
 |---|---|---|
+| `version`, `changelog` | The version chip and the 🆕 What's new modal (this is the change ledger — there is no CHANGES.md) | `Render.bootstrap`, `Render.whatsNew` |
+| `dataBase` | Optional alternate origin for the data JSONs (home server); `null` = committed copies | `SkateAPI.dataUrl` |
 | `views` | The 3 tabs + which gets an unread badge | `Render.bootstrap`, keyboard `1..N` |
+| `privacyToggles` | 👻 Invisible / ✉️ Allow DMs / 🛡️ Cloud filter buttons in Settings | `Render.settings`, chat-v2, guides, moderation |
+| `tourSteps` | Spotlight steps (selector, copy, `sec` for the auto-playing guide); hidden targets auto-skip | `tour.js` |
+| `weatherSpots` | The pick-list behind the weather chip | `weather.js`, `Menus.weather` |
+| `sourceInfo` | Per-source label, `verified` flag, `site` (the 🏛️ verify-link text) and footnote | `Render.programRow`, `officialSite` |
 | `programTypes` | Filter chips + keyword matcher (`special: 'all'/'favorites'` for the two non-keyword ones) | `P.matchesType`, chips |
 | `activityTags` | Activity-name → colored badge (first keyword hit wins, so order matters) | `P.tagFor` |
 | `days` | Day dropdown options | `Render.bootstrap` |
@@ -146,8 +158,12 @@ Internal structure:
 ### Social / network layer
 
 **`projects/js/nostr-core.js`** — `SkateNostr`, one shared relay pool for
-the whole app (3 sockets total: `relay.damus.io`, `nos.lol`,
-`relay.primal.net`). Named subscriptions replay automatically on
+the whole app (4 sockets total: `relay.damus.io`, `nos.lol`,
+`relay.primal.net` and the site's own `skate-relay.ronishbhatt.com` — a
+strfry whose write policy admits only this app's kinds, each gated by the
+same NIP-13 proof-of-work tiers the client mines, plus the site owner's
+pin/mute lists; unmined events simply get an OK:false from it). Named
+subscriptions replay automatically on
 reconnect; exponential backoff (1s→30s); global event-id dedupe so the
 same message from three relays renders once; `publish()` resolves `true`
 once **any** relay ACKs (that's what the ✓/⏳/⚠ delivery ticks mean);
@@ -179,10 +195,15 @@ DMs, presence, votes, invites, mutes, favorites.
 - *DMs.* **Kind 4** envelopes with **nip44** payloads (modern crypto in
   the classic-DM kind so relays index it by `#p`), fetched both directions
   (to-me and from-me) so your own sent history survives a reinstall.
-- *Presence.* Ephemeral **kind 20104** heartbeats every 45s per group;
-  members count as online within a 90s window; an explicit `bye` payload
-  on `pagehide`/leave zeroes you immediately (kills the "2 online" ghost).
-  Rosters are keyed by pubkey, not display name.
+- *Presence.* Ephemeral **kind 20104** heartbeats every 45s per group
+  (mined at the chat tier so the site's own relay accepts them); members
+  count as online within a 90s window; an explicit `bye` payload on
+  `pagehide`/leave zeroes you immediately (kills the "2 online" ghost) and
+  wipes your roster entry if you never wrote anything. Rosters are keyed
+  by pubkey, not display name. **👻 Invisible** skips the heartbeats *and*
+  tags every outgoing payload with `inv`, so receivers keep your name but
+  never your "last seen" — a message from an invisible member no longer
+  flips them "online" for everyone else (the v3.0 bug).
 - *Time votes (👍 on programs).* Group-scoped tallies carried in the
   encrypted group stream — latest action per member wins, togglable.
 - *Local-only niceties.* Favorites (`skate_favorites_v2`) and mutes
@@ -217,10 +238,12 @@ on standard public Nostr kinds:
 gate publishing:
 
 - *Profanity*: local word-boundary regex over `PROFANITY_LIST` (with leet
-  normalization) as an instant hard block; remote APIs are consulted
-  **only for public-room content** — DMs and private groups are checked
-  on-device only (privacy). `clean()` stars out matches when displaying
-  others' messages.
+  normalization) as an instant hard block — the mandatory floor; remote
+  APIs are consulted **only for public-room content and guides**, and
+  only while the 🛡️ Cloud filter setting (`remoteModeration`, default on)
+  is on — DMs and private groups are checked on-device only (privacy),
+  and the composer says which applies right above the message box.
+  `clean()` stars out matches when displaying others' messages.
 - *Proof-of-work (NIP-13)*: spam costs CPU. Difficulty by event type:
   chat **8** bits, comment **12**, vote **16**, guide **20**. Mining runs
   in a Web Worker (main-thread fallback) using a **custom miner that
@@ -238,8 +261,13 @@ gate publishing:
 **`projects/js/api.js`** — `SkateAPI`. Loads program data from
 `projects/data/skating-programs.json` and caches metadata through
 SkateStorage. Also exposes `getMetadata()` (the "Updated today/yesterday"
-stamp) and `needsRefresh()`. The old Firebase Storage branch and the
-locations/facilities loaders were dead code and were removed in v2.2.
+stamp) and `needsRefresh()`. **`dataUrl(file, bust)`** is the single
+place every data consumer (programs, alerts, live check, rinks, meta)
+builds its URL, so `configure({ dataBase })` (or `SkateConfig.dataBase`)
+swaps the data origin for the whole app; any failure on the remote
+origin falls back to the committed same-origin copies for the rest of the
+session. (The old Firebase Storage branch and its `storageUrl` option were
+removed in v2.2.)
 
 **`projects/js/storage.js`** — `SkateStorage`, a lean localStorage cache
 for the city data (`skate_` prefix): 1-hour TTL that also expires at the
@@ -287,6 +315,17 @@ mentioned date range covers the program date. Deliberately deterministic:
 every flag traces to a rule, and the full alert text is always shown so
 the human decides.
 
+Since v3.1 it also loads **`projects/data/live-check.json`** on the same
+ticker: the pipeline's cross-check of every City session in the next two
+weeks against toronto.ca's *live* per-location schedules (see the data
+section). `liveFor(p)` / `isDropped(p)` expose the verdict, and
+`forProgram()` returns a `closed` verdict with `live` set when the City
+no longer lists a session or marks it cancelled — that outranks the
+alert feed. Dropped sessions are struck out with a red flag, never count
+as "upcoming", and carry a **Verify on toronto.ca ↗** link. The stats
+line shows "· toronto.ca ✓ HH:MM"; a banner warns when the check is >8h
+old.
+
 **`projects/js/geo.js`** — `SkateGeo`. Loads `projects/data/rinks.json`
 (all indoor + outdoor pads with coordinates), haversine distances, the
 📍 locator (browser geolocation or Nominatim geocoding biased to the
@@ -318,12 +357,18 @@ mode re-inks tiles with a CSS filter. Pin popups come from app.js via
 calendar. `open({filter:'outdoor'})` powers the winter banner.
 
 **`projects/js/weather.js`** — `SkateWeather`. Open-Meteo current
-conditions (30-min TTL, CC BY attribution) for the stats-line chip;
-follows the user's saved 📍 location, falls back to central Toronto.
+conditions (30-min TTL, CC BY attribution) for the stats-line chip.
+`spot()` is either a pick from `config.weatherSpots` (Scarborough, North
+York, Markham, Mississauga… — chosen from the chip's popover, persisted
+as `weatherSpot`) or, on 'auto', the user's saved 📍 location, falling
+back to central Toronto.
 
-**`projects/js/tour.js`** — `SkateTour`. 20-second spotlight tour; steps
-live in `config.tourSteps` (missing/hidden targets auto-skip). Runs once
-after first-visit setup, replayable from Settings. Big Skip, Esc skips.
+**`projects/js/tour.js`** — `SkateTour`. Spotlight coach marks, two ways:
+`start()` is the tap-through quick tour (runs once after first-visit
+setup), `play()` the auto-advancing ~60-second guide with a progress bar
+and Pause — both from Settings. Steps live in `config.tourSteps`
+(missing/hidden targets auto-skip; `sec` sets the guide's dwell time).
+Skip always outranks: first button in the card, Esc, tap on the backdrop.
 
 **Markham (PerfectMind)** — `EXTERNAL_SOURCES['markham']` posts to the
 city's own `ClassesV2` widget endpoint; records carry `ExtLocationKey`
@@ -348,7 +393,15 @@ constant in sw.js on releases that must evict old assets.
 untouched: the refactor's contract is that every class/id/data-attribute
 the old markup used still exists, so this file keeps working blind.
 
-**`assets/css/style-additions.css`** — everything layered on top, loaded
+**`assets/css/style-v3.css`** — loaded last: everything from v2.0
+onwards — alert banners, live chips, paid styling, the week calendar,
+locator/my-rinks/what's-new, the v2.5 **"night rink" dark theme** (a full
+token re-base under `body.dark-mode`, so any new light-hardcoded colour
+needs an override here), the v3.0 weather/QR/map/winter/tour styles and
+the v3.1 live-flag, verify-link, pull-to-refresh, privacy-line and guide
+styles. Every new component gets its dark override in this file.
+
+**`assets/css/style-additions.css`** — the v2 layer, loaded
 *after* base so it wins ties: the panel accent system (ice-blue Programs /
 violet Guides / amber Chats via `--acc-*` custom properties, 3px gradient
 bars, tab underlines), the responsive layout overrides (**<768px** tabbed
@@ -366,15 +419,15 @@ hardcoded. One landmine documented inline: never add an **unscoped**
 ### Data & other
 
 **`projects/data/`** — `skating-programs.json` (the schedule: city
-drop-ins **plus** external venues — Canlan York via the DaySmart API with
-live prices, Moss Park Arena scraped from their site and marked
-`Unverified`), `rinks.json` (every indoor/outdoor pad with coordinates +
-kinds, feeds the locator and alert matching), `alerts.json` (toronto.ca
-service-alert snapshot, refreshed every ~30 min by the listener workflow
-— only committed when content changes), `meta.json` (`lastUpdated` +
-per-source health). Written by `fetch-skate-data.js` in CI; treated as
-read-only by the app. (`locations.json` / `facilities.json` were removed
-in v2.2 — nothing loaded them and CI hadn't updated them since v1.)
+drop-ins **plus** external venues — five Canlan Sports rinks (York,
+Etobicoke, Scarborough, Oakville, Oshawa) via the DaySmart API with live
+prices, City of Markham via PerfectMind, Moss Park Arena scraped from
+their site and marked `Unverified`), `rinks.json` (every indoor/outdoor
+pad with coordinates + kinds, feeds the locator and alert matching),
+`alerts.json` (toronto.ca service-alert snapshot — only rewritten when
+content changes or the 2-hour heartbeat is due), **`live-check.json`**
+(see below), `meta.json` (`lastUpdated` + per-source health). Written by
+`fetch-skate-data.js` in CI; treated as read-only by the app.
 External program records reuse the exact city field names plus
 `Source / ExternalId / Paid / Price / RegistrationUrl / InfoUrl /
 Unverified / Lat / Lng` — adding a venue is a config entry in
@@ -382,12 +435,38 @@ Unverified / Lat / Lng` — adding a venue is a config entry in
 `ANTHROPIC_API_KEY` secret upgrades the Moss Park scrape to an LLM parse;
 the regex parser is the always-on fallback).
 
+**The live cross-check (`live-check.json`, v3.1) — the Malvern lesson.**
+The City's open-data drop-in export is refreshed *weekly* and lags the
+live registration system: on 2026-09-14 it still listed "Leisure Skate:
+Adult" at Malvern five times that week while toronto.ca's own facility
+page listed none, and a visitor travelled there for nothing. toronto.ca
+renders its facility pages from per-location week feeds
+(`/data/parks/live/locations/<id>/skate/info.json` → `weekN.json`,
+served as UTF-16), so `fetchLiveCheck()` reads them for every City
+location with sessions in the next 14 days and writes `flags`
+(`"<LocationID>|<date>|<start>|<normalized title>"` → `missing` or
+`cancelled` + the City's comment) plus `extra` (live-only sessions the
+export lacks). It never flags on silence (an unreadable feed skips the
+location), ignores sessions already over today, and rewrites the file
+only on change or the 2-hour heartbeat. It runs in the full refresh and
+in every light pass (`--alerts-only`).
+
+**Workflow cadence, honestly.** `update-skating-data.yml` runs Sunday and
+Friday mornings (the City refreshes its export mid-week). The listener
+is scheduled `*/15`, but GitHub fires a low-traffic repo's cron only
+about 7× a day (median gap ~3.3 h, worst ~7.5 h measured over two weeks,
+every run successful) — so the alert and live-check stamps are hours
+old, not minutes, and the client's stale banners are the honest signal.
+A home-server daemon (§7) is the fix; the cron stays as the fallback.
+
 **`../assets/js/nostr.bundle.js`** — the `nostr-tools` browser bundle
 (keys, signatures, nip44 encryption, event hashing). Lives at the **repo
 root**, shared with the parent site. Also `importScripts`-loaded into the
 PoW worker.
 
-**`CHANGES.md`** — the running change ledger with root-cause writeups.
+**Change ledger** — `config.js` → `changelog` (rendered by the 🆕 What's
+new modal, with the version chip dot for unseen releases). Root-cause
+writeups live in the module headers.
 
 ---
 
@@ -425,7 +504,7 @@ publish → revert + toast on total relay failure) → module `notifyUpdate`
 | `skate_identity_v1` | chat-v2 | Your Nostr keypair + display name (this browser **is** your account) |
 | `skate_favorites_v2` | chat-v2 | Saved program ids |
 | `skate_muted_v1` | chat-v2 | Muted pubkeys (local only) |
-| `skate_settings_v1` | settings | timeFormat / experience / displayName |
+| `skate_settings_v1` | settings | timeFormat, experience, displayName, paidVisible, rinkScope, myRinks, sort, calMode, userLoc, theme, showGuides/showChats, setupDone, tourDone, invisible, dmsAllowed, remoteModeration, weatherSpot, lastSeenVersion |
 | `darkMode` | app | `'true'`/`'false'` |
 | `skate_<dataset>` + `_meta` | storage | Cached city JSON with TTL |
 | *(session)* `skate_seen_this_session` | app | Suppresses the guides-first redirect for returning "new skater" users within a tab session |
@@ -444,11 +523,22 @@ tradeoff of accountless.
   row to the matching config table. Chips, selects, and matchers follow.
 - **Add a per-program button** — a row in `config.programActions` + a
   branch in the `program-list` delegation handler in `app.js`.
-- **Swap the data source** — call `SkateAPI.configure({ storageUrl })`
-  before boot, or replace `window.SkateConfig` wholesale from a fetch —
-  the renderers only ever read the object.
+- **Swap the data source** — set `SkateConfig.dataBase` (or call
+  `SkateAPI.configure({ dataBase })` before boot) to another origin that
+  serves the same five JSON files with CORS for this site; the committed
+  copies remain the fallback and the offline copy. Or replace
+  `window.SkateConfig` wholesale from a fetch — the renderers only ever
+  read the object.
+- **Add a Canlan facility** — one `EXTERNAL_SOURCES` entry (kind
+  `daysmart`, its ice-rink `resourceIds` — their API ignores facility
+  filters — coordinates, `registrationUrl`), a `SOURCES` line in
+  `live.js` for live spots, and a `sourceInfo` row in config.
+- **Add a weather spot** — a row in `config.weatherSpots`.
 - **Change relays** — `RELAYS` in `nostr-core.js` (chat/guides) and in
-  `refresh.js` (must overlap with what the GitHub Action polls).
+  `refresh.js` (must overlap with what the GitHub Action polls). The
+  site's own relay enforces the PoW table server-side: its policy lives
+  in the dell-nix repo (`modules/relays.nix` AND `modules/strfry-node.nix`
+  — keep both in sync with `moderation.js`).
 - **Change spam economics** — the `POW` table in `moderation.js`; bumping
   a number makes that event type cost more CPU for everyone, old clients
   included (receivers enforce it).
@@ -471,3 +561,35 @@ visitors will run the cached old copy.
 - Vote retractions leave a `+`/`-` reaction history visible to other
   Nostr clients; the counts are correct everywhere, the history itself
   isn't secret.
+- The live cross-check covers City of Toronto rinks only, for the next
+  14 days; external venues are only as fresh as their own feeds (Canlan
+  and Markham are official booking APIs, Moss Park is a scrape).
+
+---
+
+## 7. Home-server offload (design, agreed 2026-08-19)
+
+The static site keeps working exactly as is; a home server (the Dell,
+NixOS) takes over the parts GitHub does badly. Status as of v3.1:
+
+- **Relay — done.** `wss://skate-relay.ronishbhatt.com` is in the pool.
+  Its strfry write policy mirrors `moderation.js` (kinds 42/4/20104/5 at
+  8 bits, 1111 at 12, 7 at 16, 30023 at 20) and admits the site owner's
+  30000/30001 lists (`guides.js` OWNER_PUBKEY). Kind-1 refresh notes are
+  deliberately rejected there — the refresh doorbell stays on public
+  relays for the GitHub listener.
+- **Data origin — wired client-side, not yet served.** `SkateConfig.dataBase`
+  + `SkateAPI.dataUrl()` route every data fetch through one setting with
+  same-origin fallback. The server side is a daemon that runs
+  `fetch-skate-data.js` every few minutes and serves `projects/data/*.json`
+  with `Access-Control-Allow-Origin: https://sunmoonron.github.io` (and
+  `Cache-Control: no-cache`). `sw.js` never caches cross-origin, so the
+  committed copies remain the offline schedule by design.
+- **Constraints that stand.** No GitHub push credential on the Dell (a
+  compromised box must not be able to change the site); an actions-scoped
+  token that can only `workflow_dispatch` the data workflow is the
+  acceptable way for the daemon to ask GitHub to commit. The GitHub cron
+  stays as the degraded-mode fallback — never retire it.
+- **What it buys.** Alert and live-check freshness in minutes instead of
+  the ~3-hour cron reality, and the Moss Park scrape's LLM assist can run
+  on local Ollama instead of an API key.

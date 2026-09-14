@@ -1,14 +1,20 @@
 /**
- * SkateTour — a 20-second spotlight tour of the main controls.
+ * SkateTour — a spotlight tour of the main controls, two ways:
+ *   start() — the quick tour: tap Next through the steps (~20 s)
+ *   play()  — the guide: auto-advances like a screencast (~60 s), with a
+ *             progress bar, Pause/Resume, and the same big Skip.
  *
  * Deliberately tiny (no library): a dimmed backdrop, a glowing cutout
  * ring positioned over the current step's element, and a card with
  * Next / a BIG Skip. Steps live in SkateConfig.tourSteps (selector +
- * copy), so reordering or adding a step is config, not code.
+ * copy + `sec` for the guide), so reordering or adding a step is config,
+ * not code.
  *
  * Edge handling: a step whose element is missing/hidden (e.g. desktop-
  * only control on mobile) is skipped automatically; reposition on
  * resize/scroll; Esc = skip; finishing or skipping both mark tourDone.
+ * Skip always outranks everything: first button in the card, Esc, and a
+ * tap on the backdrop.
  */
 window.SkateTour = (() => {
     'use strict';
@@ -16,6 +22,9 @@ window.SkateTour = (() => {
     let idx = -1;
     let overlay = null, ring = null, card = null;
     let onDone = null;
+    let auto = false;            // play() mode
+    let paused = false;
+    let timer = null, tickTimer = null, stepStartedAt = 0, stepDur = 0, remaining = 0;
 
     const steps = () => (window.SkateConfig?.tourSteps || []);
 
@@ -42,13 +51,20 @@ window.SkateTour = (() => {
 
     function onKey(e) { if (e.key === 'Escape') skip(); }
 
+    function clearTimers() {
+        if (timer) { clearTimeout(timer); timer = null; }
+        if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+    }
+
     function teardown() {
+        clearTimers();
         window.removeEventListener('resize', reposition);
         window.removeEventListener('scroll', reposition, true);
         document.removeEventListener('keydown', onKey);
         overlay?.remove();
         overlay = ring = card = null;
         idx = -1;
+        auto = false; paused = false;
     }
 
     function currentTarget() {
@@ -72,7 +88,11 @@ window.SkateTour = (() => {
         card.style.left = `${Math.min(Math.max(10, r.left), Math.max(10, innerWidth - card.offsetWidth - 10))}px`;
     }
 
+    /** Steps that exist on this layout (hidden targets are skipped). */
+    function visibleSteps() { return steps().filter(s => visible(document.querySelector(s.sel))); }
+
     function show(i) {
+        clearTimers();
         const list = steps();
         // hop over steps whose element isn't on this layout
         while (i < list.length && !visible(document.querySelector(list[i].sel))) i++;
@@ -81,18 +101,60 @@ window.SkateTour = (() => {
         const s = list[i];
         const el = document.querySelector(s.sel);
         el.scrollIntoView({ block: 'center', behavior: 'auto' });
+        const vis = visibleSteps();
+        const pos = vis.indexOf(s) + 1;
+        const last = pos >= vis.length;
         card.innerHTML = `
-            <button class="tour-skip">Skip tour</button>
+            <button class="tour-skip">${auto ? 'Skip guide' : 'Skip tour'}</button>
+            ${auto ? '<div class="tour-progress"><div class="tour-progress-bar"></div></div>' : ''}
             <h4>${s.title}</h4>
             <p>${s.text}</p>
             <div class="tour-nav">
-                <span class="tour-count">${list.filter((x, j) => j <= i && visible(document.querySelector(x.sel)) || j > i).length ? `${i + 1}/${list.length}` : ''}</span>
-                <button class="btn-primary tour-next">${i + 1 >= list.length ? 'Done' : 'Next'}</button>
+                <span class="tour-count">${pos}/${vis.length}</span>
+                <span class="tour-nav-btns">
+                    ${auto ? '<button class="tour-pause" aria-label="Pause">⏸ Pause</button>' : ''}
+                    <button class="btn-primary tour-next">${last ? 'Done' : 'Next'}</button>
+                </span>
             </div>`;
         card.querySelector('.tour-skip').onclick = skip;
         card.querySelector('.tour-next').onclick = () => show(idx + 1);
+        if (auto) {
+            card.querySelector('.tour-pause').onclick = togglePause;
+            paused = false;
+            stepDur = (s.sec || 5) * 1000;
+            remaining = stepDur;
+            armStep();
+        }
         reposition();
         requestAnimationFrame(reposition);   // after scrollIntoView settles
+    }
+
+    /* ---- auto-play plumbing ---- */
+    function armStep() {
+        clearTimers();
+        stepStartedAt = Date.now();
+        timer = setTimeout(() => show(idx + 1), remaining);
+        tickTimer = setInterval(paint, 100);
+        paint();
+    }
+    function paint() {
+        const bar = card?.querySelector('.tour-progress-bar');
+        if (!bar) return;
+        const elapsed = paused ? (stepDur - remaining) : (stepDur - remaining) + (Date.now() - stepStartedAt);
+        bar.style.width = `${Math.min(100, (elapsed / stepDur) * 100)}%`;
+    }
+    function togglePause() {
+        const btn = card?.querySelector('.tour-pause');
+        if (!paused) {
+            remaining = Math.max(0, remaining - (Date.now() - stepStartedAt));
+            clearTimers();
+            paused = true;
+            if (btn) btn.textContent = '▶ Resume';
+        } else {
+            paused = false;
+            if (btn) btn.textContent = '⏸ Pause';
+            armStep();
+        }
     }
 
     function markDone() {
@@ -102,15 +164,28 @@ window.SkateTour = (() => {
     function finish() { markDone(); teardown(); if (onDone) onDone(); }
     function skip() { markDone(); teardown(); if (onDone) onDone(); }
 
-    /** Start (or restart) the tour. cb fires when it ends either way. */
+    /** Start (or restart) the quick tour. cb fires when it ends either way. */
     function start(cb) {
         if (overlay) teardown();
         onDone = cb || null;
+        auto = false;
         build();
         show(0);
     }
 
-    return { start, get running() { return !!overlay; } };
+    /** The auto-playing guide (~60 s): same steps, advances on its own. */
+    function play(cb) {
+        if (overlay) teardown();
+        onDone = cb || null;
+        auto = true;
+        build();
+        show(0);
+    }
+
+    /** Total guide length in seconds for the visible steps (Settings label). */
+    function duration() { return visibleSteps().reduce((n, s) => n + (s.sec || 5), 0); }
+
+    return { start, play, duration, get running() { return !!overlay; } };
 })();
 
 if (typeof module !== 'undefined') module.exports = window.SkateTour;

@@ -15,8 +15,23 @@
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.0',
+    version: '3.1',
     changelog: [
+        {
+            v: '3.1', date: '2026-09-14', items: [
+                '🔎 Live cross-check against toronto.ca: every City session in the next two weeks is now verified against that rink\'s LIVE schedule on toronto.ca. The City\'s weekly data export lags its live system — a Malvern "Leisure Skate" the City had dropped stayed listed for days and someone travelled for nothing. Dropped sessions are struck out with a red flag, and every City row links to its toronto.ca page so you can verify yourself',
+                '📆 Add to calendar opens your calendar app: Google Calendar, Outlook, or an .ics for Apple — rink address, price and links pre-filled',
+                '🌡️ Weather chip: tap it to pick a spot (Scarborough, North York, Markham, Mississauga…) or follow your 📍 location',
+                '🗺️ Map button right in the schedule toolbar — pins, distances from your chosen spot, free scroll and pinch',
+                '🛡️ Moderation is your choice: the third-party profanity check for public rooms and guides can be switched off in Settings (the on-device word list always runs). Public rooms say so above the message box; DMs and private groups never leave your device',
+                '👻 Invisible mode now truly hides you — sending a message no longer flips you back to "online" for everyone else',
+                '📱 Pull down to refresh in the installed / home-screen app',
+                '💲 Paid-only rinks (e.g. Markham) no longer read "0 sessions" while Paid is off — pickers show "N paid", and picking such a rink turns Paid on for you',
+                '🎟 Fixed the "-1 spots left" badge on Canlan sessions',
+                '▶️ New auto-playing 60-second guide with highlighted regions, next to the quick tour — Skip is always one tap away',
+                '⚡ The site\'s own relay joins the pool alongside the public ones, gated by the same proof-of-work — chats and guides no longer depend on public relays alone'
+            ]
+        },
         {
             v: '3.0', date: '2026-08-04', items: [
                 '🗺️ Interactive rink map — every rink as a pin, free scroll & pinch, distances from your 📍 spot, tap a pin for sessions/alerts/actions (find it via Near me)',
@@ -146,22 +161,57 @@ window.SkateConfig = {
     // value that renders the button ACTIVE (invisible is opt-in true,
     // DMs are opt-out false).
     privacyToggles: [
-        { id: 'invisible',  seg: '👻 Invisible', on: true },
-        { id: 'dmsAllowed', seg: '✉️ Allow DMs', on: true, default: true }
+        { id: 'invisible',        seg: '👻 Invisible',   on: true },
+        { id: 'dmsAllowed',       seg: '✉️ Allow DMs',   on: true, default: true },
+        // third-party profanity APIs for PUBLIC rooms + guides (the on-device
+        // word list is mandatory and always runs; private text never leaves)
+        { id: 'remoteModeration', seg: '🛡️ Cloud filter', on: true, default: true }
     ],
 
     // Canonical URL the QR code + share links point at (location.href
     // would leak localhost/dev paths into shared codes).
     siteUrl: 'https://sunmoonron.github.io/skate/',
 
+    // Optional alternate origin for the data JSONs (skating-programs, rinks,
+    // alerts, live-check, meta). null = the committed same-origin copies.
+    // A home server can serve fresher copies here; SkateAPI falls back to
+    // same-origin on any failure (see api.js). Needs CORS for this origin.
+    dataBase: null,
+
+    /* ---------- Weather chip spots (tap the chip to pick) ---------- */
+    // 'auto' = your saved 📍 location when set, otherwise central Toronto.
+    weatherSpots: [
+        { id: 'toronto',      label: 'Downtown Toronto', lat: 43.6532, lng: -79.3832 },
+        { id: 'scarborough',  label: 'Scarborough',      lat: 43.7764, lng: -79.2318 },
+        { id: 'northyork',    label: 'North York',       lat: 43.7615, lng: -79.4111 },
+        { id: 'etobicoke',    label: 'Etobicoke',        lat: 43.6205, lng: -79.5132 },
+        { id: 'eastyork',     label: 'East York',        lat: 43.6913, lng: -79.3277 },
+        { id: 'markham',      label: 'Markham',          lat: 43.8561, lng: -79.3370 },
+        { id: 'vaughan',      label: 'Vaughan',          lat: 43.8372, lng: -79.5083 },
+        { id: 'richmondhill', label: 'Richmond Hill',    lat: 43.8828, lng: -79.4403 },
+        { id: 'mississauga',  label: 'Mississauga',      lat: 43.5890, lng: -79.6441 },
+        { id: 'brampton',     label: 'Brampton',         lat: 43.7315, lng: -79.7624 },
+        { id: 'pickering',    label: 'Pickering / Ajax', lat: 43.8384, lng: -79.0868 },
+        { id: 'oshawa',       label: 'Oshawa',           lat: 43.8971, lng: -78.8658 },
+        { id: 'oakville',     label: 'Oakville',         lat: 43.4675, lng: -79.6877 },
+        { id: 'burlington',   label: 'Burlington',       lat: 43.3255, lng: -79.7990 }
+    ],
+
     /* ---------- Quick tour (spotlight steps; missing/hidden targets auto-skip) ---------- */
+    // `sec` = how long the auto-playing guide lingers on the step.
     tourSteps: [
-        { sel: '#type-filters',   title: 'Filter the schedule',  text: 'Tap a chip to see just Leisure, Hockey, Figure… "Saved" keeps everything you ❤️.' },
-        { sel: '#view-mode-seg',  title: 'List or Calendar',     text: 'Calendar shows the whole week at a glance — sessions are color-coded by type.' },
-        { sel: '#btn-near',       title: 'Rinks near you',       text: 'Share your location or type a postal code to sort by distance and see a map.' },
-        { sel: '#scope-row',      title: 'Your rinks',           text: 'Pick your usual spots under "My rinks" and the whole site filters to them.' },
-        { sel: '#weather-chip',   title: 'Dress for it',         text: 'Live temperature near you — feels-like included.' },
-        { sel: '#btn-settings',   title: 'Everything else',      text: 'Theme, sharing QR, community & privacy toggles all live in Settings. Enjoy the ice! ⛸️' }
+        { sel: '#type-filters',          title: 'Filter the schedule',  text: 'Tap a chip to see just Leisure, Hockey, Figure… "Saved" keeps everything you ❤️.', sec: 5 },
+        { sel: '#day-filter',            title: 'Day, age & order',     text: 'Pick a day, who\'s skating (Kids / Teens / Adults / Seniors) and sort by soonest or nearest.', sec: 5 },
+        { sel: '#view-mode-seg',         title: 'List or Calendar',     text: 'Calendar shows the whole week at a glance — sessions are color-coded by type.', sec: 5 },
+        { sel: '#btn-map',               title: 'Rink map',             text: 'Every rink as a pin. Scroll and pinch freely; tap a pin for sessions, distance and actions.', sec: 5 },
+        { sel: '#btn-near',              title: 'Rinks near you',       text: 'Share your location or type a postal code to sort by distance.', sec: 4 },
+        { sel: '#scope-row',             title: 'Your rinks',           text: 'Pick your usual spots under "My rinks" and the whole site filters to them.', sec: 5 },
+        { sel: '#program-list .program-item', title: 'A session',       text: 'Time, rink and age at a glance. Red flags mean the City no longer lists it or a rink alert is up — the toronto.ca link lets you verify.', sec: 7 },
+        { sel: '#program-list .btn-copy', title: 'Copy · share · calendar', text: 'The 📋 menu copies details, shares into a chat, or adds the session to your calendar app.', sec: 6 },
+        { sel: '#weather-chip',          title: 'Dress for it',         text: 'Live temperature and feels-like. Tap to pick a spot (Scarborough, Markham, Mississauga…).', sec: 5 },
+        { sel: '#btn-refresh',           title: 'Fresh data',           text: 'Refresh re-downloads schedule and alerts. In the installed app you can also pull down to refresh.', sec: 5 },
+        { sel: '.view-tab[data-view="chats"]', title: 'Chats',          text: 'Public rooms, private groups and encrypted DMs — powered by Nostr, no account needed.', sec: 5 },
+        { sel: '#btn-settings',          title: 'Everything else',      text: 'Theme, sharing QR, community & privacy toggles all live in Settings. Enjoy the ice! ⛸️', sec: 5 }
     ],
 
     /* ---------- Outdoor (winter) season detection ---------- */
@@ -240,13 +290,22 @@ window.SkateConfig = {
     },
 
     /* ---------- Data-source hints (keyed by program.Source) ---------- */
+    // `site` = the short name shown on the per-row "verify" link.
     sourceInfo: {
-        'city':        { label: 'City of Toronto', verified: true },
-        'canlan-york': { label: 'Canlan Sports (York)', verified: true,
+        'city':        { label: 'City of Toronto', verified: true, site: 'toronto.ca' },
+        'canlan-york': { label: 'Canlan Sports (York)', verified: true, site: 'Canlan',
                          note: 'Third-party paid venue — register on their site; sessions can sell out or change.' },
-        'markham':     { label: 'City of Markham', verified: true,
+        'canlan-etobicoke':   { label: 'Canlan Sports (Etobicoke)', verified: true, site: 'Canlan',
+                         note: 'Third-party paid venue — register on their site; sessions can sell out or change.' },
+        'canlan-scarborough': { label: 'Canlan Sports (Scarborough)', verified: true, site: 'Canlan',
+                         note: 'Third-party paid venue — register on their site; sessions can sell out or change.' },
+        'canlan-oakville':    { label: 'Canlan Sports (Oakville)', verified: true, site: 'Canlan',
+                         note: 'Third-party paid venue — register on their site; Senior Skate is listed at $0.' },
+        'canlan-oshawa':      { label: 'Canlan Sports (Oshawa)', verified: true, site: 'Canlan',
+                         note: 'Third-party paid venue — register on their site; sessions can sell out or change.' },
+        'markham':     { label: 'City of Markham', verified: true, site: 'markham.ca',
                          note: 'Official Markham booking data — prices vary by age ($0 for some groups); most drop-ins open for booking 21h before start.' },
-        'mosspark':    { label: 'mossparkarena.com', verified: false,
+        'mosspark':    { label: 'mossparkarena.com', verified: false, site: 'mossparkarena.com',
                          note: 'Schedule scraped from their website — there is NO live feed for this arena.' }
     },
 
@@ -327,7 +386,11 @@ window.SkateConfig = {
         deleteThread: { label: '🗑 Delete conversation', danger: true },
         copyDetails:  { label: '📋 Copy details' },
         copyLink:     { label: '🔗 Copy link' },
-        addCalendar:  { label: '📆 Add to calendar (.ics)' }
+        addCalendar:  { label: '📆 Add to calendar…' },
+        calGoogle:    { label: '📅 Google Calendar ↗' },
+        calOutlook:   { label: '📅 Outlook.com ↗' },
+        calIcs:       { label: '🍎 Apple / other (.ics file)' },
+        openOfficial: { label: '🏛️ Verify on {site} ↗' }
     },
 
     /* ---------- Hash routes (#p=…, #guide=…, invite fallback) ---------- */

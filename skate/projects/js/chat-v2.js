@@ -428,8 +428,14 @@ const SkateChat = (() => {
             try {
                 const c = JSON.parse(plain);
                 if (c.s === 'bye') {
-                    // explicit goodbye: drop them from the online window immediately
-                    if (group.roster?.[event.pubkey]) group.roster[event.pubkey].last = 0;
+                    // explicit goodbye: drop them from the online window immediately,
+                    // and wipe the roster entry outright when nothing they wrote is
+                    // still in the history (👻 invisible must leave no trace).
+                    if (group.roster?.[event.pubkey]) {
+                        const wrote = (group.messages || []).some(m => m.fromPubkey === event.pubkey && !m.system);
+                        if (wrote) group.roster[event.pubkey].last = 0;
+                        else delete group.roster[event.pubkey];
+                    }
                 } else {
                     trackMember(group, c.from, event.pubkey, event.created_at * 1000);
                 }
@@ -445,7 +451,10 @@ const SkateChat = (() => {
         try { c = JSON.parse(plain); } catch { return; }
         const mine = event.pubkey === state.myPublicKey;
         const ts = event.created_at * 1000;
-        trackMember(group, c.from, event.pubkey, ts);
+        // 👻 A message from an invisible member must not flip them "online":
+        // the payload says so (inv), and we then keep the name but never
+        // the timestamp. (Old bug: any chat message counted as presence.)
+        trackMember(group, c.from, event.pubkey, c.inv ? 0 : ts);
 
         if (c.type === 'vote') {
             applyVote(group, c.programId, event.pubkey, c.from, c.voted);
@@ -515,7 +524,9 @@ const SkateChat = (() => {
 
     function onlineCount(group) {
         const cutoff = Date.now() - CONFIG.ONLINE_WINDOW;
-        return Object.values(group.roster || {}).filter(m => (m.last || 0) > cutoff).length;
+        return Object.entries(group.roster || {})
+            .filter(([pk, m]) => (m.last || 0) > cutoff && !(pk === state.myPublicKey && isInvisible()))
+            .length;
     }
 
     /** Members of a group, online first, me excluded (UI shows "you" separately). */
@@ -600,6 +611,7 @@ const SkateChat = (() => {
     async function publishToGroup(groupId, payload, powBits = SkateMod.POW.chat) {
         const group = getGroupOrRoom(groupId);
         if (!group || !state.mySecretKey) return { ok: false };
+        if (isInvisible()) payload = { ...payload, inv: 1 };   // receivers: keep my name, not my "last seen"
         const template = {
             kind: CONFIG.KINDS.GROUP,
             content: Crypto.encryptForGroup(JSON.stringify(payload), group.secret),
@@ -619,10 +631,13 @@ const SkateChat = (() => {
         return signAndSend(template, SkateMod.POW.chat);
     }
 
-    /** Moderation context: public rooms get the remote APIs; private stays on-device. */
+    /** Moderation context: public rooms get the remote APIs (unless the
+     *  visitor switched them off in Settings → 🛡️); private stays on-device.
+     *  The local word list always runs — it's the mandatory floor. */
     function moderationOpts(groupOrNullForDm) {
         const isPublic = !!groupOrNullForDm?.isPublic;
-        return { remote: isPublic };
+        const remoteAllowed = window.SkateSettings?.get('remoteModeration') !== false;
+        return { remote: isPublic && remoteAllowed };
     }
 
     async function sendMessage(text, replyTo = null) {
@@ -712,6 +727,10 @@ const SkateChat = (() => {
             time: program['Start Time'] || '', endTime: program['End Time'] || '',
             programId: Favorites.getId(program)
         };
+        // Official page (toronto.ca location page / venue site) so recipients
+        // can verify the schedule for themselves before travelling.
+        const official = window.SkateApp?.officialUrl?.(program);
+        if (official) { card.official = official; card.site = window.SkateApp?.officialSite?.(program) || ''; }
         // Paid venues: the recipient must know money changes hands BEFORE
         // they show up — carry the flag + exact price on the wire.
         if (program.Paid) {
@@ -807,13 +826,23 @@ const SkateChat = (() => {
     }
 
     // ========== PRESENCE ==========
-    function presenceEvent(group, gid, status) {
-        return NostrTools.finalizeEvent({
+    function presenceTemplate(group, gid, status) {
+        return {
             kind: CONFIG.KINDS.PRESENCE,
             content: Crypto.encryptForGroup(JSON.stringify({ from: state.myName, s: status }), group.secret),
             tags: [['g', gid]],
             created_at: Math.floor(Date.now() / 1000)
-        }, state.mySecretKey);
+        };
+    }
+    function presenceEvent(group, gid, status) {
+        return NostrTools.finalizeEvent(presenceTemplate(group, gid, status), state.mySecretKey);
+    }
+    /** Heartbeat with the cheap chat-tier PoW (a few ms) so the site's own
+     *  relay — which enforces the PoW table — accepts it too. */
+    async function publishBeat(group, gid) {
+        let tpl = presenceTemplate(group, gid, 'on');
+        try { tpl = await SkateMod.mine({ ...tpl, pubkey: state.myPublicKey }, SkateMod.POW.chat); } catch {}
+        return SkateNostr.publish(NostrTools.finalizeEvent(tpl, state.mySecretKey), 3000);
     }
 
     // 👻 Invisible mode: skip every outgoing presence ping — others stop
@@ -827,7 +856,7 @@ const SkateChat = (() => {
             allGroupIds().forEach(gid => {
                 const group = getGroupOrRoom(gid);
                 if (!group) return;
-                try { SkateNostr.publish(presenceEvent(group, gid, 'on'), 3000); } catch {}
+                publishBeat(group, gid).catch(() => {});
             });
         };
         beat();
@@ -937,7 +966,7 @@ const SkateChat = (() => {
 
         state.groups[groupId] = makeGroup(groupId, name, secret, extra);
         resubscribe();
-        publishToGroup(groupId, { type: 'chat', text: `${state.myName} created the group`, from: state.myName, system: true }, 0);
+        publishToGroup(groupId, { type: 'chat', text: `${state.myName} created the group`, from: state.myName, system: true });
         state.activeGroupId = groupId;
         state.activeIsPublic = false;
         saveState(true);
@@ -951,7 +980,7 @@ const SkateChat = (() => {
         if (!state.groups[groupId]) {
             state.groups[groupId] = makeGroup(groupId, name || 'Skating Group', secret, extra);
             resubscribe();
-            publishToGroup(groupId, { type: 'chat', text: `${state.myName} joined the group`, from: state.myName, system: true }, 0);
+            publishToGroup(groupId, { type: 'chat', text: `${state.myName} joined the group`, from: state.myName, system: true });
             Notify.toast('Joined the group! 🎉', 'success');
         }
         state.activeGroupId = groupId;
@@ -1025,7 +1054,7 @@ const SkateChat = (() => {
         group.renamedAt = Date.now();
         saveState(true);
         notifyUpdate();
-        const { ok } = await publishToGroup(groupId, { type: 'rename', name, from: state.myName }, 0);
+        const { ok } = await publishToGroup(groupId, { type: 'rename', name, from: state.myName });
         if (!ok) Notify.toast('Renamed locally — relays didn\'t confirm, others may not see it yet', 'info', 3500);
         return ok;
     }
@@ -1035,7 +1064,7 @@ const SkateChat = (() => {
         const group = isPublic ? state.publicRooms[groupId] : state.groups[groupId];
         if (!group) return;
         sendBye([groupId]); // clear the "still online" ghost for everyone else
-        if (!isPublic) publishToGroup(groupId, { type: 'chat', text: `${state.myName} left the group`, from: state.myName, system: true }, 0);
+        if (!isPublic) publishToGroup(groupId, { type: 'chat', text: `${state.myName} left the group`, from: state.myName, system: true });
         if (isPublic) delete state.publicRooms[groupId];
         else delete state.groups[groupId];
         if (state.activeGroupId === groupId) {

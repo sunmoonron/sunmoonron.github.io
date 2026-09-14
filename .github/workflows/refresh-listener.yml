@@ -53,9 +53,12 @@ jobs:
         if: steps.check.outputs.refresh == 'true'
         run: node fetch-skate-data.js
 
-      - name: Refresh service alerts (every tick, cheap)
-        # Full fetch above already includes alerts; only run the light
-        # alerts-only pass when we didn't do a full refresh.
+      - name: Refresh service alerts + live schedule check (every tick, cheap)
+        # Full fetch above already includes alerts + the live check; only run
+        # the light pass when we didn't do a full refresh. The live check
+        # cross-checks the next two weeks of city sessions against
+        # toronto.ca's per-location schedules (the weekly open-data export
+        # lags the live system — see fetchLiveCheck in fetch-skate-data.js).
         if: steps.check.outputs.refresh != 'true'
         run: node fetch-skate-data.js --alerts-only
 

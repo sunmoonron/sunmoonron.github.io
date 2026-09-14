@@ -12,7 +12,12 @@
 const SkateNostr = (() => {
     'use strict';
 
-    const RELAYS = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.primal.net'];
+    // The site's own relay (strfry on the Dell, behind Cloudflare) sits
+    // alongside the public ones. Its write policy admits ONLY this app's
+    // kinds, each gated by the same NIP-13 proof-of-work tiers the client
+    // mines (moderation.js POW) — unmined events get an OK:false from it,
+    // which is harmless: publish() resolves on the first relay that accepts.
+    const RELAYS = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.primal.net', 'wss://skate-relay.ronishbhatt.com'];
     const MAX_SEEN = 4000;
 
     const relays = new Map();      // url -> { ws, status, backoff, timer }

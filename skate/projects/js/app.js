@@ -116,36 +116,121 @@ window.SkateApp = (() => {
         }
     };
 
-    function programText(p) {
-        const date = P.dateStr(p) ? parseLocalDate(P.dateStr(p)).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' }) : '';
-        return `⛸️ ${P.activity(p)}\n📍 ${P.location(p)}\n🗓️ ${date}${P.time(p) ? ' at ' + fmtClock(P.time(p)) : ''}\n\n${baseUrl()}#p=${P.id(p)}`;
+    /* ---------- Official pages ("verify before you go") ----------
+       City rows link to the toronto.ca location page — the same live
+       schedule the rink staff go by (the Open Data export lags it);
+       external venues link to their own site. */
+    const TORONTO_LOC_URL = 'https://www.toronto.ca/explore-enjoy/parks-recreation/places-spaces/parks-and-recreation-facilities/location/?id=';
+    const httpOnly = u => (/^https?:\/\//i.test(u || '') ? u : null);
+    function officialUrl(p) {
+        if (!p) return null;
+        if (!p.Source || p.Source === 'city') return p['Location ID'] != null ? TORONTO_LOC_URL + encodeURIComponent(p['Location ID']) : null;
+        return httpOnly(p.InfoUrl);
+    }
+    function officialSite(p) { return CFG.sourceInfo[p?.Source || 'city']?.site || 'venue site'; }
+    /** Same, for a rinks.json entry (map popups / locator). */
+    function officialUrlForRink(r) {
+        if (!r) return null;
+        if (r.source === 'city' && /^\d+$/.test(String(r.locationid))) return TORONTO_LOC_URL + r.locationid;
+        return httpOnly(r.website);
+    }
+    function officialLinkHtml(url, site, cls = 'official-link') {
+        return url ? `<a class="${cls}" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="Official page — verify the schedule before you go">🏛️ ${escapeHtml(site)} ↗</a>` : '';
     }
 
-    function downloadIcs(p) {
-        if (!P.dateStr(p)) return SkateChat.Notify.toast('This program has no date to add', 'error');
-        const d = parseLocalDate(P.dateStr(p));
-        const [sh, sm] = (P.time(p) || '00:00').split(':').map(Number);
-        const [eh, em] = (P.endTime(p) || '').split(':').map(Number);
-        const pad = n => String(n).padStart(2, '0');
-        const stamp = (h, m) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(h || 0)}${pad(m || 0)}00`;
-        const esc = s => String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
-        const pid = P.id(p);
-        const lines = [
-            'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Toronto Skating//EN',
+    /** "Ages 13–18" / "Adults 19+" / "Up to 12" / "All ages" as plain text. */
+    function ageText(p) {
+        let min = P.age(p['Age Min']), max = P.age(p['Age Max']);
+        if (min === 0) min = null;
+        if (min != null && max != null) return `Ages ${min}–${max}`;
+        if (min != null) return `${min >= 18 ? 'Adults' : 'Ages'} ${min}+`;
+        if (max != null) return `Up to ${max}`;
+        return 'All ages';
+    }
+
+    function programText(p) {
+        const date = P.dateStr(p) ? parseLocalDate(P.dateStr(p)).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' }) : '';
+        const off = officialUrl(p);
+        return `⛸️ ${P.activity(p)}\n📍 ${P.location(p)}\n🗓️ ${date}${P.time(p) ? ' at ' + fmtClock(P.time(p)) : ''}` +
+            (p.Paid ? `\n💲 Paid${p.Price != null ? ' · $' + p.Price : ''}` : '') +
+            (off ? `\n🏛️ Verify: ${off}` : '') +
+            `\n\n${baseUrl()}#p=${P.id(p)}`;
+    }
+
+    /* ---------- Add to calendar (opens the calendar app) ----------
+       One event description shared by every target: Google / Outlook get
+       a deep link that opens their app or site with the fields filled;
+       Apple and everything else take an .ics. Times are converted from
+       Toronto wall-clock to UTC so any device lands on the right hour. */
+    function calEvent(p) {
+        const st = SkateTime.status(p);
+        if (!st.startEpoch) return null;
+        const addr = [p.Address, p.PostalCode].filter(Boolean).join(', ');
+        const town = p.Source && p.Source !== 'city' && p.District ? p.District : 'Toronto';
+        const off = officialUrl(p);
+        const details = [
+            `${P.activity(p)} · ${ageText(p)}`,
+            addr ? `${P.location(p)}, ${addr}` : P.location(p),
+            p.Paid ? `Paid session${p.Price != null ? ` · $${p.Price}` : ''}${p.RegistrationUrl ? ` · Register: ${p.RegistrationUrl}` : ''}` : 'Free drop-in',
+            p.Unverified ? 'UNVERIFIED schedule (scraped) — confirm with the venue' : '',
+            off ? `Verify on ${officialSite(p)}: ${off}` : '',
+            `Toronto Skating: ${baseUrl()}#p=${P.id(p)}`
+        ].filter(Boolean).join('\n');
+        return {
+            title: `⛸️ ${P.activity(p)} — ${P.location(p)}`,
+            start: st.startEpoch, end: st.endEpoch,
+            location: `${P.location(p)}${addr ? ', ' + addr : ''}, ${town}, ON`,
+            details, uid: P.id(p)
+        };
+    }
+    const utcStamp = ms => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+
+    function googleCalUrl(ev) {
+        const q = new URLSearchParams({ action: 'TEMPLATE', text: ev.title, dates: `${utcStamp(ev.start)}/${utcStamp(ev.end)}`, details: ev.details, location: ev.location, ctz: 'America/Toronto' });
+        return `https://calendar.google.com/calendar/render?${q}`;
+    }
+    function outlookCalUrl(ev) {
+        const q = new URLSearchParams({ rru: 'addevent', subject: ev.title, startdt: new Date(ev.start).toISOString(), enddt: new Date(ev.end).toISOString(), body: ev.details, location: ev.location });
+        return `https://outlook.live.com/calendar/0/action/compose?${q}`;
+    }
+    function icsText(ev) {
+        const esc = s => String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+        return [
+            'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Toronto Skating//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
             'BEGIN:VEVENT',
-            `UID:${pid}@toronto-skating`,
-            `DTSTART:${stamp(sh, sm)}`,
-            Number.isFinite(eh) ? `DTEND:${stamp(eh, em)}` : `DTEND:${stamp((sh || 0) + 1, sm)}`,
-            `SUMMARY:${esc(P.activity(p) || 'Skating')}`,
-            `LOCATION:${esc(P.location(p) + ', Toronto, ON')}`,
-            `URL:${baseUrl()}#p=${pid}`,
+            `UID:${ev.uid}@toronto-skating`,
+            `DTSTAMP:${utcStamp(Date.now())}`,
+            `DTSTART:${utcStamp(ev.start)}`,
+            `DTEND:${utcStamp(ev.end)}`,
+            `SUMMARY:${esc(ev.title)}`,
+            `LOCATION:${esc(ev.location)}`,
+            `DESCRIPTION:${esc(ev.details)}`,
+            `URL:${baseUrl()}#p=${ev.uid}`,
             'END:VEVENT', 'END:VCALENDAR'
-        ];
-        const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar' });
-        const a = el('a', { href: URL.createObjectURL(blob), download: `skating-${pid}.ics` });
-        a.click();
+        ].join('\r\n');
+    }
+    const isIOS = () => /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    function downloadIcs(p) {
+        const ev = calEvent(p);
+        if (!ev) return SkateChat.Notify.toast('This program has no date to add', 'error');
+        const ics = icsText(ev);
+        if (isIOS()) {
+            // iOS hands text/calendar straight to the Calendar app ("Add All");
+            // <a download> is a no-op there, doubly so inside the installed app.
+            window.location.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
+            return;
+        }
+        const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+        const a = el('a', { href: URL.createObjectURL(blob), download: `skating-${ev.uid}.ics` });
+        document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-        SkateChat.Notify.toast('Calendar file downloaded 📆', 'success', 2000);
+        SkateChat.Notify.toast('Calendar file downloaded — open it to add the session 📆', 'success', 2500);
+    }
+    function openCalendarLink(p, kind) {
+        const ev = calEvent(p);
+        if (!ev) return SkateChat.Notify.toast('This program has no date to add', 'error');
+        window.open(kind === 'outlook' ? outlookCalUrl(ev) : googleCalUrl(ev), '_blank', 'noopener');
     }
 
     /* ================= Render pipeline ================= */
@@ -253,10 +338,29 @@ window.SkateApp = (() => {
      * Paid toggle — so every count in the UI moves together when Paid flips.
      */
     function upcomingCountFor(key, nowMs = Date.now()) {
-        return S.programs.filter(p =>
-            P.locKey(p) === key &&
-            (S.paidVisible || !p.Paid) &&
-            SkateTime.status(p, nowMs).phase !== 'ended').length;
+        const sp = upcomingSplit(key, nowMs);
+        return S.paidVisible ? sp.free + sp.paid : sp.free;
+    }
+
+    /** Upcoming sessions at a location split by Paid, ignoring sessions the
+     *  City's live schedule dropped — so a paid-only rink (Markham, Canlan)
+     *  can say "12 paid" instead of a misleading "0 sessions". */
+    function upcomingSplit(key, nowMs = Date.now()) {
+        let free = 0, paid = 0;
+        S.programs.forEach(p => {
+            if (P.locKey(p) !== key) return;
+            if (SkateTime.status(p, nowMs).phase === 'ended' || SkateAlerts.isDropped(p)) return;
+            if (p.Paid) paid++; else free++;
+        });
+        return { free, paid };
+    }
+
+    /** "12 sessions" / "3 sessions · 9 paid" / "9 paid" — honest under the Paid toggle. */
+    function sessionsLabel(sp) {
+        const shown = S.paidVisible ? sp.free + sp.paid : sp.free;
+        const n = `${shown} session${shown === 1 ? '' : 's'}`;
+        if (S.paidVisible || !sp.paid) return n;
+        return shown ? `${n} · ${sp.paid} paid` : `${sp.paid} paid`;
     }
 
     Render.scopeChips = function () {
@@ -266,7 +370,7 @@ window.SkateApp = (() => {
         const nowMs = Date.now();
         const activeLocs = new Set();
         S.programs.forEach(p => {
-            if ((S.paidVisible || !p.Paid) && SkateTime.status(p, nowMs).phase !== 'ended') activeLocs.add(P.locKey(p));
+            if ((S.paidVisible || !p.Paid) && SkateTime.status(p, nowMs).phase !== 'ended' && !SkateAlerts.isDropped(p)) activeLocs.add(P.locKey(p));
         });
         const items = CFG.rinkScopes.map(s => ({
             ...s,
@@ -348,6 +452,7 @@ window.SkateApp = (() => {
         let best = null, bestSt = null;
         S.programs.forEach(p => {
             if (!SkateChat.Favorites.has(p)) return;
+            if (SkateAlerts.isDropped(p)) return;           // the City dropped it — no countdown to nothing
             const st = SkateTime.status(p, nowMs);
             if (st.phase === 'ended' || st.phase === 'undated') return;
             const rank = (st.phase === 'live' ? 0 : 1);
@@ -387,6 +492,9 @@ window.SkateApp = (() => {
     // Alert feed counts as delayed past this age. Budget: 15-min cron
     // (delayed up to ~1h under GitHub load) + 2h heartbeat + Pages deploy.
     const ALERTS_STALE_MS = 3.5 * 3600 * 1000;
+    // The toronto.ca live-schedule cross-check runs on the same ticks; the
+    // City can drop a session any time, so past this age the flags may lag.
+    const LIVE_STALE_MS = 8 * 3600 * 1000;
 
     Render.dataWarnings = function (metadata, now) {
         const wrap = $('data-warnings');
@@ -403,6 +511,17 @@ window.SkateApp = (() => {
                     <strong>⚠️ Service alerts last checked ~${hrs}h ago</strong>
                     — the alert checker may be delayed, so a rink could be closed without a banner here.
                     Confirm with the venue before travelling.
+                </div>`;
+            }
+        }
+
+        if (SkateAlerts.loaded && SkateAlerts.liveCheckedAt) {
+            const ageMs = now - new Date(SkateAlerts.liveCheckedAt);
+            if (ageMs > LIVE_STALE_MS) {
+                const hrs = Math.round(ageMs / 3600000);
+                wrap.innerHTML += `<div class="alert-banner warning">
+                    <strong>⚠️ toronto.ca cross-check last ran ~${hrs}h ago</strong>
+                    — a session the City has since dropped could still be listed here. Use the 🏛️ link on a row to verify before travelling.
                 </div>`;
             }
         }
@@ -456,15 +575,26 @@ window.SkateApp = (() => {
             let alertsStale = false;
             // Visible trust cue: WHEN the alert feed was last confirmed —
             // the difference between "no alerts" and "we wouldn't know".
+            let title = '';
             if (SkateAlerts.checkedAt) {
                 const chk = new Date(SkateAlerts.checkedAt);
                 alertsStale = (now - chk) > ALERTS_STALE_MS;
                 stamp += ` · alerts ${SkateSettings.formatTime(chk.getTime())}`;
-                $('data-updated').title = `Service alerts last checked ${chk.toLocaleString('en-CA')}` +
+                title = `Service alerts last checked ${chk.toLocaleString('en-CA')}` +
                     (SkateAlerts.fetchedAt ? ` (last change ${new Date(SkateAlerts.fetchedAt).toLocaleString('en-CA')})` : '');
             }
+            let liveStale = false;
+            if (SkateAlerts.liveCheckedAt) {
+                const chk = new Date(SkateAlerts.liveCheckedAt);
+                liveStale = (now - chk) > LIVE_STALE_MS;
+                const st = SkateAlerts.liveStats;
+                stamp += ` · toronto.ca ✓ ${SkateSettings.formatTime(chk.getTime())}`;
+                title += `${title ? '. ' : ''}City sessions cross-checked against toronto.ca's live schedules ${chk.toLocaleString('en-CA')}` +
+                    (st ? ` — ${st.ok} confirmed, ${st.missing} dropped by the City, ${st.cancelled} cancelled` : '');
+            }
+            $('data-updated').title = title;
             $('data-updated').textContent = stamp;
-            $('data-updated').classList.toggle('stale', daysAgo > 7 || alertsStale);
+            $('data-updated').classList.toggle('stale', daysAgo > 7 || alertsStale || liveStale);
         }
 
         Render.savedNext();
@@ -479,7 +609,9 @@ window.SkateApp = (() => {
         if (S.calMode) return Render.calendar();
 
         if (!filtered.length) {
+            const paidOnly = !S.paidVisible && S.paidMatching > 0;
             const empty = S.type === 'favorites' ? 'Nothing saved yet — tap the heart on any session to keep it here.'
+                : paidOnly ? `All ${S.paidMatching} matching session${S.paidMatching === 1 ? ' is' : 's are'} paid — turn on the Paid toggle above to see ${S.paidMatching === 1 ? 'it' : 'them'}.`
                 : S.rinkScope === 'mine' ? 'Nothing at your rinks with these filters — switch to "All rinks" to widen the search.'
                 : 'No matching sessions found';
             $('program-list').innerHTML = `<li class="loading">${empty}</li>`;
@@ -529,10 +661,17 @@ window.SkateApp = (() => {
             rowStateCls = ' is-ended';
         }
 
-        // Service alert verdict for this location (toronto.ca snapshot)
+        // Service alert verdict for this location (toronto.ca snapshot), or
+        // the live-schedule verdict (the City no longer lists this session)
         const alert = SkateAlerts.forProgram(p);
+        const off = officialUrl(p);
         let alertHtml = '';
-        if (alert) {
+        if (alert && alert.live) {
+            alertHtml = `<div class="alert-banner closed live-flag" title="${escapeHtml(alert.text)}">
+                <strong>🚫 ${escapeHtml(alert.reason)}:</strong> ${escapeHtml(alert.text)}
+                ${off ? `<a class="verify-link" href="${escapeHtml(off)}" target="_blank" rel="noopener">Verify on toronto.ca ↗</a>` : ''}
+            </div>`;
+        } else if (alert) {
             const closed = alert.level === 'closed';
             const snippet = (alert.text || '').slice(0, 200);
             alertHtml = `<div class="alert-banner ${closed ? 'closed' : 'warning'}" title="${escapeHtml(alert.text || alert.reason)}">
@@ -553,14 +692,22 @@ window.SkateApp = (() => {
         const srcTag = (p.Source && p.Source !== 'city' && srcInfo) ? `<span class="src-tag" title="${escapeHtml(srcInfo.note || '')}">via ${escapeHtml(srcInfo.label)}</span>` : '';
         const registerBtn = (p.Paid && p.RegistrationUrl) ? `<a class="btn-register" href="${escapeHtml(p.RegistrationUrl)}" target="_blank" rel="noopener" title="Opens the venue's registration page">Register ↗</a>` : '';
 
-        // Live spots (fetched from the venue's registration API in-browser)
+        // Live spots (fetched from the venue's registration API in-browser).
+        // DaySmart semantics (verified 2026-09-14): open_slots -1 = no cap,
+        // registration_status ∈ open | upcoming | full | closed | null.
         const live = p.Paid ? SkateLive.forProgram(p) : null;
         let spotsBadge = '';
-        if (live) {
-            if (live.status && live.status !== 'open' && st.phase !== 'ended') {
+        if (live && st.phase !== 'ended') {
+            if (live.status === 'full') {
+                spotsBadge = '<span class="spots-badge full" title="The venue reports this session as full">Full</span>';
+            } else if (live.status === 'closed') {
                 spotsBadge = '<span class="spots-badge closed-reg" title="The venue\'s online registration for this session is closed">Registration closed</span>';
+            } else if (live.status === 'upcoming') {
+                spotsBadge = '<span class="spots-badge closed-reg" title="The venue hasn\'t opened online registration for this session yet">Registration opens later</span>';
             } else if (live.open != null) {
                 spotsBadge = `<span class="spots-badge${live.open <= 20 ? ' low' : ''}" title="Live from the venue's registration system">${live.open}${live.capacity ? '/' + live.capacity : ''} spots left</span>`;
+            } else if (live.unlimited && live.status === 'open') {
+                spotsBadge = '<span class="spots-badge" title="No capacity limit set by the venue">Registration open</span>';
             }
         }
 
@@ -595,7 +742,7 @@ window.SkateApp = (() => {
             return `<button data-act="${a.act}" data-idx="${idx}" class="${a.cls}${extraCls}" title="${title}">${text}</button>`;
         }).join('');
 
-        const locationHtml = location ? `<a href="${mapsUrl(location)}" target="_blank" rel="noopener" class="program-location">📍 ${escapeHtml(location)} ↗</a>${noteBtn}` : '';
+        const locationHtml = location ? `<a href="${mapsUrl(location)}" target="_blank" rel="noopener" class="program-location">📍 ${escapeHtml(location)} ↗</a>${noteBtn} ${officialLinkHtml(off, officialSite(p))}` : '';
 
         return `
             <li class="program-item${rowStateCls}${p.Paid ? ' is-paid' : ''}${isFavorite ? ' is-saved' : ''}${alert ? (alert.level === 'closed' ? ' has-alert-closed' : ' has-alert') : ''}" data-pid="${pid}">
@@ -741,6 +888,8 @@ window.SkateApp = (() => {
                 const priceTxt = Number.isFinite(p) && p > 0 && p < 1000 ? `$${p % 1 ? p.toFixed(2) : p}` : 'fee applies';
                 content += `<br><span class="share-paid-badge" title="This venue charges — check their site for exact rates by age">Paid session · ${priceTxt}</span>`;
             }
+            const offUrl = httpOnly(m.data.official);
+            if (offUrl) content += `<br><a class="share-official" href="${escapeHtml(offUrl)}" target="_blank" rel="noopener">🏛️ Verify on ${escapeHtml(String(m.data.site || 'official site').slice(0, 30))} ↗</a>`;
             if (m.data.programId) content += `<br><span class="share-open" data-open-program="${escapeHtml(m.data.programId)}">Open in Programs →</span>`;
         } else if (m.type === 'guide' && m.data) {
             const cat = SkateGuides.CATEGORIES[m.data.category];
@@ -774,6 +923,22 @@ window.SkateApp = (() => {
 
         let convKey = null, visible = [];
 
+        const hint = $('chat-privacy-hint');
+        const cloud = SkateSettings.get('remoteModeration') !== false;
+        if (viewMode === 'dm' && activeDmThread) {
+            hint.textContent = '🔐 Private message · end-to-end encrypted · never sent to any third party (on-device word filter only)';
+            hint.className = 'chat-privacy-hint private';
+        } else if (activeGroup && !activeGroup.isPublic) {
+            hint.textContent = '🔒 Private group · never sent to any third party (on-device word filter only)';
+            hint.className = 'chat-privacy-hint private';
+        } else if (activeGroup) {
+            hint.textContent = cloud
+                ? '🌐 Public room · messages are checked by a third-party profanity filter before sending (switch off in ⚙️ Settings → 🛡️)'
+                : '🌐 Public room · on-device word filter only (cloud check is off in ⚙️ Settings)';
+            hint.className = 'chat-privacy-hint public';
+        } else {
+            hint.className = 'chat-privacy-hint hidden';
+        }
         if (viewMode === 'dm' && activeDmThread) {
             convKey = 'dm:' + activeDmRecipient;
             $('chat-title').innerHTML = `${hueDot(activeDmRecipient)}${escapeHtml(activeDmThread.name)} <span class="pk-tag" title="Identity tag — same tag = same person, whatever they rename themselves">${shortPk(activeDmRecipient)}</span>`;
@@ -957,8 +1122,9 @@ window.SkateApp = (() => {
         const w = SkateWeather.current;
         if (!w) { chip.classList.add('hidden'); return; }
         chip.classList.remove('hidden');
-        chip.textContent = `${w.emoji} ${w.temp}°`;
-        chip.title = `${w.text} near ${w.label}: ${w.temp}°C, feels like ${w.feels}°C — tap for details (Open-Meteo)`;
+        const label = /^my location$/i.test(w.label || '') ? '📍 near you' : (w.label || '');
+        chip.textContent = `${w.emoji} ${w.temp}° · ${label.length > 18 ? label.slice(0, 17) + '…' : label}`;
+        chip.title = `${w.text} in ${w.label}: ${w.temp}°C, feels like ${w.feels}°C — tap to pick another spot (Open-Meteo)`;
     };
 
     Render.notif = function () {
@@ -987,7 +1153,8 @@ window.SkateApp = (() => {
         const mine = new Set(SkateSettings.get('myRinks') || []);
         SkateGeo.nearest(user, 12).forEach(r => {
             const key = String(r.locationid);
-            const sessions = upcomingCountFor(key);
+            const sp = upcomingSplit(key);
+            const sessions = S.paidVisible ? sp.free + sp.paid : sp.free;
             const alerts = SkateAlerts.forLocation(key);
             const row = el('div', { class: 'locator-rink' });
             row.appendChild(el('div', { class: 'locator-rink-info' }, [
@@ -998,7 +1165,7 @@ window.SkateApp = (() => {
                 ]),
                 el('span', { class: 'locator-rink-meta' }, [
                     `${SkateGeo.fmtKm(r.km)} · ${(r.kinds || []).map(k => k === 'indoor' ? '🏠 indoor' : '🌳 outdoor').join(' + ')}` +
-                    (sessions ? ` · ${sessions} upcoming` : ' · no drop-ins listed')
+                    (sessions ? ` · ${sessions} upcoming` : (sp.paid ? ` · ${sp.paid} paid (Paid toggle off)` : ' · no drop-ins listed'))
                 ])
             ]));
             const starred = mine.has(key);
@@ -1049,8 +1216,10 @@ window.SkateApp = (() => {
             li.appendChild(el('span', { class: 'myrinks-check' }, [mine.has(x.key) ? '⭐' : '☆']));
             li.appendChild(el('span', { class: 'myrinks-name' }, [x.name]));
             // session count so nobody picks a location that's empty right now
-            const cnt = upcomingCountFor(x.key);
-            li.appendChild(el('span', { class: 'myrinks-count' + (cnt ? '' : ' zero') }, [`${cnt} session${cnt === 1 ? '' : 's'}`]));
+            // (paid-only rinks say "N paid" instead of a misleading zero)
+            const sp = upcomingSplit(x.key);
+            const shown = S.paidVisible ? sp.free + sp.paid : sp.free;
+            li.appendChild(el('span', { class: 'myrinks-count' + (shown || sp.paid ? '' : ' zero') + (!shown && sp.paid ? ' paid-only' : '') }, [sessionsLabel(sp)]));
             li.appendChild(el('span', { class: 'myrinks-meta' }, [x.km != null ? SkateGeo.fmtKm(x.km) : '']));
             list.appendChild(li);
         });
@@ -1238,12 +1407,18 @@ window.SkateApp = (() => {
             return items;
         },
 
-        programCopy(p) {
+        programCopy(p, anchor = null) {
             const items = [
                 { ...A('copyDetails'), onClick: () => copyText(programText(p)) },
                 { ...A('copyLink'), onClick: () => copyText(`${baseUrl()}#p=${P.id(p)}`, 'Link copied! 🔗') },
-                { ...A('addCalendar'), onClick: () => downloadIcs(p) }
+                { ...A('addCalendar'), onClick: () => {
+                    // second-level popover on the same anchor (Popover.close ran first)
+                    const at = anchor || document.querySelector(`.program-item[data-pid="${P.id(p)}"] .btn-copy`) || document.body;
+                    Popover.open(at, Menus.calendar(p));
+                } }
             ];
+            const off = officialUrl(p);
+            if (off) items.push({ ...A('openOfficial', { site: officialSite(p) }), onClick: () => window.open(off, '_blank', 'noopener') });
             // Share rides the community stack — only offered when Chats are on
             if (SkateSettings.get('showChats') !== false) {
                 items.push({ label: '📤 Share to chat…', onClick: () => Actions.openSharePicker({ type: 'program', payload: p }) });
@@ -1251,8 +1426,29 @@ window.SkateApp = (() => {
             return items;
         },
 
+        /** Add-to-calendar targets — each opens the calendar app with the event filled in. */
+        calendar(p) {
+            return [
+                { ...A('calGoogle'),  onClick: () => openCalendarLink(p, 'google') },
+                { ...A('calOutlook'), onClick: () => openCalendarLink(p, 'outlook') },
+                { ...A('calIcs'),     onClick: () => downloadIcs(p) }
+            ];
+        },
+
+        /** Weather chip: current reading + the spot picker. */
+        weather() {
+            const w = SkateWeather.current;
+            const cur = SkateWeather.selectedId();
+            const user = SkateGeo.getUserLocation();
+            const items = [];
+            if (w) items.push({ label: `${w.emoji} ${w.text} · ${w.temp}°C, feels ${w.feels}°C (Open-Meteo)`, onClick: () => SkateWeather.load(true) });
+            items.push({ label: `${cur === 'auto' ? '✓ ' : ''}📍 ${user ? user.label : 'Toronto (set 📍 via Near me)'}`, onClick: () => Actions.pickWeatherSpot('auto') });
+            SkateWeather.spots().forEach(sp => items.push({ label: `${cur === sp.id ? '✓ ' : '\u2007\u2007'}${sp.label}`, onClick: () => Actions.pickWeatherSpot(sp.id) }));
+            return items;
+        },
+
         /** Tapping a session block in the week calendar. */
-        calBlock(p) {
+        calBlock(p, anchor = null) {
             const fav = SkateChat.Favorites.has(p);
             const items = [
                 { label: fav ? '💔 Remove from saved' : '❤️ Save this session', onClick: () => { SkateChat.Favorites.toggle(p); Render.typeChips(); Render.programs(); } },
@@ -1267,7 +1463,7 @@ window.SkateApp = (() => {
                 items.push({ label: '🎟 Register on venue site ↗', onClick: () => window.open(p.RegistrationUrl, '_blank', 'noopener') });
             }
             // programCopy already appends the chats-gated "Share to chat…"
-            items.push(...Menus.programCopy(p));
+            items.push(...Menus.programCopy(p, anchor));
             return items;
         }
     };
@@ -1383,6 +1579,12 @@ window.SkateApp = (() => {
         }
         S.rinkScope = id;
         SkateSettings.set('rinkScope', id);
+        if (id === 'mine' && !S.paidVisible) {
+            // every one of my rinks paid-only? show them rather than an empty list
+            const keys = SkateSettings.get('myRinks') || [];
+            const splits = keys.map(k => upcomingSplit(k));
+            if (splits.some(sp => sp.paid > 0) && splits.every(sp => sp.free === 0)) ensurePaidVisibleFor(keys.find(k => upcomingSplit(k).paid > 0), 'Your rinks');
+        }
         Render.scopeChips();
         Actions.applyFilters();
     };
@@ -1394,10 +1596,28 @@ window.SkateApp = (() => {
         Modal.open('myrinks-modal');
     };
 
+    Actions.pickWeatherSpot = function (id) {
+        SkateWeather.setSpot(id).then(() => Render.weather());
+    };
+
+    /** Picking a paid-only rink (Markham, Canlan) with Paid off would show
+     *  nothing — turn Paid on for them and say so. */
+    function ensurePaidVisibleFor(key, what) {
+        if (S.paidVisible) return;
+        const sp = upcomingSplit(key);
+        if (sp.free === 0 && sp.paid > 0) {
+            S.paidVisible = true;
+            $('show-paid-toggle').checked = true;
+            SkateSettings.set('paidVisible', true);
+            SkateChat.Notify.toast(`${what || 'That rink'} only has paid sessions — Paid turned on so they show 💲`, 'info', 4000);
+        }
+    }
+
     Actions.toggleMyRink = function (key) {
         const mine = new Set(SkateSettings.get('myRinks') || []);
         mine.has(key) ? mine.delete(key) : mine.add(key);
         SkateSettings.set('myRinks', [...mine]);
+        if (mine.has(key)) ensurePaidVisibleFor(key);
         Render.myRinks($('myrinks-search').value);
         Render.scopeChips();
         if (S.rinkScope === 'mine') Actions.applyFilters();
@@ -1461,7 +1681,8 @@ window.SkateApp = (() => {
         // widen anything that would hide this rink's sessions
         if (S.rinkScope === 'mine' && !(SkateSettings.get('myRinks') || []).includes(key)) S.rinkScope = 'all';
         const rink = SkateGeo.rinkByLocation(key);
-        if (rink && rink.paid) { S.paidVisible = true; $('show-paid-toggle').checked = true; }
+        if (rink && rink.paid) { S.paidVisible = true; $('show-paid-toggle').checked = true; SkateSettings.set('paidVisible', true); }
+        ensurePaidVisibleFor(key, name);
         Modal.close('locator-modal');
         Render.scopeChips();
         Actions.applyFilters();
@@ -1615,16 +1836,20 @@ window.SkateApp = (() => {
         const key = String(r.locationid);
         const user = SkateGeo.getUserLocation();
         const km = user && r.lat != null ? SkateGeo.distanceKm(user, { lat: r.lat, lng: r.lng }) : null;
-        const sessions = upcomingCountFor(key);
+        const sp = upcomingSplit(key);
+        const sessions = S.paidVisible ? sp.free + sp.paid : sp.free;
         const alerts = SkateAlerts.forLocation(key);
         const mine = (SkateSettings.get('myRinks') || []).includes(key);
         const kinds = (r.kinds || []).map(k => k === 'indoor' ? '🏠 indoor' : '🌳 outdoor').join(' · ');
+        const offR = officialUrlForRink(r);
+        const sessionsTxt = sessions ? `${sessions} upcoming session${sessions === 1 ? '' : 's'}`
+            : (sp.paid ? `${sp.paid} paid session${sp.paid === 1 ? '' : 's'} (Paid toggle off)` : 'no drop-ins listed');
         return `<div class="map-pop">
             <strong>${escapeHtml(r.name)}</strong>
-            <span class="map-pop-meta">${kinds}${r.paid ? ' · 💲 paid' : ''}${km != null ? ` · ${SkateGeo.fmtKm(km)}` : ''}</span>
-            <span class="map-pop-meta">${sessions ? `${sessions} upcoming session${sessions === 1 ? '' : 's'}` : 'no drop-ins listed'}${alerts.length ? ' · <span class="map-pop-alert">⚠️ service alert</span>' : ''}</span>
+            <span class="map-pop-meta">${kinds}${r.paid ? ' · 💲 paid' : ''}${km != null ? ` · ${SkateGeo.fmtKm(km)}` : ''}${offR ? ` · <a href="${escapeHtml(offR)}" target="_blank" rel="noopener">🏛️ official ↗</a>` : ''}</span>
+            <span class="map-pop-meta">${sessionsTxt}${alerts.length ? ' · <span class="map-pop-alert">⚠️ service alert</span>' : ''}</span>
             <span class="map-pop-actions">
-                ${sessions ? `<button class="btn-small" data-map-sessions="${escapeHtml(key)}" data-map-name="${escapeHtml(r.name)}">Show sessions</button>` : ''}
+                ${(sessions || sp.paid) ? `<button class="btn-small" data-map-sessions="${escapeHtml(key)}" data-map-name="${escapeHtml(r.name)}">Show sessions</button>` : ''}
                 <button class="btn-small${mine ? ' starred' : ''}" data-map-star="${escapeHtml(key)}">${mine ? '★ Mine' : '☆ Add to my rinks'}</button>
             </span>
         </div>`;
@@ -1948,9 +2173,60 @@ window.SkateApp = (() => {
 
     Actions.openSettings = function () {
         $('settings-name').value = SkateChat.getState().myName || '';
+        $('btn-play-guide').textContent = `▶️ Watch the ${SkateTour.duration()}-second guide`;
         Render.settings();
         Modal.open('settings-modal');
     };
+
+    /* ---------- Pull-to-refresh (the installed app has no browser reload) ----------
+       Touch-only. Pull the schedule panel down while it sits at the top:
+       an indicator grows, arms at THRESHOLD, and releasing runs the same
+       full reload as the Refresh button (schedule + alerts + live check +
+       spots). Passive listeners — nothing here can jank scrolling. */
+    function initPullToRefresh() {
+        const panel = $('programs-panel'), ind = $('ptr');
+        if (!panel || !ind || !('ontouchstart' in window)) return;
+        const THRESHOLD = 68;
+        const text = ind.querySelector('.ptr-text');
+        let startY = null, pulling = false, armed = false, busy = false;
+        const setPull = (px) => { ind.style.height = `${px}px`; ind.classList.toggle('visible', px > 0); };
+        panel.addEventListener('touchstart', (e) => {
+            if (busy || panel.scrollTop > 0 || Modal.any() || SkateTour.running) { startY = null; return; }
+            startY = e.touches[0].clientY; pulling = false; armed = false;
+        }, { passive: true });
+        panel.addEventListener('touchmove', (e) => {
+            if (startY === null || busy) return;
+            const dy = e.touches[0].clientY - startY;
+            if (dy <= 0 || panel.scrollTop > 0) { if (pulling) { pulling = false; armed = false; setPull(0); } return; }
+            pulling = true;
+            const px = Math.min(104, dy * 0.45);
+            setPull(px);
+            armed = px >= THRESHOLD;
+            text.textContent = armed ? 'Release to refresh' : 'Pull to refresh';
+            ind.classList.toggle('armed', armed);
+        }, { passive: true });
+        const end = async () => {
+            if (startY === null) return;
+            startY = null;
+            if (!pulling) return;
+            pulling = false;
+            if (!armed) { setPull(0); return; }
+            armed = false; busy = true;
+            ind.classList.add('busy'); text.textContent = 'Refreshing…'; setPull(52);
+            try {
+                await Actions.reloadData();
+                SkateChat.Notify.toast('Schedule, alerts & spots refreshed ✓', 'success', 2000);
+            } catch (e) {
+                SkateChat.Notify.toast('Refresh failed: ' + e.message, 'error');
+            } finally {
+                busy = false;
+                ind.classList.remove('busy', 'armed');
+                setPull(0);
+            }
+        };
+        panel.addEventListener('touchend', end, { passive: true });
+        panel.addEventListener('touchcancel', end, { passive: true });
+    }
 
     /* ---------- Appearance (Settings → Auto / Light / Dark) ---------- */
     const systemDark = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
@@ -2065,7 +2341,7 @@ window.SkateApp = (() => {
             ['.cal-block', (block, e) => {
                 e.stopPropagation();
                 const p = S.filtered.find(x => P.id(x) === block.dataset.pid);
-                if (p) Popover.open(block, Menus.calBlock(p));
+                if (p) Popover.open(block, Menus.calBlock(p, block));
             }]
         ]);
 
@@ -2103,15 +2379,11 @@ window.SkateApp = (() => {
         $('btn-copy-site').onclick = copySite;
         $('btn-qr-copy').onclick = copySite;
 
-        // Weather chip → friendly details toast
-        $('weather-chip').onclick = () => {
-            const w = SkateWeather.current;
-            if (!w) return;
-            SkateChat.Notify.toast(`${w.emoji} ${w.text} near ${w.label}: ${w.temp}°C (feels ${w.feels}°C) — data by Open-Meteo`, 'info', 5000);
-            SkateWeather.load();   // TTL'd opportunistic refresh
-        };
+        // Weather chip → reading + spot picker
+        $('weather-chip').onclick = (e) => { e.stopPropagation(); Popover.open($('weather-chip'), Menus.weather()); };
 
-        // Interactive map
+        // Interactive map (toolbar button + locator button)
+        $('btn-map').onclick = () => Actions.openMap();
         $('btn-open-map').onclick = () => { Modal.close('locator-modal'); Actions.openMap(); };
         $('btn-map-close').onclick = () => SkateMap.close();
         delegate($('map-filter-seg'), [
@@ -2146,11 +2418,16 @@ window.SkateApp = (() => {
             }]
         ]);
 
-        // Quick tour (replay any time; targets live on the Schedule panel)
+        // Quick tour + auto-playing guide (targets live on the Schedule panel)
         $('btn-start-tour').onclick = () => {
             Modal.close('settings-modal');
             Actions.switchView('programs');
             SkateTour.start();
+        };
+        $('btn-play-guide').onclick = () => {
+            Modal.close('settings-modal');
+            Actions.switchView('programs');
+            SkateTour.play();
         };
 
         // First-visit setup
@@ -2200,7 +2477,7 @@ window.SkateApp = (() => {
                     if (SkateChat.getState().activeGroup) SkateChat.voteTime(p);
                     else SkateChat.Notify.toast('Voting is for planning with friends — open Chats and join or create a group first 👍', 'info', 4500);
                 }
-                else if (act === 'copy') Popover.open(btn, Menus.programCopy(p));
+                else if (act === 'copy') Popover.open(btn, Menus.programCopy(p, btn));
             }]
         ]);
 
@@ -2411,6 +2688,7 @@ window.SkateApp = (() => {
         SkateChat.Favorites.load();
         Actions.applyVisibility();   // also kicks off bootCommunity() if a section is visible
         Actions.maybeShowSetup();
+        initPullToRefresh();
 
         // Rink map + service alerts load in parallel with programs;
         // whichever lands last re-renders so badges/distances appear.
@@ -2483,7 +2761,7 @@ window.SkateApp = (() => {
         window.addEventListener('hashchange', Actions.route);
     }
 
-    return { init, S, Render, Actions };
+    return { init, S, Render, Actions, officialUrl, officialSite };
 })();
 
 SkateApp.init();

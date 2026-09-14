@@ -35,11 +35,29 @@ window.SkateWeather = (() => {
 
     function onUpdate(cb) { listeners.push(cb); }
 
+    /** Configured pick-list (SkateConfig.weatherSpots) — tap the chip to choose. */
+    function spots() { return (window.SkateConfig?.weatherSpots || []); }
+
+    /** Current selection id: 'auto' (📍 location or Toronto) or a spot id. */
+    function selectedId() { return window.SkateSettings?.get('weatherSpot') || 'auto'; }
+
     function spot() {
+        const id = selectedId();
+        if (id !== 'auto') {
+            const hit = spots().find(x => x.id === id);
+            if (hit) return { lat: hit.lat, lng: hit.lng, label: hit.label };
+        }
         const user = window.SkateGeo?.getUserLocation?.();
         return user && typeof user.lat === 'number'
             ? { lat: user.lat, lng: user.lng, label: user.label || 'your location' }
             : DEFAULT_SPOT;
+    }
+
+    /** Choose a spot ('auto' or a spots() id); persists and refetches. */
+    function setSpot(id) {
+        window.SkateSettings?.set('weatherSpot', id || 'auto');
+        current = null;          // old reading is for another place
+        return load(true);
     }
 
     function load(force = false) {
@@ -75,7 +93,7 @@ window.SkateWeather = (() => {
         return inFlight;
     }
 
-    return { load, onUpdate, get current() { return current; } };
+    return { load, onUpdate, spots, setSpot, selectedId, get current() { return current; } };
 })();
 
 if (typeof module !== 'undefined') module.exports = window.SkateWeather;

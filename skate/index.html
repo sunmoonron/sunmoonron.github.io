@@ -16,7 +16,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=10">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=3">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=12">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=13">
 </head>
 <body>
     <div class="app" id="app">
@@ -37,6 +37,8 @@
         <div class="main-content">
             <!-- Programs Panel -->
             <div class="view-panel panel-programs active" id="programs-panel">
+                <!-- pull-to-refresh indicator (touch only; grows as you pull) -->
+                <div class="ptr" id="ptr" aria-hidden="true"><span class="ptr-icon">↓</span><span class="ptr-text">Pull to refresh</span></div>
                 <div class="panel-title">⛸️ Schedule</div>
                 <div class="search-box">
                     <input type="text" id="search-input" placeholder="Search activities, locations, addresses…">
@@ -58,14 +60,15 @@
                     <input type="number" id="age-filter" placeholder="Age" min="0" max="120" style="max-width:80px" class="hidden" title="Exact age to filter by">
                     <select id="sort-filter" title="Ordering"><!-- options generated from SkateConfig.sortOptions --></select>
                     <button id="btn-near" class="btn-near" title="Find the rinks closest to you">📍 Near me</button>
+                    <button id="btn-map" class="btn-near btn-map" title="Interactive rink map — every rink as a pin, distances from your chosen spot">🗺️ Map</button>
                 </div>
 
                 <div class="stats-row" id="stats-row">
                     <div class="stats-info">
                         <span id="stats-text">Loading...</span>
                         <span id="data-updated" class="data-updated"></span>
-                        <!-- current conditions near you/Toronto (Open-Meteo) — dress for it -->
-                        <button id="weather-chip" class="weather-chip hidden" aria-label="Current weather"></button>
+                        <!-- current conditions (Open-Meteo) — tap to pick a spot; dress for it -->
+                        <button id="weather-chip" class="weather-chip hidden" aria-label="Current weather — tap to choose the spot"></button>
                     </div>
                     <label class="toggle-past toggle-paid hidden" id="paid-toggle-wrap" title="Show paid venues (price shown on each session)">
                         <input type="checkbox" id="show-paid-toggle">
@@ -151,7 +154,7 @@
                     <select id="guide-cat-input"><!-- generated from SkateConfig.guideCategories --></select>
                     <textarea id="guide-body-input" maxlength="6000" rows="10" placeholder="Your guide… (at least a few sentences)"></textarea>
                     <button class="btn-primary" id="btn-guide-submit">Publish guide</button>
-                    <p class="pow-hint">Publishing takes a few seconds — your device does a small proof-of-work so spam is expensive. ⛏️</p>
+                    <p class="pow-hint">Publishing takes a few seconds — your device does a small proof-of-work so spam is expensive. ⛏️ Guides are public: the text is checked by a third-party profanity filter unless you switch that off in ⚙️ Settings (🛡️); the on-device word list always applies.</p>
                 </div>
             </div>
 
@@ -193,6 +196,8 @@
                     <div class="chat-messages" id="chat-messages"></div>
                     <button class="jump-pill hidden" id="jump-pill">↓ New messages</button>
 
+                    <!-- who sees your text: public rooms may be cloud-filtered, private never leaves -->
+                    <div class="chat-privacy-hint hidden" id="chat-privacy-hint"></div>
                     <div class="reply-bar hidden" id="chat-reply-bar">
                         <span id="chat-reply-label"></span>
                         <button class="btn-icon" id="btn-reply-cancel" title="Cancel reply">✕</button>
@@ -325,8 +330,12 @@
                 <p class="settings-hint">Point a phone camera at the QR, or paste the link anywhere.</p>
             </div>
             <div class="settings-field">
-                <span>Quick tour</span>
-                <button id="btn-start-tour">Replay the 20-second tour</button>
+                <span>Tour &amp; guide</span>
+                <div class="settings-inline tour-buttons">
+                    <button class="btn-primary" id="btn-play-guide">▶️ Watch the 60-second guide</button>
+                    <button id="btn-start-tour">Quick tour</button>
+                </div>
+                <p class="settings-hint">Both spotlight the real controls on screen. Skip is always the first button (or press Esc).</p>
             </div>
 
             <!-- Community features ride the open Nostr network — boxed apart
@@ -343,7 +352,7 @@
                     <span>Privacy</span>
                     <!-- Toggle buttons generated from SkateConfig.privacyToggles -->
                     <div class="seg-control seg-multi" id="settings-privacy"></div>
-                    <p class="settings-hint">Invisible: you stop appearing in member lists and "here now" counts (you still read and send fine). DMs off: new private messages are ignored on this device — senders aren't notified.</p>
+                    <p class="settings-hint">Invisible: you never appear in member lists or "here now" counts, and your messages don't count as presence (you still read and send fine). DMs off: new private messages are ignored on this device — senders aren't notified. Cloud filter: see Moderation below.</p>
                 </div>
                 <label class="settings-field">
                     <span>Display name</span>
@@ -366,7 +375,7 @@
                     <span>Muted users</span>
                     <ul id="muted-list" class="muted-list"><li class="muted-empty">No one muted. Tap a name in any chat to mute someone.</li></ul>
                 </div>
-                <p class="settings-hint"><strong>Moderation:</strong> messages to PUBLIC rooms and guide posts are checked by third-party profanity services (profanity.dev, PurgoMalum) before sending. Private groups and DMs are never sent anywhere for moderation — only a local on-device wordlist runs, so their text never leaves your browser.</p>
+                <p class="settings-hint"><strong>Moderation:</strong> with 🛡️ Cloud filter ON, messages to PUBLIC rooms and guide posts are sent to third-party profanity services (profanity.dev, PurgoMalum) before publishing. Switch it OFF and only the mandatory on-device word list runs (it always does, either way). Private groups and DMs are NEVER sent to any third party — they're checked on-device only, so that text never leaves your browser.</p>
                 <p class="settings-hint">Your identity is a keypair that lives only in this browser — no account, no email. Clearing site data resets it.</p>
             </div>
             <p class="settings-hint">Schedule &amp; alert data: contains information licensed under the <a href="https://open.toronto.ca/open-data-licence/" target="_blank" rel="noopener">Open Government Licence – Toronto</a>, plus official Markham &amp; venue feeds. Weather by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0). Map © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors.</p>
@@ -475,25 +484,25 @@
     <script src="../assets/js/nostr.bundle.js"></script>
     <!-- profanity-list.js is injected lazily by app.js bootCommunity() —
          schedule-only visits (community sections hidden) never download it -->
-    <script src="projects/js/config.js?v=12"></script>
+    <script src="projects/js/config.js?v=13"></script>
     <script src="projects/js/settings.js?v=7"></script>
     <script src="projects/js/moderation.js?v=4"></script>
-    <script src="projects/js/nostr-core.js?v=1"></script>
+    <script src="projects/js/nostr-core.js?v=2"></script>
     <script src="projects/js/storage.js?v=10"></script>
-    <script src="projects/js/api.js?v=13"></script>
+    <script src="projects/js/api.js?v=14"></script>
     <script src="projects/js/time.js?v=1"></script>
-    <script src="projects/js/geo.js?v=2"></script>
-    <script src="projects/js/live.js?v=1"></script>
-    <script src="projects/js/weather.js?v=1"></script>
-    <script src="projects/js/alerts.js?v=2"></script>
-    <script src="projects/js/chat-v2.js?v=5"></script>
-    <script src="projects/js/guides.js?v=3"></script>
+    <script src="projects/js/geo.js?v=3"></script>
+    <script src="projects/js/live.js?v=2"></script>
+    <script src="projects/js/weather.js?v=2"></script>
+    <script src="projects/js/alerts.js?v=3"></script>
+    <script src="projects/js/chat-v2.js?v=6"></script>
+    <script src="projects/js/guides.js?v=4"></script>
     <script src="projects/js/ui.js?v=1"></script>
     <script src="projects/js/calendar.js?v=4"></script>
     <script src="projects/js/map.js?v=1"></script>
-    <script src="projects/js/tour.js?v=1"></script>
-    <script src="projects/js/app.js?v=14"></script>
-    <script src="projects/js/refresh.js?v=3"></script>
+    <script src="projects/js/tour.js?v=2"></script>
+    <script src="projects/js/app.js?v=15"></script>
+    <script src="projects/js/refresh.js?v=4"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)
         if ('serviceWorker' in navigator) {

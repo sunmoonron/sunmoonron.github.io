@@ -6,6 +6,10 @@ name: Update Skating Data
 on:
   schedule:
     - cron: '0 14 * * 0'   # Sunday 9 AM Toronto (14:00 UTC) — GitHub may delay cron by a few minutes
+    # The City refreshes its open-data export weekly, mid-week (observed
+    # Thursday ~21:40 UTC). A second pull Friday morning picks that up
+    # within hours instead of waiting for Sunday.
+    - cron: '0 10 * * 5'   # Friday 6 AM Toronto (10:00 UTC)
   workflow_dispatch:        # adds a manual "Run workflow" button in the Actions tab
 
 concurrency:

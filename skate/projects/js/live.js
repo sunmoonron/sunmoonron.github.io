@@ -19,7 +19,13 @@ window.SkateLive = (() => {
     const API = 'https://api.daysmartrecreation.com/v1/events';
     // Mirrors EXTERNAL_SOURCES in fetch-skate-data.js (client side only
     // needs to know which Source keys are DaySmart companies).
-    const SOURCES = { 'canlan-york': { company: 'canlan' } };
+    const SOURCES = {
+        'canlan-york':        { company: 'canlan' },
+        'canlan-etobicoke':   { company: 'canlan' },
+        'canlan-scarborough': { company: 'canlan' },
+        'canlan-oakville':    { company: 'canlan' },
+        'canlan-oshawa':      { company: 'canlan' }
+    };
 
     const TTL_MS = 5 * 60000;
 
@@ -60,10 +66,17 @@ window.SkateLive = (() => {
                 (json.included || []).forEach(inc => {
                     if (inc.type !== 'event-summaries') return;
                     const a = inc.attributes || {};
+                    // DaySmart reports -1 (or null) for "no cap / unlimited";
+                    // a negative number is NOT "minus one spot". Keep raw for
+                    // debugging, expose a sane `open` for rendering.
+                    const rawOpen = a.open_slots ?? a.remaining_registration_slots ?? null;
+                    const cap = a.composite_capacity ?? null;
                     byId[String(inc.id)] = {
-                        open: a.open_slots ?? a.remaining_registration_slots ?? null,
-                        capacity: a.composite_capacity ?? null,
-                        status: a.registration_status || null
+                        open: (typeof rawOpen === 'number' && rawOpen >= 0) ? rawOpen : null,
+                        unlimited: typeof rawOpen === 'number' && rawOpen < 0,
+                        capacity: (typeof cap === 'number' && cap > 0) ? cap : null,
+                        status: a.registration_status || null,
+                        rawOpen
                     };
                 });
             });

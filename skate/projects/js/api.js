@@ -12,6 +12,41 @@ const SkateAPI = {
     // Local static data files (relative to skate/index.html)
     LOCAL_DATA_PATH: 'projects/data',
 
+    // Optional alternate origin for the data JSONs (v3.1). The planned home
+    // server (Dell) can serve fresher copies of the same files; the
+    // committed same-origin copies stay the fallback (and the offline copy —
+    // sw.js never caches cross-origin). Set via SkateConfig.dataBase or
+    // SkateAPI.configure({ dataBase: 'https://…/skate-data' }) before boot.
+    // Any failure on the remote origin falls back to same-origin for the
+    // rest of the session.
+    _dataBase: (typeof window !== 'undefined' && window.SkateConfig?.dataBase) || null,
+    _remoteBroken: false,
+
+    configure({ dataBase } = {}) {
+        if (dataBase !== undefined) this._dataBase = dataBase ? String(dataBase).replace(/\/+$/, '') : null;
+        this._remoteBroken = false;
+    },
+
+    /**
+     * URL for a data file (relative path like 'projects/data/alerts.json' or
+     * a bare filename), with the caller's cache-bust token. Every data
+     * consumer (programs, alerts, rinks, meta, live check) routes through
+     * here so a single setting swaps the data source for the whole app.
+     */
+    dataUrl(file, bust = Math.floor(Date.now() / 600000)) {
+        const name = String(file).replace(/^projects\/data\//, '');
+        const base = (this._dataBase && !this._remoteBroken) ? this._dataBase : this.LOCAL_DATA_PATH;
+        return `${base}/${name}?t=${bust}`;
+    },
+
+    /** Remote data origin failed → same-origin for the rest of the session. */
+    _fallbackLocal(reason) {
+        if (this._dataBase && !this._remoteBroken) {
+            this._remoteBroken = true;
+            console.warn(`[SkateAPI] data origin ${this._dataBase} failed (${reason}) — using committed copies`);
+        }
+    },
+
     // Cached data
     _skatingPrograms: null,
     _metadata: null,
@@ -25,12 +60,23 @@ const SkateAPI = {
      */
     async fetchData(filename, force = false) {
         const bust = force ? Date.now() : Math.floor(Date.now() / 600000);
-        const localUrl = `${this.LOCAL_DATA_PATH}/${filename}?t=${bust}`;
-        console.log(`[SkateAPI] Loading: ${localUrl}`);
+        let url = this.dataUrl(filename, bust);
+        console.log(`[SkateAPI] Loading: ${url}`);
 
-        const response = await fetch(localUrl);
-        if (!response.ok) {
-            throw new Error(`Failed to load ${filename}: ${response.status}`);
+        let response;
+        try {
+            response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        } catch (e) {
+            // remote origin down/CORS-blocked → retry the committed copy once
+            if (this._dataBase && !this._remoteBroken) {
+                this._fallbackLocal(e.message);
+                url = this.dataUrl(filename, bust);
+                response = await fetch(url);
+                if (!response.ok) throw new Error(`Failed to load ${filename}: ${response.status}`);
+            } else {
+                throw new Error(`Failed to load ${filename}: ${e.message}`);
+            }
         }
 
         return response.json();

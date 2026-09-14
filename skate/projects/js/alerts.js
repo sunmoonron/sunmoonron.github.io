@@ -32,11 +32,20 @@ window.SkateAlerts = (() => {
     'use strict';
 
     const DATA_URL = 'projects/data/alerts.json';
+    // v3.1: the pipeline's cross-check of city sessions against toronto.ca's
+    // live per-location schedules (the Malvern lesson — the weekly open-data
+    // export kept listing a session the City had dropped). Flags are keyed
+    // "<LocationID>|<date>|<start>|<normalized title>".
+    const LIVE_URL = 'projects/data/live-check.json';
+    const dataUrl = (file, bust) => (window.SkateAPI?.dataUrl ? SkateAPI.dataUrl(file, bust) : `${file}?t=${bust}`);
 
     let byLocation = {};   // locationid(string) → [alert, …]  (skate alerts only)
     let fetchedAt = null;  // when alert CONTENT last changed (CI stamp)
     let checkedAt = null;  // when the CI checker last confirmed the feed (heartbeat)
     let loaded = false;
+    let liveFlags = {};    // key → { s:'missing'|'cancelled', t:title, n?:note }
+    let liveExtra = [];    // live-only sessions the export lacks (informational)
+    let liveCheckedAt = null, liveChangedAt = null, liveWindow = null, liveStats = null;
     let lastOkAt = 0;      // client-side: last successful fetch of alerts.json
     let inFlight = null;
     const listeners = [];
@@ -61,24 +70,62 @@ window.SkateAlerts = (() => {
         // force uses a unique key so "user just woke the phone" is current.
         const bust = force ? Date.now() : Math.floor(Date.now() / 300000);
         inFlight = (async () => {
+            // Both snapshots ride the same TTL/ticker; the live check is a
+            // bonus layer — its failure never blocks the alert feed.
+            const liveJob = (async () => {
+                try {
+                    const res = await fetch(dataUrl(LIVE_URL, bust));
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const data = await res.json();
+                    liveFlags = data.flags || {};
+                    liveExtra = Array.isArray(data.extra) ? data.extra : [];
+                    liveCheckedAt = data.checkedAt || null;
+                    liveChangedAt = data.changedAt || null;
+                    liveWindow = data.window || null;
+                    liveStats = data.stats || null;
+                } catch (e) {
+                    console.warn('[SkateAlerts] live-check.json unavailable:', e.message);
+                }
+            })();
             try {
-                const res = await fetch(`${DATA_URL}?t=${bust}`);
+                const res = await fetch(dataUrl(DATA_URL, bust));
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const data = await res.json();
                 index(data.alerts || []);
                 fetchedAt = data.fetchedAt || null;
                 checkedAt = data.checkedAt || data.fetchedAt || null;
                 lastOkAt = Date.now();
-                loaded = true;
-                listeners.forEach(cb => { try { cb(); } catch {} });
             } catch (e) {
                 console.warn('[SkateAlerts] could not load alerts.json:', e.message);
-                loaded = true; // don't block rendering — site just shows no alerts
-            } finally {
-                inFlight = null;
             }
+            await liveJob;
+            loaded = true; // don't block rendering — site just shows no alerts
+            listeners.forEach(cb => { try { cb(); } catch {} });
+            inFlight = null;
         })();
         return inFlight;
+    }
+
+    /* ---------- live schedule cross-check ---------- */
+
+    const normTitle = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+    /** Live-check flag for a city program, or null (ok / not a city row / unchecked). */
+    function liveFor(p) {
+        if (!p || (p.Source && p.Source !== 'city')) return null;
+        const locId = p['Location ID'];
+        if (locId == null) return null;
+        const date = (p['Start Date Time'] || p['Start Date'] || '').slice(0, 10);
+        const key = `${locId}|${date}|${p['Start Time'] || ''}|${normTitle(p['Course Title'] || p.Activity || p['Activity Title'])}`;
+        const f = liveFlags[key];
+        if (!f) return null;
+        return { status: f.s, title: f.t, note: f.n || '', checkedAt: liveCheckedAt };
+    }
+
+    /** True when the City's live schedule no longer lists this session. */
+    function isDropped(p) {
+        const f = liveFor(p);
+        return !!f && (f.status === 'missing' || f.status === 'cancelled');
     }
 
     /**
@@ -198,8 +245,25 @@ window.SkateAlerts = (() => {
     function forProgram(p) {
         const locId = p['Location ID'] != null ? String(p['Location ID']) : null;
         if (!locId) return null;
-        const alerts = byLocation[locId];
-        if (!alerts || !alerts.length) return null;
+        const alerts = byLocation[locId] || [];
+
+        // Live-schedule verdict outranks everything: the City itself no
+        // longer lists this session (Malvern, 2026-09-14) or cancelled it.
+        const live = liveFor(p);
+        if (live && (live.status === 'missing' || live.status === 'cancelled')) {
+            const missing = live.status === 'missing';
+            return {
+                level: 'closed',
+                live,
+                reason: missing ? 'Not on the City\'s live schedule' : 'Cancelled by the City',
+                text: missing
+                    ? 'toronto.ca\'s live schedule for this rink does not list this session (the City\'s weekly data export still does). Treat it as cancelled — verify on toronto.ca before travelling.'
+                    : `toronto.ca lists this session as cancelled${live.note ? ': ' + live.note : ''}.`,
+                postedDate: liveChangedAt || '',
+                alerts
+            };
+        }
+        if (!alerts.length) return null;
 
         const rink = window.SkateGeo ? window.SkateGeo.rinkByLocation(locId) : null;
         const locationKinds = rink ? rink.kinds : null;
@@ -244,10 +308,15 @@ window.SkateAlerts = (() => {
     }
 
     return {
-        load, onUpdate, forProgram, forLocation,
+        load, onUpdate, forProgram, forLocation, liveFor, isDropped,
         get loaded() { return loaded; },
         get fetchedAt() { return fetchedAt; },
         get checkedAt() { return checkedAt; },
+        get liveCheckedAt() { return liveCheckedAt; },
+        get liveChangedAt() { return liveChangedAt; },
+        get liveWindow() { return liveWindow; },
+        get liveStats() { return liveStats; },
+        get liveExtra() { return liveExtra; },
         // exposed for testing
         _classifyHelpers: { alertKind, coversLocation, dateWindows, textSaysRinkClosed, index, isSkateAlert }
     };

@@ -6,11 +6,23 @@
  * service alerts (→ alerts.json).
  *
  * Usage:
- *   node fetch-skate-data.js                # full refresh (programs + rinks + alerts)
- *   node fetch-skate-data.js --alerts-only  # just refresh alerts.json (cheap, run often)
+ *   node fetch-skate-data.js                # full refresh (programs + rinks + alerts + live check)
+ *   node fetch-skate-data.js --alerts-only  # light pass: alerts.json + live-check.json (cheap, run often)
  *
  * toronto.ca live endpoints send no Access-Control-Allow-Origin header,
  * so the browser can never fetch them directly — CI snapshots them here.
+ *
+ * LIVE CHECK (v3.1, the Malvern lesson): the City's open-data drop-in
+ * export is refreshed WEEKLY and lags the live registration system — on
+ * 2026-09-14 it still listed "Leisure Skate: Adult" at Malvern five times
+ * that week while toronto.ca's own facility page listed none (a visitor
+ * travelled there for nothing). toronto.ca renders its facility pages
+ * from per-location week feeds (/data/parks/live/locations/<id>/skate/
+ * weekN.json). fetchLiveCheck() cross-checks every city session in the
+ * next two weeks against those feeds and writes live-check.json: sessions
+ * the City no longer lists are flagged "missing", cancelled ones carry
+ * the City's comment, and live-only sessions the export lacks are listed
+ * as "extra". The client treats missing/cancelled like a closure alert.
  *
  * Design rules:
  *  - City drop-in data failing is FATAL (keeps the previous files intact).
@@ -61,6 +73,86 @@ const EXTERNAL_SOURCES = {
         registrationUrl: (date) => `https://apps.daysmartrecreation.com/dash/x/#/online/canlan/event-registration?date=${date}&facility_ids=5&program_types=51`,
         infoUrl: 'https://apps.daysmartrecreation.com/dash/x/#/online/canlan/event-registration?facility_ids=5&program_types=51'
     },
+    'canlan-etobicoke': {
+        kind: 'daysmart',
+        company: 'canlan',
+        // Rinks 1-4 at CWENCH Centre (Etobicoke) — facility_id 3.
+        resourceIds: [207, 208, 209, 210],
+        daysAhead: 28,
+        programs: [
+            { match: /public\s*skat/i, activity: 'Public Skate', defaultPrice: 5 }
+        ],
+        locationName: 'CWENCH Centre (Canlan Etobicoke)',
+        address: '1120 Martin Grove Rd',
+        district: 'Etobicoke',
+        postalCode: 'M9W 4W1',
+        lat: 43.7002961, lng: -79.5750312,
+        paid: true,
+        registrationUrl: (date) => `https://apps.daysmartrecreation.com/dash/x/#/online/canlan/event-registration?date=${date}&facility_ids=3&program_types=51`,
+        infoUrl: 'https://apps.daysmartrecreation.com/dash/x/#/online/canlan/event-registration?facility_ids=3&program_types=51'
+    },
+    'canlan-scarborough': {
+        kind: 'daysmart',
+        company: 'canlan',
+        // Rinks 1-4 at Canlan Sports Scarborough — facility_id 15. Most
+        // public skates here have an EMPTY event `desc`; the name only
+        // lives in the summary / home-team name (fetchDaySmart falls back).
+        resourceIds: [440, 441, 442, 443],
+        daysAhead: 28,
+        programs: [
+            { match: /public\s*skat/i, activity: 'Public Skate', defaultPrice: 5 }
+        ],
+        locationName: 'Canlan Sports Scarborough',
+        address: '159 Dynamic Dr',
+        district: 'Scarborough',
+        postalCode: 'M1V 5L8',
+        lat: 43.8284798, lng: -79.2524897,   // Nominatim; DaySmart's own coordinate is 12.8 km off
+        paid: true,
+        registrationUrl: (date) => `https://apps.daysmartrecreation.com/dash/x/#/online/canlan/event-registration?date=${date}&facility_ids=15&program_types=51`,
+        infoUrl: 'https://apps.daysmartrecreation.com/dash/x/#/online/canlan/event-registration?facility_ids=15&program_types=51'
+    },
+    'canlan-oakville': {
+        kind: 'daysmart',
+        company: 'canlan',
+        // Rinks 1-4 at Entripy Centre (Oakville) — facility_id 13.
+        // Busiest Canlan calendar (~290 events / 28 days): fetchDaySmart
+        // filters to the Drop-In event type and pages at 500.
+        resourceIds: [102, 103, 104, 105],
+        daysAhead: 28,
+        programs: [
+            { match: /public\s*skat/i, activity: 'Public Skate', defaultPrice: 5 },
+            // 55+ drop-in; DaySmart lists the product at $0.00
+            { match: /senior\s*skat/i, activity: 'Senior Skate (55+)', defaultPrice: 0 }
+        ],
+        locationName: 'Entripy Centre (Canlan Oakville)',
+        address: '2300 Cornwall Rd',
+        district: 'Oakville',
+        postalCode: 'L6J 7T9',
+        lat: 43.4882179, lng: -79.6501451,
+        paid: true,
+        registrationUrl: (date) => `https://apps.daysmartrecreation.com/dash/x/#/online/canlan/event-registration?date=${date}&facility_ids=13&program_types=51`,
+        infoUrl: 'https://apps.daysmartrecreation.com/dash/x/#/online/canlan/event-registration?facility_ids=13&program_types=51'
+    },
+    'canlan-oshawa': {
+        kind: 'daysmart',
+        company: 'canlan',
+        // Rinks 1-2 at Canlan Sports Oshawa — facility_id 14. No public
+        // skate published as of Sep 2026 (Stick & Puck / shinny only) —
+        // yields 0 records until they add one; harmless.
+        resourceIds: [54, 65],
+        daysAhead: 28,
+        programs: [
+            { match: /public\s*skat/i, activity: 'Public Skate', defaultPrice: 5 }
+        ],
+        locationName: 'Canlan Sports Oshawa',
+        address: '1401 Phillip Murray Ave',
+        district: 'Oshawa',
+        postalCode: 'L1J 8C4',
+        lat: 43.8546816, lng: -78.8809418,
+        paid: true,
+        registrationUrl: (date) => `https://apps.daysmartrecreation.com/dash/x/#/online/canlan/event-registration?date=${date}&facility_ids=14&program_types=51`,
+        infoUrl: 'https://apps.daysmartrecreation.com/dash/x/#/online/canlan/event-registration?facility_ids=14&program_types=51'
+    },
     'markham': {
         kind: 'perfectmind',
         // City of Markham drop-in skating — official PerfectMind booking
@@ -110,6 +202,10 @@ const RINK_PACKAGES = [
 ];
 
 const ALERTS_URL = 'https://www.toronto.ca/data/parks/live/skate_allupdates.json';
+// Per-location live feeds behind toronto.ca's facility pages (UTF-16 JSON!)
+const LIVE_LOCATIONS_URL = 'https://www.toronto.ca/data/parks/live/locations/';
+const LIVE_CHECK_DAYS = 14;          // this week + next (weekN.json files are Monday-based)
+const LIVE_REQUEST_GAP_MS = 80;      // be a polite guest on toronto.ca
 
 // Ensure output directory exists
 if (!fs.existsSync(OUTPUT_DIR)) {
@@ -130,14 +226,26 @@ function httpGetText(url, headers = {}, redirects = 0) {
                 res.resume();
                 return reject(new Error(`HTTP ${res.statusCode} for ${url.substring(0, 90)}`));
             }
-            let data = '';
-            res.on('data', c => data += c);
-            res.on('end', () => resolve(data));
+            const chunks = [];
+            res.on('data', c => chunks.push(c));
+            res.on('end', () => resolve(decodeBody(Buffer.concat(chunks))));
             res.on('error', reject);
         });
         req.on('error', reject);
         req.setTimeout(45000, () => req.destroy(new Error(`Timeout for ${url.substring(0, 90)}`)));
     });
+}
+
+/**
+ * Bytes → string, honouring a BOM. toronto.ca's per-location live feeds
+ * are served as UTF-16LE with a BOM (JSON.parse chokes on them as UTF-8);
+ * everything else is plain UTF-8.
+ */
+function decodeBody(buf) {
+    if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) return new TextDecoder('utf-16le').decode(buf.subarray(2));
+    if (buf.length >= 2 && buf[0] === 0xfe && buf[1] === 0xff) return new TextDecoder('utf-16be').decode(buf.subarray(2));
+    if (buf.length >= 3 && buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) return buf.subarray(3).toString('utf8');
+    return buf.toString('utf8');
 }
 
 /**
@@ -447,6 +555,205 @@ async function fetchAlerts() {
     return { changed: changed || heartbeatDue, count: all.length };
 }
 
+/* ================= Live schedule cross-check → live-check.json ================= */
+
+/** 'leisureskateadultunsupervised' — the only thing two feeds reliably agree on. */
+function normTitle(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ''); }
+
+/** "06:45 PM - 07:30 PM" → ['18:45', '19:30'] (null if unparseable). */
+function parseLiveTimeRange(s) {
+    const m = /(\d{1,2}):(\d{2})\s*(AM|PM)\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM)/i.exec(String(s || ''));
+    if (!m) return null;
+    return [to24h(m[1], m[2], m[3], false), to24h(m[4], m[5], m[6], false)];
+}
+
+const LIVE_WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+/** Token-overlap similarity for "did the City just rename it?" (0..1). */
+function titleSimilarity(a, b) {
+    const ta = new Set(String(a).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
+    const tb = new Set(String(b).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
+    if (!ta.size || !tb.size) return 0;
+    let hit = 0;
+    ta.forEach(t => { if (tb.has(t)) hit++; });
+    return hit / Math.max(ta.size, tb.size);
+}
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+/**
+ * Pull one location's live skate schedule for the weeks covering [from, to].
+ * Returns { ok, entries: [{date,start,end,title,age,status,comment}], weeks }
+ * — `ok:false` means the feed couldn't be read (never flag on silence).
+ */
+async function fetchLiveLocation(locId, from, to) {
+    const base = `${LIVE_LOCATIONS_URL}${locId}/skate/`;
+    let info;
+    try {
+        info = JSON.parse(await httpGetText(`${base}info.json`));
+    } catch (e) {
+        return { ok: false, error: `info.json: ${e.message}`, entries: [], weeks: 0 };
+    }
+    const weeks = (info && Array.isArray(info.weeks)) ? info.weeks : [];
+    // A location with no skate section at all is a legitimate "no programs" answer
+    if (!weeks.length) return { ok: true, entries: [], weeks: 0, noSection: true };
+
+    const entries = [];
+    let weeksRead = 0;
+    for (const w of weeks) {
+        const monday = String(w.title || '');
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(monday)) continue;
+        const sunday = addDays(monday, 6);
+        if (sunday < from || monday > to) continue;            // week outside our window
+        if (String(w.hasPrograms) === 'false') { weeksRead++; continue; }   // City: nothing that week
+        await sleep(LIVE_REQUEST_GAP_MS);
+        let week;
+        try {
+            week = JSON.parse(await httpGetText(`${base}${w.json || `week${w.id}.json`}`));
+        } catch (e) {
+            return { ok: false, error: `${w.json}: ${e.message}`, entries, weeks: weeksRead };
+        }
+        weeksRead++;
+        (week.programs || []).forEach(prog => {
+            (prog.days || []).forEach(d => {
+                (d.times || []).forEach(t => {
+                    const dayIdx = LIVE_WEEKDAYS.indexOf(String(t.day || d.day || '').toLowerCase());
+                    const range = parseLiveTimeRange(t.title);
+                    if (dayIdx < 0 || !range) return;
+                    entries.push({
+                        date: addDays(monday, dayIdx),
+                        start: range[0], end: range[1],
+                        title: String(d.title || '').trim(),
+                        age: String(d.age || '').trim(),
+                        status: String(t.status || d.status || 'active').toLowerCase(),
+                        comment: String(t.comment || d.comment || '').trim()
+                    });
+                });
+            });
+        });
+    }
+    return { ok: true, entries, weeks: weeksRead };
+}
+
+/**
+ * Cross-check city sessions (next LIVE_CHECK_DAYS days) against toronto.ca's
+ * live per-location schedules. Writes live-check.json:
+ *   flags: { "<LocationID>|<date>|<start>|<normTitle>": { s:'missing'|'cancelled', t:title, n:note } }
+ *   extra: live sessions the open-data export doesn't have (informational)
+ * Never flags on silence: a location whose feed failed is skipped, not flagged.
+ * Returns { changed, stats }.
+ */
+async function fetchLiveCheck(programs) {
+    console.log('\n🔎 Cross-checking city sessions against toronto.ca live schedules...');
+    const today = torontoDateStr();
+    const to = addDays(today, LIVE_CHECK_DAYS - 1);
+    const nowHHMM = new Intl.DateTimeFormat('en-CA', { timeZone: TORONTO_TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date());
+
+    // city sessions in the window, grouped by location
+    const byLoc = {};
+    (programs || []).forEach(p => {
+        if (p.Source && p.Source !== 'city') return;
+        const locId = p['Location ID'];
+        const date = p['Start Date'] || '';
+        if (locId == null || !date || date < today || date > to) return;
+        (byLoc[String(locId)] ||= []).push(p);
+    });
+    const locIds = Object.keys(byLoc).sort((a, b) => a - b);
+    console.log(`   ${locIds.length} locations, ${Object.values(byLoc).reduce((n, l) => n + l.length, 0)} sessions in ${today} → ${to}`);
+
+    const flags = {};
+    const extra = [];
+    const stats = { locations: locIds.length, checked: 0, failed: 0, ok: 0, missing: 0, cancelled: 0, extra: 0 };
+    const failedLocs = [];
+
+    for (const locId of locIds) {
+        await sleep(LIVE_REQUEST_GAP_MS);
+        const live = await fetchLiveLocation(locId, today, to);
+        if (!live.ok) {
+            stats.failed++;
+            failedLocs.push(`${locId} (${live.error})`);
+            continue;
+        }
+        stats.checked++;
+        const ours = byLoc[locId];
+        if (live.noSection) {
+            // toronto.ca has no Skating tab for this location at all — could be
+            // a feed quirk as easily as a cancellation, so count, don't flag.
+            stats.unverified = (stats.unverified || 0) + ours.length;
+            continue;
+        }
+        const matched = new Set();   // indexes into live.entries that matched one of ours
+
+        ours.forEach(p => {
+            const date = p['Start Date'], start = p['Start Time'], end = p['End Time'];
+            const title = p['Course Title'] || p.Activity || '';
+            // Sessions already over today are irrelevant to travellers and the
+            // City may prune them from the current week feed — never judge them.
+            if (date === today && end && end <= nowHHMM) return;
+            const key = `${locId}|${date}|${start}|${normTitle(title)}`;
+            // exact (date, start, title) → the City still lists it
+            let idx = live.entries.findIndex((e, i) => !matched.has(i) && e.date === date && e.start === start && normTitle(e.title) === normTitle(title));
+            // same slot, renamed program (token overlap) → still counts as listed
+            if (idx < 0) idx = live.entries.findIndex((e, i) => !matched.has(i) && e.date === date && e.start === start && e.end === end && titleSimilarity(e.title, title) >= 0.6);
+            if (idx < 0) {
+                // Missing on toronto.ca (its week feeds for this window were
+                // read successfully — a failed feed returns early above).
+                flags[key] = { s: 'missing', t: title };
+                stats.missing++;
+                return;
+            }
+            matched.add(idx);
+            const e = live.entries[idx];
+            if (e.status && e.status !== 'active') {
+                flags[key] = { s: 'cancelled', t: title, n: e.comment || e.status };
+                stats.cancelled++;
+            } else {
+                stats.ok++;
+            }
+        });
+
+        // Live-only sessions (export lags additions too) — informational
+        live.entries.forEach((e, i) => {
+            if (matched.has(i)) return;
+            if (e.date < today || e.date > to) return;
+            if (e.date === today && e.end && e.end <= nowHHMM) return;   // already over
+            extra.push({ LocationID: Number(locId), date: e.date, start: e.start, end: e.end, title: e.title, age: e.age, status: e.status, comment: e.comment });
+            stats.extra++;
+        });
+    }
+    if (failedLocs.length) console.warn(`   ⚠️ live feed unreadable for ${failedLocs.length} location(s): ${failedLocs.slice(0, 5).join('; ')}${failedLocs.length > 5 ? '…' : ''}`);
+    const flagged = Object.entries(flags);
+    if (flagged.length) console.log(`   🚫 ${flagged.length} flagged: ${flagged.slice(0, 8).map(([k, v]) => `${k.split('|').slice(0, 3).join(' ')} ${v.t} (${v.s})`).join(' • ')}${flagged.length > 8 ? ' …' : ''}`);
+    console.log(`   ✅ live check: ${stats.checked}/${stats.locations} locations read, ${stats.ok} ok, ${stats.missing} missing, ${stats.cancelled} cancelled, ${stats.extra} live-only`);
+
+    // Refuse to publish an all-failed run (toronto.ca down ≠ every rink closed)
+    if (stats.locations && !stats.checked) {
+        console.warn('   ⚠️ every live feed failed — keeping the previous live-check.json');
+        return { changed: false, stats };
+    }
+
+    const file = path.join(OUTPUT_DIR, 'live-check.json');
+    let previous = null;
+    try { previous = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {}
+    const now = new Date().toISOString();
+    const body = { flags, extra, window: { from: today, to }, stats };
+    const changed = !previous || JSON.stringify({ f: previous.flags, e: previous.extra, w: previous.window }) !== JSON.stringify({ f: flags, e: extra, w: body.window });
+    const lastChecked = previous?.checkedAt;
+    const heartbeatDue = !lastChecked || (Date.now() - new Date(lastChecked).getTime()) > 2 * 3600 * 1000;
+    if (changed || heartbeatDue) {
+        fs.writeFileSync(file, JSON.stringify({
+            changedAt: changed ? now : (previous?.changedAt || now),
+            checkedAt: now,
+            source: 'toronto.ca live location schedules (data/parks/live/locations)',
+            ...body
+        }));
+        console.log(changed ? '   ✅ live-check.json updated' : '   💓 live-check heartbeat stamped (unchanged)');
+    } else {
+        console.log('   ⏸  live-check unchanged — file not rewritten');
+    }
+    return { changed: changed || heartbeatDue, stats };
+}
+
 /* ================= External source fetchers ================= */
 
 /** Shared shape for generated program records (mirrors the city schema). */
@@ -506,18 +813,24 @@ function venueKey(sourceKey, venueName) {
 async function fetchDaySmart(sourceKey, cfg) {
     const start = torontoDateStr();
     const end = addDays(start, cfg.daysAhead);
+    // event_type_id 56 = "Drop-In" (verified 2026-09-14) keeps busy rinks
+    // (Oakville: ~290 events/month incl. leagues) under one page of 500,
+    // which their API honours (`page[size]` up to 1000; no pagination here).
     const url = `https://api.daysmartrecreation.com/v1/events?cache%5Bsave%5D=false` +
         `&filter%5Bresource_id__in%5D=${cfg.resourceIds.join(',')}` +
+        `&filter%5Bevent_type_id%5D=56` +
         `&filter%5Bstart_date__gte%5D=${start}&filter%5Bstart_date__lte%5D=${end}` +
-        `&filter%5Bpublish%5D=1&page%5Bsize%5D=200&sort=start` +
-        `&include=homeTeam.product&company=${cfg.company}`;
+        `&filter%5Bpublish%5D=1&page%5Bsize%5D=500&sort=start` +
+        `&include=homeTeam.product,summary&company=${cfg.company}`;
     const json = await fetchJSON(url, { Accept: 'application/vnd.api+json' });
+    if (json.links?.next) console.warn(`   ⚠️ ${sourceKey}: more than one page of events — later sessions missing this run`);
 
     // team id → product price (the $ shown on their registration page)
-    const teams = {}, products = {};
+    const teams = {}, products = {}, summaries = {};
     (json.included || []).forEach(i => {
         if (i.type === 'teams') teams[i.id] = i.attributes;
         if (i.type === 'products') products[i.id] = i.attributes;
+        if (i.type === 'event-summaries') summaries[i.id] = i.attributes;
     });
     const priceForTeam = (teamId) => {
         const t = teams[teamId];
@@ -529,7 +842,10 @@ async function fetchDaySmart(sourceKey, cfg) {
     const records = [];
     (json.data || []).forEach(e => {
         const a = e.attributes;
-        const rule = cfg.programs.find(r => r.match.test(a.desc || ''));
+        // Scarborough publishes public skates with an EMPTY desc — the
+        // name then lives only in the summary / home-team record.
+        const label = (a.desc || '').trim() || summaries[e.id]?.name || teams[a.hteam_id]?.name || '';
+        const rule = cfg.programs.find(r => r.match.test(label));
         if (!rule) return;
         // `start`/`end` are facility-local (America/Toronto) naive timestamps
         const date = String(a.start).slice(0, 10);
@@ -537,7 +853,7 @@ async function fetchDaySmart(sourceKey, cfg) {
         const endTime = String(a.end).slice(11, 16);
         if (!date || !startTime) return;
         records.push(externalRecord(cfg, sourceKey, {
-            activity: rule.activity || a.desc.trim(),
+            activity: rule.activity || label.trim(),
             date, startTime, endTime,
             price: priceForTeam(a.hteam_id) ?? rule.defaultPrice ?? null,
             externalId: e.id
@@ -805,7 +1121,13 @@ async function main() {
     try {
         if (ALERTS_ONLY) {
             await fetchAlerts();
-            console.log('\n✨ Alerts-only run complete.');
+            try {
+                const prev = JSON.parse(fs.readFileSync(path.join(OUTPUT_DIR, 'skating-programs.json'), 'utf8'));
+                await fetchLiveCheck(prev.programs || []);
+            } catch (e) {
+                console.warn(`   ⚠️ live check skipped: ${e.message}`);
+            }
+            console.log('\n✨ Light pass (alerts + live check) complete.');
             return;
         }
 
@@ -982,6 +1304,14 @@ async function main() {
         fs.writeFileSync(metaFile, JSON.stringify(metadata));
         console.log(`   ✅ ${metaFile}`);
 
+        // Step 5: cross-check the fresh city rows against toronto.ca's live
+        // per-location schedules (the export lags the live system by days)
+        try {
+            await fetchLiveCheck(allPrograms);
+        } catch (e) {
+            console.warn(`   ⚠️ live check failed: ${e.message} — keeping previous live-check.json`);
+        }
+
         // (locations.json / facilities.json are no longer written — the UI
         //  never loaded them; program records carry the joined location
         //  fields and rinks.json covers the locator. The city locations
@@ -991,7 +1321,7 @@ async function main() {
         console.log('\nNext steps:');
         console.log('1. Deploy these JSON files with your site');
         console.log('2. The skate app loads from these local files');
-        console.log('3. CI re-runs this weekly (and --alerts-only every ~30 min)\n');
+        console.log('3. CI re-runs this weekly (and the light alerts + live-check pass every ~15 min)\n');
 
     } catch (error) {
         console.error('\n❌ Error:', error.message);

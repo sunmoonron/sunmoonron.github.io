@@ -221,6 +221,11 @@ const SkateGuides = (() => {
         });
     }
 
+    // Guides are public, so the third-party profanity APIs apply — unless
+    // the visitor switched them off (Settings → 🛡️). The on-device word
+    // list is mandatory and still runs inside SkateMod.check either way.
+    const remoteModerationOn = () => window.SkateSettings?.get('remoteModeration') !== false;
+
     // ---------- Write paths ----------
     async function postGuide({ title, category, body }, identity) {
         title = (title || '').trim().slice(0, 80);
@@ -228,7 +233,7 @@ const SkateGuides = (() => {
         if (!title || body.length < 40) throw new Error('Give it a title and at least a few sentences');
         if (!CATEGORIES[category]) category = 'start';
 
-        const verdict = await SkateMod.check(title + '\n' + body);
+        const verdict = await SkateMod.check(title + '\n' + body, { remote: remoteModerationOn() });
         if (!verdict.ok) throw new Error('That content won\'t fly here — keep it friendly');
 
         const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 48) || 'guide';
@@ -294,7 +299,7 @@ const SkateGuides = (() => {
         const guide = state.guides[guideId];
         text = (text || '').trim().slice(0, 500);
         if (!guide || !text) return false;
-        const verdict = await SkateMod.check(text);
+        const verdict = await SkateMod.check(text, { remote: remoteModerationOn() });
         if (!verdict.ok) throw new Error('That comment won\'t fly here');
 
         const tags = [['e', guideId], ['a', guide.address], ['p', guide.author], ['k', '30023'], ['client', identity.name || 'Skater']];

@@ -30,7 +30,8 @@ window.SkateGeo = (() => {
     async function load() {
         try {
             // 10-min-bucket cache-buster (same reasoning as api.js/alerts.js)
-            const res = await fetch(`${DATA_URL}?t=${Math.floor(Date.now() / 600000)}`);
+            const bust = Math.floor(Date.now() / 600000);
+            const res = await fetch(window.SkateAPI?.dataUrl ? SkateAPI.dataUrl(DATA_URL, bust) : `${DATA_URL}?t=${bust}`);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
             rinks = data.rinks || [];
