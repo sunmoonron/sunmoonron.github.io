@@ -211,7 +211,7 @@ const SkateMod = (() => {
      */
     function resetLocal() { localRegex = null; }
 
-    return { check, checkLocal, clean, POW, mine, getPow, eventPow, resetLocal };
+    return { check, checkLocal, clean, POW, mine, eventPow, resetLocal };
 })();
 
 if (typeof module !== 'undefined') module.exports = SkateMod;

@@ -386,7 +386,6 @@ body.dark-mode .cal-today-btn, body.dark-mode .btn-small { background: #1b2530; 
 body.dark-mode .btn-primary,
 body.dark-mode .seg-control button.active,
 body.dark-mode .view-tab .badge,
-body.dark-mode .btn-share-program,
 body.dark-mode .chat-input-bar button,
 body.dark-mode .comment-input-row button,
 body.dark-mode .btn-guide-vote.voted,
@@ -409,7 +408,6 @@ body.dark-mode .age-badge.all-ages { background: #1c3d35; color: #96e7c8; }
 body.dark-mode .members-bar { background: #16202a; }
 body.dark-mode .room-card:hover { background: #1e3230; }
 body.dark-mode .room-card.joined { background: #1b2e2a; border-color: #2b4a44; }
-body.dark-mode .dm-item.unread { background: #1f2e22; }
 body.dark-mode .chat-msg.dm .bubble { background: #33291b; border-color: #55432a; }
 
 /* scrollbars: thin, cold, quiet (WebKit; Firefox gets color-scheme) */
@@ -601,7 +599,6 @@ body.dark-mode .share-paid-badge { color: #10151a; }
 }
 @media (max-width: 767px) {
     /* phones: the map takes the whole screen — free scroll everywhere */
-    #map-modal { padding: 0; }
 .map-canvas { flex: 1; height: auto; min-height: 0; }
 }
 /* Leaflet popup content */
@@ -1288,3 +1285,8 @@ body.dark-mode .cal-grid::-webkit-scrollbar-thumb { background: #38485a; }
 .rink-sessions { white-space: nowrap; }
 .rink-sessions:disabled { opacity: 0.55; cursor: default; }
 body.dark-mode .cal-cluster-body { border-left-color: color-mix(in srgb, var(--acc-programs) 55%, #38485a); }
+
+/* ---- type pills carry an age picker (same look as the city pill) ---- */
+.pill.type { font-weight: 600; }
+.pill.type .pill-x { margin-left: 2px; padding: 2px 4px; border-radius: 8px; }
+.pill.type .pill-x:hover { background: color-mix(in srgb, var(--acc-programs) 25%, transparent); opacity: 1; }

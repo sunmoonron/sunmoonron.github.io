@@ -290,15 +290,34 @@ window.SkateApp = (() => {
         setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     }
 
+    const isStandalone = () => window.navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+
     /**
-     * The .ics path. iOS opens the home server's https file in Safari (data:
-     * and blob: URLs are refused as top-level pages there; Safari hands the
-     * file to Calendar). Everything else downloads the file straight away,
-     * no new tab: the same click can be repeated as often as you like.
+     * The .ics path, without new tabs where the platform allows it:
+     *  - iPhone/iPad in Safari: navigate this tab to the https file; Safari
+     *    shows the "Add All" preview and Done brings the page back.
+     *  - The home-screen app: any file outside the app would open Safari, so
+     *    hand the file to the share sheet instead (Calendar, Files, Mail…);
+     *    if the share sheet is unavailable, fall back to opening Safari.
+     *  - Everything else: fetch the file and save it, no tab at all.
+     * data: and blob: pages are refused as top-level pages on iOS, which is
+     * why the home server builds real https files.
      */
     async function openIcs(p) {
         const url = icsUrl(p);
-        if (url && isIOS()) { window.open(url, '_blank', 'noopener'); return; }
+        if (isIOS()) {
+            if (isStandalone()) {
+                try {
+                    const blob = url ? await (await fetch(url, { cache: 'no-store' })).blob() : new Blob([icsText(calEvent(p))], { type: 'text/calendar' });
+                    const file = new File([blob], icsFileName(p), { type: 'text/calendar' });
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: `${P.activity(p)} at ${P.location(p)}` }); return; }
+                } catch (e) { if (e && e.name === 'AbortError') return; /* sheet dismissed */ }
+                if (url) { window.open(url, '_blank', 'noopener'); return; }
+                return downloadIcs(p);
+            }
+            if (url) { window.location.assign(url); return; }
+            return downloadIcs(p);
+        }
         if (url) {
             try {
                 const r = await fetch(url, { cache: 'no-store' });
@@ -424,8 +443,8 @@ window.SkateApp = (() => {
     function activeFilterPills() {
         const pills = [];
         Object.entries(S.types).forEach(([cat, sel]) => {
-            const subs = sel === 'all' ? '' : `: ${sel.map(SUB_LABEL).join(', ')}`;
-            pills.push({ key: `type:${cat}`, label: `${CAT_LABEL(cat)}${subs}` });
+            const subs = sel === 'all' ? '' : sel.length === 1 ? `: ${SUB_LABEL(sel[0])}` : `: ${SUB_LABEL(sel[0])} +${sel.length - 1}`;
+            pills.push({ key: `type:${cat}`, label: `${CAT_LABEL(cat)}${subs}`, ages: subsPresentFor(cat).length > 1 });
         });
         if (S.day) pills.push({ key: 'day', label: DAY_LABEL(S.day) });
         if (S.age !== null) pills.push({ key: 'age', label: `Age ${S.age}` });
@@ -464,9 +483,20 @@ window.SkateApp = (() => {
             }, [`${on ? '★' : '☆'} My rinks (${mine})`]));
         }
         const pills = activeFilterPills();
-        pills.forEach(pl => wrap.appendChild(el('button', { class: 'pill', dataset: { pill: pl.key }, title: 'Remove this filter' }, [
-            pl.label, el('span', { class: 'pill-x', 'aria-hidden': 'true' }, ['✕'])
-        ])));
+        pills.forEach(pl => {
+            if (pl.ages) {
+                // type pill: tap = choose age groups, x = drop the type
+                wrap.appendChild(el('button', { class: 'pill type', dataset: { pill: pl.key }, title: 'Tap to choose age groups. The x removes this type.' }, [
+                    el('span', { class: 'pill-label' }, [pl.label]),
+                    el('span', { class: 'pill-caret', 'aria-hidden': 'true' }, ['▾']),
+                    el('span', { class: 'pill-x', role: 'button', 'aria-label': `Remove ${pl.label}`, title: 'Remove this type' }, ['✕'])
+                ]));
+                return;
+            }
+            wrap.appendChild(el('button', { class: 'pill', dataset: { pill: pl.key }, title: 'Remove this filter' }, [
+                pl.label, el('span', { class: 'pill-x', 'aria-hidden': 'true' }, ['✕'])
+            ]));
+        });
         const n = pills.length + (S.rinkScope === 'mine' && mine ? 1 : 0) + (S.cities.length ? 1 : 0);
         $('filters-count').textContent = String(n);
         $('filters-count').classList.toggle('hidden', !n);
@@ -1574,6 +1604,20 @@ window.SkateApp = (() => {
             return items;
         },
 
+        /** Age-group picker behind a type pill (multi-select; stays open while you pick). */
+        subTypes(cat) {
+            const f = filterFacets().cats[cat];
+            if (!f) return [];
+            const sel = S.types[cat];
+            const reopen = () => { const a = $('active-filters').querySelector(`.pill.type[data-pill="type:${cat}"]`); if (a) Popover.open(a, Menus.subTypes(cat)); };
+            const items = [{ label: `${sel === 'all' ? '✓ ' : '\u2007\u2007 '}Every age group · ${f.n}`, onClick: () => { Actions.setType(cat, null, true); reopen(); } }];
+            CFG.subTypes.filter(x => f.subs[x.id]).forEach(x => {
+                const on = sel === 'all' || (Array.isArray(sel) && sel.includes(x.id));
+                items.push({ label: `${on ? '✓ ' : '\u2007\u2007 '}${x.label} · ${f.subs[x.id]}`, onClick: () => { Actions.setType(cat, x.id, !on); reopen(); } });
+            });
+            return items;
+        },
+
         /** City picker behind the standing city pill (multi-select; stays open while you pick). */
         cities() {
             const f = filterFacets().cities;
@@ -2055,9 +2099,6 @@ window.SkateApp = (() => {
         Modal.open('whatsnew-modal');
     };
 
-    /** v3.2: the new-vs-regular question was cut — every gate just continues. */
-    Actions.ensureExperience = function (cont) { return cont(); };
-
     Actions.openGuide = function (id) {
         Actions.ensureSectionVisible('showGuides');
         Actions.switchView('guides');
@@ -2439,6 +2480,8 @@ window.SkateApp = (() => {
         delegate($('active-filters'), [
             ['.pill.city .pill-x', (x, e) => { e.stopPropagation(); Actions.setCities([]); }],
             ['.pill.city', (b, e) => { e.stopPropagation(); Popover.open(b, Menus.cities()); }],
+            ['.pill.type .pill-x', (x, e) => { e.stopPropagation(); Actions.removePill(x.closest('.pill').dataset.pill); }],
+            ['.pill.type', (b, e) => { e.stopPropagation(); Popover.open(b, Menus.subTypes(b.dataset.pill.slice(5))); }],
             ['.pill', (b) => Actions.removePill(b.dataset.pill)]
         ]);
 
@@ -2768,7 +2811,6 @@ window.SkateApp = (() => {
         // Everyone lands on the schedule (the first tab), on every device.
         // Brand-new visitors get ONE lightweight setup screen (sections +
         // rinks, all skippable); existing users are grandfathered past it.
-        // The experience question stays lazy via ensureExperience.
         // Favorites are loaded here, not in the community boot — the ❤️
         // hearts must work even on a schedule-only (no chat/guides) visit.
         SkateChat.Favorites.load();

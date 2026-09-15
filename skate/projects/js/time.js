@@ -164,7 +164,7 @@ window.SkateTime = (() => {
         return m ? `${h}h ${String(m).padStart(2, '0')}m` : `${h}h`;
     }
 
-    return { TZ, zoned, epoch, nowParts, todayKey, addDays, mondayIndex, status, sortEpoch, fmtMins, offsetMinutes };
+    return { todayKey, addDays, mondayIndex, status, sortEpoch, fmtMins };
 })();
 
 if (typeof module !== 'undefined') module.exports = window.SkateTime;

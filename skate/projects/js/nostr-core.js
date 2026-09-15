@@ -25,7 +25,6 @@ const SkateNostr = (() => {
     const pendingOks = new Map();  // eventId -> { resolve, oks, timer }
     const seen = new Set();        // event-id dedupe (LRU-ish)
     const statusCbs = [];
-    let intentionalShutdown = false;
 
     function rememberSeen(id) {
         seen.add(id);
@@ -94,7 +93,7 @@ const SkateNostr = (() => {
         ws.onclose = () => {
             entry.status = 'closed';
             emitStatus();
-            if (!intentionalShutdown) scheduleReconnect(url);
+            scheduleReconnect(url);
         };
         ws.onerror = () => { try { ws.close(); } catch {} };
     }
@@ -120,15 +119,6 @@ const SkateNostr = (() => {
         });
     }
 
-    function unsub(subId) {
-        if (!subs.has(subId)) return;
-        subs.delete(subId);
-        relays.forEach((entry) => {
-            if (entry.status === 'open') {
-                try { entry.ws.send(JSON.stringify(['CLOSE', subId])); } catch {}
-            }
-        });
-    }
 
     /**
      * Publish a signed event. Resolves true once any relay ACKs (OK),
@@ -161,18 +151,13 @@ const SkateNostr = (() => {
     }
 
     function start() {
-        intentionalShutdown = false;
         RELAYS.forEach(connect);
     }
 
-    function stop() {
-        intentionalShutdown = true;
-        relays.forEach((entry) => { try { entry.ws?.close(); } catch {} });
-    }
 
     function onStatus(cb) { statusCbs.push(cb); cb({ connected: connectedCount(), total: RELAYS.length }); }
 
-    return { start, stop, sub, unsub, publish, onStatus, RELAYS, connectedCount };
+    return { start, sub, publish, onStatus, connectedCount };
 })();
 
 if (typeof module !== 'undefined') module.exports = SkateNostr;

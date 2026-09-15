@@ -412,7 +412,10 @@ third slot is a List / Calendar segmented switch (`#view-seg`,
 `Actions.setCalMode`), so the current view is always visible.
 
 **Pills.** A standing city pill comes first: tap it for a multi-select
-popover (`Menus.cities`), its x clears to every city. The Where cities
+popover (`Menus.cities`), its x clears to every city. Type pills work the
+same way for age groups (`Menus.subTypes`): tap to pick Child & family,
+Youth, Adult, Older adult, Women; "Every age group" restores the whole
+type; the x drops the type. The Where cities
 also scope the Rinks list and the map pins (`rinkInScope`, passed to
 `SkateMap.configure({ rinkFilter })`; "Show every city" is one tap in the
 rinks view).

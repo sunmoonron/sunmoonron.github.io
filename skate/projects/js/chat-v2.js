@@ -1203,7 +1203,7 @@ const SkateChat = (() => {
     function getIdentity() { return { sk: state.mySecretKey, pk: state.myPublicKey, name: state.myName }; }
 
     return {
-        init, createGroup, joinPublicRoom, leaveGroup, switchGroup, renameGroup,
+        init, createGroup, joinPublicRoom, leaveGroup, renameGroup,
         parseInviteHash, acceptInvite, getInviteInfo,
         sendMessage, shareProgram, shareGuide, retryMessage,
         startDm, sendDm, closeDm, openConversation, deleteDmThread, clearHistory,

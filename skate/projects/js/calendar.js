@@ -230,7 +230,7 @@ window.SkateCalendar = (() => {
         return { label: weekLabel(start), total };
     }
 
-    return { render, weekStart, weekLabel, scrollToDate, syncDayStrip };
+    return { render, scrollToDate, syncDayStrip };
 })();
 
 if (typeof module !== 'undefined') module.exports = window.SkateCalendar;
