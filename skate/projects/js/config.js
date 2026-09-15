@@ -214,11 +214,13 @@ window.SkateConfig = {
     // would leak localhost/dev paths into shared codes).
     siteUrl: 'https://sunmoonron.github.io/skate/',
 
-    // Optional alternate origin for the data JSONs (skating-programs, rinks,
-    // alerts, live-check, meta). null = the committed same-origin copies.
-    // A home server can serve fresher copies here; SkateAPI falls back to
-    // same-origin on any failure (see api.js). Needs CORS for this origin.
-    dataBase: null,
+    // Alternate origin for the data JSONs (skating-programs, rinks, alerts,
+    // live-check, meta): the home server refreshes them every 10 to 30
+    // minutes (dell-nix modules/skate-data.nix) instead of GitHub's few
+    // cron runs a day. SkateAPI falls back to the committed same-origin
+    // copies on any failure (see api.js), so the GitHub cron stays the
+    // safety net. null = committed copies only.
+    dataBase: 'https://skate-data.ronishbhatt.com/projects/data',
 
     /* ---------- Weather chip spots (tap the chip to pick) ---------- */
     // 'auto' = your saved 📍 location when set, otherwise central Toronto.
