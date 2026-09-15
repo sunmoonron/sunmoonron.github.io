@@ -124,6 +124,8 @@ window.SkateGeo = (() => {
     async function geocode(query) {
         const q = String(query || '').trim();
         if (!q) throw new Error('Type an address or postal code first');
+        const pc = POSTAL_RE.exec(q);
+        if (pc) return geocodePostal(pc[1].toUpperCase(), pc[2].toUpperCase());
         const params = (bounded) =>
             `format=jsonv2&limit=1&countrycodes=ca&addressdetails=0` +
             `&viewbox=${TORONTO_VIEWBOX}${bounded ? '&bounded=1' : ''}&q=${encodeURIComponent(q)}`;
@@ -140,6 +142,47 @@ window.SkateGeo = (() => {
             label: (hit.display_name || q).split(',').slice(0, 3).join(',').trim(),
             ts: Date.now()
         };
+    }
+
+    /**
+     * Canadian postal codes. OpenStreetMap knows only some full codes, so:
+     * the exact code first (Nominatim's postcode search), then the postal
+     * AREA — the first three characters — placed from the addresses Photon
+     * (another OSM geocoder) lists for it. A few km off at worst, and the
+     * label says "approximate" so the reader knows what they got.
+     */
+    const POSTAL_RE = /^([A-Za-z]\d[A-Za-z])\s*(\d[A-Za-z]\d)$/;
+    const PHOTON = 'https://photon.komoot.io/api/';
+    const inRegion = (lat, lng) => {
+        const [w, s, e, n] = TORONTO_VIEWBOX.split(',').map(Number);
+        return lng >= w - 0.6 && lng <= e + 0.6 && lat >= s - 0.6 && lat <= n + 0.6;
+    };
+    async function geocodePostal(fsa, ldu) {
+        const code = `${fsa} ${ldu}`;
+        const hdr = { headers: { Accept: 'application/json' } };
+        const exact = await fetch(`${NOMINATIM}?format=jsonv2&limit=1&country=Canada&postalcode=${encodeURIComponent(code)}`, hdr);
+        if (exact.ok) {
+            const hit = ((await exact.json()) || [])[0];
+            if (hit && inRegion(+hit.lat, +hit.lon)) {
+                const town = (hit.display_name || '').split(',')[1]?.trim();
+                return { lat: +hit.lat, lng: +hit.lon, label: town ? `${code}, ${town}` : code, ts: Date.now() };
+            }
+        }
+        const res = await fetch(`${PHOTON}?q=${encodeURIComponent(fsa)}&limit=40&lang=en`, hdr);
+        if (!res.ok) throw new Error('The address service is busy. Try again in a few seconds.');
+        const feats = ((await res.json()).features || []).filter(f => {
+            const pr = f.properties || {};
+            const [lng, lat] = f.geometry?.coordinates || [];
+            return String(pr.name || pr.postcode || '').toUpperCase().startsWith(fsa)
+                && String(pr.countrycode || 'CA').toUpperCase() === 'CA' && inRegion(lat, lng);
+        });
+        if (!feats.length) throw new Error(`Could not place ${code}. Try a street address or an intersection instead.`);
+        const same = feats.find(f => String(f.properties.name || '').toUpperCase() === code);
+        const city = (same || feats.find(f => f.properties.city) || feats[0]).properties.city || 'Ontario';
+        if (same) return { lat: same.geometry.coordinates[1], lng: same.geometry.coordinates[0], label: `${code}, ${city}`, ts: Date.now() };
+        const lat = feats.reduce((s, f) => s + f.geometry.coordinates[1], 0) / feats.length;
+        const lng = feats.reduce((s, f) => s + f.geometry.coordinates[0], 0) / feats.length;
+        return { lat, lng, label: `${fsa} postal area, ${city} (approximate)`, ts: Date.now() };
     }
 
     /* ---------- nearest rinks ---------- */

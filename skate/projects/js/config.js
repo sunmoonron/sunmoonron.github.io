@@ -37,7 +37,10 @@ window.SkateConfig = {
                 'Rink alerts that name one pad of a two-pad building ("Rink 1 is closed") now say the session likely runs on the other pad instead of "likely cancelled". Thanks to a skater who called Don Montgomery to check.',
                 'Data resilience: the app checks which copy is fresher (home server or GitHub) before loading, so a power cut at home never serves stale data.',
                 'Session cards are two lines again: the rink name is the directions link (📍), the ℹ️ beside it opens the official page, and the type badge got its capitals and emoji back with the ages as a pill. A one-time hint on the heart shows that sessions can be saved.',
-                'Calendar: the lit day chip follows the day you are looking at (today on wide screens) instead of sticking to Monday. The Schedule label only shows when Guides or Chats are on.'
+                'Calendar: the lit day chip follows the day you are looking at (today on wide screens) instead of sticking to Monday. The Schedule label only shows when Guides or Chats are on.',
+                'Calendar time blocks say "Starts 6:00–6:30 PM · 5 sessions · 1–3 h" instead of stretching one block across the whole evening, and the legend lists only the types and states in the week on screen.',
+                'Filters sits beside the search box. A Show all button ends the list. Bigger ♡ and ⋯. The rink note moved onto the rink line (📝) and the official-page icon is a plain 📄.',
+                'Postal codes work in the locator: exact when OpenStreetMap knows the code, otherwise the postal area, marked approximate. The guide has a Back button. The saved-day card shows time ranges, durations, distance and any rink alert.'
             ]
         },
         {
@@ -263,7 +266,7 @@ window.SkateConfig = {
         { sel: '#view-seg',              title: 'List or calendar',      text: 'The same sessions as a list or a week grid. In the grid, tap a day chip to jump, and tap a crowded time block to open that day as a list.', sec: 5 },
         { sel: '#btn-paid',              title: 'Paid venues',           text: 'Paid rinks are hidden until you switch this on. Prices then show on each session.', sec: 4 },
         { sel: '#btn-refresh',           title: 'Refresh',               text: 'Reloads the schedule, rink alerts and live spots. The status line under the buttons says when things were last checked.', sec: 5 },
-        { sel: '#program-list .program-item', title: 'A session',        text: 'Time, rink, ages and price. Tap the rink name for directions; the ℹ️ beside it opens the official rink page, the one the staff go by. The heart saves the session.', sec: 7 },
+        { sel: '#program-list .program-item', title: 'A session',        text: 'Time, rink, ages and price. Tap the rink name for directions; the page icon beside it opens the official rink page, the one the staff go by. The heart saves the session.', sec: 7 },
         { sel: '#program-list .btn-copy', title: 'More',                 text: 'Copy the details, add the session to your calendar, share it into a chat, or add this rink to your rinks.', sec: 5 },
         { sel: '#weather-chip',          title: 'Dress for it',          text: 'Live temperature. Tap it to pick a spot, from Scarborough to Mississauga.', sec: 4 },
         { sel: '#btn-settings',          title: 'Settings',              text: 'Theme, time format, sharing, the community sections and privacy. Enjoy the ice.', sec: 4 }

@@ -17,7 +17,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=11">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=4">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=20">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=21">
 </head>
 <body>
     <div class="app" id="app">
@@ -42,13 +42,15 @@
                 <!-- pull-to-refresh indicator (touch only; grows as you pull) -->
                 <div class="ptr" id="ptr" aria-hidden="true"><span class="ptr-icon">↓</span><span class="ptr-text">Pull to refresh</span></div>
                 <div class="panel-title">Schedule</div>
-                <div class="search-box">
-                    <input type="text" id="search-input" placeholder="Search rinks, cities, sessions…" autocomplete="off" aria-label="Search">
-                    <button id="btn-search-clear" class="search-clear hidden" aria-label="Clear search">✕</button>
+                <div class="search-row">
+                    <div class="search-box">
+                        <input type="text" id="search-input" placeholder="Search rinks, cities, sessions…" autocomplete="off" aria-label="Search">
+                        <button id="btn-search-clear" class="search-clear hidden" aria-label="Clear search">✕</button>
+                    </div>
+                    <button id="btn-filters" class="tb-btn tb-filters" title="Type, age groups, day, cities, your rinks, order">Filters<span class="tb-count hidden" id="filters-count"></span></button>
                 </div>
 
                 <div class="toolbar" id="toolbar">
-                    <button id="btn-filters" class="tb-btn" title="Type, age groups, day, cities, your rinks, order">Filters<span class="tb-count hidden" id="filters-count"></span></button>
                     <button id="btn-rinks" class="tb-btn" title="Map of every rink, distances from your spot, your rinks">Rinks &amp; map</button>
                     <div class="view-seg" id="view-seg" role="group" aria-label="List or calendar">
                         <button id="btn-list" class="active" title="Sessions as a list, grouped by day" aria-pressed="true">List</button>
@@ -384,23 +386,23 @@
     <script src="../assets/js/nostr.bundle.js"></script>
     <!-- profanity-list.js is injected lazily by app.js bootCommunity() —
          schedule-only visits (community sections hidden) never download it -->
-    <script src="projects/js/config.js?v=22"></script>
+    <script src="projects/js/config.js?v=23"></script>
     <script src="projects/js/settings.js?v=7"></script>
     <script src="projects/js/moderation.js?v=5"></script>
     <script src="projects/js/nostr-core.js?v=3"></script>
     <script src="projects/js/api.js?v=16"></script>
     <script src="projects/js/time.js?v=2"></script>
-    <script src="projects/js/geo.js?v=3"></script>
+    <script src="projects/js/geo.js?v=4"></script>
     <script src="projects/js/live.js?v=2"></script>
     <script src="projects/js/weather.js?v=2"></script>
     <script src="projects/js/alerts.js?v=5"></script>
     <script src="projects/js/chat-v2.js?v=11"></script>
     <script src="projects/js/guides.js?v=4"></script>
     <script src="projects/js/ui.js?v=2"></script>
-    <script src="projects/js/calendar.js?v=9"></script>
+    <script src="projects/js/calendar.js?v=10"></script>
     <script src="projects/js/map.js?v=3"></script>
-    <script src="projects/js/tour.js?v=4"></script>
-    <script src="projects/js/app.js?v=24"></script>
+    <script src="projects/js/tour.js?v=5"></script>
+    <script src="projects/js/app.js?v=25"></script>
     <script src="projects/js/refresh.js?v=4"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)

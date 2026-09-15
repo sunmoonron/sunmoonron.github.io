@@ -347,7 +347,9 @@ old.
 **`projects/js/geo.js`** — `SkateGeo`. Loads `projects/data/rinks.json`
 (all indoor + outdoor pads with coordinates), haversine distances, the
 📍 locator (browser geolocation or Nominatim geocoding biased to the
-Toronto viewbox), persisted user location, `nearest()` for the locator
+Toronto viewbox; Canadian postal codes try Nominatim's exact postcode
+search, then place the postal area from Photon's addresses, labelled
+approximate), persisted user location, `nearest()` for the locator
 modal and `distanceForProgram()` for the row badges / nearest sort.
 
 **`projects/js/calendar.js`** — `SkateCalendar`, a pure renderer for the
@@ -427,11 +429,12 @@ saved-only, dropped sessions and order. `S.expandedCats` and
 `S.moreFilters` remember the folds for the session.
 
 **Rows.** Two lines: title over the rink line, where the rink name is
-the directions link (📍 name ↗) and the ℹ️ beside it opens the official
-page (city tag and distance follow); then a footer grid with the type
-badge (capitals + emoji), the age pill and the price tag, ♡ and ⋯ on the
-right. Register/Details and Note appear as a third line only when a row
-has them, the price note on its own line. The ⋯ menu adds "Add this rink
+the directions link (📍 name ↗), 📄 beside it opens the official page and
+📝 (rare, `locationNotes`) toasts the rink note; city tag and distance
+follow. Then a footer grid with the type badge (capitals + emoji), the
+age pill and the price tag, ♡ and ⋯ on the right. Register/Details
+appears as a third line only on paid rows that have it, the price note on
+its own line. The ⋯ menu adds "Add this rink
 to my rinks". The first card carries a one-time "tap ♡ to save" hint
 (`heartHintDone` setting; a first save or "Got it" retires it).
 

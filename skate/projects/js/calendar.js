@@ -138,11 +138,30 @@ window.SkateCalendar = (() => {
         return block;
     }
 
-    /** Several sessions starting in the same hour → one time block (open = its sessions follow). */
+    const mins = (t) => { const m = /^(\d{1,2}):(\d{2})/.exec(t || ''); return m ? (+m[1]) * 60 + (+m[2]) : null; };
+    const fmtDur = (d) => d % 60 === 0 ? `${d / 60} h` : d > 60 ? `${(d / 60).toFixed(1).replace(/\.0$/, '')} h` : `${d} min`;
+    /** "1 h", "1–3 h", "45 min–1.5 h" for a set of session lengths in minutes. */
+    function durRange(ds) {
+        if (!ds.length) return '';
+        const lo = Math.min(...ds), hi = Math.max(...ds);
+        if (lo === hi) return fmtDur(lo);
+        return (lo % 60 === 0 && hi % 60 === 0) ? `${lo / 60}–${hi / 60} h` : `${fmtDur(lo)}–${fmtDur(hi)}`;
+    }
+
+    /**
+     * Several sessions starting in the same hour → one time block (open =
+     * its sessions follow). Labelled by START times and lengths ("Starts
+     * 6:00–6:30 PM · 5 sessions · 1–3 h"), never first-start-to-last-end:
+     * a block reading 6–9 PM scared off anyone who only wanted an hour.
+     */
     function clusterBlock(dateKey, hour, list, opts, open) {
         const starts = list.map(p => p['Start Time'] || '').filter(Boolean).sort();
-        const ends = list.map(p => p['End Time'] || '').filter(Boolean).sort();
-        const timeTxt = opts.fmtClock(starts[0] || '') + (ends.length ? '–' + opts.fmtClock(ends[ends.length - 1]) : '');
+        const first = starts[0] || '', last = starts[starts.length - 1] || '';
+        const timeTxt = !first ? '' : 'Starts ' + (first === last ? opts.fmtClock(first) : `${opts.fmtClock(first)}–${opts.fmtClock(last)}`);
+        const durTxt = durRange(list.map(p => {
+            const a = mins(p['Start Time']), b = mins(p['End Time']);
+            return a == null || b == null ? null : ((b - a) + 1440) % 1440;
+        }).filter(d => d));
         const rinks = [...new Set(list.map(p => p.LocationName || ''))].filter(Boolean);
         const short = (n) => n.replace(/\b(Community Recreation Centre|Community Centre|Recreation Centre|Community Arena|Arena|Complex)\b/g, '').replace(/\s+/g, ' ').trim() || n;
         const rinkTxt = rinks.slice(0, 2).map(short).join(', ') + (rinks.length > 2 ? ` +${rinks.length - 2}` : '');
@@ -162,8 +181,8 @@ window.SkateCalendar = (() => {
         });
         block.appendChild(el('span', { class: 'cal-block-time' }, [timeTxt, ...(saved ? [el('span', { class: 'cal-heart', 'aria-label': 'saved' }, [' ♥'])] : [])]));
         block.appendChild(el('span', { class: 'cal-block-title' }, [
-            `${list.length} sessions `,
-            ...(paid ? [el('span', { class: 'cal-price' }, [paid === list.length ? 'paid ' : `${paid} paid `])] : []),
+            `${list.length} sessions${durTxt ? ' · ' + durTxt : ''} `,
+            ...(paid ? [el('span', { class: 'cal-price' }, [paid === list.length ? '· paid ' : `· ${paid} paid `])] : []),
             el('span', { class: 'caret', 'aria-hidden': 'true' }, ['▾'])
         ]));
         block.appendChild(el('span', { class: 'cal-dots' }, types.map(t => el('span', { class: `legend-dot ${t}`, title: t }))));
@@ -178,7 +197,8 @@ window.SkateCalendar = (() => {
      *   alertFor(p) → null|{level}, statusFor(p) → SkateTime.status result,
      *   typeFor(p) → css type class, maxBlocks (default 8)
      * }
-     * Returns { label, total } for the header/nav that app.js owns.
+     * Returns { label, total, types, states } for the header, nav and
+     * legend that app.js owns (types/states = what this week shows).
      */
     function render(container, programs, opts) {
         const start = weekStart(opts.weekOffset || 0);
@@ -189,9 +209,19 @@ window.SkateCalendar = (() => {
         const byDay = {};
         for (let i = 0; i < 7; i++) byDay[T.addDays(start, i)] = [];
         let total = 0;
+        // what the week actually shows, so the legend can stick to it
+        const types = new Set(), states = { saved: false, paid: false, closed: false, warning: false, unverified: false };
         programs.forEach(p => {
             const dateKey = String(p['Start Date Time'] || p['Start Date'] || '').slice(0, 10);
-            if (byDay[dateKey]) { byDay[dateKey].push(p); total++; }
+            if (!byDay[dateKey]) return;
+            byDay[dateKey].push(p); total++;
+            const t = opts.typeFor && opts.typeFor(p);
+            if (t) types.add(t);
+            if (p.Paid) states.paid = true;
+            if (p.Unverified) states.unverified = true;
+            if (opts.isSaved(p)) states.saved = true;
+            const a = opts.alertFor(p);
+            if (a) states[a.level === 'closed' ? 'closed' : 'warning'] = true;
         });
 
         // day strip: the scroll affordance on phones, a quick jump everywhere
@@ -262,7 +292,7 @@ window.SkateCalendar = (() => {
         }, { passive: true });
         syncDayStrip(container);
 
-        return { label: weekLabel(start), total };
+        return { label: weekLabel(start), total, types: [...types], states };
     }
 
     return { render, scrollToDate, syncDayStrip };

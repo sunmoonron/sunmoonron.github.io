@@ -6,7 +6,7 @@
  *
  * Deliberately tiny (no library): a dimmed backdrop, a glowing cutout
  * ring positioned over the current step's element, and a card with
- * Next / a BIG Skip. Steps live in SkateConfig.tourSteps (selector +
+ * Back / Next / a BIG Skip. Steps live in SkateConfig.tourSteps (selector +
  * copy + `sec` for the guide), so reordering or adding a step is config,
  * not code.
  *
@@ -104,6 +104,7 @@ window.SkateTour = (() => {
         const vis = visibleSteps();
         const pos = vis.indexOf(s) + 1;
         const last = pos >= vis.length;
+        const prev = pos > 1 ? list.indexOf(vis[pos - 2]) : -1;
         card.innerHTML = `
             <button class="tour-skip">${auto ? 'Skip the guide' : 'Skip the tour'}</button>
             ${auto ? '<div class="tour-progress"><div class="tour-progress-bar"></div></div>' : ''}
@@ -112,12 +113,15 @@ window.SkateTour = (() => {
             <div class="tour-nav">
                 <span class="tour-count">${pos}/${vis.length}</span>
                 <span class="tour-nav-btns">
+                    ${prev >= 0 ? '<button class="tour-back">‹ Back</button>' : ''}
                     ${auto ? '<button class="tour-pause" aria-label="Pause">⏸ Pause</button>' : ''}
                     <button class="btn-primary tour-next">${last ? 'Done' : 'Next'}</button>
                 </span>
             </div>`;
         card.querySelector('.tour-skip').onclick = skip;
         card.querySelector('.tour-next').onclick = () => show(idx + 1);
+        const back = card.querySelector('.tour-back');
+        if (back) back.onclick = () => show(prev);   // in the guide this re-arms that step's timer
         if (auto) {
             card.querySelector('.tour-pause').onclick = togglePause;
             paused = false;

@@ -362,7 +362,6 @@ window.SkateApp = (() => {
         // Unseen release → dot on ⚙️ (What's new lives in Settings now)
         $('settings-dot').classList.toggle('hidden', SkateSettings.get('lastSeenVersion') === CFG.version);
 
-        Render.calLegend();
 
         // Chat filter chips (muted chip starts hidden, like before)
         chips($('chat-filters'), CFG.chatFilters, {
@@ -635,21 +634,27 @@ window.SkateApp = (() => {
         $('btn-filters-apply').textContent = `Show ${n} session${n === 1 ? '' : 's'}`;
     };
 
-    /** Calendar legend in words: colored dots per type + state samples. */
-    Render.calLegend = function () {
-        const types = CFG.activityTags.map(t =>
+    /**
+     * Calendar legend in words, limited to what the rendered week shows:
+     * a reader with Leisure + Figure on should not see Hockey in the key.
+     * `res` = SkateCalendar.render's result ({ types, states, total }).
+     */
+    Render.calLegend = function (res) {
+        const present = res?.types || [], st = res?.states || {};
+        const types = CFG.activityTags.filter(t => present.includes(t.cls)).map(t =>
             `<span class="legend-item"><span class="legend-dot ${t.cls}"></span>${escapeHtml(t.label)}</span>`
         ).join('');
+        const states = [
+            st.saved && '<span class="legend-item"><span class="legend-sample sample-saved"></span>saved</span>',
+            st.paid && '<span class="legend-item"><span class="legend-sample sample-paid"></span>paid ($)</span>',
+            st.closed && '<span class="legend-item"><span class="legend-sample sample-cancelled">✕</span>likely cancelled</span>',
+            st.warning && '<span class="legend-item"><span class="legend-sample sample-warning"></span>service alert</span>',
+            st.unverified && '<span class="legend-item"><span class="legend-sample sample-unverified"></span>unverified</span>'
+        ].filter(Boolean).join('');
         $('cal-legend').innerHTML =
-            `<span class="legend-group">${types}</span>` +
-            `<span class="legend-group">
-                <span class="legend-item"><span class="legend-sample sample-saved"></span>saved</span>
-                <span class="legend-item"><span class="legend-sample sample-paid"></span>paid ($)</span>
-                <span class="legend-item"><span class="legend-sample sample-cancelled">✕</span>likely cancelled</span>
-                <span class="legend-item"><span class="legend-sample sample-warning"></span>service alert</span>
-                <span class="legend-item"><span class="legend-sample sample-unverified"></span>unverified</span>
-            </span>
-            <span class="legend-hint">Tap any session for details &amp; actions.</span>`;
+            (types ? `<span class="legend-group">${types}</span>` : '') +
+            (states ? `<span class="legend-group">${states}</span>` : '') +
+            `<span class="legend-hint">${res?.total ? 'Tap a session for details and actions; tap a time block to open it.' : 'Nothing this week with these filters.'}</span>`;
     };
 
     /**
@@ -676,17 +681,36 @@ window.SkateApp = (() => {
         const dayLabel = day === todayKey ? 'Today' : day === tomorrowKey ? 'Tomorrow'
             : parseLocalDate(day).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
         const onDay = rows.filter(r => P.dateStr(r.p).slice(0, 10) === day).sort((a, b) => a.st.startEpoch - b.st.startEpoch).slice(0, 5);
-        const state = (st) => st.phase === 'live' ? `On now · ${SkateTime.fmtMins(st.minsLeft)} left`
-            : st.minsToStart < 24 * 60 ? `Starts in ${SkateTime.fmtMins(st.minsToStart)}` : '';
+        // right column: what matters most right now (a cancelled rink beats a countdown)
+        const state = (p, st) => {
+            const a = SkateAlerts.forProgram(p);
+            if (a && a.level === 'closed') return { cls: ' is-alert', txt: 'Likely cancelled' };
+            if (st.phase === 'live') return { cls: ' is-live', txt: `On now · ${SkateTime.fmtMins(st.minsLeft)} left` };
+            const soon = st.minsToStart < 24 * 60 ? `Starts in ${SkateTime.fmtMins(st.minsToStart)}` : '';
+            return a ? { cls: ' is-warn', txt: `${soon ? soon + ' · ' : ''}rink alert` } : { cls: '', txt: soon };
+        };
+        const toMins = (t) => { const m = /^(\d{1,2}):(\d{2})/.exec(t || ''); return m ? (+m[1]) * 60 + (+m[2]) : null; };
+        const durOf = (p) => {
+            const a = toMins(P.time(p)), b = toMins(P.endTime(p));
+            return a == null || b == null ? '' : SkateTime.fmtMins(((b - a) + 1440) % 1440);
+        };
+        const count = onDay.length === rows.length
+            ? `${rows.length} session${rows.length === 1 ? '' : 's'}`
+            : `${onDay.length} of ${rows.length} saved`;
         card.classList.remove('hidden');
         card.classList.toggle('is-live', onDay[0].st.phase === 'live');
         card.innerHTML = `
-            <div class="saved-next-head"><span class="saved-next-label">Saved · ${escapeHtml(dayLabel)}</span><span class="saved-next-count">${rows.length} saved</span></div>
-            ${onDay.map(({ p, st }) => `<button class="saved-row${st.phase === 'live' ? ' is-live' : ''}" data-pid="${P.id(p)}" title="Jump to this session">
-                <span class="saved-row-when">${fmtClock(P.time(p))}</span>
-                <span class="saved-row-title">${escapeHtml(P.activity(p))} · ${escapeHtml(P.location(p))}</span>
-                <span class="saved-row-state">${escapeHtml(state(st))}</span>
-            </button>`).join('')}`;
+            <div class="saved-next-head"><span class="saved-next-label">Saved · ${escapeHtml(dayLabel)}</span><span class="saved-next-count">${count}</span></div>
+            ${onDay.map(({ p, st }) => {
+                const { cls, txt } = state(p, st);
+                const km = SkateGeo.distanceForProgram(p);
+                const small = [durOf(p), km != null ? SkateGeo.fmtKm(km) : ''].filter(Boolean).join(' · ');
+                const end = P.endTime(p);
+                return `<button class="saved-row${cls}" data-pid="${P.id(p)}" title="Jump to this session">
+                <span class="saved-row-when">${fmtClock(P.time(p))}${end ? '–' + fmtClock(end) : ''}${small ? `<small>${escapeHtml(small)}</small>` : ''}</span>
+                <span class="saved-row-title"><span class="legend-dot ${P.typeCls(p) || ''}"></span>${escapeHtml(P.activity(p))} · ${escapeHtml(P.location(p))}</span>
+                <span class="saved-row-state">${escapeHtml(txt)}</span>
+            </button>`; }).join('')}`;
     };
 
     /** Saved sessions that have ended leave the list on their own (quietly). */
@@ -836,7 +860,8 @@ window.SkateApp = (() => {
     Render.showMore = function (left) {
         const wrap = $('show-more');
         wrap.innerHTML = left > 0
-            ? `<button class="btn-more" data-more="1">Show ${Math.min(30, left)} more <span class="btn-more-left">· ${left} left</span></button>`
+            ? `<button class="btn-more" data-more="30">Show ${Math.min(30, left)} more <span class="btn-more-left">· ${left} left</span></button>` +
+              (left > 30 ? `<button class="btn-more all" data-more="all">Show all ${left}</button>` : '')
             : '';
     };
 
@@ -863,6 +888,7 @@ window.SkateApp = (() => {
         }
         S.calRenderedWeek = S.calWeekOffset;
         $('cal-label').textContent = `${res.label} · ${res.total} session${res.total === 1 ? '' : 's'}`;
+        Render.calLegend(res);
     };
 
     Render.programRow = function (p, idx, chatState, now) {
@@ -940,7 +966,7 @@ window.SkateApp = (() => {
         const km = SkateGeo.distanceForProgram(p);
         const dist = km != null ? `<span class="dist">${SkateGeo.fmtKm(km)}</span>` : '';
         const note = CFG.locationNotes[String(p['Location ID'] ?? '')];
-        const noteBtn = note ? `<button class="row-link loc-note" data-note="${escapeHtml(note)}" title="${escapeHtml(note)}">Note</button>` : '';
+        const noteBtn = note ? `<button class="loc-note where-note" data-note="${escapeHtml(note)}" title="${escapeHtml(note)}" aria-label="Rink note">📝</button>` : '';
 
         const isFavorite = SkateChat.Favorites.has(p);
         const actionHtml = CFG.programActions.map(a => {
@@ -961,7 +987,7 @@ window.SkateApp = (() => {
             ? `<a class="where-link" href="${mapsUrl(location, city)}" target="_blank" rel="noopener" title="Directions in Google Maps">📍 ${escapeHtml(location)} ↗</a>`
             : '';
         const infoLink = off
-            ? `<a class="where-info" href="${escapeHtml(off)}" target="_blank" rel="noopener" title="Official page on ${escapeHtml(site)}. Verify the schedule there before you go." aria-label="Official page on ${escapeHtml(site)}">ℹ️</a>`
+            ? `<a class="where-info" href="${escapeHtml(off)}" target="_blank" rel="noopener" title="Official page on ${escapeHtml(site)}. Verify the schedule there before you go." aria-label="Official page on ${escapeHtml(site)}">📄</a>`
             : '';
         // One-time nudge on the first card: people miss that the heart saves.
         const hint = (idx === 0 && S.heartHint)
@@ -973,7 +999,7 @@ window.SkateApp = (() => {
                 <div class="program-header">
                     <div class="program-main">
                         <div class="program-title">${escapeHtml(activity)}</div>
-                        <div class="program-where">${whereHtml}${infoLink}${cityTag}${dist}</div>
+                        <div class="program-where">${whereHtml}${infoLink}${noteBtn}${cityTag}${dist}</div>
                     </div>
                     <div class="program-meta">
                         <div class="program-time">${fmtClock(time)}${endTime ? '–' + fmtClock(endTime) : ''}</div>
@@ -984,7 +1010,7 @@ window.SkateApp = (() => {
                 <div class="program-footer">
                     <div class="program-badges">${P.tagFor(p)}${P.ageBadge(p)}${price}${spotsBadge}</div>
                     <div class="program-actions">${actionHtml}</div>
-                    <div class="program-links">${registerLink}${noteBtn}</div>
+                    <div class="program-links">${registerLink}</div>
                     ${noteBadge ? `<div class="program-note">${noteBadge}</div>` : ''}
                     ${hint}
                 </div>
@@ -2562,7 +2588,7 @@ window.SkateApp = (() => {
                 else if (act === 'copy') Popover.open(btn, Menus.programCopy(p, btn));
             }]
         ]);
-        delegate($('show-more'), [['button[data-more]', () => { S.limit += 30; Render.programs(); }]]);
+        delegate($('show-more'), [['button[data-more]', (b) => { S.limit = b.dataset.more === 'all' ? Infinity : S.limit + 30; Render.programs(); }]]);
 
         // ---- Rinks & map ----
         $('btn-rinks-close').onclick = Actions.closeRinks;
