@@ -44,7 +44,6 @@ window.SkateApp = (() => {
         types: sanitizeTypes(SkateSettings.get('typeSel')),
         cities: Array.isArray(SkateSettings.get('cities')) ? SkateSettings.get('cities').filter(c => typeof c === 'string') : [],
         day: '',                       // '' | 'today' | 'tomorrow' | 'weekend' | weekday name
-        calOpen: new Set(),            // calendar time blocks expanded in place ('YYYY-MM-DD|HH')
         calRenderedWeek: null,         // to keep the grid's scroll position across the minute re-render
         heartHint: false,              // first card carries the one-time "tap ♡ to save" nudge (Render.programs decides)
         cal2Day: null,                 // Calendar 2.0's selected day (today until tapped)
@@ -659,7 +658,7 @@ window.SkateApp = (() => {
             (states ? `<span class="legend-group">${states}</span>` : '') +
             `<span class="legend-hint">${!res?.total ? 'Nothing here with these filters.'
                 : mode === 'planner' ? 'Every line is one session: the time, the rink, then kind, ages and price. Tap a line for details, the heart to save it.'
-                : 'Tap a session for details and actions; tap a time block to open it.'}</span>`;
+                : 'Tap a session for details and actions.'}</span>`;
     };
 
     /**
@@ -894,9 +893,7 @@ window.SkateApp = (() => {
             isSaved: p => SkateChat.Favorites.has(p),
             alertFor: p => SkateAlerts.forProgram(p),
             statusFor: p => SkateTime.status(p),
-            typeFor: p => P.typeCls(p),
-            maxBlocks: 8,
-            isOpen: (dateKey, hour) => S.calOpen.has(`${dateKey}|${hour}`)
+            typeFor: p => P.typeCls(p)
         });
         // the minute tick re-renders: never yank the reader back to today's column
         if (keepScroll != null) {
@@ -1938,13 +1935,6 @@ window.SkateApp = (() => {
         Render.calendar();
     };
 
-    /** A calendar time block opens or closes in place (the grid re-renders, keeping its scroll). */
-    Actions.toggleCluster = function (dateKey, hour) {
-        const k = `${dateKey}|${hour}`;
-        if (S.calOpen.has(k)) S.calOpen.delete(k); else S.calOpen.add(k);
-        Render.calendar();
-    };
-
     /** One tap, the right app: Apple devices get the .ics (Calendar), Android gets Google Calendar, other desktops pick. */
     Actions.addToCalendar = function (p, anchor) {
         if (isApple()) return openIcs(p);
@@ -2640,7 +2630,6 @@ window.SkateApp = (() => {
             ['[data-cal2-fav]', (b, e) => { e.stopPropagation(); const p = S.filtered.find(x => P.id(x) === b.dataset.cal2Fav); if (p) Actions.toggleSaved(p); }],
             ['[data-cal2-day]', (b) => Actions.cal2SetDay(b.dataset.cal2Day)],
             ['.cal-daychip', (b) => SkateCalendar.scrollToDate($('calendar-view'), b.dataset.scrollDate)],
-            ['.cal-cluster', (b, e) => { e.stopPropagation(); Actions.toggleCluster(b.dataset.cluster, b.dataset.hour); }],
             ['.cal-block', (block, e) => {
                 e.stopPropagation();
                 const p = S.filtered.find(x => P.id(x) === block.dataset.pid);

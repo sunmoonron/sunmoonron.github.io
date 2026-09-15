@@ -7,15 +7,10 @@
  * grid where every session is a small block. Saved programs glow, paid
  * ones are gold, alert-flagged ones are struck, live ones pulse.
  *
- * Crowded days (v3.5): once a day holds more than `maxBlocks` sessions,
- * sessions that start in the same hour fold into one "time block" —
- * "10:00 AM–12:00 PM · 5 sessions · Malvern, Agincourt +3" — so a column
- * never grows past ~16 blocks and text never shrinks. Tapping a time
- * block expands it IN PLACE (app.js keeps the open set and re-renders;
- * `opts.isOpen(date, hour)` says which are open): its sessions appear as
- * ordinary blocks under it, tap again to fold. Nothing leaves the grid.
- * Clicking is handled by app.js via delegation (data-pid / data-cluster),
- * same pattern as the program list.
+ * Every session is its own block, always (the v3.5 "time blocks" that
+ * folded same-hour sessions were tried and dropped: a block reading 6–9 PM
+ * hid the one-hour session inside it). Clicking is handled by app.js via
+ * delegation (data-pid), same pattern as the program list.
  *
  * Layout: 7 columns that horizontally scroll on small screens; the day
  * strip doubles as the scroll affordance and lights the day in view (today,
@@ -138,64 +133,12 @@ window.SkateCalendar = (() => {
         return block;
     }
 
-    const mins = (t) => { const m = /^(\d{1,2}):(\d{2})/.exec(t || ''); return m ? (+m[1]) * 60 + (+m[2]) : null; };
-    const fmtDur = (d) => d % 60 === 0 ? `${d / 60} h` : d > 60 ? `${(d / 60).toFixed(1).replace(/\.0$/, '')} h` : `${d} min`;
-    /** "1 h", "1–3 h", "45 min–1.5 h" for a set of session lengths in minutes. */
-    function durRange(ds) {
-        if (!ds.length) return '';
-        const lo = Math.min(...ds), hi = Math.max(...ds);
-        if (lo === hi) return fmtDur(lo);
-        return (lo % 60 === 0 && hi % 60 === 0) ? `${lo / 60}–${hi / 60} h` : `${fmtDur(lo)}–${fmtDur(hi)}`;
-    }
-
-    /**
-     * Several sessions starting in the same hour → one time block (open =
-     * its sessions follow). Labelled by START times and lengths ("Starts
-     * 6:00–6:30 PM · 5 sessions · 1–3 h"), never first-start-to-last-end:
-     * a block reading 6–9 PM scared off anyone who only wanted an hour.
-     */
-    function clusterBlock(dateKey, hour, list, opts, open) {
-        const starts = list.map(p => p['Start Time'] || '').filter(Boolean).sort();
-        const first = starts[0] || '', last = starts[starts.length - 1] || '';
-        const timeTxt = !first ? '' : 'Starts ' + (first === last ? opts.fmtClock(first) : `${opts.fmtClock(first)}–${opts.fmtClock(last)}`);
-        const durTxt = durRange(list.map(p => {
-            const a = mins(p['Start Time']), b = mins(p['End Time']);
-            return a == null || b == null ? null : ((b - a) + 1440) % 1440;
-        }).filter(d => d));
-        const rinks = [...new Set(list.map(p => p.LocationName || ''))].filter(Boolean);
-        const short = (n) => n.replace(/\b(Community Recreation Centre|Community Centre|Recreation Centre|Community Arena|Arena|Complex)\b/g, '').replace(/\s+/g, ' ').trim() || n;
-        const rinkTxt = rinks.slice(0, 2).map(short).join(', ') + (rinks.length > 2 ? ` +${rinks.length - 2}` : '');
-        const types = [...new Set(list.map(p => opts.typeFor && opts.typeFor(p)).filter(Boolean))];
-        const saved = list.some(p => opts.isSaved(p));
-        const anyLive = list.some(p => opts.statusFor(p).phase === 'live');
-        const allEnded = list.every(p => opts.statusFor(p).phase === 'ended');
-        const paid = list.filter(p => p.Paid).length;
-        let cls = 'cal-block cal-cluster' + (open ? ' open' : '');
-        if (saved) cls += ' cal-saved';
-        if (anyLive) cls += ' cal-live';
-        if (allEnded) cls += ' cal-ended';
-        const block = el('button', {
-            class: cls, dataset: { cluster: dateKey, hour },
-            title: `${list.length} sessions starting ${opts.fmtClock(hour + ':00')}–${opts.fmtClock(hour + ':59')} at ${rinks.length} rink${rinks.length === 1 ? '' : 's'}. Tap to ${open ? 'fold' : 'expand'}.`,
-            'aria-expanded': open ? 'true' : 'false'
-        });
-        block.appendChild(el('span', { class: 'cal-block-time' }, [timeTxt, ...(saved ? [el('span', { class: 'cal-heart', 'aria-label': 'saved' }, [' ♥'])] : [])]));
-        block.appendChild(el('span', { class: 'cal-block-title' }, [
-            `${list.length} sessions${durTxt ? ' · ' + durTxt : ''} `,
-            ...(paid ? [el('span', { class: 'cal-price' }, [paid === list.length ? '· paid ' : `· ${paid} paid `])] : []),
-            el('span', { class: 'caret', 'aria-hidden': 'true' }, ['▾'])
-        ]));
-        block.appendChild(el('span', { class: 'cal-dots' }, types.map(t => el('span', { class: `legend-dot ${t}`, title: t }))));
-        block.appendChild(el('span', { class: 'cal-block-loc' }, [rinkTxt]));
-        return block;
-    }
-
     /**
      * Render into `container`.
      * opts: {
      *   weekOffset, fmtClock(t), idFor(p), isSaved(p),
      *   alertFor(p) → null|{level}, statusFor(p) → SkateTime.status result,
-     *   typeFor(p) → css type class, maxBlocks (default 8)
+     *   typeFor(p) → css type class
      * }
      * Returns { label, total, types, states } for the header, nav and
      * legend that app.js owns (types/states = what this week shows).
@@ -203,7 +146,6 @@ window.SkateCalendar = (() => {
     function render(container, programs, opts) {
         const start = weekStart(opts.weekOffset || 0);
         const todayKey = T.todayKey();
-        const maxBlocks = opts.maxBlocks || 8;
 
         // bucket programs by date key for this week only
         const byDay = {};
@@ -252,24 +194,7 @@ window.SkateCalendar = (() => {
             list.sort((a, b) => T.sortEpoch(a) - T.sortEpoch(b));
             if (!list.length) col.appendChild(el('div', { class: 'cal-empty' }, ['·']));
 
-            if (list.length > maxBlocks) {
-                // crowded: fold same-hour starts into time blocks, keep singles as blocks
-                const byHour = new Map();
-                list.forEach(p => {
-                    const h = String(p['Start Time'] || '00:00').slice(0, 2);
-                    if (!byHour.has(h)) byHour.set(h, []);
-                    byHour.get(h).push(p);
-                });
-                col.appendChild(el('div', { class: 'cal-crowded' }, [`${list.length} sessions · tap a block to expand`]));
-                [...byHour.entries()].sort(([a], [b]) => a.localeCompare(b)).forEach(([hour, group]) => {
-                    if (group.length === 1) { col.appendChild(sessionBlock(group[0], opts)); return; }
-                    const open = !!(opts.isOpen && opts.isOpen(dateKey, hour));
-                    col.appendChild(clusterBlock(dateKey, hour, group, opts, open));
-                    if (open) col.appendChild(el('div', { class: 'cal-cluster-body' }, group.map(p => sessionBlock(p, opts))));
-                });
-            } else {
-                list.forEach(p => col.appendChild(sessionBlock(p, opts)));
-            }
+            list.forEach(p => col.appendChild(sessionBlock(p, opts)));
             grid.appendChild(col);
         });
 

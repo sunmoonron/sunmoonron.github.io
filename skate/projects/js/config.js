@@ -30,7 +30,7 @@ window.SkateConfig = {
     changelog: [
         {
             v: '3.5', date: '2026-09-15', items: [
-                'Calendar that scales: a tap-to-jump day strip with counts (and a visible way to swipe on phones), week arrows that say Week, and crowded days fold same-hour sessions into time blocks that open the list for that day. Text never shrinks.',
+                'Calendar: a tap-to-jump day strip with counts (and a visible way to swipe on phones) and week arrows that say Week. Every session is its own block.',
                 'Add to calendar just opens your calendar: iPhone, iPad and Mac get a real .ics from the home server (Apple Calendar), Android gets Google Calendar, other desktops still pick. Saved sessions vanish once they have ended, and the reminder card lists every saved session of that day.',
                 'First visit now plays the 54-second guide (pause and skip on the card). The weather emoji is back.',
                 'Rink list rows show the street address, so Baycrest Arena and Bayview Arena stop looking like twins.',
@@ -38,7 +38,7 @@ window.SkateConfig = {
                 'Data resilience: the app checks which copy is fresher (home server or GitHub) before loading, so a power cut at home never serves stale data.',
                 'Session cards are two lines again: the rink name is the directions link (📍), the ℹ️ beside it opens the official page, and the type badge got its capitals and emoji back with the ages as a pill. A one-time hint on the heart shows that sessions can be saved.',
                 'Calendar: the lit day chip follows the day you are looking at (today on wide screens) instead of sticking to Monday. The Schedule label only shows when Guides or Chats are on.',
-                'Calendar time blocks say "Starts 6:00–6:30 PM · 5 sessions · 1–3 h" instead of stretching one block across the whole evening, and the legend lists only the types and states in the week on screen.',
+                'The calendar legend lists only the types and states in the week on screen. (The folded "time blocks" of crowded days were tried and removed: every session is a block again.)',
                 'Filters sits beside the search box. A Show all button ends the list. Bigger ♡ and ⋯. The rink note moved onto the rink line (📝) and the official-page icon is a plain 📄.',
                 'Postal codes work in the locator: exact when OpenStreetMap knows the code, otherwise the postal area, marked approximate. The guide has a Back button. The saved-day card shows time ranges, durations, distance and any rink alert.',
                 'Fixed: the page flickering with black patches in Safari (the heart nudge animated a shadow; it now animates a ring that costs the browser nothing). Settings writes that change nothing no longer re-render the schedule.',
@@ -266,7 +266,7 @@ window.SkateConfig = {
         { sel: '#btn-filters',           title: 'Filters',               text: 'Leisure, figure and hockey with their age groups, a day, cities, your rinks and the order. Your picks are remembered on this device.', sec: 6 },
         { sel: '#active-filters',        title: 'Your active filters',   text: 'Each pill is one filter. Tap the x to remove it. Tap the city pill to pick other cities.', sec: 5 },
         { sel: '#btn-rinks',             title: 'Rinks and map',         text: 'Every rink on a map, with distances from your location or an address you type. Star the rinks that are yours.', sec: 6 },
-        { sel: '#view-seg',              title: 'List or calendar',      text: 'The same sessions as a list or a week grid. In the grid, tap a day chip to jump, and tap a crowded time block to open that day as a list.', sec: 5 },
+        { sel: '#view-seg',              title: 'List or calendar',      text: 'The same sessions as a list or a week grid. In the grid, tap a day chip to jump to that day and any block for details.', sec: 5 },
         { sel: '#btn-paid',              title: 'Paid venues',           text: 'Paid rinks are hidden until you switch this on. Prices then show on each session.', sec: 4 },
         { sel: '#btn-refresh',           title: 'Refresh',               text: 'Reloads the schedule, rink alerts and live spots. The status line under the buttons says when things were last checked.', sec: 5 },
         { sel: '#program-list .program-item', title: 'A session',        text: 'Time, rink, ages and price. Tap the rink name for directions; the small globe beside it opens the official rink page, the one the staff go by. The heart saves the session.', sec: 7 },

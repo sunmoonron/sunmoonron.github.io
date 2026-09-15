@@ -470,18 +470,14 @@ the page without shifting its hue.
 
 ### v3.5 layer (calendar that scales, one-tap calendar export)
 
-**Calendar.** `calendar.js` now renders a day strip (Mon 14 … Sun 20 with
+**Calendar.** `calendar.js` renders a day strip (Mon 14 … Sun 20 with
 counts; tap to scroll that column into view, the chip in view is
-highlighted) over the grid, a fading right edge plus a visible scrollbar
-while columns hide off-screen, and week arrows labelled "‹ Week" /
-"Week ›". A day holding more than `maxBlocks` (8) sessions folds sessions
-that start in the same hour into one dashed time block ("10:00 AM–12:00 PM
-· 5 sessions · Malvern, Agincourt +3", type dots, paid count); tapping it
-expands it in place (`Actions.toggleCluster`, `S.calOpen`), its sessions
-appearing as ordinary blocks beneath it, tap again to fold. Nothing
-leaves the grid, and the minute re-render keeps the grid's scroll
-position (`S.calRenderedWeek`). Single sessions in a crowded day stay
-ordinary blocks. Text size never changes.
+highlighted, today on wide screens) over the grid, a fading right edge
+plus a visible scrollbar while columns hide off-screen, and week arrows
+labelled "‹ Week" / "Week ›". Every session is its own block; the folded
+"time blocks" for crowded days (v3.5–v3.5f) were tried and removed. The
+minute re-render keeps the grid's scroll position (`S.calRenderedWeek`).
+Text size never changes.
 
 **Add to calendar** is one tap: Apple devices open a real https `.ics`
 (`Actions.addToCalendar` → `openIcs`), Android opens the Google Calendar

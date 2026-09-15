@@ -1222,13 +1222,6 @@ body.dark-mode .fcheck:hover { background: rgba(255, 255, 255, 0.04); }
 .cal-grid::-webkit-scrollbar-thumb { background: var(--border-dark); border-radius: 4px; }
 .cal-grid::-webkit-scrollbar-track { background: var(--bg); }
 
-/* ---- crowded days: time blocks ---- */
-.cal-crowded { font-size: 10px; color: var(--text-muted); padding: 2px 0 0; }
-.cal-cluster { background: var(--bg); border-style: dashed; border-color: var(--border-dark); }
-.cal-cluster .cal-block-title { font-weight: 700; }
-.cal-cluster:hover { border-color: var(--acc-programs); background: color-mix(in srgb, var(--acc-programs) 8%, var(--bg-white)); }
-.cal-dots { display: inline-flex; gap: 3px; }
-.cal-dots .legend-dot { margin: 0; width: 7px; height: 7px; }
 
 /* ---- saved-day card: every saved session on that day ---- */
 .saved-next { display: flex; flex-direction: column; gap: 5px; cursor: default; }
@@ -1261,22 +1254,12 @@ body.dark-mode .cal-daychip, body.dark-mode .cal-week-btn { background: #1b2530;
 body.dark-mode .cal-daychip-num { color: var(--text); }
 body.dark-mode .cal-daychip.today { border-color: var(--acc-programs); }
 body.dark-mode .cal-daychip.in-view { background: color-mix(in srgb, var(--acc-programs) 22%, #1b2530); border-color: var(--acc-programs); }
-body.dark-mode .cal-cluster { background: #141c25; border-color: #38485a; }
-body.dark-mode .cal-cluster:hover { background: color-mix(in srgb, var(--acc-programs) 14%, #141c25); }
 body.dark-mode .saved-row { background: #1b2530; border-color: #38485a; }
 body.dark-mode .cal-grid::-webkit-scrollbar-thumb { background: #38485a; }
 
 /* ============================================================
-   v3.5b — time blocks expand in place; lean rink rows
+   v3.5b — lean rink rows
    ============================================================ */
-.cal-cluster .caret { font-size: 11px; margin-left: 2px; }
-.cal-cluster.open { border-style: solid; border-color: var(--acc-programs); }
-.cal-cluster.open .caret { transform: rotate(180deg); }
-.cal-cluster-body {
-    display: flex; flex-direction: column; gap: 5px;
-    margin: -2px 0 4px 6px; padding-left: 6px;
-    border-left: 2px solid color-mix(in srgb, var(--acc-programs) 45%, var(--border));
-}
 .rink-alert {
     display: inline-block; margin-left: 6px; vertical-align: 1px;
     font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
@@ -1286,7 +1269,6 @@ body.dark-mode .cal-grid::-webkit-scrollbar-thumb { background: #38485a; }
 .rink-row.has-alert .rink-meta { color: var(--text-muted); }
 .rink-sessions { white-space: nowrap; }
 .rink-sessions:disabled { opacity: 0.55; cursor: default; }
-body.dark-mode .cal-cluster-body { border-left-color: color-mix(in srgb, var(--acc-programs) 55%, #38485a); }
 
 /* ---- type pills carry an age picker (same look as the city pill) ---- */
 .pill.type { font-weight: 600; }
