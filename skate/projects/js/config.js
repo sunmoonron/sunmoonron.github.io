@@ -40,7 +40,8 @@ window.SkateConfig = {
                 'Calendar: the lit day chip follows the day you are looking at (today on wide screens) instead of sticking to Monday. The Schedule label only shows when Guides or Chats are on.',
                 'Calendar time blocks say "Starts 6:00–6:30 PM · 5 sessions · 1–3 h" instead of stretching one block across the whole evening, and the legend lists only the types and states in the week on screen.',
                 'Filters sits beside the search box. A Show all button ends the list. Bigger ♡ and ⋯. The rink note moved onto the rink line (📝) and the official-page icon is a plain 📄.',
-                'Postal codes work in the locator: exact when OpenStreetMap knows the code, otherwise the postal area, marked approximate. The guide has a Back button. The saved-day card shows time ranges, durations, distance and any rink alert.'
+                'Postal codes work in the locator: exact when OpenStreetMap knows the code, otherwise the postal area, marked approximate. The guide has a Back button. The saved-day card shows time ranges, durations, distance and any rink alert.',
+                'Fixed: the page flickering with black patches in Safari (the heart nudge animated a shadow; it now animates a ring that costs the browser nothing).'
             ]
         },
         {

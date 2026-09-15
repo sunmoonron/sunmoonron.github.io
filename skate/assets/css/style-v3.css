@@ -1322,12 +1322,22 @@ body.hide-guides.hide-chats .panel-programs .panel-title { display: none; }
 .cal-day.pinged { animation: cal-ping 0.9s ease-out; }
 .cal-day.today.pinged { animation: none; outline: 2px solid var(--acc-programs); outline-offset: 1px; }
 
-/* one-time heart nudge on the first card: pulsing ring + a dismissible line */
+/* one-time heart nudge on the first card: pulsing ring + a dismissible line.
+   The ring is a pseudo-element animating only transform + opacity: a
+   box-shadow animation resized the button's layer every frame and made
+   Safari flash black tiles across the page (reported 2026-09-15). */
 @keyframes heart-nudge {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(224, 36, 94, 0.55); }
-    60%      { box-shadow: 0 0 0 7px rgba(224, 36, 94, 0); }
+    0%   { transform: scale(1);    opacity: 0.85; }
+    70%  { transform: scale(1.45); opacity: 0; }
+    100% { transform: scale(1.45); opacity: 0; }
 }
-.btn-favorite.nudge { border-color: #e0245e; animation: heart-nudge 1.8s ease-out infinite; }
+.btn-favorite.nudge { position: relative; border-color: #e0245e; }
+.btn-favorite.nudge::after {
+    content: ''; position: absolute; inset: -2px; border-radius: inherit;
+    border: 2px solid #e0245e; opacity: 0; pointer-events: none;
+    will-change: transform, opacity;
+    animation: heart-nudge 1.8s ease-out infinite;
+}
 .heart-hint {
     grid-column: 1 / -1;
     display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px;
@@ -1346,7 +1356,7 @@ body.hide-guides.hide-chats .panel-programs .panel-title { display: none; }
 body.dark-mode .heart-hint { background: color-mix(in srgb, #e0245e 14%, #1b2530); }
 body.dark-mode .heart-hint-x { background: #1b2530; border-color: #38485a; }
 @media (prefers-reduced-motion: reduce) {
-    .btn-favorite.nudge, .cal-day.pinged { animation: none; }
+    .btn-favorite.nudge::after, .cal-day.pinged { animation: none; }
 }
 
 /* ---- search row: the box with Filters beside it (clear of the accent bar) ---- */
