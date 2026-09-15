@@ -692,32 +692,31 @@ visitors will run the cached old copy.
 
 ---
 
-## 7. Home-server offload (design, agreed 2026-08-19)
+## 7. Home-server offload (built 2026-09-14)
 
-The static site keeps working exactly as is; a home server (the Dell,
-NixOS) takes over the parts GitHub does badly. Status as of v3.1:
+**Live.** The Dell (NixOS, `dell-nix` repo, `modules/skate-data.nix`)
+runs this same `fetch-skate-data.js` every 30 minutes and the light
+alerts + toronto.ca cross-check pass every 10 minutes, as a sandboxed
+system user on a shallow clone of this repo (pulled fresh each run;
+nothing is ever pushed from there). The outputs are published to
+`https://skate-data.ronishbhatt.com/projects/data/` through the existing
+Cloudflare tunnel with `Access-Control-Allow-Origin: *` and
+`Cache-Control: no-cache`. `config.js` sets `dataBase` to that origin;
+`api.js` falls back to the committed same-origin copies for the rest of
+the session on any failure, so the GitHub cron (still running) remains the
+safety net and the offline copy.
 
-- **Relay — done.** `wss://skate-relay.ronishbhatt.com` is in the pool.
-  Its strfry write policy mirrors `moderation.js` (kinds 42/4/20104/5 at
-  8 bits, 1111 at 12, 7 at 16, 30023 at 20) and admits the site owner's
-  30000/30001 lists (`guides.js` OWNER_PUBKEY). Kind-1 refresh notes are
-  deliberately rejected there — the refresh doorbell stays on public
-  relays for the GitHub listener.
-- **Data origin — wired client-side, not yet served.** `SkateConfig.dataBase`
-  + `SkateAPI.dataUrl()` route every data fetch through one setting with
-  same-origin fallback. The server side is a daemon that runs
-  `fetch-skate-data.js` every few minutes and serves `projects/data/*.json`
-  with `Access-Control-Allow-Origin: https://sunmoonron.github.io` (and
-  `Cache-Control: no-cache`). `sw.js` never caches cross-origin, so the
-  committed copies remain the offline schedule by design.
-- **Constraints that stand.** No GitHub push credential on the Dell (a
-  compromised box must not be able to change the site); an actions-scoped
-  token that can only `workflow_dispatch` the data workflow is the
-  acceptable way for the daemon to ask GitHub to commit. The GitHub cron
-  stays as the degraded-mode fallback — never retire it.
-- **What it buys.** Alert and live-check freshness in minutes instead of
-  the ~3-hour cron reality. The Moss Park scrape's LLM assist already
-  prefers a local model: set `OLLAMA_URL` (and optionally
-  `OLLAMA_MODEL`) where the pipeline runs and no key or cloud call is
-  needed; `ANTHROPIC_API_KEY` is the second choice, the regex parser the
-  floor.
+What that changes in practice: the "✓ HH:MM" stamp on the status line now
+moves every 10 minutes instead of every few hours, dropped or added City
+sessions show up within 10 minutes of toronto.ca changing, and a rink
+alert reaches every open page within about 15 minutes (10-minute pass +
+the client's 5-minute TTL).
+
+Operational notes (on the box): `systemctl status skate-data-full
+skate-data-light`, `journalctl -u skate-data-full -n 50`, files in
+`/var/lib/skate-data/www/projects/data`, last run stamp at
+`/var/lib/skate-data/www/last-run.txt`. `OLLAMA_URL` points at the box's
+own Ollama for the one scraped page; the regex parser remains the floor.
+Not done: pushing the Dell's output back into this repo (no GitHub
+credential lives on the box by design), so the committed copies still
+refresh on GitHub's cron only.
