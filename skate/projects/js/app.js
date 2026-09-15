@@ -893,7 +893,10 @@ window.SkateApp = (() => {
             alertHtml = `<div class="alert-banner closed live-flag"><strong>${escapeHtml(alert.reason)}.</strong> ${escapeHtml(alert.text)}${verify}</div>`;
         } else if (alert) {
             const closed = alert.level === 'closed';
-            alertHtml = `<div class="alert-banner ${closed ? 'closed' : 'warning'}"><strong>${closed ? 'Likely cancelled, rink alert' : 'Service alert at this rink'}.</strong> ${escapeHtml(alert.reason)}${alert.text ? `. ${escapeHtml(alert.text)}` : ''}${verify}</div>`;
+            const lead = closed ? 'Likely cancelled, rink alert'
+                : alert.padOnly ? 'One pad is closed here. This session likely runs on the other pad'
+                : 'Service alert at this rink';
+            alertHtml = `<div class="alert-banner ${closed ? 'closed' : 'warning'}"><strong>${lead}.</strong> ${escapeHtml(alert.reason)}${alert.text ? `. ${escapeHtml(alert.text)}` : ''}${verify}</div>`;
         }
 
         // Schedules read from a PDF or website have no live feed: say so, calmly.

@@ -22,6 +22,13 @@
  *    any date range mentioned covers the program's date — then 'closed'.
  *    (Classic counter-example from the live feed: "parking lot will be
  *    unavailable" is a warning, not a cancellation.)
+ *  - One pad of many (2026-09-15, the Don Montgomery lesson): a building
+ *    with several ice pads whose alert names ONE of them ("Rink 1 is
+ *    temporarily closed") keeps running its sessions on the other pad.
+ *    That is a 'warning' flagged `padOnly`, never a cancellation, no
+ *    matter how loud the closure wording is. Only text about the whole
+ *    facility ("arena closed", "both rinks", "all ice") or a single-pad
+ *    building can still cancel.
  *
  * This is deterministic on purpose: a static page can't call an LLM per
  * render, and every flag we show can be traced to a rule + the alert text
@@ -229,6 +236,19 @@ window.SkateAlerts = (() => {
         return closedWord && rinkWord && !amenityOnly;
     }
 
+    /**
+     * Does the alert text single out ONE pad of a multi-pad building?
+     * "Rink 1", "Pad B", "the north rink", "rink #2" → that pad only.
+     * "both rinks", "all ice", "the arena/facility/building is closed" → no.
+     */
+    const PAD_RE = /\b(?:rink|pad|ice\s*pad|ice\s*surface|arena)\s*(?:#\s*)?(?:[0-9]{1,2}|[a-d]|one|two|three|north|south|east|west|main|upper|lower|small|big|large|olympic|nhl)\b|\b(?:north|south|east|west|main|upper|lower|small|big|large|olympic|nhl)\s+(?:rink|pad|ice)\b/i;
+    const WHOLE_RE = /\b(?:both|all)\s+(?:rinks|pads|ice)|\b(?:arena|facility|building|centre|center|complex)\s+(?:is|will be|remains)?\s*(?:closed|closing)|\bentire\b|\bwhole\b|\bno ice\b/i;
+    function namesOnePad(text, pads) {
+        if (!(pads > 1)) return false;
+        const t = String(text || '');
+        return PAD_RE.test(t) && !WHOLE_RE.test(t);
+    }
+
     function cleanComment(s) {
         return String(s || '')
             .replace(/<br\s*\/?>/gi, ' ')
@@ -267,11 +287,17 @@ window.SkateAlerts = (() => {
 
         const rink = window.SkateGeo ? window.SkateGeo.rinkByLocation(locId) : null;
         const locationKinds = rink ? rink.kinds : null;
+        const pads = rink && Number.isFinite(rink.pads) ? rink.pads : 1;
         const programDate = (p['Start Date Time'] || p['Start Date'] || '').slice(0, 10);
 
         let level = 'warning';
+        let padOnly = false;
         const closedKinds = alerts.filter(a => a.Status === CLOSED_STATUS).map(alertKind);
-        if (closedKinds.length && coversLocation(closedKinds, locationKinds)) {
+        const padAlerts = alerts.filter(a => namesOnePad(`${a.Reason || ''} ${cleanComment(a.Comments)}`, pads));
+        if (padAlerts.length && padAlerts.length === alerts.length) {
+            // every alert here is about one pad of several: the other pad keeps skating
+            padOnly = true;
+        } else if (closedKinds.length && coversLocation(closedKinds, locationKinds)) {
             level = 'closed';
         } else {
             // Status-2 escalation: text says rink closed + date window covers program
@@ -295,6 +321,7 @@ window.SkateAlerts = (() => {
         }).filter(Boolean).join(' • ');
         return {
             level,
+            padOnly,
             reason: first.Reason || 'Service alert',
             text,
             postedDate: first.PostedDate || '',
@@ -318,7 +345,7 @@ window.SkateAlerts = (() => {
         get liveStats() { return liveStats; },
         get liveExtra() { return liveExtra; },
         // exposed for testing
-        _classifyHelpers: { alertKind, coversLocation, dateWindows, textSaysRinkClosed, index, isSkateAlert }
+        _classifyHelpers: { alertKind, coversLocation, dateWindows, textSaysRinkClosed, namesOnePad, index, isSkateAlert }
     };
 })();
 

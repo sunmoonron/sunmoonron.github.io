@@ -1290,3 +1290,11 @@ body.dark-mode .cal-cluster-body { border-left-color: color-mix(in srgb, var(--a
 .pill.type { font-weight: 600; }
 .pill.type .pill-x { margin-left: 2px; padding: 2px 4px; border-radius: 8px; }
 .pill.type .pill-x:hover { background: color-mix(in srgb, var(--acc-programs) 25%, transparent); opacity: 1; }
+
+/* ---- wide screens: the schedule reads as a column, not a banner ----
+   Percent padding is relative to the panel's own grid track, so this
+   centres the content whether the schedule is alone or beside Guides/Chats. */
+@media (min-width: 900px) {
+    .view-panel.panel-programs { padding-inline: max(10px, calc((100% - 980px) / 2)); }
+    .view-panel.panel-guides { padding-inline: max(16px, calc((100% - 760px) / 2)); }
+}

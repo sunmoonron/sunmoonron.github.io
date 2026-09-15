@@ -34,6 +34,7 @@ window.SkateConfig = {
                 'Add to calendar just opens your calendar: iPhone, iPad and Mac get a real .ics from the home server (Apple Calendar), Android gets Google Calendar, other desktops still pick. Saved sessions vanish once they have ended, and the reminder card lists every saved session of that day.',
                 'First visit now plays the 54-second guide (pause and skip on the card). The weather emoji is back.',
                 'Rink list rows show the street address, so Baycrest Arena and Bayview Arena stop looking like twins.',
+                'Rink alerts that name one pad of a two-pad building ("Rink 1 is closed") now say the session likely runs on the other pad instead of "likely cancelled". Thanks to a skater who called Don Montgomery to check.',
                 'Data resilience: the app checks which copy is fresher (home server or GitHub) before loading, so a power cut at home never serves stale data.'
             ]
         },

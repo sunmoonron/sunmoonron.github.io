@@ -442,6 +442,15 @@ toggles the dropped ones back on. City locations that only exist in the
 program rows (Scarborough Arena Gardens, Park Lawn Park) are geocoded
 into `rinks.json` by the pipeline (`geocode-cache.json`).
 
+**Rink alerts and multi-pad buildings.** A City alert that names one pad
+of a building with several ("Rink 1 is temporarily closed", Don
+Montgomery has two) is a warning flagged `padOnly`, never a cancellation:
+the row says the session likely runs on the other pad and links the
+City's text. Only whole-facility wording ("arena closed", "both rinks")
+or a single-pad building can still produce "likely cancelled". The live
+cross-check is independent of this: if toronto.ca's schedule drops a
+session, it is hidden regardless of alerts.
+
 **Settings** is three groups (Display, Learn and share, Community) with
 one button style; modal overlays are neutral black so opening one dims
 the page without shifting its hue.
