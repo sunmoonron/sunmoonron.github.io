@@ -706,11 +706,13 @@ Cloudflare tunnel with `Access-Control-Allow-Origin: *` and
 the session on any failure, so the GitHub cron (still running) remains the
 safety net and the offline copy.
 
-What that changes in practice: the "✓ HH:MM" stamp on the status line now
-moves every 10 minutes instead of every few hours, dropped or added City
-sessions show up within 10 minutes of toronto.ca changing, and a rink
-alert reaches every open page within about 15 minutes (10-minute pass +
-the client's 5-minute TTL).
+What that changes in practice: dropped or added City sessions show up
+within 10 minutes of toronto.ca changing, a rink alert reaches every open
+page within about 15 minutes (10-minute pass + the client's 5-minute
+TTL), and the schedule itself is at most 30 minutes behind the feeds. The
+"✓ HH:MM" stamp still follows the heartbeat contract (it moves on change
+or every 2 hours), so it can read up to 2 hours old while everything is
+being checked every 10 minutes.
 
 Operational notes (on the box): `systemctl status skate-data-full
 skate-data-light`, `journalctl -u skate-data-full -n 50`, files in
