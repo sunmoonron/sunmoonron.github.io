@@ -439,11 +439,11 @@ to my rinks". The first card carries a one-time "tap ♡ to save" hint
 (`heartHintDone` setting; a first save or "Got it" retires it).
 
 **Calendar 2.0 (experimental).** Settings → Display → "Calendar 2.0"
-swaps the week grid for `projects/js/calendar2.js`: one board, a row per
-rink (starred first, nearest next), a bar per session drawn to its length
-on a time axis fitted to the screen, and a cursor on the axis that floats
-the rinks open at that time to the top. Tap a rink for its sessions as
-chips, a bar for the usual popover. Same colour key as the list.
+swaps the week grid for `projects/js/calendar2.js`, a day planner: pick a
+day, it is Morning / Afternoon / Evening, and every session is one plain
+line (time, rink, kind · ages · price) with a heart. "By rink" groups the
+lines under each rink, starred first and nearest next; today's ended
+sessions fold away. Tap a line for the usual popover.
 
 **toronto.ca is the ground truth.** City sessions the live cross-check
 flags as missing or cancelled are hidden (`computeFiltered`,

@@ -48,8 +48,8 @@ window.SkateApp = (() => {
         calRenderedWeek: null,         // to keep the grid's scroll position across the minute re-render
         heartHint: false,              // first card carries the one-time "tap ♡ to save" nudge (Render.programs decides)
         cal2Day: null,                 // Calendar 2.0's selected day (today until tapped)
-        cal2At: null,                  // Calendar 2.0 cursor, minutes of the day (null = follow now / 6 PM)
-        cal2Open: new Set(),           // Calendar 2.0 rink rows unfolded into chips
+        cal2By: SkateSettings.get('cal2By') || 'time',   // Calendar 2.0 grouping: time of day | rink
+        cal2ShowEnded: false,          // Calendar 2.0: today's ended sessions unfolded
         paidVisible: !!SkateSettings.get('paidVisible'),
         rinkScope: SkateSettings.get('rinkScope') || 'all',
         sort: SkateSettings.get('sort') || 'time',
@@ -658,7 +658,7 @@ window.SkateApp = (() => {
             (types ? `<span class="legend-group">${types}</span>` : '') +
             (states ? `<span class="legend-group">${states}</span>` : '') +
             `<span class="legend-hint">${!res?.total ? 'Nothing here with these filters.'
-                : mode === 'board' ? 'One row per rink, a bar per session drawn to its length. Drag the handle on the time axis: rinks open at that time come first. Tap a rink for its times, a bar for details.'
+                : mode === 'planner' ? 'Every line is one session: the time, the rink, then kind, ages and price. Tap a line for details, the heart to save it.'
                 : 'Tap a session for details and actions; tap a time block to open it.'}</span>`;
     };
 
@@ -870,7 +870,7 @@ window.SkateApp = (() => {
             : '';
     };
 
-    /** Settings → Display → Calendar 2.0 (the experimental rinks × time board). */
+    /** Settings → Display → Calendar 2.0 (the experimental day planner). */
     const cal2Active = () => SkateSettings.get('cal2') === true;
 
     function setCalNav(dayMode) {
@@ -908,7 +908,7 @@ window.SkateApp = (() => {
         Render.calLegend(res);
     };
 
-    /** Calendar 2.0: the rinks × time board (SkateCalendar2), same popover as the grid. */
+    /** Calendar 2.0: the day planner (SkateCalendar2), same popover as the grid. */
     Render.calendar2 = function () {
         const view = $('calendar-view');
         const todayKey = SkateTime.todayKey();
@@ -917,10 +917,10 @@ window.SkateApp = (() => {
         const nowMinutes = (+tor.slice(0, 2)) * 60 + (+tor.slice(3, 5));
         const mine = new Set(SkateSettings.get('myRinks') || []);
         const res = SkateCalendar2.render(view, S.filtered, {
-            day: S.cal2Day, todayKey, nowMinutes, at: S.cal2At,
-            isOpen: key => S.cal2Open.has(key),
-            onScrub: (t) => { S.cal2At = t; Render.calendar(); },   // release → rows re-sort around the new time
-            fmtClock, fmtKm: SkateGeo.fmtKm,
+            day: S.cal2Day, todayKey, nowMinutes, by: S.cal2By, showEnded: S.cal2ShowEnded,
+            fmtClock, fmtKm: SkateGeo.fmtKm, fmtMins: SkateTime.fmtMins, fmtPrice, ageText,
+            kindLabel: p => { const cls = P.typeCls(p); return (CFG.activityTags.find(t => t.cls === cls) || {}).label || 'Skate'; },
+            distanceFor: p => SkateGeo.distanceForProgram(p),
             idFor: p => P.id(p),
             isSaved: p => SkateChat.Favorites.has(p),
             alertFor: p => SkateAlerts.forProgram(p),
@@ -932,7 +932,7 @@ window.SkateApp = (() => {
         S.calRenderedWeek = null;   // the classic grid must not restore a stale scroll when switched back
         setCalNav(true);
         $('cal-label').textContent = `${res.label} · ${res.total} session${res.total === 1 ? '' : 's'}`;
-        Render.calLegend(res, 'board');
+        Render.calLegend(res, 'planner');
     };
 
     Render.programRow = function (p, idx, chatState, now) {
@@ -1925,9 +1925,16 @@ window.SkateApp = (() => {
         Render.calendar();
     };
 
-    /** Calendar 2.0: a rink row unfolds into its sessions as chips (and folds again). */
-    Actions.cal2ToggleRink = function (key) {
-        if (S.cal2Open.has(key)) S.cal2Open.delete(key); else S.cal2Open.add(key);
+    /** Calendar 2.0: group by time of day or by rink (remembered). */
+    Actions.cal2SetBy = function (by) {
+        S.cal2By = by === 'rink' ? 'rink' : 'time';
+        SkateSettings.set('cal2By', S.cal2By);
+        Render.calendar();
+    };
+
+    /** Calendar 2.0: show or hide today's ended sessions. */
+    Actions.cal2ToggleEnded = function () {
+        S.cal2ShowEnded = !S.cal2ShowEnded;
         Render.calendar();
     };
 
@@ -2628,7 +2635,9 @@ window.SkateApp = (() => {
         $('btn-cal-next').onclick = () => calStep(1);
         $('btn-cal-today').onclick = () => { S.calWeekOffset = 0; S.cal2Day = SkateTime.todayKey(); Render.calendar(); };
         delegate($('calendar-view'), [
-            ['[data-cal2-rink]', (b) => Actions.cal2ToggleRink(b.dataset.cal2Rink)],
+            ['[data-cal2-by]', (b) => Actions.cal2SetBy(b.dataset.cal2By)],
+            ['[data-cal2-ended]', (b, e) => { e.stopPropagation(); Actions.cal2ToggleEnded(); }],
+            ['[data-cal2-fav]', (b, e) => { e.stopPropagation(); const p = S.filtered.find(x => P.id(x) === b.dataset.cal2Fav); if (p) Actions.toggleSaved(p); }],
             ['[data-cal2-day]', (b) => Actions.cal2SetDay(b.dataset.cal2Day)],
             ['.cal-daychip', (b) => SkateCalendar.scrollToDate($('calendar-view'), b.dataset.scrollDate)],
             ['.cal-cluster', (b, e) => { e.stopPropagation(); Actions.toggleCluster(b.dataset.cluster, b.dataset.hour); }],
@@ -2690,7 +2699,7 @@ window.SkateApp = (() => {
             Modal.close('settings-modal');
             Actions.switchView('programs');
             Render.programs();
-            SkateChat.Notify.toast(cal2.checked ? 'Calendar 2.0 is on: the rinks board in the Calendar tab.' : 'Back to the classic week grid.', 'info', 3500);
+            SkateChat.Notify.toast(cal2.checked ? 'Calendar 2.0 is on: the day planner in the Calendar tab.' : 'Back to the classic week grid.', 'info', 3500);
         };
         $('btn-whatsnew').onclick = () => { Modal.close('settings-modal'); Actions.openWhatsNew(); };
         $('btn-whatsnew-close').onclick = () => Modal.close('whatsnew-modal');
