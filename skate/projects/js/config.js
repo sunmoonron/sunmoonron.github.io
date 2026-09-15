@@ -41,7 +41,8 @@ window.SkateConfig = {
                 'Calendar time blocks say "Starts 6:00–6:30 PM · 5 sessions · 1–3 h" instead of stretching one block across the whole evening, and the legend lists only the types and states in the week on screen.',
                 'Filters sits beside the search box. A Show all button ends the list. Bigger ♡ and ⋯. The rink note moved onto the rink line (📝) and the official-page icon is a plain 📄.',
                 'Postal codes work in the locator: exact when OpenStreetMap knows the code, otherwise the postal area, marked approximate. The guide has a Back button. The saved-day card shows time ranges, durations, distance and any rink alert.',
-                'Fixed: the page flickering with black patches in Safari (the heart nudge animated a shadow; it now animates a ring that costs the browser nothing).'
+                'Fixed: the page flickering with black patches in Safari (the heart nudge animated a shadow; it now animates a ring that costs the browser nothing).',
+                'Calendar 2.0 (experimental, Settings → Display): three layouts that keep text out of the way. Hours lists a day as hour rows of small chips (start, rink, length); Rinks is a TV-guide timetable (one row per rink, bars as long as the session); Week is a heatmap (darker = more sessions on the ice that hour, tap to open). Research notes in docs/calendar-2.md.'
             ]
         },
         {

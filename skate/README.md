@@ -438,6 +438,13 @@ its own line. The ⋯ menu adds "Add this rink
 to my rinks". The first card carries a one-time "tap ♡ to save" hint
 (`heartHintDone` setting; a first save or "Got it" retires it).
 
+**Calendar 2.0 (experimental).** Settings → Display → "Calendar 2.0"
+swaps the week grid for `projects/js/calendar2.js`: Hours (a day as hour
+rows of small chips), Rinks (a TV-guide timetable, rows = rinks, bars as
+long as the session) and Week (a heatmap, darker = more sessions on the
+ice that hour). Same popover, same colour key. The research behind it and
+what to evaluate: `docs/calendar-2.md`.
+
 **toronto.ca is the ground truth.** City sessions the live cross-check
 flags as missing or cancelled are hidden (`computeFiltered`,
 `S.showDropped`, also excluded from the Filters counts), and live-only
