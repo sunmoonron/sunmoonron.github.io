@@ -72,7 +72,7 @@ const SkateRefresh = (() => {
 
         if (age !== null && age < CONFIRM_UNDER_DAYS) {
             const label = age < 1 ? 'today' : `${Math.floor(age)} day${Math.floor(age) === 1 ? '' : 's'} ago`;
-            if (!confirm(`Schedule data was refreshed ${label} — still request a fresh pull from the city? :O`)) {
+            if (!confirm(`The schedule data was refreshed ${label}. Still ask the City feed for a fresh pull?`)) {
                 return 'cancelled';   // caller decides what (not) to announce
             }
         }
@@ -90,10 +90,10 @@ const SkateRefresh = (() => {
         const accepted = results.filter(Boolean).length;
 
         if (accepted > 0) {
-            toast(`Refresh queued (${accepted}/${RELAYS.length} relays) — fresh data lands within ~30–45 min ⛸️`, 'success');
+            toast(`Request sent (${accepted} of ${RELAYS.length} relays). Fresh data lands within 30 to 45 minutes.`, 'success');
             return true;
         }
-        toast('Could not reach any relay — try again in a minute', 'error');
+        toast('Could not reach any relay. Try again in a minute.', 'error');
         return false;
     }
 

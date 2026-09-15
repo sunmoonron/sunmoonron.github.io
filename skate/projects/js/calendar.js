@@ -67,7 +67,7 @@ window.SkateCalendar = (() => {
 
             list.sort((a, b) => T.sortEpoch(a) - T.sortEpoch(b));
             if (!list.length) {
-                col.appendChild(el('div', { class: 'cal-empty' }, ['—']));
+                col.appendChild(el('div', { class: 'cal-empty' }, ['·']));
             }
             list.forEach(p => {
                 const saved = opts.isSaved(p);
@@ -96,7 +96,7 @@ window.SkateCalendar = (() => {
                 const timeTxt = opts.fmtClock(p['Start Time'] || '') + (p['End Time'] ? '–' + opts.fmtClock(p['End Time']) : '');
                 block.appendChild(el('span', { class: 'cal-block-time' }, [
                     timeTxt,
-                    ...(p.Paid ? [el('span', { class: 'cal-price' }, [` $${p.Price ?? ''}`])] : []),
+                    ...(p.Paid ? [el('span', { class: 'cal-price' }, [` $${p.Price == null ? '' : Number(p.Price).toFixed(2).replace(/\.00$/, '')}`])] : []),
                     ...(saved ? [el('span', { class: 'cal-heart', 'aria-label': 'saved' }, [' ♥'])] : [])
                 ]));
                 block.appendChild(el('span', { class: 'cal-block-title' }, [p.Activity || 'Skating']));

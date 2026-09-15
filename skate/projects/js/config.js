@@ -26,8 +26,21 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.3',
+    version: '3.4',
     changelog: [
+        {
+            v: '3.4', date: '2026-09-14', items: [
+                'Calmer first visit: no welcome form. New visitors start on Toronto leisure and figure skating, get the 20-second tour with a big Skip, and can turn Guides and Chats on in Settings whenever they like.',
+                'Filters, redesigned: three main types with an obvious Ages button under each, the day and city chips, then a More section for age, ended sessions, saved-only and order. Selected chips are readable in dark mode again.',
+                'Top bar now holds Refresh and the Paid switch. The third button is a List / Calendar switch, so it is always clear which view you are in and how to get back.',
+                'Sessions read cleaner: fewer icons, plain "Map" and "toronto.ca" links, prices as price tags, notes that wrap, and alert text that is never cut off.',
+                'The city pill is a picker: tap it to choose one or more cities, tap the x to go back to all. The map and rink list follow the same city choice.',
+                'Rinks and map: your rinks sit in their own section at the top with a count, and any session card can add its rink to your list from the more menu.',
+                'toronto.ca is the ground truth now: a City session that toronto.ca no longer lists is hidden instead of flagged, and sessions toronto.ca lists that the weekly export lacks are added. The counts live in the status line popover.',
+                'Settings regrouped into Display, Learn and share, and Community, with one button style throughout. Modals dim the page without changing its colour.',
+                'Type labels: Adapted is now Adaptive, and the leftover category is Ice Breakdancing.'
+            ]
+        },
         {
             v: '3.3', date: '2026-09-14', items: [
                 '🏙️ Four more towns: Stouffville (Clippers Sports Complex + Stouffville Arena), Ajax (Community Centre), Oshawa\'s city arenas (Delpark Homes Centre, Donevan Recreation Complex) and Pickering (Chestnut Hill Developments Rec Complex, Don Beer Arena) — Pickering\'s public skates are free',
@@ -175,26 +188,26 @@ window.SkateConfig = {
        visKey = the SkateSettings boolean that shows/hides the section
        (Programs has none — the schedule is always on). */
     views: [
-        { id: 'programs', label: '⛸️ Schedule' },
-        { id: 'guides',   label: '📖 Guides', visKey: 'showGuides' },
-        { id: 'chats',    label: '💬 Chats', badgeId: 'chats-badge', visKey: 'showChats' }
+        { id: 'programs', label: 'Schedule' },
+        { id: 'guides',   label: 'Guides', visKey: 'showGuides' },
+        { id: 'chats',    label: 'Chats', badgeId: 'chats-badge', visKey: 'showChats' }
     ],
 
     // Settings → Sections toggle buttons (independent, not radio)
     sectionToggles: [
-        { id: 'showGuides', seg: '📖 Guides' },
-        { id: 'showChats',  seg: '💬 Chats' }
+        { id: 'showGuides', seg: 'Guides' },
+        { id: 'showChats',  seg: 'Chats' }
     ],
 
     // Settings → Privacy toggle buttons (nostr box). `on` = the settings
     // value that renders the button ACTIVE (invisible is opt-in true,
     // DMs are opt-out false).
     privacyToggles: [
-        { id: 'invisible',        seg: '👻 Invisible',   on: true },
-        { id: 'dmsAllowed',       seg: '✉️ Allow DMs',   on: true, default: true },
+        { id: 'invisible',        seg: 'Invisible',   on: true },
+        { id: 'dmsAllowed',       seg: 'Allow DMs',   on: true, default: true },
         // third-party profanity APIs for PUBLIC rooms + guides (the on-device
         // word list is mandatory and always runs; private text never leaves)
-        { id: 'remoteModeration', seg: '🛡️ Cloud filter', on: true, default: true }
+        { id: 'remoteModeration', seg: 'Cloud filter', on: true, default: true }
     ],
 
     // Canonical URL the QR code + share links point at (location.href
@@ -229,16 +242,17 @@ window.SkateConfig = {
     /* ---------- Quick tour (spotlight steps; missing/hidden targets auto-skip) ---------- */
     // `sec` = how long the auto-playing guide lingers on the step.
     tourSteps: [
-        { sel: '#search-input',          title: 'Search',                text: 'Type a rink, a city or a session name — results filter as you type.', sec: 4 },
-        { sel: '#btn-filters',           title: 'Filters',               text: 'Leisure, hockey, figure and their age groups; a day; cities; your rinks; paid venues; order. Your picks are remembered.', sec: 6 },
-        { sel: '#btn-rinks',             title: 'Rinks & map',           text: 'Every rink on a map with distances from your location or an address you type. Star the ones that are yours.', sec: 6 },
-        { sel: '#btn-week',              title: 'Week view',             text: 'The whole week at a glance, colour-coded by type.', sec: 4 },
-        { sel: '#status-data',           title: 'How fresh is this?',    text: 'When the schedule, rink alerts and the toronto.ca cross-check were last updated. Tap to refresh.', sec: 5 },
-        { sel: '#program-list .program-item', title: 'A session',        text: 'Time, rink, ages. Red flags mean the City no longer lists it or a rink alert is up — the 🏛️ link lets you verify.', sec: 7 },
-        { sel: '#program-list .btn-copy', title: 'Copy · share · calendar', text: 'Copy details, share into a chat, or add the session to your calendar app.', sec: 5 },
-        { sel: '#weather-chip',          title: 'Dress for it',          text: 'Live temperature. Tap to pick a spot (Scarborough, Markham, Mississauga…).', sec: 4 },
-        { sel: '.view-tab[data-view="chats"]', title: 'Chats',           text: 'Public rooms, private groups and encrypted DMs — no account needed.', sec: 5 },
-        { sel: '#btn-settings',          title: 'Settings',              text: 'Theme, sharing, guides & chats, privacy. Enjoy the ice! ⛸️', sec: 4 }
+        { sel: '#search-input',          title: 'Search',                text: 'Type a rink, a city or a session name. Results filter as you type.', sec: 4 },
+        { sel: '#btn-filters',           title: 'Filters',               text: 'Leisure, figure and hockey with their age groups, a day, cities, your rinks and the order. Your picks are remembered on this device.', sec: 6 },
+        { sel: '#active-filters',        title: 'Your active filters',   text: 'Each pill is one filter. Tap the x to remove it. Tap the city pill to pick other cities.', sec: 5 },
+        { sel: '#btn-rinks',             title: 'Rinks and map',         text: 'Every rink on a map, with distances from your location or an address you type. Star the rinks that are yours.', sec: 6 },
+        { sel: '#view-seg',              title: 'List or calendar',      text: 'The same sessions as a list or as a week grid. Tap the other side to switch back.', sec: 4 },
+        { sel: '#btn-paid',              title: 'Paid venues',           text: 'Paid rinks are hidden until you switch this on. Prices then show on each session.', sec: 4 },
+        { sel: '#btn-refresh',           title: 'Refresh',               text: 'Reloads the schedule, rink alerts and live spots. The status line under the buttons says when things were last checked.', sec: 5 },
+        { sel: '#program-list .program-item', title: 'A session',        text: 'Time, rink, ages and price. Map opens directions. The toronto.ca link opens the rink page the staff go by.', sec: 7 },
+        { sel: '#program-list .btn-copy', title: 'More',                 text: 'Copy the details, add the session to your calendar, share it into a chat, or add this rink to your rinks.', sec: 5 },
+        { sel: '#weather-chip',          title: 'Dress for it',          text: 'Live temperature. Tap it to pick a spot, from Scarborough to Mississauga.', sec: 4 },
+        { sel: '#btn-settings',          title: 'Settings',              text: 'Theme, time format, sharing, the community sections and privacy. Enjoy the ice.', sec: 4 }
     ],
 
 
@@ -270,19 +284,19 @@ window.SkateConfig = {
         { id: 'hockey',    label: 'Hockey',    keywords: ['shinny', 'hockey', 'stick'] },
         { id: 'figure',    label: 'Figure',    keywords: ['figure', 'ticket ice'] },
         { id: 'speed',     label: 'Speed',     keywords: ['speed'] },
-        { id: 'adapted',   label: 'Adapted',   keywords: ['adapted', 'adaptive'] },
+        { id: 'adapted',   label: 'Adaptive',  keywords: ['adapted', 'adaptive'] },
         { id: 'ringette',  label: 'Ringette',  keywords: ['ringette'] },
-        { id: 'other',     label: 'Other',     keywords: [] }
+        { id: 'other',     label: 'Ice Breakdancing', keywords: [] }   // everything that is none of the above
     ],
 
     // Activity → badge tag. First keyword hit wins (order matters).
     activityTags: [
-        { keywords: ['shinny', 'hockey', 'stick'], cls: 'hockey',  label: '🏒 Hockey' },
-        { keywords: ['figure', 'ticket ice'],    cls: 'figure',   label: '⛸️ Figure' },
-        { keywords: ['speed'],                   cls: 'speed',    label: '⛸️ Speed' },
-        { keywords: LEISURE_WORDS,               cls: 'leisure',  label: '⛸️ Leisure' },
-        { keywords: ['adapted', 'adaptive'],     cls: 'adapted',  label: '♿ Adapted' },
-        { keywords: ['ringette'],                cls: 'ringette', label: '🥏 Ringette' }
+        { keywords: ['shinny', 'hockey', 'stick'], cls: 'hockey',  label: 'Hockey' },
+        { keywords: ['figure', 'ticket ice'],    cls: 'figure',   label: 'Figure' },
+        { keywords: ['speed'],                   cls: 'speed',    label: 'Speed' },
+        { keywords: LEISURE_WORDS,               cls: 'leisure',  label: 'Leisure' },
+        { keywords: ['adapted', 'adaptive'],     cls: 'adapted',  label: 'Adaptive' },
+        { keywords: ['ringette'],                cls: 'ringette', label: 'Ringette' }
     ],
 
     days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
@@ -324,8 +338,8 @@ window.SkateConfig = {
     /* ---------- Per-location footnotes (keyed by city Location ID) ---------- */
     // Shown as a tappable ℹ️ next to the location name.
     locationNotes: {
-        '712': 'Don Montgomery has a live rink-info TV on site — the lobby screen shows today\'s actual ice times, worth a glance when you arrive.',
-        '3491': 'Moss Park Arena: a CSA-approved helmet is MANDATORY for all public skaters, and kids 7 and under must be accompanied on the ice by an adult.'
+        '712': 'Don Montgomery has a live rink-info TV on site. The lobby screen shows today\'s actual ice times, worth a glance when you arrive.',
+        '3491': 'Moss Park Arena: a CSA-approved helmet is mandatory for all public skaters, and kids 7 and under must be accompanied on the ice by an adult.'
     },
 
     /* ---------- Data-source hints (keyed by program.Source) ---------- */
@@ -333,39 +347,39 @@ window.SkateConfig = {
     sourceInfo: {
         'city':        { city: 'Toronto', label: 'City of Toronto', verified: true, site: 'toronto.ca' },
         'canlan-york': { city: 'Toronto', label: 'Canlan Sports (York)', verified: true, site: 'Canlan',
-                         note: 'Third-party paid venue — register on their site; sessions can sell out or change.' },
+                         note: 'Third-party paid venue. Register on their site; sessions can sell out or change.' },
         'canlan-etobicoke':   { city: 'Toronto', label: 'Canlan Sports (Etobicoke)', verified: true, site: 'Canlan',
-                         note: 'Third-party paid venue — register on their site; sessions can sell out or change.' },
+                         note: 'Third-party paid venue. Register on their site; sessions can sell out or change.' },
         'canlan-scarborough': { city: 'Toronto', label: 'Canlan Sports (Scarborough)', verified: true, site: 'Canlan',
-                         note: 'Third-party paid venue — register on their site; sessions can sell out or change.' },
+                         note: 'Third-party paid venue. Register on their site; sessions can sell out or change.' },
         'canlan-oakville':    { city: 'Oakville', label: 'Canlan Sports (Oakville)', verified: true, site: 'Canlan',
-                         note: 'Third-party paid venue — register on their site; Senior Skate is listed at $0.' },
+                         note: 'Third-party paid venue. Register on their site; Senior Skate is listed at $0.' },
         'canlan-oshawa':      { city: 'Oshawa', label: 'Canlan Sports (Oshawa)', verified: true, site: 'Canlan',
-                         note: 'Third-party paid venue — register on their site; sessions can sell out or change.' },
+                         note: 'Third-party paid venue. Register on their site; sessions can sell out or change.' },
         'markham':     { city: 'Markham', label: 'City of Markham', verified: true, site: 'markham.ca',
-                         note: 'Official Markham booking data — prices vary by age ($0 for some groups); most drop-ins open for booking 21h before start.' },
+                         note: 'Official Markham booking data. Prices vary by age ($0 for some groups); most drop-ins open for booking 21 hours before the start.' },
         'vaughan':     { city: 'Vaughan', label: 'City of Vaughan', verified: true, site: 'vaughan.ca',
-                         note: 'Official Vaughan booking data — drop-in skating and shinny are free for Vaughan RESIDENTS (proof of address); the city adds a 20% non-resident surcharge to its fees, so non-residents should ask at the desk. Ticket Ice figure skating $10.50.' },
+                         note: 'Official Vaughan booking data. Drop-in skating and shinny are free for Vaughan residents (proof of address). The city adds a 20% non-resident surcharge to its fees, so non-residents should ask at the desk. Ticket Ice figure skating $10.50.' },
         'richmondhill': { city: 'Richmond Hill', label: 'City of Richmond Hill', verified: true, site: 'richmondhill.ca',
-                         note: 'Official Richmond Hill calendar (Ed Sackfield Arena) — adult $5.90 skate, $8.70 shinny/figure/stick & puck; tickets at the arena desk from 30 min before.' },
+                         note: 'Official Richmond Hill calendar (Ed Sackfield Arena). Adult $5.90 skate, $8.70 shinny, figure and stick and puck; tickets at the arena desk from 30 minutes before.' },
         'brampton':    { city: 'Brampton', label: 'City of Brampton', verified: true, site: 'brampton.ca',
-                         note: 'Official Brampton booking data — adult $2.96 + tax, child/youth $2.15, 65+ residents free; registration opens 25 h ahead for residents.' },
+                         note: 'Official Brampton booking data. Adult $2.96 plus tax, child and youth $2.15, residents 65 and over free; registration opens 25 hours ahead for residents.' },
         'oakville':    { city: 'Oakville', label: 'Town of Oakville', verified: true, site: 'oakville.ca',
-                         note: 'Official Oakville booking data — adult $5.38, child/youth/65+ $4.31 (+ tax); members $0.' },
+                         note: 'Official Oakville booking data. Adult $5.38, child, youth and 65 plus $4.31 (plus tax); members $0.' },
         'burlington':  { city: 'Burlington', label: 'City of Burlington', verified: true, site: 'burlington.ca',
-                         note: 'Official Burlington booking data — flat $3.50 per skate; pass holders $0.' },
+                         note: 'Official Burlington booking data. Flat $3.50 per skate; pass holders $0.' },
         'mississauga': { city: 'Mississauga', label: 'City of Mississauga', verified: true, site: 'mississauga.ca',
-                         note: 'Official Mississauga drop-in calendar — adult $5.21, child/youth/55+ $4.17 incl. tax (by-law rates; not sold online — tickets at the door 30 min before); 65+ residents and kids 3 and under free.' },
+                         note: 'Official Mississauga drop-in calendar. Adult $5.21, child, youth and 55 plus $4.17 including tax (by-law rates, tickets at the door 30 minutes before); residents 65 and over and kids 3 and under free.' },
         'mosspark':    { city: 'Toronto', label: 'mossparkarena.com', verified: false, site: 'mossparkarena.com',
-                         note: 'Schedule scraped from their website — there is NO live feed for this arena.' },
+                         note: 'Schedule read from their website. There is no live feed for this arena.' },
         'stouffville': { city: 'Stouffville', label: 'Whitchurch-Stouffville', verified: false, site: 'townofws.ca',
-                         note: 'Weekly schedule read from the Town\'s drop-in PDF (no live feed) — adult $5.50 skate / $7.50 shinny & stick and puck, youth & 60+ less; cash, debit or credit at the door.' },
+                         note: 'Weekly schedule read from the Town\'s drop-in PDF, no live feed. Adult $5.50 skate, $7.50 shinny and stick and puck, youth and 60 plus less; cash, debit or credit at the door.' },
         'ajax':        { city: 'Ajax', label: 'Town of Ajax', verified: false, site: 'ajax.ca',
-                         note: 'Weekly schedule read from the Town\'s skating PDF (no live feed) — adult $5.25 skate / $7.90 shinny, youth & 65+ $3.50 / $5.65; check ajax.ca/skating for cancellations.' },
+                         note: 'Weekly schedule read from the Town\'s skating PDF, no live feed. Adult $5.25 skate, $7.90 shinny; youth and 65 plus $3.50 and $5.65. Check ajax.ca/skating for cancellations.' },
         'oshawa':      { city: 'Oshawa', label: 'City of Oshawa', verified: true, site: 'oshawa.ca',
-                         note: 'Official Oshawa booking data (activeOshawa) — adult $5.25 skate / $8.50 shinny, child & youth $3.50, family $10.75; pay at the desk, drop in only.' },
+                         note: 'Official Oshawa booking data (activeOshawa). Adult $5.25 skate, $8.50 shinny, child and youth $3.50, family $10.75; pay at the desk, drop in only.' },
         'pickering':   { city: 'Pickering', label: 'City of Pickering', verified: false, site: 'pickering.ca',
-                         note: 'Weekly schedule read from pickering.ca (no live feed) — public skating is FREE at both arenas; listed cancellation dates are already removed.' }
+                         note: 'Weekly schedule read from pickering.ca, no live feed. Public skating is free at both arenas; the cancellation dates the City lists are already removed.' }
     },
 
     // Per-program action buttons, in render order. Share lives inside the
@@ -373,15 +387,15 @@ window.SkateConfig = {
     // icon on every row.
     programActions: [
         { act: 'fav',   cls: 'btn-favorite' },
-        { act: 'copy',  cls: 'btn-copy', title: 'Copy, share or add to calendar', text: '📋' }
+        { act: 'copy',  cls: 'btn-copy', title: 'More: copy, calendar, share, add this rink to your rinks', text: '⋯' }
     ],
 
     /* ---------- Chats panel ---------- */
     chatFilters: [
         { id: 'all',    label: 'All' },
-        { id: 'groups', label: '👥 Groups', badgeId: 'cf-groups-badge' },
-        { id: 'dms',    label: '💬 DMs',    badgeId: 'cf-dms-badge' },
-        { id: 'muted',  label: '🔇 Muted',  chipId: 'cf-muted', dynamic: true }
+        { id: 'groups', label: 'Groups', badgeId: 'cf-groups-badge' },
+        { id: 'dms',    label: 'DMs',    badgeId: 'cf-dms-badge' },
+        { id: 'muted',  label: 'Muted',  chipId: 'cf-muted', dynamic: true }
     ],
 
     // Default public rooms. autoJoin rooms are seeded once on first run
@@ -422,27 +436,30 @@ window.SkateConfig = {
        Menus in app.js are ordered lists of these action ids; labels live
        here so wording is data, availability/handlers stay in code. */
     actions: {
-        reply:        { label: '↩ Reply' },
-        copyText:     { label: '📋 Copy text' },
-        openProgram:  { label: '⛸️ Open in Programs' },
-        openGuide:    { label: '📖 Open guide' },
-        retry:        { label: '🔁 Retry send' },
-        message:      { label: '💬 Message {name}' },
-        mute:         { label: '🔇 Mute {name}', danger: true },
-        unmute:       { label: '🔊 Unmute {name}' },
-        copyInvite:   { label: '🔗 Copy invite link' },
-        rename:       { label: '✏️ Rename group' },
-        clearHistory: { label: '🧹 Clear history (this device)' },
-        leaveGroup:   { label: '🚪 Leave group', danger: true },
-        leaveRoom:    { label: '🚪 Leave room',  danger: true },
-        deleteThread: { label: '🗑 Delete conversation', danger: true },
-        copyDetails:  { label: '📋 Copy details' },
-        copyLink:     { label: '🔗 Copy link' },
-        addCalendar:  { label: '📆 Add to calendar…' },
-        calGoogle:    { label: '📅 Google Calendar ↗' },
-        calOutlook:   { label: '📅 Outlook.com ↗' },
-        calIcs:       { label: '🍎 Apple / other (.ics file)' },
-        openOfficial: { label: '🏛️ Verify on {site} ↗' }
+        reply:        { label: 'Reply' },
+        copyText:     { label: 'Copy text' },
+        openProgram:  { label: 'Open in the schedule' },
+        openGuide:    { label: 'Open guide' },
+        retry:        { label: 'Retry send' },
+        message:      { label: 'Message {name}' },
+        mute:         { label: 'Mute {name}', danger: true },
+        unmute:       { label: 'Unmute {name}' },
+        copyInvite:   { label: 'Copy invite link' },
+        rename:       { label: 'Rename group' },
+        clearHistory: { label: 'Clear history on this device' },
+        leaveGroup:   { label: 'Leave group', danger: true },
+        leaveRoom:    { label: 'Leave room',  danger: true },
+        deleteThread: { label: 'Delete conversation', danger: true },
+        copyDetails:  { label: 'Copy details' },
+        copyLink:     { label: 'Copy link' },
+        addCalendar:  { label: 'Add to calendar' },
+        calGoogle:    { label: 'Google Calendar ↗' },
+        calOutlook:   { label: 'Outlook.com ↗' },
+        calIcs:       { label: 'Apple or other (.ics file)' },
+        openOfficial: { label: 'Verify on {site} ↗' },
+        addRink:      { label: 'Add {rink} to my rinks' },
+        removeRink:   { label: 'Remove {rink} from my rinks' },
+        shareChat:    { label: 'Share to chat' }
     },
 
     /* ---------- Hash routes (#p=…, #guide=…, invite fallback) ---------- */

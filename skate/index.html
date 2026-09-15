@@ -16,7 +16,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=10">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=3">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=14">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=15">
 </head>
 <body>
     <div class="app" id="app">
@@ -24,6 +24,8 @@
         <div class="top-bar">
             <h1>Toronto Skating</h1>
             <div class="top-bar-actions">
+                <button class="top-toggle" id="btn-paid" title="Show or hide paid venues. Off = free sessions only." aria-pressed="false"><span class="top-toggle-dot" aria-hidden="true"></span>Paid</button>
+                <button class="btn-icon btn-refresh" id="btn-refresh" title="Refresh the schedule, rink alerts and live spots" aria-label="Refresh">↻</button>
                 <button class="btn-icon btn-settings" id="btn-settings" title="Settings" aria-label="Settings">⚙️<span class="new-dot hidden" id="settings-dot"></span></button>
             </div>
         </div>
@@ -38,16 +40,19 @@
             <div class="view-panel panel-programs active" id="programs-panel">
                 <!-- pull-to-refresh indicator (touch only; grows as you pull) -->
                 <div class="ptr" id="ptr" aria-hidden="true"><span class="ptr-icon">↓</span><span class="ptr-text">Pull to refresh</span></div>
-                <div class="panel-title">⛸️ Schedule</div>
+                <div class="panel-title">Schedule</div>
                 <div class="search-box">
                     <input type="text" id="search-input" placeholder="Search rinks, cities, sessions…" autocomplete="off" aria-label="Search">
                     <button id="btn-search-clear" class="search-clear hidden" aria-label="Clear search">✕</button>
                 </div>
 
                 <div class="toolbar" id="toolbar">
-                    <button id="btn-filters" class="tb-btn" title="Type, age, day, city, saved, paid, order">Filters<span class="tb-count hidden" id="filters-count"></span></button>
+                    <button id="btn-filters" class="tb-btn" title="Type, age groups, day, cities, your rinks, order">Filters<span class="tb-count hidden" id="filters-count"></span></button>
                     <button id="btn-rinks" class="tb-btn" title="Map of every rink, distances from your spot, your rinks">Rinks &amp; map</button>
-                    <button id="btn-week" class="tb-btn" title="Week-at-a-glance calendar">Week</button>
+                    <div class="view-seg" id="view-seg" role="group" aria-label="List or calendar">
+                        <button id="btn-list" class="active" title="Sessions as a list, grouped by day" aria-pressed="true">List</button>
+                        <button id="btn-cal" title="Sessions as a week grid" aria-pressed="false">Calendar</button>
+                    </div>
                 </div>
 
                 <!-- active filters as removable pills (generated) -->
@@ -55,8 +60,8 @@
 
                 <!-- one quiet line: count + data freshness (tap for details) + weather (tap to pick a spot) -->
                 <div class="status-line">
-                    <button class="status-btn" id="status-data" title="Data freshness — tap for details and refresh">Loading…</button>
-                    <button class="status-btn weather-chip hidden" id="weather-chip" aria-label="Current weather — tap to choose the spot"></button>
+                    <button class="status-btn" id="status-data" title="When the data was last checked. Tap for details.">Loading…</button>
+                    <button class="status-btn weather-chip hidden" id="weather-chip" aria-label="Current weather. Tap to choose the spot."></button>
                 </div>
 
                 <!-- Next saved session countdown (only when something is saved & upcoming) -->
@@ -84,14 +89,14 @@
 
             <!-- Guides Panel -->
             <div class="view-panel panel-guides" id="guides-panel">
-                <div class="panel-title">📖 Guides</div>
+                <div class="panel-title">Guides</div>
                 <div id="guides-home">
                     <div class="guides-header">
                         <div>
-                            <h3>📖 Skater guides</h3>
-                            <p class="guides-sub">Written by the community — rinks, gear, first-lap tips. Found a bug or have an idea for this site? 🐛💡 That lives here too.</p>
+                            <h3>Skater guides</h3>
+                            <p class="guides-sub">Written by the community: rinks, gear, first-lap tips. Found a bug or have an idea for this site? That lives here too.</p>
                         </div>
-                        <button class="btn-primary" id="btn-write-guide">✍️ Write</button>
+                        <button class="btn-primary" id="btn-write-guide">Write</button>
                     </div>
                     <!-- Category chips: generated from SkateConfig.guideCategories -->
                     <div class="filter-row" id="guide-cat-filters"></div>
@@ -117,19 +122,19 @@
 
                 <div id="guide-write" class="hidden">
                     <button class="btn-back-inline" id="btn-write-back">← Cancel</button>
-                    <h3>✍️ Write a guide</h3>
-                    <p class="guides-sub">Share what you wish you'd known — or file a 🐛 bug report / 💡 suggestion for this site. Plain text, no brand-shilling; the community votes with real effort.</p>
+                    <h3>Write a guide</h3>
+                    <p class="guides-sub">Share what you wish you had known, or file a bug report or suggestion for this site. Plain text, no brand-shilling; the community votes with real effort.</p>
                     <input type="text" id="guide-title-input" maxlength="80" placeholder="Title (e.g. 'Renting skates downtown: the real options')">
                     <select id="guide-cat-input"><!-- generated from SkateConfig.guideCategories --></select>
                     <textarea id="guide-body-input" maxlength="6000" rows="10" placeholder="Your guide… (at least a few sentences)"></textarea>
                     <button class="btn-primary" id="btn-guide-submit">Publish guide</button>
-                    <p class="pow-hint">Publishing takes a few seconds — your device does a small proof-of-work so spam is expensive. ⛏️ Guides are public: the text is checked by a third-party profanity filter unless you switch that off in ⚙️ Settings (🛡️); the on-device word list always applies.</p>
+                    <p class="pow-hint">Publishing takes a few seconds: your device does a small proof-of-work so spam is expensive. Guides are public. The text is checked by a third-party profanity filter unless you switch that off in Settings; the on-device word list always applies.</p>
                 </div>
             </div>
 
             <!-- Chats Panel (groups + DMs, unified) -->
             <div class="view-panel panel-chats chat-panel-view" id="chats-panel">
-                <div class="panel-title">💬 Chats</div>
+                <div class="panel-title">Chats</div>
 
                 <!-- List mode -->
                 <div id="chats-list-mode" class="chats-list-mode">
@@ -158,7 +163,7 @@
                     </div>
 
                     <div class="members-bar hidden" id="members-bar">
-                        <span class="members-hint" title="Tap a member to message or mute them">👥</span>
+                        <span class="members-hint" title="Tap a member to message or mute them">Members</span>
                         <div id="members-list"></div>
                     </div>
 
@@ -180,100 +185,71 @@
         </div>
     </div>
 
-    <!-- First-visit setup (one-time; everything editable later in ⚙️ Settings) -->
-    <div class="modal-overlay hidden" id="setup-modal">
-        <div class="modal onboarding">
-            <div class="onboard-ice">⛸️</div>
-            <h2>Welcome</h2>
-            <p>Public skating across Toronto and the GTA. Two optional extras:</p>
-            <div class="setup-section">
-                <label class="setup-toggle">
-                    <input type="checkbox" id="setup-guides">
-                    <span><strong>📖 Guides</strong> — rink write-ups &amp; tips from skaters</span>
-                </label>
-                <label class="setup-toggle">
-                    <input type="checkbox" id="setup-chats">
-                    <span><strong>💬 Chats</strong> — public rooms, private groups, DMs</span>
-                </label>
-                <p class="settings-hint">Both run on the open Nostr network and connect only if you turn them on.</p>
-            </div>
-            <div class="setup-section">
-                <div class="setup-rinks">
-                    <button id="setup-nearest">📍 Rinks near me</button>
-                    <button id="setup-pick">⭐ Pick my rinks</button>
-                </div>
-                <p class="settings-hint" id="setup-rink-status">Or skip — every rink shows.</p>
-            </div>
-            <button class="btn-primary setup-done" id="setup-done">Take me to the ice ⛸️</button>
-            <p class="onboard-note">Change any of this later in ⚙️ Settings.</p>
-        </div>
-    </div>
-
     <!-- What's new (version changelog) -->
     <div class="modal-overlay hidden" id="whatsnew-modal">
         <div class="modal">
             <div class="modal-header">
-                <h3>🆕 What's new</h3>
+                <h3>What's new</h3>
                 <button class="btn-icon" id="btn-whatsnew-close" aria-label="Close">✕</button>
             </div>
             <div id="whatsnew-list"></div>
         </div>
     </div>
 
-    <!-- Settings modal -->
+    <!-- Settings modal: Display · Learn and share · Community -->
     <div class="modal-overlay hidden" id="settings-modal">
-        <div class="modal">
+        <div class="modal settings-box">
             <div class="modal-header">
-                <h3>⚙️ Settings</h3>
+                <h3>Settings</h3>
                 <button class="btn-icon" id="btn-settings-close" aria-label="Close settings">✕</button>
             </div>
-            <label class="settings-field">
-                <span>Time format</span>
-                <div class="seg-control" id="settings-timefmt"></div>
-            </label>
-            <label class="settings-field">
-                <span>Appearance</span>
-                <div class="seg-control" id="settings-theme"></div>
-            </label>
-            <div class="settings-field">
-                <span>Share this site</span>
-                <div class="settings-inline">
-                    <button class="btn-primary" id="btn-show-qr">Show QR code</button>
-                    <button id="btn-copy-site">Copy link</button>
+
+            <section class="sgroup">
+                <h4>Display</h4>
+                <div class="settings-field">
+                    <span>Time format</span>
+                    <div class="seg-control" id="settings-timefmt"></div>
                 </div>
-            </div>
-            <div class="settings-field">
-                <span>Learn the app</span>
-                <div class="settings-inline tour-buttons">
-                    <button class="btn-primary" id="btn-play-guide">▶️ Watch the guide</button>
+                <div class="settings-field">
+                    <span>Appearance</span>
+                    <div class="seg-control" id="settings-theme"></div>
+                </div>
+            </section>
+
+            <section class="sgroup">
+                <h4>Learn and share</h4>
+                <div class="sbtns">
+                    <button id="btn-play-guide">Watch the guide</button>
                     <button id="btn-start-tour">Quick tour</button>
                     <button id="btn-whatsnew">What's new</button>
+                    <button id="btn-show-qr">QR code</button>
+                    <button id="btn-copy-site">Copy site link</button>
                 </div>
-            </div>
+            </section>
 
-            <!-- Community features ride the open Nostr network — boxed apart -->
-            <div class="nostr-box">
-                <div class="nostr-box-head"><span class="nostr-bolt">⚡</span> Community · powered by Nostr</div>
+            <section class="sgroup community">
+                <h4>Community <span class="sgroup-sub">optional, on the open Nostr network</span></h4>
                 <div class="settings-field">
                     <span>Sections</span>
                     <div class="seg-control seg-multi" id="settings-sections"></div>
-                    <p class="settings-hint">The schedule is always on. Off = no network connections for that section.</p>
+                    <p class="settings-hint">The schedule is always on. A section that is off makes no network connections.</p>
                 </div>
                 <div class="settings-field">
                     <span>Privacy</span>
                     <div class="seg-control seg-multi" id="settings-privacy"></div>
-                    <p class="settings-hint">Invisible: never listed as online. Allow DMs: accept private messages on this device. Cloud filter: public rooms and guides go through a third-party profanity check before sending; off = the on-device word list only (it always runs). DMs and private groups never leave your device either way.</p>
+                    <p class="settings-hint">Invisible: never listed as online. Allow DMs: accept private messages on this device. Cloud filter: public rooms and guides go through a third-party profanity check before sending; off means the on-device word list only (it always runs). DMs and private groups never leave your device either way.</p>
                 </div>
-                <label class="settings-field">
+                <div class="settings-field">
                     <span>Chat name</span>
                     <div class="settings-inline">
-                        <input type="text" id="settings-name" maxlength="24" placeholder="Your chat name">
-                        <button class="btn-primary" id="btn-save-name">Save</button>
+                        <input type="text" id="settings-name" maxlength="24" placeholder="Your chat name" aria-label="Chat name">
+                        <button id="btn-save-name">Save</button>
                     </div>
-                </label>
-                <p class="settings-hint">Your identity is a keypair in this browser — no account, no email. Clearing site data resets it. Muted people are unmuted from their name in any chat.</p>
-            </div>
-            <p class="settings-hint">Schedule &amp; alerts: <a href="https://open.toronto.ca/open-data-licence/" target="_blank" rel="noopener">Open Government Licence – Toronto</a> plus official Markham, Vaughan, Richmond Hill, Mississauga, Brampton, Oakville, Burlington and Canlan feeds. Weather by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0). Map © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors.</p>
+                    <p class="settings-hint">Your identity is a keypair in this browser: no account, no email. Clearing site data resets it. Muted people are unmuted from their name in any chat.</p>
+                </div>
+            </section>
+
+            <p class="settings-hint credits">Schedule and alerts: <a href="https://open.toronto.ca/open-data-licence/" target="_blank" rel="noopener">Open Government Licence, Toronto</a> plus official Markham, Vaughan, Richmond Hill, Stouffville, Mississauga, Brampton, Oakville, Burlington, Pickering, Ajax, Oshawa and Canlan feeds. Weather by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0). Map © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors.</p>
         </div>
     </div>
 
@@ -305,11 +281,11 @@
         </div>
     </div>
 
-    <!-- Rinks & map: one view for the map, "near me", and your rinks -->
+    <!-- Rinks and map: one view for the map, distances and your rinks -->
     <div class="modal-overlay hidden" id="rinks-modal">
         <div class="modal rinks-box">
             <div class="modal-header">
-                <h3 id="rinks-title">🗺️ Rinks</h3>
+                <h3 id="rinks-title">Rinks</h3>
                 <div class="map-header-actions">
                     <div class="seg-control map-filter-seg" id="map-filter-seg">
                         <button data-mapfilter="all" class="active">All</button>
@@ -320,19 +296,20 @@
                 </div>
             </div>
             <div class="rinks-locate">
-                <button class="btn-primary" id="btn-share-location" title="Distances from where you are right now">📍 Use my location</button>
+                <button id="btn-share-location" title="Distances from where you are right now">Use my location</button>
                 <input type="text" id="locator-input" placeholder="Address or postal code" autocomplete="off" aria-label="Address or postal code">
-                <button id="btn-locator-search">Go</button>
+                <button id="btn-locator-search" class="btn-primary">Go</button>
             </div>
             <p class="settings-hint locator-status" id="locator-status"></p>
             <div class="rinks-split">
                 <div id="map-canvas" class="map-canvas"><div class="loading">Loading map…</div></div>
                 <div class="rinks-list-wrap">
-                    <input type="text" id="rinks-search" placeholder="Find a rink…" autocomplete="off" aria-label="Find a rink">
+                    <div class="rinks-scope" id="rinks-scope"></div>
+                    <input type="text" id="rinks-search" placeholder="Find a rink" autocomplete="off" aria-label="Find a rink">
                     <div id="rinks-list" class="rinks-list"></div>
                 </div>
             </div>
-            <p class="settings-hint rinks-hint">★ marks your rinks (the ⭐ My rinks pill filters to them). Address search by OpenStreetMap; your location stays in this browser.</p>
+            <p class="settings-hint rinks-hint">★ marks your rinks. Address search by OpenStreetMap; your location stays in this browser.</p>
         </div>
     </div>
 
@@ -340,21 +317,21 @@
     <div class="modal-overlay hidden" id="discover-modal">
         <div class="modal">
             <div class="modal-header">
-                <h3>＋ New conversation</h3>
+                <h3>New conversation</h3>
                 <button class="btn-icon" id="btn-discover-close" aria-label="Close">✕</button>
             </div>
-            <h4 class="modal-sub">🌐 Public rooms</h4>
+            <h4 class="modal-sub">Public rooms</h4>
             <div id="discover-rooms"></div>
             <hr class="modal-hr">
-            <h4 class="modal-sub">🔒 Create a private group</h4>
+            <h4 class="modal-sub">Create a private group</h4>
             <div class="create-group-card">
                 <input type="text" id="group-name-input" placeholder="Group name" maxlength="40">
                 <input type="text" id="group-password-input" placeholder="Password (optional)" autocomplete="off">
-                <p class="settings-hint">With a password, the invite link alone won't get anyone in — they'll be asked for it.</p>
+                <p class="settings-hint">With a password, the invite link alone won't get anyone in. They will be asked for it.</p>
                 <button class="btn-primary" id="btn-create-group">Create group</button>
             </div>
             <hr class="modal-hr">
-            <h4 class="modal-sub">🔗 Join with an invite link</h4>
+            <h4 class="modal-sub">Join with an invite link</h4>
             <div class="settings-inline">
                 <input type="text" id="join-link-input" placeholder="Paste an invite link…">
                 <button class="btn-primary" id="btn-join-link">Join</button>
@@ -366,13 +343,13 @@
     <div class="modal-overlay hidden" id="invite-modal">
         <div class="modal">
             <div class="modal-header">
-                <h3>🔗 Group invite</h3>
+                <h3>Group invite</h3>
                 <button class="btn-icon" id="btn-invite-close" aria-label="Close">✕</button>
             </div>
             <p>You've been invited to join:</p>
             <p class="invite-name" id="invite-name">Skating Group</p>
             <div class="settings-field hidden" id="invite-pw-field">
-                <span>This group is password-protected 🔐</span>
+                <span>This group is password-protected</span>
                 <input type="password" id="invite-pw-input" placeholder="Group password" autocomplete="off">
             </div>
             <p class="settings-hint invite-error" id="invite-error"></p>
@@ -387,12 +364,12 @@
     <div class="modal-overlay hidden" id="share-modal">
         <div class="modal">
             <div class="modal-header">
-                <h3 id="share-title">📤 Share to…</h3>
+                <h3 id="share-title">Share to…</h3>
                 <button class="btn-icon" id="btn-share-close" aria-label="Close">✕</button>
             </div>
             <ul class="conversation-list share-dest-list" id="share-dest-list"></ul>
             <div class="chat-empty hidden" id="share-empty">
-                <p>No conversations yet — join a room or start a group first.</p>
+                <p>No conversations yet. Join a room or start a group first.</p>
                 <button class="btn-primary" id="btn-share-discover">Browse rooms</button>
             </div>
         </div>
@@ -406,7 +383,7 @@
     <script src="../assets/js/nostr.bundle.js"></script>
     <!-- profanity-list.js is injected lazily by app.js bootCommunity() —
          schedule-only visits (community sections hidden) never download it -->
-    <script src="projects/js/config.js?v=16"></script>
+    <script src="projects/js/config.js?v=17"></script>
     <script src="projects/js/settings.js?v=7"></script>
     <script src="projects/js/moderation.js?v=4"></script>
     <script src="projects/js/nostr-core.js?v=2"></script>
@@ -416,14 +393,14 @@
     <script src="projects/js/geo.js?v=3"></script>
     <script src="projects/js/live.js?v=2"></script>
     <script src="projects/js/weather.js?v=2"></script>
-    <script src="projects/js/alerts.js?v=3"></script>
-    <script src="projects/js/chat-v2.js?v=8"></script>
+    <script src="projects/js/alerts.js?v=4"></script>
+    <script src="projects/js/chat-v2.js?v=9"></script>
     <script src="projects/js/guides.js?v=4"></script>
     <script src="projects/js/ui.js?v=2"></script>
-    <script src="projects/js/calendar.js?v=4"></script>
-    <script src="projects/js/map.js?v=2"></script>
-    <script src="projects/js/tour.js?v=3"></script>
-    <script src="projects/js/app.js?v=18"></script>
+    <script src="projects/js/calendar.js?v=5"></script>
+    <script src="projects/js/map.js?v=3"></script>
+    <script src="projects/js/tour.js?v=4"></script>
+    <script src="projects/js/app.js?v=19"></script>
     <script src="projects/js/refresh.js?v=4"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)

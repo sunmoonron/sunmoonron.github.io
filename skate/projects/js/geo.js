@@ -109,8 +109,8 @@ window.SkateGeo = (() => {
             if (!navigator.geolocation) return reject(new Error('This browser has no location support'));
             navigator.geolocation.getCurrentPosition(
                 pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, label: 'My location', ts: Date.now() }),
-                err => reject(new Error(err.code === 1 ? 'Location permission denied — type an address instead'
-                    : 'Could not get your location — type an address instead')),
+                err => reject(new Error(err.code === 1 ? 'Location permission denied. Type an address instead.'
+                    : 'Could not get your location. Type an address instead.')),
                 { timeout: 12000, maximumAge: 300000 }
             );
         });
@@ -130,11 +130,11 @@ window.SkateGeo = (() => {
         let hit = null;
         for (const bounded of [true, false]) {
             const res = await fetch(`${NOMINATIM}?${params(bounded)}`, { headers: { Accept: 'application/json' } });
-            if (!res.ok) throw new Error('Geocoding service is busy — try again in a few seconds');
+            if (!res.ok) throw new Error('The address service is busy. Try again in a few seconds.');
             const arr = await res.json();
             if (arr && arr.length) { hit = arr[0]; break; }
         }
-        if (!hit) throw new Error(`Couldn't find "${q}" — try adding a street or city`);
+        if (!hit) throw new Error(`Could not find "${q}". Try adding a street or city.`);
         return {
             lat: parseFloat(hit.lat), lng: parseFloat(hit.lon),
             label: (hit.display_name || q).split(',').slice(0, 3).join(',').trim(),

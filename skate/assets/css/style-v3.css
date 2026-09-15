@@ -1094,3 +1094,242 @@ body.dark-mode .modal.sheet { background: #1a2430; }
 body.dark-mode .rink-row { background: #1b2530; }
 body.dark-mode .rink-actions .star.starred { background: #2c2718; }
 body.dark-mode .status-btn.stale { color: #ffce4d; }
+
+
+/* ============================================================
+   v3.4 — the readable schedule: top-bar Paid + Refresh, List/Calendar
+   switch, city pill picker, folded Filters, emoji-light rows, calmer
+   banners, regrouped Settings, neutral overlays, louder tour Skip.
+   ============================================================ */
+
+/* ---- overlays dim, never recolour (the "site turns a different blue" report) ---- */
+.modal-overlay { background: rgba(0, 0, 0, 0.5); }
+body.dark-mode .modal-overlay { background: rgba(0, 0, 0, 0.62); }
+
+/* ---- top bar: Paid switch · Refresh · Settings, one height ---- */
+.top-bar { background: var(--bg-white); }
+.top-bar-actions { gap: 8px; }
+.top-bar .btn-icon { width: 36px; height: 36px; min-width: 36px; padding: 0; font-size: 18px; border-radius: 10px; }
+.btn-refresh { font-size: 20px; line-height: 1; }
+.btn-refresh.spinning { animation: ptr-spin 0.9s linear infinite; }
+.top-toggle {
+    display: inline-flex; align-items: center; gap: 7px;
+    height: 36px; padding: 0 12px 0 10px;
+    border: 1px solid var(--border); border-radius: 18px;
+    background: var(--bg-white); color: var(--text-muted);
+    font-size: 13px; font-weight: 600;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.top-toggle-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border-dark); transition: background 0.15s; }
+.top-toggle:hover { border-color: var(--paid); color: var(--text); }
+.top-toggle.active { background: color-mix(in srgb, var(--paid) 16%, var(--bg-white)); border-color: var(--paid); color: var(--text); }
+.top-toggle.active .top-toggle-dot { background: var(--paid); box-shadow: 0 0 0 3px color-mix(in srgb, var(--paid) 25%, transparent); }
+
+/* ---- toolbar: Filters · Rinks & map · [List | Calendar] ---- */
+.toolbar { align-items: stretch; }
+.tb-btn { padding: 0 8px; height: 40px; }
+.view-seg { display: flex; flex: 1.1 1 0; min-width: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--bg-white); }
+.view-seg button {
+    flex: 1 1 0; min-width: 0; height: 38px; padding: 0 6px;
+    background: none; border: none; border-radius: 0;
+    font-size: 13px; font-weight: 600; color: var(--text-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.view-seg button + button { border-left: 1px solid var(--border); }
+.view-seg button.active { background: var(--acc-programs); color: #fff; }
+.view-seg button:not(.active):hover { color: var(--text); background: var(--bg); }
+
+/* ---- pills: the standing city picker + removable filters ---- */
+.pill.city { background: color-mix(in srgb, var(--acc-programs) 14%, var(--bg-white)); border-color: color-mix(in srgb, var(--acc-programs) 55%, var(--border)); font-weight: 600; }
+.pill.city:not(.on) { background: var(--bg-white); border-style: dashed; color: var(--text-muted); font-weight: 500; }
+.pill-caret { font-size: 10px; opacity: 0.7; }
+.pill.city .pill-x { margin-left: 2px; padding: 2px 4px; border-radius: 8px; }
+.pill.city .pill-x:hover { background: color-mix(in srgb, var(--acc-programs) 25%, transparent); opacity: 1; }
+.pill.toggle.active { background: color-mix(in srgb, var(--paid) 16%, var(--bg-white)); border: 1px solid var(--paid); }
+
+/* ---- Filters sheet: aligned rows, an obvious Ages button, folded extras ---- */
+.fsec { margin-bottom: 16px; }
+.fsec h4 { font-size: 11.5px; margin-bottom: 8px; }
+.fcheck { padding: 9px 6px; min-height: 42px; border-radius: var(--radius); }
+.fcheck:hover { background: color-mix(in srgb, var(--acc-programs) 6%, transparent); }
+.fcheck input { width: 20px; height: 20px; flex: 0 0 20px; }
+.fcheck-label { line-height: 1.3; }
+.fcat {
+    display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px;
+    padding-left: 8px; margin-bottom: 2px;
+    border-radius: var(--radius);
+    box-shadow: inset 3px 0 0 var(--tc, var(--border));
+}
+.fcat.on { background: color-mix(in srgb, var(--tc, var(--acc-programs)) 8%, transparent); }
+.fcat .fcheck { min-width: 0; }
+.fcat.on .fcheck-label { font-weight: 700; }
+.fcat.type-leisure  { --tc: #3aa07f; }
+.fcat.type-hockey   { --tc: #cc4455; }
+.fcat.type-figure   { --tc: #5566cc; }
+.fcat.type-speed    { --tc: #b08a3d; }
+.fcat.type-adapted  { --tc: #8855bb; }
+.fcat.type-ringette { --tc: #bb4499; }
+.fcat.type-other    { --tc: #7a8a99; }
+.fcount { min-width: 34px; text-align: center; font-weight: 600; }
+.fexpand {
+    display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+    width: auto; min-width: 74px; height: 36px; padding: 0 10px;
+    border: 1px solid color-mix(in srgb, var(--acc-programs) 45%, var(--border)); border-radius: var(--radius);
+    background: var(--bg-white); color: var(--acc-programs); font-size: 13px; font-weight: 600;
+}
+.fexpand:hover { border-color: var(--acc-programs); background: color-mix(in srgb, var(--acc-programs) 8%, var(--bg-white)); }
+.fexpand.open { background: var(--acc-programs); color: #fff; border-color: var(--acc-programs); }
+.caret { display: inline-block; font-size: 12px; transition: transform 0.15s; }
+.open > .caret, .open .caret { transform: rotate(180deg); }
+.fsubs { margin: 2px 0 10px 18px; padding-left: 12px; border-left: 2px solid color-mix(in srgb, var(--acc-programs) 40%, var(--border)); }
+.fsubs .fcheck { min-height: 38px; padding: 6px 6px; font-size: 13.5px; }
+.ftoggle {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    margin: 4px 0; padding: 10px 10px;
+    background: var(--bg); border: 1px dashed var(--border-dark); border-radius: var(--radius);
+    color: var(--text); font-size: 13px; font-weight: 600; text-align: left;
+}
+.ftoggle .caret { margin-left: auto; }
+.ftoggle:hover { border-color: var(--acc-programs); }
+.ftoggle.open { border-style: solid; }
+.fmore { padding: 4px 0 0; }
+.fchip { min-height: 36px; padding: 0 13px; font-weight: 500; }
+.fchip.active { background: var(--acc-programs); border-color: var(--acc-programs); color: #fff; font-weight: 700; }
+.forder { align-items: center; }
+.flabel { font-size: 13px; color: var(--text-muted); margin-right: 2px; }
+.fage { padding: 8px 6px; }
+.fage input { width: 82px; }
+.flink { font-weight: 600; text-decoration: none; }
+.flink:hover { text-decoration: underline; }
+
+/* ---- session rows: fewer icons, aligned pieces ---- */
+.program-main { min-width: 0; flex: 1; }
+.program-title { font-size: 15px; line-height: 1.25; }
+.program-where { font-size: 12.5px; color: var(--text-muted); margin-top: 3px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.program-where .city-tag { margin-left: 0; }
+.dist { color: var(--acc-programs); font-weight: 600; }
+.program-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.program-time { font-size: 14px; }
+.happening-now::before { content: none; }
+/* footer grid: badges | actions on line one; links and the note on their own full-width lines */
+.program-footer {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 10px;
+}
+.program-badges { gap: 6px; min-width: 0; }
+.program-actions { gap: 6px; margin-left: 0; justify-content: flex-end; }
+.program-links { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+.program-note { grid-column: 1 / -1; }
+.program-footer:has(.program-links:empty) .program-links { display: none; }
+.row-link {
+    background: none; border: none; padding: 0; margin: 0;
+    font-size: 12.5px; font-weight: 600; color: var(--acc-programs);
+    text-decoration: none; white-space: nowrap; cursor: pointer;
+}
+.row-link:hover { text-decoration: underline; }
+.row-link.strong {
+    padding: 5px 10px; border-radius: var(--radius);
+    background: var(--paid); color: #fff; text-decoration: none;
+}
+.row-link.strong:hover { filter: brightness(1.08); }
+.tag { text-transform: none; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 10px; }
+.age-badge { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); font-weight: 600; }
+.age-badge.all-ages { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
+.price-badge {
+    display: inline-flex; align-items: center;
+    padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap;
+}
+.price-badge.paid { background: var(--paid); color: #fff; }
+.price-badge.free { background: color-mix(in srgb, var(--live) 14%, var(--bg-white)); color: var(--live); border: 1px solid color-mix(in srgb, var(--live) 45%, transparent); }
+.note-badge { font-size: 11px; }
+.program-actions button { width: 34px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.btn-favorite { font-size: 19px; line-height: 1; color: #e0245e; }
+.btn-favorite.active { color: #e0245e; }
+.btn-copy { font-size: 18px; letter-spacing: 1px; color: var(--text); }
+.program-item.is-paid .program-title { color: var(--text); }
+.program-item.is-paid { background: var(--bg-white); border-left: 3px solid var(--paid); }
+
+/* ---- banners: full text, calm unverified ---- */
+.alert-banner { white-space: normal; overflow-wrap: anywhere; }
+.alert-banner.unverified {
+    background: var(--alert-amber-bg);
+    border: 1px dashed color-mix(in srgb, var(--alert-amber) 70%, transparent);
+    color: var(--alert-amber); font-weight: 500;
+}
+.alert-banner .verify-link { margin-left: 0; }
+
+/* ---- rinks view: one control height, scope line, sections ---- */
+.rinks-locate { align-items: stretch; }
+.rinks-locate button, .rinks-locate input { height: 38px; font-size: 13px; }
+.rinks-locate button { padding: 0 12px; white-space: nowrap; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); font-weight: 600; }
+.rinks-locate .btn-primary { border-color: var(--primary); }
+.rinks-scope { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+.rinks-head { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); padding: 6px 2px 2px; }
+.rink-row.has-alert .rink-meta { color: var(--alert-amber); }
+.rink-actions .btn-small { height: 32px; }
+
+/* ---- Settings: three groups, one button language ---- */
+.settings-box { max-width: 460px; }
+.sgroup {
+    border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 12px 14px 4px; margin-bottom: 12px;
+}
+.sgroup h4 {
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--text-muted); margin: 0 0 10px;
+}
+.sgroup-sub { font-weight: 500; letter-spacing: 0; text-transform: none; font-size: 11.5px; }
+.sgroup.community { border-color: color-mix(in srgb, var(--acc-chats) 45%, var(--border)); }
+.sgroup.community h4 { color: var(--acc-chats); }
+.settings-field { margin-bottom: 12px; }
+.settings-field > span { font-weight: 600; color: var(--text); }
+.seg-control button { min-height: 38px; font-weight: 600; }
+.sbtns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.sbtns button {
+    min-height: 40px; padding: 8px 10px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+    font-size: 13px; font-weight: 600; color: var(--text);
+}
+.sbtns button:hover { border-color: var(--acc-programs); }
+.settings-inline button { min-height: 38px; padding: 0 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); font-weight: 600; }
+.settings-inline button:hover { border-color: var(--acc-programs); }
+.settings-hint.credits { margin-top: 4px; line-height: 1.5; }
+.modal-header .btn-icon { width: 34px; height: 34px; min-width: 34px; padding: 0; }
+
+/* ---- tour: Skip is the loudest thing on the card ---- */
+.tour-skip {
+    border: 2px solid var(--acc-programs); color: var(--acc-programs);
+    background: color-mix(in srgb, var(--acc-programs) 8%, var(--bg-white));
+    font-size: 14px; font-weight: 700; padding: 10px;
+}
+.tour-skip:hover { background: var(--acc-programs); color: #fff; }
+
+/* ---- dark mode for the new pieces ---- */
+body.dark-mode .top-toggle, body.dark-mode .view-seg, body.dark-mode .fexpand, body.dark-mode .ftoggle,
+body.dark-mode .sbtns button, body.dark-mode .settings-inline button, body.dark-mode .rinks-locate button { background: #1b2530; color: var(--text); border-color: #38485a; }
+body.dark-mode .top-toggle { color: var(--text-muted); }
+body.dark-mode .top-toggle.active { background: #2c2718; border-color: var(--paid); color: var(--text); }
+body.dark-mode .view-seg button.active { background: var(--acc-programs); color: #0d141b; }
+body.dark-mode .fexpand { color: var(--acc-programs); }
+body.dark-mode .fexpand.open { background: var(--acc-programs); color: #0d141b; }
+body.dark-mode .fchip.active { background: var(--acc-programs); border-color: var(--acc-programs); color: #0d141b; }
+body.dark-mode .pill.city { background: color-mix(in srgb, var(--acc-programs) 22%, var(--bg-white)); }
+body.dark-mode .pill.city:not(.on) { background: #1b2530; }
+body.dark-mode .pill.toggle.active { background: #2c2718; }
+body.dark-mode .age-badge, body.dark-mode .age-badge.all-ages { background: #1b2530; color: var(--text-muted); border-color: #38485a; }
+body.dark-mode .price-badge.paid { color: #1a1a1a; }
+body.dark-mode .row-link.strong { color: #1a1a1a; }
+body.dark-mode .program-item.is-paid { background: linear-gradient(180deg, #1c2632, #18212b); }
+body.dark-mode .program-item.is-paid .program-title { color: #8cc2f7; }
+body.dark-mode .alert-banner.unverified { background: var(--alert-amber-bg); }
+body.dark-mode .sgroup { border-color: #26323f; }
+body.dark-mode .tour-skip { background: #1b2530; }
+body.dark-mode .tour-skip:hover { background: var(--acc-programs); color: #0d141b; }
+body.dark-mode .fcheck:hover { background: rgba(255, 255, 255, 0.04); }
+.fexpand-spacer { display: inline-block; min-width: 74px; height: 1px; }
+/* narrow phones: three toolbar controls still fit without clipping "Calendar" */
+@media (max-width: 420px) {
+    .tb-btn { font-size: 12.5px; padding: 0 6px; }
+    .view-seg button { font-size: 12px; padding: 0 4px; }
+    .tb-count { margin-left: 4px; }
+}

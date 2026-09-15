@@ -49,6 +49,9 @@ window.SkateApp = (() => {
         sort: SkateSettings.get('sort') || 'time',
         calMode: !!SkateSettings.get('calMode'),
         calWeekOffset: 0,
+        showDropped: false,            // include City sessions toronto.ca no longer lists (hidden by default: toronto.ca is the ground truth)
+        moreFilters: false,            // Filters sheet: the collapsed "More options" section
+        rinksAllCities: false,         // Rinks view: ignore the Where cities for one look
         nearRink: null,                // {key, name} — "Sessions" from the Rinks view
         expandedCats: {},              // Filters sheet: which categories show their age groups
         activeGuideId: null, guideCat: '',
@@ -173,7 +176,7 @@ window.SkateApp = (() => {
         return httpOnly(r.website);
     }
     function officialLinkHtml(url, site, cls = 'official-link') {
-        return url ? `<a class="${cls}" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="Official page — verify the schedule before you go">🏛️ ${escapeHtml(site)} ↗</a>` : '';
+        return url ? `<a class="${cls}" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="Official page. Verify the schedule there before you go.">${escapeHtml(site)} ↗</a>` : '';
     }
 
     /** 7.5 → "7.50", 5 → "5", null → "?" — prices read like a price tag. */
@@ -192,9 +195,10 @@ window.SkateApp = (() => {
     function programText(p) {
         const date = P.dateStr(p) ? parseLocalDate(P.dateStr(p)).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' }) : '';
         const off = officialUrl(p);
-        return `⛸️ ${P.activity(p)}\n📍 ${P.location(p)}\n🗓️ ${date}${P.time(p) ? ' at ' + fmtClock(P.time(p)) : ''}` +
-            (p.Paid ? `\n💲 Paid${p.Price != null ? ' · $' + p.Price : ''}` : (p.PriceNote ? `\nℹ️ ${p.PriceNote}` : '')) +
-            (off ? `\n🏛️ Verify: ${off}` : '') +
+        const city = P.city(p);
+        return `${P.activity(p)}\n${P.location(p)}${city !== 'Toronto' ? ', ' + city : ''}\n${date}${P.time(p) ? ' at ' + fmtClock(P.time(p)) : ''}` +
+            (p.Paid ? `\nPaid${p.Price != null ? ', $' + fmtPrice(p.Price) : ''}` : (p.PriceNote ? `\n${p.PriceNote}` : '')) +
+            (off ? `\nVerify: ${off}` : '') +
             `\n\n${baseUrl()}#p=${P.id(p)}`;
     }
 
@@ -213,12 +217,12 @@ window.SkateApp = (() => {
             `${P.activity(p)} · ${ageText(p)}`,
             addr ? `${P.location(p)}, ${addr}` : P.location(p),
             p.Paid ? `Paid session${p.Price != null ? ` · $${fmtPrice(p.Price)}` : ''}${p.RegistrationUrl ? ` · ${p.RegistrationUrl === p.InfoUrl ? 'Details' : 'Register'}: ${p.RegistrationUrl}` : ''}` : (p.PriceNote || 'Free drop-in'),
-            p.Unverified ? 'UNVERIFIED schedule (scraped) — confirm with the venue' : '',
+            p.Unverified ? 'Unverified schedule (read from the venue site). Confirm with the venue.' : '',
             off ? `Verify on ${officialSite(p)}: ${off}` : '',
             `Toronto Skating: ${baseUrl()}#p=${P.id(p)}`
         ].filter(Boolean).join('\n');
         return {
-            title: `⛸️ ${P.activity(p)} — ${P.location(p)}`,
+            title: `${P.activity(p)} at ${P.location(p)}`,
             start: st.startEpoch, end: st.endEpoch,
             location: `${P.location(p)}${addr ? ', ' + addr : ''}, ${town}, ON`,
             details, uid: P.id(p)
@@ -254,7 +258,7 @@ window.SkateApp = (() => {
 
     function downloadIcs(p) {
         const ev = calEvent(p);
-        if (!ev) return SkateChat.Notify.toast('This program has no date to add', 'error');
+        if (!ev) return SkateChat.Notify.toast('This session has no date to add', 'error');
         const ics = icsText(ev);
         if (isIOS()) {
             // iOS hands text/calendar straight to the Calendar app ("Add All");
@@ -266,11 +270,11 @@ window.SkateApp = (() => {
         const a = el('a', { href: URL.createObjectURL(blob), download: `skating-${ev.uid}.ics` });
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-        SkateChat.Notify.toast('Calendar file downloaded — open it to add the session 📆', 'success', 2500);
+        SkateChat.Notify.toast('Calendar file downloaded. Open it to add the session.', 'success', 2500);
     }
     function openCalendarLink(p, kind) {
         const ev = calEvent(p);
-        if (!ev) return SkateChat.Notify.toast('This program has no date to add', 'error');
+        if (!ev) return SkateChat.Notify.toast('This session has no date to add', 'error');
         window.open(kind === 'outlook' ? outlookCalUrl(ev) : googleCalUrl(ev), '_blank', 'noopener');
     }
 
@@ -385,51 +389,69 @@ window.SkateApp = (() => {
     function activeFilterPills() {
         const pills = [];
         Object.entries(S.types).forEach(([cat, sel]) => {
-            const subs = sel === 'all' ? '' : ` · ${sel.map(SUB_LABEL).join(', ')}`;
+            const subs = sel === 'all' ? '' : `: ${sel.map(SUB_LABEL).join(', ')}`;
             pills.push({ key: `type:${cat}`, label: `${CAT_LABEL(cat)}${subs}` });
         });
-        S.cities.forEach(c => pills.push({ key: `city:${c}`, label: c }));
         if (S.day) pills.push({ key: 'day', label: DAY_LABEL(S.day) });
         if (S.age !== null) pills.push({ key: 'age', label: `Age ${S.age}` });
-        if (S.savedOnly) pills.push({ key: 'saved', label: '❤️ Saved' });
-        if (S.nearRink) pills.push({ key: 'near', label: `📍 ${S.nearRink.name}` });
-        if (S.paidVisible) pills.push({ key: 'paid', label: '💲 Paid shown' });
+        if (S.savedOnly) pills.push({ key: 'saved', label: 'Saved only' });
+        if (S.nearRink) pills.push({ key: 'near', label: `Only ${S.nearRink.name}` });
         if (S.showPast) pills.push({ key: 'past', label: 'Ended shown' });
+        if (S.showDropped) pills.push({ key: 'dropped', label: 'Dropped shown' });
         if (S.sort === 'near') pills.push({ key: 'sort', label: 'Nearest first' });
         return pills;
+    }
+
+    /** "Toronto" / "Toronto + 2" / "All cities" for the standing city pill. */
+    function cityPillLabel() {
+        if (!S.cities.length) return 'All cities';
+        const [first, ...rest] = S.cities;
+        return rest.length ? `${first} + ${rest.length}` : first;
     }
 
     Render.pills = function () {
         const wrap = $('active-filters');
         wrap.innerHTML = '';
+        // Standing city picker: always there. Tap = choose cities, x = every city.
+        const cityPill = el('button', {
+            class: 'pill city' + (S.cities.length ? ' on' : ''), dataset: { pill: 'cities' },
+            title: S.cities.length ? 'Tap to change cities. The x shows every city.' : 'Tap to choose cities'
+        }, [el('span', { class: 'pill-label' }, [cityPillLabel()]), el('span', { class: 'pill-caret', 'aria-hidden': 'true' }, ['▾'])]);
+        if (S.cities.length) cityPill.appendChild(el('span', { class: 'pill-x', role: 'button', 'aria-label': 'Show every city', title: 'Show every city' }, ['✕']));
+        wrap.appendChild(cityPill);
         const mine = (SkateSettings.get('myRinks') || []).length;
         if (mine) {
-            // a standing toggle, not a removable pill — regulars flip it daily
+            // a standing toggle, not a removable pill: regulars flip it daily
             const on = S.rinkScope === 'mine';
             wrap.appendChild(el('button', {
                 class: 'pill toggle' + (on ? ' active' : ''), dataset: { pill: 'mine' },
-                title: on ? 'Showing only your rinks — tap for every rink' : 'Tap to show only your rinks'
-            }, [`⭐ My rinks (${mine})`]));
+                title: on ? 'Showing only your rinks. Tap for every rink.' : 'Tap to show only your rinks'
+            }, [`${on ? '★' : '☆'} My rinks (${mine})`]));
         }
         const pills = activeFilterPills();
         pills.forEach(pl => wrap.appendChild(el('button', { class: 'pill', dataset: { pill: pl.key }, title: 'Remove this filter' }, [
             pl.label, el('span', { class: 'pill-x', 'aria-hidden': 'true' }, ['✕'])
         ])));
-        wrap.classList.toggle('hidden', !wrap.children.length);
-        const n = pills.length + (S.rinkScope === 'mine' && mine ? 1 : 0);
+        const n = pills.length + (S.rinkScope === 'mine' && mine ? 1 : 0) + (S.cities.length ? 1 : 0);
         $('filters-count').textContent = String(n);
         $('filters-count').classList.toggle('hidden', !n);
         $('btn-filters').classList.toggle('active', !!n);
-        $('btn-week').textContent = S.calMode ? 'List' : 'Week';
-        $('btn-week').classList.toggle('active', S.calMode);
+        $('btn-list').classList.toggle('active', !S.calMode);
+        $('btn-list').setAttribute('aria-pressed', S.calMode ? 'false' : 'true');
+        $('btn-cal').classList.toggle('active', S.calMode);
+        $('btn-cal').setAttribute('aria-pressed', S.calMode ? 'true' : 'false');
+        $('btn-paid').classList.toggle('active', S.paidVisible);
+        $('btn-paid').setAttribute('aria-pressed', S.paidVisible ? 'true' : 'false');
+        $('btn-paid').title = S.paidVisible ? 'Paid venues are shown. Tap to hide them.' : 'Paid venues are hidden. Tap to show them with prices.';
     };
 
     /* ---------- Filters sheet ---------- */
-    /** Counts by category / sub-type / city over the whole dataset. */
+    /** Counts by category / sub-type / city over the dataset (dropped City sessions excluded unless shown). */
     function filterFacets() {
         const cats = {}, cities = {};
         let paid = 0;
         S.programs.forEach(p => {
+            if (!S.showDropped && SkateAlerts.isDropped(p)) return;
             const c = P.category(p), st = P.subType(p);
             (cats[c] ||= { n: 0, subs: {} });
             cats[c].n++;
@@ -449,33 +471,38 @@ window.SkateApp = (() => {
         return f ? CFG.subTypes.map(x => x.id).filter(id => f.subs[id]) : [];
     };
 
+    // The everyday kinds sit first; the rest fold away behind "More types".
+    const MAIN_TYPES = ['leisure', 'figure', 'hockey'];
+
     Render.filters = function () {
         const f = filterFacets();
         const body = $('filters-body');
         body.innerHTML = '';
-        const section = (title) => { const sec = el('div', { class: 'fsec' }); sec.appendChild(el('h4', {}, [title])); body.appendChild(sec); return sec; };
+        const section = (title) => { const sec = el('div', { class: 'fsec' }); if (title) sec.appendChild(el('h4', {}, [title])); body.appendChild(sec); return sec; };
         const check = (label, on, dataset, cls = '') => {
             const input = el('input', { type: 'checkbox', dataset });
             input.checked = !!on;
             return el('label', { class: 'fcheck' + cls }, [input, el('span', { class: 'fcheck-label' }, [label])]);
         };
         const count = (n) => el('span', { class: 'fcount' }, [String(n)]);
-        const chip = (label, on, dataset) => el('button', { class: 'fchip' + (on ? ' active' : ''), dataset }, [label]);
+        const chip = (label, on, dataset) => el('button', { class: 'fchip' + (on ? ' active' : ''), dataset, 'aria-pressed': on ? 'true' : 'false' }, [label]);
+        const foldBtn = (key, open, label) => el('button', { class: 'ftoggle' + (open ? ' open' : ''), dataset: { expand: key }, 'aria-expanded': open ? 'true' : 'false' }, [label, el('span', { class: 'caret', 'aria-hidden': 'true' }, ['▾'])]);
 
-        // TYPE — categories, each expandable into the age groups it actually has
-        const t = section('Type');
-        CFG.programTypes.forEach(cat => {
+        /** One category row (+ its age groups) appended to `host`. */
+        const typeRow = (cat, host) => {
             const facet = f.cats[cat.id];
             if (!facet) return;                                     // not in this dataset
             const sel = S.types[cat.id];
             const subsPresent = CFG.subTypes.filter(x => facet.subs[x.id]);
-            const row = el('div', { class: 'fcat' + (sel ? ' on' : '') });
+            const hasSubs = subsPresent.length > 1;
+            const open = hasSubs && (!!S.expandedCats[cat.id] || (!!sel && sel !== 'all'));
+            const row = el('div', { class: `fcat type-${cat.id}` + (sel ? ' on' : '') });
             row.appendChild(check(cat.label, !!sel, { type: cat.id }, ' cat'));
             row.appendChild(count(facet.n));
-            if (subsPresent.length > 1) {
-                const open = !!S.expandedCats[cat.id] || (!!sel && sel !== 'all');
-                row.appendChild(el('button', { class: 'fexpand', dataset: { expand: cat.id }, title: open ? 'Hide age groups' : 'Choose age groups' }, [open ? '▴' : '▾']));
-                t.appendChild(row);
+            if (hasSubs) row.appendChild(el('button', { class: 'fexpand' + (open ? ' open' : ''), dataset: { expand: cat.id }, title: open ? 'Hide the age groups' : 'Choose age groups', 'aria-expanded': open ? 'true' : 'false' }, ['Ages ', el('span', { class: 'caret', 'aria-hidden': 'true' }, ['▾'])]));
+            else row.appendChild(el('span', { class: 'fexpand-spacer', 'aria-hidden': 'true' }));   // keeps the counts in one column
+            host.appendChild(row);
+            if (hasSubs) {
                 const subs = el('div', { class: 'fsubs' + (open ? '' : ' hidden') });
                 subsPresent.forEach(x => {
                     const on = sel === 'all' || (Array.isArray(sel) && sel.includes(x.id));
@@ -483,12 +510,21 @@ window.SkateApp = (() => {
                     c.appendChild(count(facet.subs[x.id]));
                     subs.appendChild(c);
                 });
-                t.appendChild(subs);
-            } else {
-                t.appendChild(row);
+                host.appendChild(subs);
             }
-        });
-        t.appendChild(check('❤️ Only sessions I saved', S.savedOnly, { flag: 'saved' }));
+        };
+
+        // WHAT: leisure, figure, hockey up front; the rest behind one fold
+        const t = section('What kind of skating');
+        CFG.programTypes.filter(c => MAIN_TYPES.includes(c.id)).forEach(c => typeRow(c, t));
+        const rest = CFG.programTypes.filter(c => !MAIN_TYPES.includes(c.id) && f.cats[c.id]);
+        if (rest.length) {
+            const open = !!S.expandedCats.__more || rest.some(c => S.types[c.id]);
+            t.appendChild(foldBtn('__more', open, `${open ? 'Fewer' : 'More'} types: ${rest.map(c => c.label).join(', ')}`));
+            const more = el('div', { class: 'fmore' + (open ? '' : ' hidden') });
+            rest.forEach(c => typeRow(c, more));
+            t.appendChild(more);
+        }
 
         // WHEN
         const w = section('When');
@@ -496,31 +532,37 @@ window.SkateApp = (() => {
         [['', 'Any day'], ['today', 'Today'], ['tomorrow', 'Tomorrow'], ['weekend', 'Weekend'], ...CFG.days.map(d => [d, d.slice(0, 3)])]
             .forEach(([id, label]) => days.appendChild(chip(label, S.day === id, { day: id })));
         w.appendChild(days);
-        w.appendChild(check('Include sessions that already ended', S.showPast, { flag: 'past' }));
-
-        // WHO
-        const who = section('Who');
-        const ageInput = el('input', { type: 'number', min: '0', max: '120', id: 'f-age', placeholder: 'any age', inputmode: 'numeric' });
-        if (S.age !== null) ageInput.value = S.age;
-        who.appendChild(el('label', { class: 'fage' }, ['Only sessions open to someone aged ', ageInput]));
 
         // WHERE
         const where = section('Where');
         const cityRow = el('div', { class: 'fchips' });
+        cityRow.appendChild(chip('All cities', !S.cities.length, { city: '' }));
         cityKeys(f.cities).forEach(c => cityRow.appendChild(chip(`${c} · ${f.cities[c]}`, S.cities.includes(c), { city: c })));
         where.appendChild(cityRow);
         const mine = (SkateSettings.get('myRinks') || []).length;
-        const mineRow = check(`⭐ My rinks only${mine ? ` (${mine})` : ''}`, S.rinkScope === 'mine', { flag: 'mine' });
+        const mineRow = check(`My rinks only${mine ? ` (${mine})` : ''}`, S.rinkScope === 'mine', { flag: 'mine' });
         mineRow.appendChild(el('button', { class: 'flink', dataset: { open: 'rinks' } }, [mine ? 'Edit' : 'Pick rinks']));
         where.appendChild(mineRow);
-        where.appendChild(check(`💲 Show paid venues (${f.paid})`, S.paidVisible, { flag: 'paid' }));
+        where.appendChild(check(`Include paid venues (${f.paid})`, S.paidVisible, { flag: 'paid' }));
 
-        // ORDER
-        const o = section('Order');
-        const ord = el('div', { class: 'fchips' });
+        // MORE: age, ended, saved-only, dropped, order (folded unless something in it is set)
+        const inUse = S.age !== null || S.showPast || S.savedOnly || S.showDropped || S.sort !== 'time';
+        const openMore = S.moreFilters || inUse;
+        const m = section('');
+        m.appendChild(foldBtn('__filters', openMore, `${openMore ? 'Fewer' : 'More'} options: age, ended sessions, saved, order`));
+        const mbody = el('div', { class: 'fmore' + (openMore ? '' : ' hidden') });
+        const ageInput = el('input', { type: 'number', min: '0', max: '120', id: 'f-age', placeholder: 'any', inputmode: 'numeric', 'aria-label': 'Age' });
+        if (S.age !== null) ageInput.value = S.age;
+        mbody.appendChild(el('label', { class: 'fage' }, ['Only sessions open to someone aged ', ageInput]));
+        mbody.appendChild(check('Include sessions that already ended', S.showPast, { flag: 'past' }));
+        mbody.appendChild(check('Only sessions I saved', S.savedOnly, { flag: 'saved' }));
+        const dropped = SkateAlerts.liveStats?.missing || 0;
+        if (dropped) mbody.appendChild(check(`Include the ${dropped} City session${dropped === 1 ? '' : 's'} toronto.ca no longer lists`, S.showDropped, { flag: 'dropped' }));
+        const ord = el('div', { class: 'fchips forder' }, [el('span', { class: 'flabel' }, ['Order'])]);
         CFG.sortOptions.forEach(x => ord.appendChild(chip(x.label, S.sort === x.id, { sort: x.id })));
-        o.appendChild(ord);
-        if (S.sort === 'near' && !SkateGeo.getUserLocation()) o.appendChild(el('p', { class: 'settings-hint' }, ['Nearest needs your location — set it under Rinks & map.']));
+        mbody.appendChild(ord);
+        if (S.sort === 'near' && !SkateGeo.getUserLocation()) mbody.appendChild(el('p', { class: 'settings-hint' }, ['Nearest needs your location. Set it under Rinks and map.']));
+        m.appendChild(mbody);
 
         Render.filtersCount();
     };
@@ -533,7 +575,7 @@ window.SkateApp = (() => {
     /** Calendar legend in words: colored dots per type + state samples. */
     Render.calLegend = function () {
         const types = CFG.activityTags.map(t =>
-            `<span class="legend-item"><span class="legend-dot ${t.cls}"></span>${escapeHtml(t.label.replace(/^\S+\s/, ''))}</span>`
+            `<span class="legend-item"><span class="legend-dot ${t.cls}"></span>${escapeHtml(t.label)}</span>`
         ).join('');
         $('cal-legend').innerHTML =
             `<span class="legend-group">${types}</span>` +
@@ -614,8 +656,8 @@ window.SkateApp = (() => {
             if (ageMs > ALERTS_STALE_MS) {
                 const hrs = Math.round(ageMs / 3600000);
                 wrap.innerHTML += `<div class="alert-banner warning">
-                    <strong>⚠️ Service alerts last checked ~${hrs}h ago</strong>
-                    — the alert checker may be delayed, so a rink could be closed without a banner here.
+                    <strong>Rink alerts were last checked about ${hrs} hours ago.</strong>
+                    The checker may be delayed, so a rink could be closed without a banner here.
                     Confirm with the venue before travelling.
                 </div>`;
             }
@@ -626,8 +668,8 @@ window.SkateApp = (() => {
             if (ageMs > LIVE_STALE_MS) {
                 const hrs = Math.round(ageMs / 3600000);
                 wrap.innerHTML += `<div class="alert-banner warning">
-                    <strong>⚠️ toronto.ca cross-check last ran ~${hrs}h ago</strong>
-                    — a session the City has since dropped could still be listed here. Use the 🏛️ link on a row to verify before travelling.
+                    <strong>The toronto.ca cross-check last ran about ${hrs} hours ago.</strong>
+                    A session the City has since dropped could still be listed here. Use the toronto.ca link on a row to verify before travelling.
                 </div>`;
             }
         }
@@ -638,9 +680,9 @@ window.SkateApp = (() => {
             const daysAgo = Math.floor((now - new Date(metadata.lastUpdated)) / 86400000);
             if (daysAgo > 8) {
                 wrap.innerHTML += `<div class="alert-banner closed">
-                    <strong>⚠️ Schedule data is ${daysAgo} days old.</strong>
-                    The auto-updater may be down — sessions shown here could have changed.
-                    Tap 🔄 to request a refresh, and double-check with the venue before travelling.
+                    <strong>The schedule data is ${daysAgo} days old.</strong>
+                    The auto-updater may be down, so sessions shown here could have changed.
+                    Tap Refresh up top, and double-check with the venue before travelling.
                 </div>`;
             }
         }
@@ -649,8 +691,8 @@ window.SkateApp = (() => {
             if (s.ok !== false) return;
             const label = CFG.sourceInfo[key]?.label || key;
             wrap.innerHTML += `<div class="alert-banner warning">
-                <strong>⚠️ ${escapeHtml(label)} feed failed at the last update</strong>
-                — its sessions may be missing or stale${s.count ? ` (showing ${s.count} salvaged from the previous run)` : ''}.
+                <strong>The ${escapeHtml(label)} feed failed at the last update.</strong>
+                Its sessions may be missing or stale${s.count ? ` (showing ${s.count} kept from the previous run)` : ''}.
             </div>`;
         });
     };
@@ -673,10 +715,10 @@ window.SkateApp = (() => {
         const list = $('program-list');
         if (!filtered.length) {
             const paidOnly = !S.paidVisible && S.paidMatching > 0;
-            const empty = S.savedOnly ? 'Nothing saved yet — tap ♡ on any session to keep it here.'
-                : paidOnly ? `All ${S.paidMatching} matching session${S.paidMatching === 1 ? ' is' : 's are'} at paid venues — switch on "Show paid venues" in Filters.`
-                : S.rinkScope === 'mine' ? 'Nothing at your rinks with these filters — tap the ⭐ pill to see every rink.'
-                : 'No sessions match. Try fewer filters.';
+            const empty = S.savedOnly ? 'Nothing saved yet. Tap ♡ on any session to keep it here.'
+                : paidOnly ? `All ${S.paidMatching} matching session${S.paidMatching === 1 ? ' is' : 's are'} at paid venues. Tap Paid in the top bar to show them.`
+                : S.rinkScope === 'mine' ? 'Nothing at your rinks with these filters. Tap the My rinks pill to see every rink.'
+                : 'No sessions match. Try fewer filters, or tap the city pill to add cities.';
             list.innerHTML = `<li class="loading">${empty}</li>`;
             Render.showMore(0);
             return;
@@ -758,41 +800,34 @@ window.SkateApp = (() => {
             rowStateCls = ' is-ended';
         }
 
-        // Service alert verdict for this location (toronto.ca snapshot), or
-        // the live-schedule verdict (the City no longer lists this session)
+        // Service alert for this location (toronto.ca snapshot), or the live-schedule
+        // verdict (only rendered when the reader asked to see dropped sessions)
         const alert = SkateAlerts.forProgram(p);
         const off = officialUrl(p);
+        const site = officialSite(p);
+        const verify = off ? ` <a class="verify-link" href="${escapeHtml(off)}" target="_blank" rel="noopener">Check ${escapeHtml(site)} ↗</a>` : '';
         let alertHtml = '';
         if (alert && alert.live) {
-            alertHtml = `<div class="alert-banner closed live-flag" title="${escapeHtml(alert.text)}">
-                <strong>🚫 ${escapeHtml(alert.reason)}:</strong> ${escapeHtml(alert.text)}
-                ${off ? `<a class="verify-link" href="${escapeHtml(off)}" target="_blank" rel="noopener">Verify on toronto.ca ↗</a>` : ''}
-            </div>`;
+            alertHtml = `<div class="alert-banner closed live-flag"><strong>${escapeHtml(alert.reason)}.</strong> ${escapeHtml(alert.text)}${verify}</div>`;
         } else if (alert) {
             const closed = alert.level === 'closed';
-            const snippet = (alert.text || '').slice(0, 200);
-            alertHtml = `<div class="alert-banner ${closed ? 'closed' : 'warning'}" title="${escapeHtml(alert.text || alert.reason)}">
-                <strong>${closed ? '🚫 Likely cancelled — rink alert' : '⚠️ Service alert at this location'}:</strong>
-                ${escapeHtml(alert.reason)}${snippet ? ` — ${escapeHtml(snippet)}${alert.text.length > 200 ? '…' : ''}` : ''}
-            </div>`;
+            alertHtml = `<div class="alert-banner ${closed ? 'closed' : 'warning'}"><strong>${closed ? 'Likely cancelled, rink alert' : 'Service alert at this rink'}.</strong> ${escapeHtml(alert.reason)}${alert.text ? `. ${escapeHtml(alert.text)}` : ''}${verify}</div>`;
         }
 
-        // Scraped schedules can't be verified against a live feed — say so, loudly.
-        const unverifiedHtml = p.Unverified ? `<div class="alert-banner unverified">
-                <strong>❓ UNVERIFIED — CALL / CHECK WEBSITE</strong> — this schedule is scraped from the venue's site and there's no live status feed. Confirm before heading out:
-                <a href="${escapeHtml(p.InfoUrl || '#')}" target="_blank" rel="noopener">venue website ↗</a>
-            </div>` : '';
+        // Schedules read from a PDF or website have no live feed: say so, calmly.
+        const unverifiedHtml = p.Unverified ? `<div class="alert-banner unverified"><strong>Unverified.</strong> Read from ${escapeHtml(site)}, no live feed. Check before you go${p.InfoUrl ? `: <a href="${escapeHtml(p.InfoUrl)}" target="_blank" rel="noopener">${escapeHtml(site)} ↗</a>` : '.'}</div>` : '';
 
-        // Paid venue extras: gold badge with price + register link; price notes
-        // (e.g. "free for Vaughan residents") ride as a small muted badge
+        // Price as a price tag; notes (residents-only, age tiers) as a wrapping line
         const srcInfo = CFG.sourceInfo[p.Source];
-        const paidBadge = p.Paid ? `<span class="paid-badge" title="Paid venue${srcInfo ? ' — ' + escapeHtml(srcInfo.label) : ''}${srcInfo?.note ? '. ' + escapeHtml(srcInfo.note) : ''}">$${fmtPrice(p.Price)}</span>` : '';
-        const noteBadge = p.PriceNote ? `<span class="note-badge" title="${escapeHtml(p.PriceNote)}">${escapeHtml(p.PriceNote)}</span>` : '';
-        // Venues without online booking (PDF/HTML towns) link their schedule page instead → say so.
-        const registerBtn = (p.Paid && p.RegistrationUrl)
+        const price = p.Paid
+            ? `<span class="price-badge paid" title="${escapeHtml(srcInfo?.note || 'Paid venue')}">$${fmtPrice(p.Price)}</span>`
+            : '<span class="price-badge free">Free</span>';
+        const noteBadge = p.PriceNote ? `<span class="note-badge">${escapeHtml(p.PriceNote)}</span>` : '';
+        // Venues without online booking (PDF/HTML towns) link their schedule page instead.
+        const registerLink = (p.Paid && p.RegistrationUrl)
             ? (p.RegistrationUrl === p.InfoUrl
-                ? `<a class="btn-register" href="${escapeHtml(p.RegistrationUrl)}" target="_blank" rel="noopener" title="Opens the venue's schedule page — pay at the door">Details ↗</a>`
-                : `<a class="btn-register" href="${escapeHtml(p.RegistrationUrl)}" target="_blank" rel="noopener" title="Opens the venue's registration page">Register ↗</a>`)
+                ? `<a class="row-link" href="${escapeHtml(p.RegistrationUrl)}" target="_blank" rel="noopener" title="The venue's schedule page. Pay at the door.">Details ↗</a>`
+                : `<a class="row-link strong" href="${escapeHtml(p.RegistrationUrl)}" target="_blank" rel="noopener" title="The venue's registration page">Register ↗</a>`)
             : '';
 
         // Live spots (fetched from the venue's registration API in-browser).
@@ -806,7 +841,7 @@ window.SkateApp = (() => {
             } else if (live.status === 'closed') {
                 spotsBadge = '<span class="spots-badge closed-reg" title="The venue\'s online registration for this session is closed">Registration closed</span>';
             } else if (live.status === 'upcoming') {
-                spotsBadge = '<span class="spots-badge closed-reg" title="The venue hasn\'t opened online registration for this session yet">Registration opens later</span>';
+                spotsBadge = '<span class="spots-badge closed-reg" title="The venue has not opened online registration for this session yet">Registration opens later</span>';
             } else if (live.open != null) {
                 spotsBadge = `<span class="spots-badge${live.open <= 20 ? ' low' : ''}" title="Live from the venue's registration system">${live.open}${live.capacity ? '/' + live.capacity : ''} spots left</span>`;
             } else if (live.unlimited && live.status === 'open') {
@@ -814,46 +849,45 @@ window.SkateApp = (() => {
             }
         }
 
-        // Distance badge once a location is set via Rinks & map
         const km = SkateGeo.distanceForProgram(p);
-        const distBadge = km != null ? `<div class="dist-badge">📍 ${SkateGeo.fmtKm(km)}</div>` : '';
-
-        // Per-location footnote (e.g. Don Montgomery's on-site rink-info TV)
+        const dist = km != null ? `<span class="dist">${SkateGeo.fmtKm(km)}</span>` : '';
         const note = CFG.locationNotes[String(p['Location ID'] ?? '')];
-        const noteBtn = note ? `<button class="loc-note" data-note="${escapeHtml(note)}" title="${escapeHtml(note)}" aria-label="Location note">ℹ️</button>` : '';
+        const noteBtn = note ? `<button class="row-link loc-note" data-note="${escapeHtml(note)}" title="${escapeHtml(note)}">Note</button>` : '';
 
         const isFavorite = SkateChat.Favorites.has(p);
         const actionHtml = CFG.programActions.map(a => {
             let title = a.title || '', text = a.text || '', extraCls = '';
             if (a.act === 'fav') {
                 title = isFavorite ? 'Remove from saved' : 'Save this session';
-                text = isFavorite ? '❤️' : '🤍';
+                text = isFavorite ? '♥' : '♡';
                 extraCls = isFavorite ? ' active' : '';
             }
-            return `<button data-act="${a.act}" data-idx="${idx}" class="${a.cls}${extraCls}" title="${title}">${text}</button>`;
+            return `<button data-act="${a.act}" data-idx="${idx}" class="${a.cls}${extraCls}" title="${title}" aria-label="${title}">${text}</button>`;
         }).join('');
 
         const city = P.city(p);
         const cityTag = city !== 'Toronto' ? `<span class="city-tag">${escapeHtml(city)}</span>` : '';
-        const locationHtml = location ? `<a href="${mapsUrl(location, P.city(p))}" target="_blank" rel="noopener" class="program-location">📍 ${escapeHtml(location)} ↗</a>${cityTag}${noteBtn} ${officialLinkHtml(off, officialSite(p))}` : '';
+        const mapLink = location ? `<a class="row-link" href="${mapsUrl(location, city)}" target="_blank" rel="noopener" title="Directions in Google Maps">Map ↗</a>` : '';
+        const officialLink = officialLinkHtml(off, site, 'row-link');
 
         return `
             <li class="program-item${rowStateCls}${p.Paid ? ' is-paid' : ''}${isFavorite ? ' is-saved' : ''}${alert ? (alert.level === 'closed' ? ' has-alert-closed' : ' has-alert') : ''}" data-pid="${pid}">
                 <div class="program-header">
-                    <div>
+                    <div class="program-main">
                         <div class="program-title">${escapeHtml(activity)}</div>
-                        ${locationHtml}
+                        <div class="program-where">${escapeHtml(location)}${cityTag}${dist}</div>
                     </div>
                     <div class="program-meta">
-                        ${statusChip}
                         <div class="program-time">${fmtClock(time)}${endTime ? '–' + fmtClock(endTime) : ''}</div>
-                        ${distBadge}
+                        ${statusChip}
                     </div>
                 </div>
                 ${alertHtml}${unverifiedHtml}
                 <div class="program-footer">
-                    <div class="program-badges">${P.tagFor(p)} ${paidBadge} ${noteBadge} ${spotsBadge} ${P.ageBadge(p)}</div>
-                    <div class="program-actions">${registerBtn}${actionHtml}</div>
+                    <div class="program-badges">${P.tagFor(p)}${P.ageBadge(p)}${price}${spotsBadge}</div>
+                    <div class="program-actions">${actionHtml}</div>
+                    <div class="program-links">${mapLink}${officialLink}${registerLink}${noteBtn}</div>
+                    ${noteBadge ? `<div class="program-note">${noteBadge}</div>` : ''}
                 </div>
             </li>`;
     };
@@ -877,7 +911,7 @@ window.SkateApp = (() => {
         else icon.textContent = c.emoji || '👥';
 
         const info = el('div', { class: 'conv-info' }, [
-            el('strong', {}, [c.name + (c.muted ? ' 🔇' : '')]),
+            el('strong', {}, [c.name + (c.muted ? ' (muted)' : '')]),
             el('span', { class: 'conv-preview' }, [c.preview || ''])
         ]);
 
@@ -907,11 +941,11 @@ window.SkateApp = (() => {
         if (!shown.length) {
             const li = el('li', { class: 'conv-empty' });
             if (f === 'muted') li.textContent = 'Nothing muted.';
-            else if (f === 'dms') li.textContent = 'No DMs yet — tap someone\'s name in any chat to message them.';
+            else if (f === 'dms') li.textContent = 'No DMs yet. Tap someone\'s name in any chat to message them.';
             else {
                 li.append(
                     el('p', {}, ['No conversations yet.']),
-                    el('button', { class: 'btn-primary btn-small', onclick: () => Modal.open('discover-modal') }, ['＋ Browse rooms'])
+                    el('button', { class: 'btn-primary btn-small', onclick: () => Modal.open('discover-modal') }, ['Browse rooms'])
                 );
             }
             list.appendChild(li);
@@ -925,7 +959,7 @@ window.SkateApp = (() => {
         $('cf-dms-badge').textContent = dUnread; $('cf-dms-badge').classList.toggle('hidden', !dUnread);
         const mutedThreads = all.filter(c => c.muted).length;
         $('cf-muted').classList.toggle('hidden', !mutedThreads && f !== 'muted');
-        $('cf-muted').textContent = `🔇 Muted${mutedThreads ? ` (${mutedThreads})` : ''}`;
+        $('cf-muted').textContent = `Muted${mutedThreads ? ` (${mutedThreads})` : ''}`;
 
         $('chats-list-mode').classList.toggle('hidden', S.chatOpen);
         $('chats-convo-mode').classList.toggle('hidden', !S.chatOpen);
@@ -948,21 +982,21 @@ window.SkateApp = (() => {
         if (m.type === 'share' && m.data) {
             const loc = m.data.location;
             const town = String(m.data.city || 'Toronto').slice(0, 40);   // rode the wire — clamp it
-            const locLink = loc ? `<a href="${mapsUrl(loc, town)}" target="_blank" rel="noopener">📍 ${escapeHtml(loc)} ↗</a>` : '';
-            content = `<strong>⛸️ ${escapeHtml(m.data.activity)}</strong><br>${locLink}<br>🗓️ ${escapeHtml(m.data.date || '')}${m.data.time ? ' • ' + fmtClock(m.data.time) : ''}${m.data.endTime ? '–' + fmtClock(m.data.endTime) : ''}`;
+            const locLink = loc ? `<a href="${mapsUrl(loc, town)}" target="_blank" rel="noopener" title="Directions in Google Maps">${escapeHtml(loc)} ↗</a>` : '';
+            content = `<strong>${escapeHtml(m.data.activity)}</strong><br>${locLink}<br>${escapeHtml(m.data.date || '')}${m.data.time ? ' · ' + fmtClock(m.data.time) : ''}${m.data.endTime ? '–' + fmtClock(m.data.endTime) : ''}`;
             // Paid heads-up on shared cards (price sanitized — it rode the wire)
             if (m.data.paid) {
                 const p = Number(m.data.price);
                 const priceTxt = Number.isFinite(p) && p > 0 && p < 1000 ? `$${p % 1 ? p.toFixed(2) : p}` : 'fee applies';
-                content += `<br><span class="share-paid-badge" title="This venue charges — check their site for exact rates by age">Paid session · ${priceTxt}</span>`;
+                content += `<br><span class="share-paid-badge" title="This venue charges. Check their site for exact rates by age.">Paid session · ${priceTxt}</span>`;
             }
-            if (m.data.note) content += `<br><span class="share-note">ℹ️ ${escapeHtml(String(m.data.note).slice(0, 120))}</span>`;
+            if (m.data.note) content += `<br><span class="share-note">${escapeHtml(String(m.data.note).slice(0, 120))}</span>`;
             const offUrl = httpOnly(m.data.official);
-            if (offUrl) content += `<br><a class="share-official" href="${escapeHtml(offUrl)}" target="_blank" rel="noopener">🏛️ Verify on ${escapeHtml(String(m.data.site || 'official site').slice(0, 30))} ↗</a>`;
+            if (offUrl) content += `<br><a class="share-official" href="${escapeHtml(offUrl)}" target="_blank" rel="noopener">Verify on ${escapeHtml(String(m.data.site || 'official site').slice(0, 30))} ↗</a>`;
             if (m.data.programId) content += `<br><span class="share-open" data-open-program="${escapeHtml(m.data.programId)}">Open in Programs →</span>`;
         } else if (m.type === 'guide' && m.data) {
             const cat = SkateGuides.CATEGORIES[m.data.category];
-            content = `<strong>📖 ${escapeHtml(m.data.title)}</strong>` +
+            content = `<strong>${escapeHtml(m.data.title)}</strong>` +
                 (cat ? `<br><span class="guide-cat">${cat.emoji} ${escapeHtml(cat.name)}</span>` : '') +
                 (m.data.excerpt ? `<br><em>“${escapeHtml(m.data.excerpt)}”</em>` : '') +
                 `<br><span class="share-open" data-open-guide="${escapeHtml(m.data.guideId || '')}">Read the guide →</span>`;
@@ -970,7 +1004,7 @@ window.SkateApp = (() => {
 
         const tick = !m.mine ? '' :
             m.status === 'pending' ? '<span class="msg-tick pending" title="Sending…">⏳</span>' :
-            m.status === 'failed' ? '<span class="msg-tick failed" title="Not delivered — tap the message to retry">⚠ retry</span>' :
+            m.status === 'failed' ? '<span class="msg-tick failed" title="Not delivered. Tap the message to retry.">⚠ retry</span>' :
             '<span class="msg-tick" title="Delivered to relays">✓</span>';
 
         const sender = (!m.mine && !m.system)
@@ -995,30 +1029,30 @@ window.SkateApp = (() => {
         const hint = $('chat-privacy-hint');
         const cloud = SkateSettings.get('remoteModeration') !== false;
         if (viewMode === 'dm' && activeDmThread) {
-            hint.textContent = '🔐 Private message · end-to-end encrypted · never sent to any third party (on-device word filter only)';
+            hint.textContent = 'Private message. End-to-end encrypted, never sent to any third party (on-device word filter only).';
             hint.className = 'chat-privacy-hint private';
         } else if (activeGroup && !activeGroup.isPublic) {
-            hint.textContent = '🔒 Private group · never sent to any third party (on-device word filter only)';
+            hint.textContent = 'Private group. Never sent to any third party (on-device word filter only).';
             hint.className = 'chat-privacy-hint private';
         } else if (activeGroup) {
             hint.textContent = cloud
-                ? '🌐 Public room · messages are checked by a third-party profanity filter before sending (switch off in ⚙️ Settings → 🛡️)'
-                : '🌐 Public room · on-device word filter only (cloud check is off in ⚙️ Settings)';
+                ? 'Public room. Messages are checked by a third-party profanity filter before sending (switch it off in Settings).'
+                : 'Public room. On-device word filter only (the cloud check is off in Settings).';
             hint.className = 'chat-privacy-hint public';
         } else {
             hint.className = 'chat-privacy-hint hidden';
         }
         if (viewMode === 'dm' && activeDmThread) {
             convKey = 'dm:' + activeDmRecipient;
-            $('chat-title').innerHTML = `${hueDot(activeDmRecipient)}${escapeHtml(activeDmThread.name)} <span class="pk-tag" title="Identity tag — same tag = same person, whatever they rename themselves">${shortPk(activeDmRecipient)}</span>`;
+            $('chat-title').innerHTML = `${hueDot(activeDmRecipient)}${escapeHtml(activeDmThread.name)} <span class="pk-tag" title="Identity tag: the same tag is the same person, whatever they rename themselves">${shortPk(activeDmRecipient)}</span>`;
             $('chat-status-dot').className = 'status-dot online';
-            $('chat-status-text').textContent = SkateChat.Mutes.has(activeDmRecipient) ? 'Muted — you won\'t be pinged' : 'Private message';
+            $('chat-status-text').textContent = SkateChat.Mutes.has(activeDmRecipient) ? 'Muted. You will not be pinged.' : 'Private message';
             $('chat-online').classList.add('hidden');
             $('members-bar').classList.add('hidden');
             visible = activeDmThread.messages || [];
             msgs.innerHTML = visible.length
                 ? visible.map(m => Render.msg(m, true)).join('')
-                : '<div class="chat-empty"><p>Start a private conversation — it reaches them even if they\'re offline now.</p></div>';
+                : '<div class="chat-empty"><p>Start a private conversation. It reaches them even if they are offline now.</p></div>';
             $('chat-input').placeholder = `Message ${activeDmThread.name}…`;
         } else if (activeGroup) {
             convKey = 'g:' + activeGroup.id;
@@ -1033,7 +1067,7 @@ window.SkateApp = (() => {
             visible = (activeGroup.messages || []).filter(m => m.mine || !SkateChat.Mutes.has(m.fromPubkey));
             msgs.innerHTML = visible.length
                 ? visible.map(m => Render.msg(m, false)).join('')
-                : '<div class="chat-empty"><p>No messages yet. Say hi! 👋</p></div>';
+                : '<div class="chat-empty"><p>No messages yet. Say hi.</p></div>';
 
             Render.members(activeGroup.id);
             $('chat-input').placeholder = 'Type a message…';
@@ -1077,7 +1111,7 @@ window.SkateApp = (() => {
         ml.classList.toggle('expanded', membersExpanded);
         ml.innerHTML = '';
         if (!roster.length) {
-            ml.appendChild(el('span', { class: 'members-solo' }, ['Just you so far — messages wait here for whoever joins']));
+            ml.appendChild(el('span', { class: 'members-solo' }, ['Just you so far. Messages wait here for whoever joins.']));
             return;
         }
         const shown = membersExpanded ? roster : roster.slice(0, MEMBERS_CAP);
@@ -1085,7 +1119,7 @@ window.SkateApp = (() => {
             const chip = el('button', {
                 class: 'member-chip' + (r.muted ? ' is-muted' : ''),
                 dataset: { pk: r.pubkey, name: r.name },
-                title: `${r.name} — message or mute`
+                title: `${r.name}: message or mute`
             });
             chip.innerHTML = `${hueDot(r.pubkey)}${r.online ? '<span class="online-dot"></span>' : ''}${escapeHtml(r.name)}${r.muted ? ' 🔇' : ''}`;
             ml.appendChild(chip);
@@ -1135,7 +1169,7 @@ window.SkateApp = (() => {
     };
 
     Render.sharePicker = function (ctx) {
-        $('share-title').textContent = ctx.type === 'guide' ? '📖 Share guide to…' : '📤 Share program to…';
+        $('share-title').textContent = ctx.type === 'guide' ? 'Share the guide to…' : 'Share the session to…';
         const list = $('share-dest-list');
         list.innerHTML = '';
         const convs = SkateChat.getConversations().filter(c => !(c.kind === 'dm' && c.muted));
@@ -1170,30 +1204,50 @@ window.SkateApp = (() => {
         const w = SkateWeather.current;
         if (!w) { chip.classList.add('hidden'); return; }
         chip.classList.remove('hidden');
-        const label = /^my location$/i.test(w.label || '') ? '📍 near you' : (w.label || '');
-        chip.textContent = `${w.emoji} ${w.temp}° · ${label.length > 18 ? label.slice(0, 17) + '…' : label}`;
-        chip.title = `${w.text} in ${w.label}: ${w.temp}°C, feels like ${w.feels}°C — tap to pick another spot (Open-Meteo)`;
+        const label = /^my location$/i.test(w.label || '') ? 'near you' : (w.label || '');
+        chip.textContent = `${w.temp}° · ${label.length > 18 ? label.slice(0, 17) + '…' : label} ▾`;
+        chip.title = `${w.text} in ${w.label}: ${w.temp}°C, feels like ${w.feels}°C. Tap to pick another spot (Open-Meteo).`;
     };
 
-    /* ---------- Rinks & map: one view for the map, "near me" and your rinks ---------- */
+    /* ---------- Rinks and map: one view for the map, distances and your rinks ---------- */
+    /** Municipality of a rinks.json entry: Toronto for City rinks, else the feed's city or district. */
+    function rinkCity(r) {
+        return r.source === 'city' ? 'Toronto' : (CFG.sourceInfo[r.externalSource]?.city || r.district || 'Toronto');
+    }
+    /** The Where cities apply to the rink list and the map too (your rinks always show). */
+    function rinkInScope(r) {
+        if (!S.cities.length || S.rinksAllCities) return true;
+        return S.cities.includes(rinkCity(r)) || (SkateSettings.get('myRinks') || []).includes(String(r.locationid));
+    }
+
     Render.rinks = function () {
         const user = SkateGeo.getUserLocation();
-        $('locator-status').textContent = user ? `Distances from: ${user.label}` : 'Use your location or type an address for distances — or just browse.';
+        $('locator-status').textContent = user ? `Distances from ${user.label}` : 'Use your location or type an address for distances, or just browse.';
         const wrap = $('rinks-list');
+        const scope = $('rinks-scope');
         wrap.innerHTML = '';
+        scope.innerHTML = '';
         if (!SkateGeo.loaded || !SkateGeo.rinks.length) {
-            wrap.appendChild(el('p', { class: 'settings-hint' }, ['Rink list still loading — one second.']));
+            wrap.appendChild(el('p', { class: 'settings-hint' }, ['Rink list still loading, one second.']));
             return;
         }
         const q = $('rinks-search').value.trim().toLowerCase();
         const mine = new Set(SkateSettings.get('myRinks') || []);
-        let rows = SkateGeo.rinks.map(r => ({ ...r, km: user && r.lat != null ? SkateGeo.distanceKm(user, { lat: r.lat, lng: r.lng }) : null }));
-        if (q) rows = rows.filter(r => r.name.toLowerCase().includes(q) || (r.district || '').toLowerCase().includes(q));
+        let rows = SkateGeo.rinks
+            .filter(rinkInScope)
+            .map(r => ({ ...r, city: rinkCity(r), km: user && r.lat != null ? SkateGeo.distanceKm(user, { lat: r.lat, lng: r.lng }) : null }));
+        if (q) rows = rows.filter(r => `${r.name} ${r.district || ''} ${r.city}`.toLowerCase().includes(q));
         rows.sort((a, b) =>
             (mine.has(String(b.locationid)) - mine.has(String(a.locationid))) ||   // yours first
             ((a.km ?? Infinity) - (b.km ?? Infinity)) ||                            // then nearest
             a.name.localeCompare(b.name));                                          // then A–Z
-        rows.slice(0, 60).forEach(r => {
+
+        // Scope line: which cities the list follows, with a one-tap way out.
+        const cityScoped = S.cities.length && !S.rinksAllCities;
+        scope.appendChild(el('span', {}, [`${rows.length} rink${rows.length === 1 ? '' : 's'}${S.cities.length ? (cityScoped ? ` in ${S.cities.join(', ')}` : ' in every city') : ''}`]));
+        if (S.cities.length) scope.appendChild(el('button', { class: 'flink', dataset: { rinksScope: cityScoped ? 'all' : 'cities' } }, [cityScoped ? 'Show every city' : `Only ${S.cities.join(', ')}`]));
+
+        const row = (r) => {
             const key = String(r.locationid);
             const sp = upcomingSplit(key);
             const sessions = S.paidVisible ? sp.free + sp.paid : sp.free;
@@ -1201,22 +1255,31 @@ window.SkateApp = (() => {
             const starred = mine.has(key);
             const meta = [
                 r.km != null ? SkateGeo.fmtKm(r.km) : null,
-                r.district || null,
+                r.city !== 'Toronto' ? r.city : (r.district || null),
                 (r.kinds || []).map(k => k === 'indoor' ? 'indoor' : 'outdoor').join(' + ') || null,
-                sessions ? `${sessions} upcoming` : (sp.paid ? `${sp.paid} paid` : 'no drop-ins listed')
+                r.paid ? 'paid' : null,
+                sessions ? `${sessions} upcoming` : (sp.paid ? `${sp.paid} paid` : 'no drop-ins listed'),
+                alerts.length ? 'alert' : null
             ].filter(Boolean).join(' · ');
-            const row = el('div', { class: 'rink-row' + (starred ? ' starred' : '') });
-            row.appendChild(el('div', { class: 'rink-info' }, [
-                el('strong', {}, [r.name, ...(r.paid ? [' 💲'] : []),
-                    ...(alerts.length ? [el('span', { class: 'locator-alert', title: alerts.map(a => a.Reason).join(', ') }, [' ⚠️'])] : [])]),
-                el('span', { class: 'rink-meta' }, [meta])
+            const node = el('div', { class: 'rink-row' + (starred ? ' starred' : '') + (alerts.length ? ' has-alert' : '') });
+            node.appendChild(el('div', { class: 'rink-info' }, [
+                el('strong', {}, [r.name]),
+                el('span', { class: 'rink-meta', title: alerts.length ? alerts.map(a => a.Reason).join(', ') : null }, [meta])
             ]));
-            row.appendChild(el('div', { class: 'rink-actions' }, [
+            node.appendChild(el('div', { class: 'rink-actions' }, [
                 el('button', { class: 'btn-small', dataset: { locFilter: key, locName: r.name }, title: 'Show only this rink\'s sessions' }, ['Sessions']),
-                el('button', { class: 'btn-small star' + (starred ? ' starred' : ''), dataset: { locStar: key }, title: starred ? 'Remove from my rinks' : 'Add to my rinks' }, [starred ? '★' : '☆'])
+                el('button', { class: 'btn-small star' + (starred ? ' starred' : ''), dataset: { locStar: key }, title: starred ? 'Remove from my rinks' : 'Add to my rinks', 'aria-label': starred ? 'Remove from my rinks' : 'Add to my rinks' }, [starred ? '★' : '☆'])
             ]));
-            wrap.appendChild(row);
-        });
+            return node;
+        };
+        const yours = rows.filter(r => mine.has(String(r.locationid)));
+        const others = rows.filter(r => !mine.has(String(r.locationid)));
+        if (yours.length) {
+            wrap.appendChild(el('div', { class: 'rinks-head' }, [`Your rinks (${yours.length})`]));
+            yours.forEach(r => wrap.appendChild(row(r)));
+            if (others.length) wrap.appendChild(el('div', { class: 'rinks-head' }, ['Other rinks']));
+        }
+        others.slice(0, 80).forEach(r => wrap.appendChild(row(r)));
         if (!rows.length) wrap.appendChild(el('p', { class: 'settings-hint' }, ['No rink matches that.']));
     };
 
@@ -1253,7 +1316,7 @@ window.SkateApp = (() => {
             return;
         }
         if (!guides.length) {
-            $('guides-list').innerHTML = '<div class="chat-empty"><p>No guides here yet — be the first to write one! ✍️</p></div>';
+            $('guides-list').innerHTML = '<div class="chat-empty"><p>No guides here yet. Be the first to write one.</p></div>';
             return;
         }
         const myPk = SkateChat.getState().myPublicKey;
@@ -1293,11 +1356,11 @@ window.SkateApp = (() => {
             <p class="guide-byline">${hueDot(g.author)}${escapeHtml(g.authorName || 'Skater')} <span class="pk-tag">${shortPk(g.author)}</span> · ${new Date(g.ts).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
             <div class="guide-body" id="guide-body-text">${escapeHtml(g.body).replace(/\n/g, '<br>')}</div>
             <div class="guide-detail-actions">
-                <button class="btn-guide-vote big ${voted ? 'voted' : ''}" data-vote="${g.id}" title="${voted ? 'Remove your vote' : 'Vote useful'}">⛸️ Useful (${g.votes})</button>
-                <button data-guide-copy="${g.id}" title="Copy a link to this guide">🔗 Copy link</button>
-                <button data-guide-share="${g.id}" title="Share this guide (or a highlighted part) into a chat">📤 Share to chat</button>
+                <button class="btn-guide-vote big ${voted ? 'voted' : ''}" data-vote="${g.id}" title="${voted ? 'Remove your vote' : 'Vote useful'}">Useful (${g.votes})</button>
+                <button data-guide-copy="${g.id}" title="Copy a link to this guide">Copy link</button>
+                <button data-guide-share="${g.id}" title="Share this guide (or a highlighted part) into a chat">Share to chat</button>
             </div>
-            <p class="guides-sub">Tip: highlight a sentence before hitting Share to quote just that part. 🔍</p>`;
+            <p class="guides-sub">Tip: highlight a sentence before tapping Share to quote just that part.</p>`;
 
         // comment tree: roots chronological, replies nested one visual level
         const comments = g.comments || [];
@@ -1330,7 +1393,7 @@ window.SkateApp = (() => {
         $('guide-comments-title').textContent = `Comments (${comments.length})`;
         $('guide-comments-list').innerHTML = roots.length
             ? roots.map(r => walk(r, 0, null)).join('')
-            : '<li class="comment-none">No comments yet — start the thread! 💬</li>';
+            : '<li class="comment-none">No comments yet. Start the thread.</li>';
     };
 
     /* ================= Menus (labels from config, availability in code) ================= */
@@ -1385,7 +1448,7 @@ window.SkateApp = (() => {
                 if (!g.isPublic) {
                     items.push({ ...A('copyInvite'), onClick: () => {
                         const inv = SkateChat.getInviteInfo(g.id);
-                        if (inv) copyText(inv.url, inv.hasPassword ? 'Invite copied — they\'ll also need the password 🔐' : 'Invite link copied! 🔗');
+                        if (inv) copyText(inv.url, inv.hasPassword ? 'Invite copied. They will also need the password.' : 'Invite link copied');
                     } });
                     items.push({ ...A('rename'), onClick: async () => {
                         const name = prompt('New group name:', g.name);
@@ -1404,18 +1467,27 @@ window.SkateApp = (() => {
         programCopy(p, anchor = null) {
             const items = [
                 { ...A('copyDetails'), onClick: () => copyText(programText(p)) },
-                { ...A('copyLink'), onClick: () => copyText(`${baseUrl()}#p=${P.id(p)}`, 'Link copied! 🔗') },
+                { ...A('copyLink'), onClick: () => copyText(`${baseUrl()}#p=${P.id(p)}`, 'Link copied') },
                 { ...A('addCalendar'), onClick: () => {
                     // second-level popover on the same anchor (Popover.close ran first)
                     const at = anchor || document.querySelector(`.program-item[data-pid="${P.id(p)}"] .btn-copy`) || document.body;
                     Popover.open(at, Menus.calendar(p));
                 } }
             ];
+            // This rink → My rinks, right from the card (no scrolling up to the list)
+            const key = P.locKey(p);
+            if (key && !key.startsWith('name:')) {
+                const mine = (SkateSettings.get('myRinks') || []).includes(key);
+                items.push({ ...A(mine ? 'removeRink' : 'addRink', { rink: P.location(p) }), onClick: () => {
+                    Actions.toggleMyRink(key);
+                    SkateChat.Notify.toast(mine ? `${P.location(p)} removed from your rinks` : `${P.location(p)} added to your rinks`, 'success', 2200);
+                } });
+            }
             const off = officialUrl(p);
             if (off) items.push({ ...A('openOfficial', { site: officialSite(p) }), onClick: () => window.open(off, '_blank', 'noopener') });
-            // Share rides the community stack — only offered when Chats are on
+            // Share rides the community stack: only offered when Chats are on
             if (SkateSettings.get('showChats') !== false) {
-                items.push({ label: '📤 Share to chat…', onClick: () => Actions.openSharePicker({ type: 'program', payload: p }) });
+                items.push({ ...A('shareChat'), onClick: () => Actions.openSharePicker({ type: 'program', payload: p }) });
             }
             return items;
         },
@@ -1429,7 +1501,7 @@ window.SkateApp = (() => {
             ];
         },
 
-        /** Status line: freshness details + refresh. */
+        /** Status line: freshness details, the dropped-session switch, refresh, the City doorbell. */
         status() {
             const meta = SkateAPI.getMetadata();
             const fmt = x => x ? new Date(x).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'never';
@@ -1437,10 +1509,24 @@ window.SkateApp = (() => {
             const items = [
                 { label: `Schedule data: ${fmt(meta?.lastUpdated)}`, onClick: () => {} },
                 { label: `Rink alerts checked: ${fmt(SkateAlerts.checkedAt)}`, onClick: () => {} },
-                { label: `toronto.ca cross-check: ${fmt(SkateAlerts.liveCheckedAt)}${st ? ` · ${st.missing} dropped by the City` : ''}`, onClick: () => {} },
-                { label: '🔄 Refresh now', onClick: () => Actions.refreshPrograms() }
+                { label: `toronto.ca cross-check: ${fmt(SkateAlerts.liveCheckedAt)}${st ? ` (${st.missing} hidden as no longer listed, ${st.extra} added)` : ''}`, onClick: () => {} }
             ];
-            if (!S.paidVisible && S.paidMatching) items.push({ label: `💲 Show ${S.paidMatching} paid sessions`, onClick: () => Actions.setFlag('paid', true) });
+            if (st?.missing) items.push({ label: S.showDropped ? 'Hide the sessions toronto.ca no longer lists' : `Show the ${st.missing} session${st.missing === 1 ? '' : 's'} toronto.ca no longer lists`, onClick: () => Actions.setFlag('dropped', !S.showDropped) });
+            items.push({ label: 'Refresh now', onClick: () => Actions.refreshPrograms() });
+            items.push({ label: 'Ask for a fresh pull from the City', onClick: () => Actions.requestCityRefresh() });
+            if (!S.paidVisible && S.paidMatching) items.push({ label: `Show ${S.paidMatching} paid sessions`, onClick: () => Actions.setFlag('paid', true) });
+            return items;
+        },
+
+        /** City picker behind the standing city pill (multi-select; stays open while you pick). */
+        cities() {
+            const f = filterFacets().cities;
+            const reopen = () => { const a = $('active-filters').querySelector('.pill.city'); if (a) Popover.open(a, Menus.cities()); };
+            const items = [{ label: `${S.cities.length ? '\u2007\u2007 ' : '✓ '}All cities`, onClick: () => { Actions.setCities([]); } }];
+            cityKeys(f).forEach(c => items.push({
+                label: `${S.cities.includes(c) ? '✓ ' : '\u2007\u2007 '}${c} · ${f[c]}`,
+                onClick: () => { Actions.toggleCity(c); reopen(); }
+            }));
             return items;
         },
 
@@ -1450,8 +1536,8 @@ window.SkateApp = (() => {
             const cur = SkateWeather.selectedId();
             const user = SkateGeo.getUserLocation();
             const items = [];
-            if (w) items.push({ label: `${w.emoji} ${w.text} · ${w.temp}°C, feels ${w.feels}°C (Open-Meteo)`, onClick: () => SkateWeather.load(true) });
-            items.push({ label: `${cur === 'auto' ? '✓ ' : ''}📍 ${user ? user.label : 'Toronto (set 📍 via Near me)'}`, onClick: () => Actions.pickWeatherSpot('auto') });
+            if (w) items.push({ label: `${w.text}, ${w.temp}°C, feels like ${w.feels}°C (Open-Meteo)`, onClick: () => SkateWeather.load(true) });
+            items.push({ label: `${cur === 'auto' ? '✓ ' : '\u2007\u2007'}${user ? user.label : 'Toronto (or your location once set)'}`, onClick: () => Actions.pickWeatherSpot('auto') });
             SkateWeather.spots().forEach(sp => items.push({ label: `${cur === sp.id ? '✓ ' : '\u2007\u2007'}${sp.label}`, onClick: () => Actions.pickWeatherSpot(sp.id) }));
             return items;
         },
@@ -1460,15 +1546,15 @@ window.SkateApp = (() => {
         calBlock(p, anchor = null) {
             const fav = SkateChat.Favorites.has(p);
             const items = [
-                { label: fav ? '💔 Remove from saved' : '❤️ Save this session', onClick: () => { SkateChat.Favorites.toggle(p); Render.programs(); } },
-                { label: '📋 Show in list', onClick: () => {
+                { label: fav ? 'Remove from saved' : 'Save this session', onClick: () => { SkateChat.Favorites.toggle(p); Render.programs(); } },
+                { label: 'Show in the list', onClick: () => {
                     S.calMode = false;
                     SkateSettings.set('calMode', false);
                     Actions.focusProgram(P.id(p));
                 } }
             ];
             if (p.Paid && p.RegistrationUrl) {
-                items.push({ label: '🎟 Register on venue site ↗', onClick: () => window.open(p.RegistrationUrl, '_blank', 'noopener') });
+                items.push({ label: 'Register on the venue site ↗', onClick: () => window.open(p.RegistrationUrl, '_blank', 'noopener') });
             }
             // programCopy already appends the chats-gated "Share to chat…"
             items.push(...Menus.programCopy(p, anchor));
@@ -1491,6 +1577,7 @@ window.SkateApp = (() => {
         const dayIsRel = ['today', 'tomorrow', 'weekend'].includes(S.day);
 
         let result = S.programs.filter(p => {
+            if (!S.showDropped && SkateAlerts.isDropped(p)) return false;   // toronto.ca is the ground truth
             if (!P.matchesTypes(p)) return false;
             if (S.savedOnly && !SkateChat.Favorites.has(p)) return false;
             if (S.cities.length && !S.cities.includes(P.city(p))) return false;
@@ -1587,13 +1674,14 @@ window.SkateApp = (() => {
         S.cities = S.cities.includes(c) ? S.cities.filter(x => x !== c) : [...S.cities, c];
         filtersChanged();
     };
+    Actions.setCities = function (list) { S.cities = list; filtersChanged(); };
     Actions.setDay = function (d) { S.day = d || ''; filtersChanged(); };
     Actions.setAge = function (v) { const n = parseInt(v, 10); S.age = Number.isFinite(n) ? n : null; filtersChanged(); };
     Actions.setSort = function (id) {
         S.sort = id;
         if (id === 'near' && !SkateGeo.getUserLocation()) {
             Modal.close('filters-modal');
-            SkateChat.Notify.toast('Nearest first needs your location — set it here', 'info', 3000);
+            SkateChat.Notify.toast('Nearest first needs your location. Set it here.', 'info', 3000);
             Actions.openRinks();
         }
         filtersChanged();
@@ -1603,6 +1691,7 @@ window.SkateApp = (() => {
         if (flag === 'saved') S.savedOnly = !!on;
         else if (flag === 'past') S.showPast = !!on;
         else if (flag === 'paid') S.paidVisible = !!on;
+        else if (flag === 'dropped') S.showDropped = !!on;
         else if (flag === 'mine') {
             const keys = SkateSettings.get('myRinks') || [];
             if (on && !keys.length) { Modal.close('filters-modal'); Actions.openRinks(); return; }
@@ -1618,7 +1707,7 @@ window.SkateApp = (() => {
     Actions.resetFilters = function () {
         S.types = {}; S.cities = []; S.day = ''; S.age = null; S.savedOnly = false;
         S.showPast = false; S.nearRink = null; S.rinkScope = 'all'; S.sort = 'time'; S.paidVisible = false;
-        S.expandedCats = {};
+        S.showDropped = false; S.moreFilters = false; S.expandedCats = {};
         filtersChanged();
     };
     /** Tapping a pill removes that one filter (or toggles ⭐ My rinks). */
@@ -1632,11 +1721,13 @@ window.SkateApp = (() => {
         else if (key === 'near') S.nearRink = null;
         else if (key === 'paid') S.paidVisible = false;
         else if (key === 'past') S.showPast = false;
+        else if (key === 'dropped') S.showDropped = false;
+        else if (key === 'cities') S.cities = [];
         else if (key === 'sort') S.sort = 'time';
         filtersChanged();
     };
-    Actions.toggleWeek = function () {
-        S.calMode = !S.calMode;
+    Actions.setCalMode = function (on) {
+        S.calMode = !!on;
         SkateSettings.set('calMode', S.calMode);
         Render.programs();
     };
@@ -1653,7 +1744,7 @@ window.SkateApp = (() => {
             Actions.applyFilters();
             idx = find();
         }
-        if (idx === -1) return SkateChat.Notify.toast('That session isn\'t in the current dataset anymore', 'error');
+        if (idx === -1) return SkateChat.Notify.toast('That session is not in the current schedule anymore', 'error');
         if (S.calMode) { S.calMode = false; }
         if (idx >= S.limit) S.limit = idx + 1;
         Render.programs();
@@ -1672,7 +1763,7 @@ window.SkateApp = (() => {
         if (sp.free === 0 && sp.paid > 0) {
             S.paidVisible = true;
             SkateSettings.set('paidVisible', true);
-            SkateChat.Notify.toast(`${what || 'That rink'} only has paid sessions — Paid turned on so they show 💲`, 'info', 4000);
+            SkateChat.Notify.toast(`${what || 'That rink'} only has paid sessions. Paid is now on so they show.`, 'info', 4000);
         }
     }
 
@@ -1693,7 +1784,7 @@ window.SkateApp = (() => {
         try {
             await SkateMap.open(opts);   // shows #rinks-modal, lazy-loads Leaflet
         } catch (e) {
-            SkateChat.Notify.toast('Map couldn\'t load — the rink list still works', 'error');
+            SkateChat.Notify.toast('The map could not load. The rink list still works.', 'error');
         }
     };
     Actions.closeRinks = function () { SkateMap.close(); };
@@ -1708,7 +1799,7 @@ window.SkateApp = (() => {
 
     Actions.useMyLocation = async function () {
         const btn = $('btn-share-location');
-        btn.disabled = true; btn.textContent = '📍 Locating…';
+        btn.disabled = true; btn.textContent = 'Locating…';
         try {
             const loc = await SkateGeo.locateMe();
             SkateGeo.setUserLocation(loc);
@@ -1716,7 +1807,7 @@ window.SkateApp = (() => {
         } catch (e) {
             $('locator-status').textContent = e.message;
         }
-        btn.disabled = false; btn.textContent = '📍 Use my location';
+        btn.disabled = false; btn.textContent = 'Use my location';
     };
 
     Actions.searchLocation = async function () {
@@ -1742,7 +1833,7 @@ window.SkateApp = (() => {
         ensurePaidVisibleFor(key, name);
         SkateMap.close();
         Actions.applyFilters();
-        SkateChat.Notify.toast(`Showing only ${name} — tap the 📍 pill to clear`, 'info', 3500);
+        SkateChat.Notify.toast(`Showing only ${name}. Tap the pill's x to clear.`, 'info', 3500);
     };
 
     /* ---------- Section visibility + first-visit setup ---------- */
@@ -1777,15 +1868,13 @@ window.SkateApp = (() => {
         return communityBootPromise;
     };
 
-    /** First-visit setup still unanswered? (Same condition maybeShowSetup uses.) */
+    /** First visit not yet handled? (Existing users are grandfathered.) */
     const setupPending = () =>
         !SkateSettings.get('setupDone') && !SkateSettings.get('experience') && !SkateSettings.get('displayName');
 
     /**
      * Community boots only when a section is on AND the visitor has had
-     * their say — a brand-new visitor mid-setup must not open relay
-     * connections that setup is about to decline. (Deep links that need
-     * chat immediately call bootCommunity() directly and skip this gate.)
+     * their say. Deep links that need chat call bootCommunity() directly.
      */
     const communityWanted = () =>
         !setupPending() &&
@@ -1811,45 +1900,30 @@ window.SkateApp = (() => {
         if (SkateSettings.get(visKey) === false) {
             SkateSettings.set(visKey, true);
             Actions.applyVisibility();
-            SkateChat.Notify.toast(`${visKey === 'showGuides' ? '📖 Guides' : '💬 Chats'} re-enabled — hide it again in ⚙️ Settings`, 'info', 3500);
-        }
-        // If the first-visit setup is still on screen (deep link on a brand-new
-        // install), tick its box too so finishing setup doesn't undo the link.
-        if (!SkateSettings.get('setupDone')) {
-            const box = $(visKey === 'showGuides' ? 'setup-guides' : 'setup-chats');
-            if (box) box.checked = true;
+            SkateChat.Notify.toast(`${visKey === 'showGuides' ? 'Guides' : 'Chats'} switched on. Hide it again in Settings.`, 'info', 3500);
         }
     };
 
-    Actions.maybeShowSetup = function () {
-        if (SkateSettings.get('setupDone')) return;
-        // Existing users (already chose an experience or renamed themselves)
-        // are grandfathered — no surprise popup on a site they already use.
+    /**
+     * First visit, v3.4: no welcome form. The visitor lands on Toronto
+     * leisure and figure skating (the two kinds most people mean by "public
+     * skating"), community sections stay off until chosen in Settings, and
+     * the spotlight tour starts after the first render with Skip up front.
+     * Returns true on a brand-new install.
+     */
+    Actions.firstRun = function () {
+        if (SkateSettings.get('setupDone')) return false;
         if (SkateSettings.get('experience') || SkateSettings.get('displayName')) {
-            SkateSettings.set('setupDone', true);
-            return;
+            SkateSettings.set('setupDone', true);   // existing user: nothing changes
+            return false;
         }
-        // Community is OPT-IN for brand-new visitors: boxes start unchecked,
-        // so completing (or dismissing) setup without touching them gives a
-        // schedule-only site — zero relay connections until they choose.
-        $('setup-guides').checked = false;
-        $('setup-chats').checked = false;
-        Modal.open('setup-modal');
-    };
-
-    /** Persist the setup choices; safe to call twice (overlay + button). */
-    Actions.finishSetup = function () {
-        if (SkateSettings.get('setupDone')) return;
-        SkateSettings.set('showGuides', $('setup-guides').checked);
-        SkateSettings.set('showChats', $('setup-chats').checked);
+        SkateSettings.set('showGuides', false);
+        SkateSettings.set('showChats', false);
+        S.cities = ['Toronto'];
+        S.types = { leisure: 'all', figure: 'all' };
+        persistFilters();
         SkateSettings.set('setupDone', true);
-        Modal.close('setup-modal');
-        Actions.applyVisibility();
-        // Brand-new visitor: run the 20-second spotlight tour right away —
-        // its Skip button is front and centre, so it costs one tap at most.
-        if (!SkateSettings.get('tourDone')) {
-            setTimeout(() => SkateTour.start(), 350);
-        }
+        return true;
     };
 
     /* ---------- What's new ---------- */
@@ -1874,7 +1948,7 @@ window.SkateApp = (() => {
             // generous white quiet zone so it scans off dark-mode screens
             $('qr-holder').innerHTML = qr.createImgTag(6, 12);
         } catch (e) {
-            $('qr-holder').innerHTML = '<p class="settings-hint">Could not build the QR — the Copy link button still works.</p>';
+            $('qr-holder').innerHTML = '<p class="settings-hint">Could not build the QR code. The Copy link button still works.</p>';
         }
     };
 
@@ -1887,17 +1961,18 @@ window.SkateApp = (() => {
         const sessions = S.paidVisible ? sp.free + sp.paid : sp.free;
         const alerts = SkateAlerts.forLocation(key);
         const mine = (SkateSettings.get('myRinks') || []).includes(key);
-        const kinds = (r.kinds || []).map(k => k === 'indoor' ? '🏠 indoor' : '🌳 outdoor').join(' · ');
+        const kinds = (r.kinds || []).map(k => k === 'indoor' ? 'indoor' : 'outdoor').join(' · ');
+        const city = rinkCity(r);
         const offR = officialUrlForRink(r);
         const sessionsTxt = sessions ? `${sessions} upcoming session${sessions === 1 ? '' : 's'}`
             : (sp.paid ? `${sp.paid} paid session${sp.paid === 1 ? '' : 's'} (Paid toggle off)` : 'no drop-ins listed');
         return `<div class="map-pop">
             <strong>${escapeHtml(r.name)}</strong>
-            <span class="map-pop-meta">${kinds}${r.paid ? ' · 💲 paid' : ''}${km != null ? ` · ${SkateGeo.fmtKm(km)}` : ''}${offR ? ` · <a href="${escapeHtml(offR)}" target="_blank" rel="noopener">🏛️ official ↗</a>` : ''}</span>
-            <span class="map-pop-meta">${sessionsTxt}${alerts.length ? ' · <span class="map-pop-alert">⚠️ service alert</span>' : ''}</span>
+            <span class="map-pop-meta">${city !== 'Toronto' ? escapeHtml(city) + ' · ' : ''}${kinds}${r.paid ? ' · paid' : ''}${km != null ? ` · ${SkateGeo.fmtKm(km)}` : ''}${offR ? ` · <a href="${escapeHtml(offR)}" target="_blank" rel="noopener">official page ↗</a>` : ''}</span>
+            <span class="map-pop-meta">${sessionsTxt}${alerts.length ? ' · <span class="map-pop-alert">service alert</span>' : ''}</span>
             <span class="map-pop-actions">
                 ${(sessions || sp.paid) ? `<button class="btn-small" data-map-sessions="${escapeHtml(key)}" data-map-name="${escapeHtml(r.name)}">Show sessions</button>` : ''}
-                <button class="btn-small${mine ? ' starred' : ''}" data-map-star="${escapeHtml(key)}">${mine ? '★ Mine' : '☆ Add to my rinks'}</button>
+                <button class="btn-small${mine ? ' starred' : ''}" data-map-star="${escapeHtml(key)}">${mine ? '★ One of my rinks' : '☆ Add to my rinks'}</button>
             </span>
         </div>`;
     }
@@ -1918,7 +1993,7 @@ window.SkateApp = (() => {
         const g = SkateGuides.get(id);
         if (!g) {
             S.pendingGuideOpen = id;
-            if (SkateGuides.loaded) SkateChat.Notify.toast('Hmm, that guide isn\'t on the relays (yet?)', 'info', 3000);
+            if (SkateGuides.loaded) SkateChat.Notify.toast('That guide is not on the relays yet', 'info', 3000);
             return;
         }
         S.pendingGuideOpen = null;
@@ -1942,7 +2017,7 @@ window.SkateApp = (() => {
         btn.disabled = true;
         try {
             const ok = await SkateGuides.vote(targetId, identity());
-            if (!ok) SkateChat.Notify.toast('Vote didn\'t reach the relays — try again', 'error');
+            if (!ok) SkateChat.Notify.toast('The vote did not reach the relays. Try again.', 'error');
         } catch (e) { SkateChat.Notify.toast(e.message, 'error'); }
         btn.disabled = false;
         Render.guides();
@@ -1963,18 +2038,18 @@ window.SkateApp = (() => {
         const text = $('guide-comment-input').value;
         if (!text.trim() || !S.activeGuideId) return;
         const btn = $('btn-guide-comment');
-        btn.disabled = true; btn.textContent = '⛏️';
+        btn.disabled = true; btn.textContent = '…';
         try {
             const ok = await SkateGuides.comment(S.activeGuideId, text, identity(), S.guideReply?.id || null);
             if (ok) { $('guide-comment-input').value = ''; Actions.clearGuideReply(); Render.guideDetail(); }
-            else SkateChat.Notify.toast('Comment didn\'t reach the relays', 'error');
+            else SkateChat.Notify.toast('The comment did not reach the relays', 'error');
         } catch (e) { SkateChat.Notify.toast(e.message, 'error'); }
         btn.disabled = false; btn.textContent = '➤';
     };
 
     Actions.submitGuide = async function () {
         const btn = $('btn-guide-submit');
-        btn.disabled = true; btn.textContent = 'Proving you\'re human ⛏️…';
+        btn.disabled = true; btn.textContent = 'Proving you are human…';
         try {
             const ok = await SkateGuides.postGuide({
                 title: $('guide-title-input').value,
@@ -1982,12 +2057,12 @@ window.SkateApp = (() => {
                 body: $('guide-body-input').value
             }, identity());
             if (ok) {
-                SkateChat.Notify.toast('Guide published! 📖', 'success');
+                SkateChat.Notify.toast('Guide published', 'success');
                 $('guide-title-input').value = ''; $('guide-body-input').value = '';
                 $('guide-write').classList.add('hidden');
                 $('guides-home').classList.remove('hidden');
                 Render.guides();
-            } else SkateChat.Notify.toast('Relays didn\'t accept it — try again', 'error');
+            } else SkateChat.Notify.toast('The relays did not accept it. Try again.', 'error');
         } catch (e) { SkateChat.Notify.toast(e.message, 'error'); }
         btn.disabled = false; btn.textContent = 'Publish guide';
     };
@@ -2155,7 +2230,7 @@ window.SkateApp = (() => {
 
     Actions.openSettings = function () {
         $('settings-name').value = SkateChat.getState().myName || '';
-        $('btn-play-guide').textContent = `▶️ Watch the ${SkateTour.duration()}-second guide`;
+        $('btn-play-guide').textContent = `Watch the ${SkateTour.duration()}-second guide`;
         Render.settings();
         Modal.open('settings-modal');
     };
@@ -2197,7 +2272,7 @@ window.SkateApp = (() => {
             ind.classList.add('busy'); text.textContent = 'Refreshing…'; setPull(52);
             try {
                 await Actions.reloadData();
-                SkateChat.Notify.toast('Schedule, alerts & spots refreshed ✓', 'success', 2000);
+                SkateChat.Notify.toast('Schedule, alerts and spots refreshed', 'success', 2000);
             } catch (e) {
                 SkateChat.Notify.toast('Refresh failed: ' + e.message, 'error');
             } finally {
@@ -2243,23 +2318,29 @@ window.SkateApp = (() => {
     Actions.reloadData = async function () {
         SkateAPI._skatingPrograms = null;
         S.programs = (await SkateAPI.getSkatingPrograms(true)) || [];   // force: bypass HTTP cache
+        mergedExtraSig = null; mergeLiveExtras();
         SkateAlerts.load(true);             // force (still ≥60s-gapped internally)
         SkateLive.load(S.programs, true);
         Actions.applyFilters(true);
     };
 
     Actions.refreshPrograms = async function () {
+        const btn = $('btn-refresh');
+        btn.disabled = true; btn.classList.add('spinning');
         $('status-data').textContent = 'Refreshing…';
         try {
             await Actions.reloadData();
-            // The success/failure story belongs to the city-refresh request —
-            // no premature "reloaded!" that survives a cancelled confirm.
-            const res = await SkateRefresh.requestCityRefresh();   // toasts on queued/failed itself
-            if (res === 'cancelled') {
-                SkateChat.Notify.toast('No city refresh requested — showing the latest published schedule', 'info', 2500);
-            }
+            SkateChat.Notify.toast('Schedule, alerts and spots refreshed', 'success', 2000);
         } catch (e) { SkateChat.Notify.toast('Refresh failed: ' + e.message, 'error'); }
-        finally { Render.status(); }
+        finally { Render.status(); btn.disabled = false; btn.classList.remove('spinning'); }
+    };
+
+    /** The doorbell: asks the CI to re-pull the City's export (status popover). */
+    Actions.requestCityRefresh = async function () {
+        try {
+            const res = await SkateRefresh.requestCityRefresh();   // toasts on queued/failed itself
+            if (res === 'cancelled') SkateChat.Notify.toast('No pull requested. Showing the latest published schedule.', 'info', 2500);
+        } catch (e) { SkateChat.Notify.toast('Could not send the request: ' + e.message, 'error'); }
     };
 
     /* ================= Bindings ================= */
@@ -2278,10 +2359,17 @@ window.SkateApp = (() => {
         // ---- Toolbar ----
         $('btn-filters').onclick = Actions.openFilters;
         $('btn-rinks').onclick = () => Actions.openRinks();
-        $('btn-week').onclick = Actions.toggleWeek;
+        $('btn-list').onclick = () => Actions.setCalMode(false);
+        $('btn-cal').onclick = () => Actions.setCalMode(true);
+        $('btn-refresh').onclick = () => Actions.refreshPrograms();
+        $('btn-paid').onclick = () => Actions.setFlag('paid', !S.paidVisible);
 
-        // ---- Pills ----
-        delegate($('active-filters'), [['.pill', (b) => Actions.removePill(b.dataset.pill)]]);
+        // ---- Pills (the city pill opens a picker; its x clears to every city) ----
+        delegate($('active-filters'), [
+            ['.pill.city .pill-x', (x, e) => { e.stopPropagation(); Actions.setCities([]); }],
+            ['.pill.city', (b, e) => { e.stopPropagation(); Popover.open(b, Menus.cities()); }],
+            ['.pill', (b) => Actions.removePill(b.dataset.pill)]
+        ]);
 
         // ---- Status line + weather ----
         $('status-data').onclick = (e) => { e.stopPropagation(); Popover.open($('status-data'), Menus.status()); };
@@ -2302,12 +2390,14 @@ window.SkateApp = (() => {
             if (t.dataset.type) return Actions.setType(t.dataset.type, t.dataset.sub || null, t.checked);
         });
         delegate($('filters-body'), [
-            ['.fexpand', (b) => {
-                S.expandedCats[b.dataset.expand] = !S.expandedCats[b.dataset.expand];
+            ['.fexpand, .ftoggle', (b) => {
+                const k = b.dataset.expand;
+                if (k === '__filters') S.moreFilters = !S.moreFilters;
+                else S.expandedCats[k] = !S.expandedCats[k];
                 Render.filters();
             }],
             ['.fchip[data-day]', (b) => Actions.setDay(b.dataset.day)],
-            ['.fchip[data-city]', (b) => Actions.toggleCity(b.dataset.city)],
+            ['.fchip[data-city]', (b) => (b.dataset.city ? Actions.toggleCity(b.dataset.city) : Actions.setCities([]))],
             ['.fchip[data-sort]', (b) => Actions.setSort(b.dataset.sort)],
             ['.flink[data-open]', () => { Modal.close('filters-modal'); Actions.openRinks(); }]
         ]);
@@ -2347,6 +2437,9 @@ window.SkateApp = (() => {
             ['[data-loc-filter]', (b) => Actions.filterToRink(b.dataset.locFilter, b.dataset.locName)],
             ['[data-loc-star]', (b) => Actions.toggleMyRink(b.dataset.locStar)]
         ]);
+        delegate($('rinks-scope'), [
+            ['[data-rinks-scope]', (b) => { S.rinksAllCities = b.dataset.rinksScope === 'all'; Render.rinks(); SkateMap.refresh(); }]
+        ]);
         delegate($('map-filter-seg'), [
             ['button[data-mapfilter]', (b) => SkateMap.setFilter(b.dataset.mapfilter)]
         ]);
@@ -2356,7 +2449,7 @@ window.SkateApp = (() => {
             ['[data-map-star]', (b) => {
                 Actions.toggleMyRink(b.dataset.mapStar);
                 const mine = (SkateSettings.get('myRinks') || []).includes(b.dataset.mapStar);
-                SkateChat.Notify.toast(mine ? 'Added to My rinks ⭐' : 'Removed from My rinks', 'success', 2000);
+                SkateChat.Notify.toast(mine ? 'Added to your rinks' : 'Removed from your rinks', 'success', 2000);
             }]
         ]);
 
@@ -2367,14 +2460,14 @@ window.SkateApp = (() => {
         $('btn-whatsnew-close').onclick = () => Modal.close('whatsnew-modal');
         $('btn-show-qr').onclick = () => Actions.openQr();
         $('btn-qr-close').onclick = () => Modal.close('qr-modal');
-        const copySite = () => copyText(CFG.siteUrl, 'Site link copied — send it anywhere 🔗');
+        const copySite = () => copyText(CFG.siteUrl, 'Site link copied. Send it anywhere.');
         $('btn-copy-site').onclick = copySite;
         $('btn-qr-copy').onclick = copySite;
         $('btn-start-tour').onclick = () => { Modal.close('settings-modal'); Actions.switchView('programs'); SkateTour.start(); };
         $('btn-play-guide').onclick = () => { Modal.close('settings-modal'); Actions.switchView('programs'); SkateTour.play(); };
         $('btn-save-name').onclick = () => {
-            if (SkateChat.setDisplayName($('settings-name').value)) SkateChat.Notify.toast('Name updated ✓', 'success', 2000);
-            else SkateChat.Notify.toast('That name won\'t work — try another', 'error', 2500);
+            if (SkateChat.setDisplayName($('settings-name').value)) SkateChat.Notify.toast('Name updated', 'success', 2000);
+            else SkateChat.Notify.toast('That name will not work. Try another.', 'error', 2500);
         };
         delegate($('settings-timefmt'), [
             ['button[data-fmt]', (b) => { SkateSettings.set('timeFormat', b.dataset.fmt); Render.settings(); }]
@@ -2399,25 +2492,6 @@ window.SkateApp = (() => {
                 Render.settings();
             }]
         ]);
-
-        // ---- First-visit setup ----
-        $('setup-done').onclick = Actions.finishSetup;
-        $('setup-nearest').onclick = async () => {
-            const btn = $('setup-nearest');
-            btn.disabled = true; btn.textContent = '📍 Locating…';
-            try {
-                const loc = await SkateGeo.locateMe();
-                SkateGeo.setUserLocation(loc);
-                S.sort = 'near';
-                SkateSettings.set('sort', 'near');
-                $('setup-rink-status').textContent = '✓ Got it — sessions will sort by distance from you.';
-                Actions.applyFilters(true);
-            } catch (e) {
-                $('setup-rink-status').textContent = e.message;
-            }
-            btn.disabled = false; btn.textContent = '📍 Rinks near me';
-        };
-        $('setup-pick').onclick = () => { Actions.finishSetup(); Actions.openRinks(); };
 
         // ---- Chats — list ----
         $('btn-discover').onclick = () => Modal.open('discover-modal');
@@ -2482,15 +2556,15 @@ window.SkateApp = (() => {
             try {
                 const name = $('group-name-input').value.trim();
                 const password = $('group-password-input').value.trim() || null;
-                if (!name) return SkateChat.Notify.toast('Give your group a name', 'error', 2000);
+                if (!name) return SkateChat.Notify.toast('Give your group a name first', 'error', 2000);
                 const { invite } = await SkateChat.createGroup({ name, password });
                 $('group-name-input').value = ''; $('group-password-input').value = '';
                 Modal.close('discover-modal');
                 S.chatOpen = true;
                 Actions.switchView('chats');
                 if (invite) copyText(invite.url, invite.hasPassword
-                    ? 'Group created — invite link copied. Friends will also need the password 🔐'
-                    : 'Group created — invite link copied! 🔗');
+                    ? 'Group created and the invite link copied. Friends will also need the password.'
+                    : 'Group created and the invite link copied.');
             } catch (e) { SkateChat.Notify.toast(e.message, 'error'); }
         };
         $('btn-join-link').onclick = () => {
@@ -2498,7 +2572,7 @@ window.SkateApp = (() => {
             if (!raw) return;
             const hashPart = raw.includes('#') ? raw.slice(raw.indexOf('#') + 1) : raw;
             const inv = SkateChat.parseInviteHash(hashPart);
-            if (!inv) return SkateChat.Notify.toast('That doesn\'t look like a valid invite link', 'error');
+            if (!inv) return SkateChat.Notify.toast('That does not look like a valid invite link', 'error');
             $('join-link-input').value = '';
             Modal.close('discover-modal');
             Actions.showInvite(inv);
@@ -2524,7 +2598,7 @@ window.SkateApp = (() => {
         ]);
         delegate($('guide-detail-content'), [
             ['[data-vote]', (v) => Actions.toggleGuideVote(v.dataset.vote, v)],
-            ['[data-guide-copy]', (n) => copyText(`${baseUrl()}#guide=${n.dataset.guideCopy}`, 'Guide link copied! 🔗')],
+            ['[data-guide-copy]', (n) => copyText(`${baseUrl()}#guide=${n.dataset.guideCopy}`, 'Guide link copied')],
             ['[data-guide-share]', (n) => {
                 const g = SkateGuides.get(n.dataset.guideShare);
                 if (g) Actions.shareGuideFromDetail(g);
@@ -2544,7 +2618,6 @@ window.SkateApp = (() => {
 
         Modal.bindOverlays((id) => {
             if (id === 'invite-modal') { S.pendingInvite = null; Actions.clearHash(); }
-            if (id === 'setup-modal') Actions.finishSetup();
         });
 
         // Keyboard: 1-N switch views, Esc walks back (popover → modal → conversation)
@@ -2555,7 +2628,6 @@ window.SkateApp = (() => {
                 if (modal) {
                     modal.classList.add('hidden');
                     if (modal.id === 'invite-modal') { S.pendingInvite = null; Actions.clearHash(); }
-                    if (modal.id === 'setup-modal') Actions.finishSetup();
                     return;
                 }
                 if (S.chatOpen && $('chats-panel').classList.contains('active')) return Actions.backToList();
@@ -2566,6 +2638,55 @@ window.SkateApp = (() => {
             const visibleViews = CFG.views.filter(viewVisible);
             if (n >= 1 && n <= visibleViews.length) Actions.switchView(visibleViews[n - 1].id);
         });
+    }
+
+    /* ---------- toronto.ca as the ground truth ----------
+       The weekly export lags the live system both ways: it keeps sessions
+       the City dropped (hidden via isDropped) and lacks sessions the City
+       added. The pipeline lists those extras in live-check.json; here they
+       become ordinary City rows, borrowing the rink's address from a
+       sibling row or rinks.json. */
+    let mergedExtraSig = null;
+    const normKey = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    function parseAgeText(t) {
+        const s = String(t || '').toLowerCase();
+        let m;
+        if ((m = s.match(/(\d+)\s*(?:years?)?\s*(?:to|-)\s*(\d+)/))) return { min: +m[1], max: +m[2] };
+        if ((m = s.match(/(\d+)\s*(?:years?)?\s*(?:and over|and up|\+)/))) return { min: +m[1], max: null };
+        if ((m = s.match(/(\d+)\s*(?:years?)?\s*(?:and under)/))) return { min: null, max: +m[1] };
+        return { min: null, max: null };
+    }
+    function mergeLiveExtras() {
+        const extra = SkateAlerts.liveExtra || [];
+        const sig = extra.map(x => `${x.LocationID}|${x.date}|${x.start}|${x.title}`).join(';');
+        if (sig === mergedExtraSig) return false;
+        mergedExtraSig = sig;
+        S.programs = S.programs.filter(p => !p.LiveOnly);
+        const have = new Set(S.programs.filter(p => !p.Source || p.Source === 'city')
+            .map(p => `${p['Location ID']}|${P.dateStr(p).slice(0, 10)}|${P.time(p)}|${normKey(P.activity(p))}`));
+        extra.forEach(x => {
+            if (!x || !x.date || !x.start) return;
+            if (have.has(`${x.LocationID}|${x.date}|${x.start}|${normKey(x.title)}`)) return;
+            const sibling = S.programs.find(p => (!p.Source || p.Source === 'city') && String(p['Location ID']) === String(x.LocationID));
+            const rink = SkateGeo.rinkByLocation(x.LocationID);
+            const age = parseAgeText(x.age);
+            S.programs.push({
+                _id: `live-${x.LocationID}-${x.date}-${x.start}`,
+                'Location ID': x.LocationID,
+                'Course Title': x.title, Activity: x.title, Section: 'Skating - Drop-In', Category: 'Skating - Drop-In',
+                LocationName: sibling?.LocationName || rink?.name || `Location ${x.LocationID}`,
+                LocationType: sibling?.LocationType || 'arena',
+                Address: sibling?.Address || rink?.address || '', District: sibling?.District || rink?.district || '',
+                PostalCode: sibling?.PostalCode || rink?.postal || '',
+                Accessibility: sibling?.Accessibility || '', TTCInfo: sibling?.TTCInfo || '', Intersection: sibling?.Intersection || '',
+                'Age Min': age.min, 'Age Max': age.max,
+                'Start Time': x.start, 'End Time': x.end || '',
+                'Day of Week': parseLocalDate(x.date).toLocaleDateString('en-CA', { weekday: 'long' }),
+                'Start Date': x.date, 'End Date': x.date, 'First Date': x.date, 'Last Date': x.date,
+                Source: 'city', LiveOnly: true
+            });
+        });
+        return true;
     }
 
     /* ================= Boot ================= */
@@ -2581,8 +2702,8 @@ window.SkateApp = (() => {
         // Favorites are loaded here, not in the community boot — the ❤️
         // hearts must work even on a schedule-only (no chat/guides) visit.
         SkateChat.Favorites.load();
+        const freshInstall = Actions.firstRun();
         Actions.applyVisibility();   // also kicks off bootCommunity() if a section is visible
-        Actions.maybeShowSetup();
         initPullToRefresh();
 
         // Rink map + service alerts load in parallel with programs;
@@ -2594,24 +2715,28 @@ window.SkateApp = (() => {
             if (S.programs.length) Actions.applyFilters(true);
             if (!$('rinks-modal').classList.contains('hidden')) { Render.rinks(); SkateMap.refresh(); }
         });
-        SkateAlerts.onUpdate(() => { if (S.programs.length) Render.programs(); });
+        SkateAlerts.onUpdate(() => { if (S.programs.length) { mergeLiveExtras(); Actions.applyFilters(true); } });
         SkateLive.onUpdate(() => { if (S.programs.length) Render.programs(); });
         SkateWeather.onUpdate(Render.weather);
 
         // Map popups pull their content/actions from app-side data
         SkateMap.configure({
             popupHtml: mapPopupHtml,
-            userPoint: () => SkateGeo.getUserLocation()
+            userPoint: () => SkateGeo.getUserLocation(),
+            rinkFilter: rinkInScope
         });
 
         try {
             const programs = await SkateAPI.getSkatingPrograms();
             S.programs = programs || [];
+            mergeLiveExtras();
             Actions.applyFilters();
             SkateLive.load(S.programs);   // live venue spots (TTL-throttled)
             if (S.pendingProgramFocus) { Actions.focusProgram(S.pendingProgramFocus); S.pendingProgramFocus = null; }
+            // Brand-new visitor: the spotlight tour, Skip front and centre.
+            if (freshInstall && !SkateSettings.get('tourDone')) setTimeout(() => SkateTour.start(), 700);
         } catch (e) {
-            $('program-list').innerHTML = '<li class="loading">Could not load programs 😕 — pull to refresh or try again later.</li>';
+            $('program-list').innerHTML = '<li class="loading">Could not load the schedule. Pull to refresh or try again later.</li>';
         }
 
         // Keep "Starts in Xm / On now · Xm left" honest and let just-ended
@@ -2657,7 +2782,7 @@ window.SkateApp = (() => {
         window.addEventListener('hashchange', Actions.route);
     }
 
-    return { init, S, Render, Actions, officialUrl, officialSite };
+    return { init, S, Render, Actions, officialUrl, officialSite, rinkCity };
 })();
 
 SkateApp.init();

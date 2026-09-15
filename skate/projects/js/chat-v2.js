@@ -156,7 +156,7 @@ const SkateChat = (() => {
                 Notify.toast(`Unmuted ${name || 'user'} 🔊`, 'success', 2000);
             } else {
                 state.muted.add(pubkey);
-                Notify.toast(`Muted ${name || 'user'} — their messages are hidden for you 🔇`, 'info', 3000);
+                Notify.toast(`Muted ${name || 'user'}. Their messages are hidden for you.`, 'info', 3000);
             }
             this.save();
             notifyUpdate();
@@ -614,7 +614,7 @@ const SkateChat = (() => {
 
         const verdict = await SkateMod.check(trimmed, moderationOpts(group));
         if (!verdict.ok) {
-            Notify.toast('That message won\'t fly here 🙈 — keep it friendly', 'error', 3000);
+            Notify.toast('That message will not fly here. Keep it friendly.', 'error', 3000);
             return false;
         }
 
@@ -757,7 +757,7 @@ const SkateChat = (() => {
         if (!target) return false;
         const ok = await shareTo(target, { type: 'share', text: `⛸️ ${data.activity}`, data });
         if (ok) Notify.toast(`Shared to ${target.name || 'the chat'} 📤`, 'success', 2000);
-        else Notify.toast('Share didn\'t reach the relays — try again', 'error');
+        else Notify.toast('The share did not reach the relays. Try again.', 'error');
         return ok;
     }
 
@@ -772,7 +772,7 @@ const SkateChat = (() => {
         };
         const ok = await shareTo(dest, { type: 'guide', text: `📖 ${data.title}`, data });
         if (ok) Notify.toast(`Guide shared to ${dest.name || 'the chat'} 📖`, 'success', 2000);
-        else Notify.toast('Share didn\'t reach the relays — try again', 'error');
+        else Notify.toast('The share did not reach the relays. Try again.', 'error');
         return ok;
     }
 
@@ -1006,7 +1006,7 @@ const SkateChat = (() => {
         saveState(true);
         notifyUpdate();
         const { ok } = await publishToGroup(groupId, { type: 'rename', name, from: state.myName });
-        if (!ok) Notify.toast('Renamed locally — relays didn\'t confirm, others may not see it yet', 'info', 3500);
+        if (!ok) Notify.toast('Renamed on this device. The relays did not confirm, so others may not see it yet.', 'info', 3500);
         return ok;
     }
 

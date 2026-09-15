@@ -736,7 +736,29 @@ function titleCaseIfShouty(s) {
  * alert on the outdoor pad affects an indoor program), and the full rink
  * universe including rinks with no scheduled drop-ins.
  */
-async function fetchRinkInventory() {
+/**
+ * City drop-in locations the rink datasets do not list (Scarborough Arena
+ * Gardens, Park Lawn Park…) still deserve a pin and a count. Their address
+ * comes from the program rows; coordinates via Nominatim, cached in
+ * projects/data/geocode-cache.json so the lookup happens once per address.
+ */
+const GEOCODE_CACHE = path.join(OUTPUT_DIR, 'geocode-cache.json');
+async function geocodeAddress(query) {
+    let cache = {};
+    try { cache = JSON.parse(fs.readFileSync(GEOCODE_CACHE, 'utf8')); } catch { /* first run */ }
+    const key = query.toLowerCase().replace(/\s+/g, ' ').trim();
+    if (cache[key]) return cache[key];
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=ca&q=${encodeURIComponent(query)}`;
+    const arr = JSON.parse(await httpGetText(url, { Accept: 'application/json' }));
+    await new Promise(r => setTimeout(r, 1100));   // Nominatim: at most one request per second
+    if (!Array.isArray(arr) || !arr.length) return null;
+    const hit = { lat: parseFloat(arr[0].lat), lng: parseFloat(arr[0].lon), label: arr[0].display_name };
+    cache[key] = hit;
+    fs.writeFileSync(GEOCODE_CACHE, JSON.stringify(cache, null, 1));
+    return hit;
+}
+
+async function fetchRinkInventory(programs = []) {
     const byLocation = {};
 
     for (const pkg of RINK_PACKAGES) {
@@ -824,6 +846,39 @@ async function fetchRinkInventory() {
             };
         }
     });
+
+    // City locations that only exist in the program rows
+    const missing = {};
+    programs.forEach(p => {
+        if (p.Source && p.Source !== 'city') return;
+        const id = p['Location ID'];
+        if (id == null || byLocation[String(id)] || missing[id]) return;
+        if (!p.LocationName) return;
+        missing[id] = p;
+    });
+    for (const [id, p] of Object.entries(missing)) {
+        let geo = null;
+        try {
+            geo = await geocodeAddress(`${p.Address ? p.Address + ', ' : ''}Toronto, ON${p.PostalCode ? ' ' + p.PostalCode : ''}`)
+               || await geocodeAddress(`${p.LocationName}, Toronto, ON`);
+        } catch (e) {
+            console.warn(`   📍 geocode failed for ${p.LocationName}: ${e.message}`);
+        }
+        byLocation[String(id)] = {
+            locationid: String(id),
+            name: p.LocationName,
+            address: p.Address || '',
+            postal: p.PostalCode || '',
+            district: p.District || '',
+            lat: geo ? geo.lat : null, lng: geo ? geo.lng : null,
+            kinds: ['indoor'],
+            pads: 1,
+            operator: 'City of Toronto',
+            source: 'city',
+            fromPrograms: true
+        };
+        console.log(`   📍 added ${p.LocationName} (${id}) from the program rows${geo ? '' : ' (no coordinates yet)'}`);
+    }
 
     return Object.values(byLocation).sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -2234,7 +2289,7 @@ async function main() {
         let rinks = [];
         let rinksOk = true;
         try {
-            rinks = await fetchRinkInventory();
+            rinks = await fetchRinkInventory(allPrograms);
             console.log(`   ✅ ${rinks.length} rink locations`);
         } catch (e) {
             rinksOk = false;

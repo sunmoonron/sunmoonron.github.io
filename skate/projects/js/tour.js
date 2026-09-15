@@ -105,7 +105,7 @@ window.SkateTour = (() => {
         const pos = vis.indexOf(s) + 1;
         const last = pos >= vis.length;
         card.innerHTML = `
-            <button class="tour-skip">${auto ? 'Skip guide' : 'Skip tour'}</button>
+            <button class="tour-skip">${auto ? 'Skip the guide' : 'Skip the tour'}</button>
             ${auto ? '<div class="tour-progress"><div class="tour-progress-bar"></div></div>' : ''}
             <h4>${s.title}</h4>
             <p>${s.text}</p>

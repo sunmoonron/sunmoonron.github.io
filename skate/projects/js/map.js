@@ -26,7 +26,7 @@ window.SkateMap = (() => {
     let pinLayer = null;
     let userMarker = null;
     let filter = 'all';        // 'all' | 'indoor' | 'outdoor'
-    let hooks = {};            // { popupHtml(rink), onOpen(), userPoint() }
+    let hooks = {};            // { popupHtml(rink), onOpen(), userPoint(), rinkFilter(rink) }
 
     function configure(h) { hooks = { ...hooks, ...h }; }
 
@@ -71,7 +71,7 @@ window.SkateMap = (() => {
     function renderPins() {
         if (!map) return;
         pinLayer.clearLayers();
-        const rinks = (window.SkateGeo?.rinks || []).filter(r => r.lat != null && rinkMatchesFilter(r));
+        const rinks = (window.SkateGeo?.rinks || []).filter(r => r.lat != null && rinkMatchesFilter(r) && (!hooks.rinkFilter || hooks.rinkFilter(r)));
         rinks.forEach(r => {
             const marker = L.marker([r.lat, r.lng], { title: r.name });
             marker.bindPopup(() => (hooks.popupHtml ? hooks.popupHtml(r) : r.name), { maxWidth: 260 });
@@ -84,7 +84,7 @@ window.SkateMap = (() => {
         if (u && typeof u.lat === 'number') {
             userMarker = L.circleMarker([u.lat, u.lng], {
                 radius: 8, color: '#1673c4', weight: 2, fillColor: '#2f9fc4', fillOpacity: 0.85
-            }).addTo(map).bindPopup(`📍 ${u.label || 'Your location'}`);
+            }).addTo(map).bindPopup(`${u.label || 'Your location'}`);
         }
         return rinks.length;
     }
@@ -95,7 +95,7 @@ window.SkateMap = (() => {
             b.classList.toggle('active', b.dataset.mapfilter === f));
         const n = renderPins();
         const title = document.getElementById('rinks-title');
-        if (title) title.textContent = `🗺️ Rinks${f === 'all' ? '' : ` — ${f}`}${n != null ? ` (${n})` : ''}`;
+        if (title) title.textContent = `Rinks${f === 'all' ? '' : `: ${f}`}${n != null ? ` (${n})` : ''}`;
     }
 
     /**

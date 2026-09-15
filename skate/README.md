@@ -397,6 +397,52 @@ Adding a venue's coordinates = one line in `venues{}`. Privacy toggles
 (👻 invisible, ✉️ DMs) gate presence pings / incoming DM ingestion in
 chat-v2 via `SkateSettings`.
 
+### v3.4 layer (the readable schedule)
+
+**First visit.** No welcome form. `Actions.firstRun()` sets the defaults
+once (cities `['Toronto']`, types leisure + figure, Guides and Chats off),
+marks `setupDone`, and the spotlight tour starts after the first render
+with Skip as the loudest button on its card. Community sections are
+switched on in Settings.
+
+**Top bar** carries the Paid switch (`#btn-paid`, gold when on), Refresh
+(`#btn-refresh`, a silent `reloadData`; the City doorbell moved into the
+status popover as "Ask for a fresh pull") and Settings. The toolbar's
+third slot is a List / Calendar segmented switch (`#view-seg`,
+`Actions.setCalMode`), so the current view is always visible.
+
+**Pills.** A standing city pill comes first: tap it for a multi-select
+popover (`Menus.cities`), its x clears to every city. The Where cities
+also scope the Rinks list and the map pins (`rinkInScope`, passed to
+`SkateMap.configure({ rinkFilter })`; "Show every city" is one tap in the
+rinks view).
+
+**Filters sheet.** Leisure, Figure and Hockey up front with an "Ages"
+button that folds the age groups; the other types behind "More types";
+When and Where; then a folded "More options" for age, ended sessions,
+saved-only, dropped sessions and order. `S.expandedCats` and
+`S.moreFilters` remember the folds for the session.
+
+**Rows.** Title, rink line (city tag, distance), then a footer grid:
+type/age/price badges with ♡ and ⋯ on the first line, plain text links
+(Map, toronto.ca or the venue site, Register or Details, Note) on the
+second, the price note on its own line. The ⋯ menu adds "Add this rink to
+my rinks". No emoji in the schedule; prices print like price tags.
+
+**toronto.ca is the ground truth.** City sessions the live cross-check
+flags as missing or cancelled are hidden (`computeFiltered`,
+`S.showDropped`, also excluded from the Filters counts), and live-only
+sessions from `live-check.json`'s `extra[]` are merged into `S.programs`
+as ordinary City rows (`mergeLiveExtras`, `LiveOnly: true`, address from a
+sibling row or rinks.json). The status popover states both counts and
+toggles the dropped ones back on. City locations that only exist in the
+program rows (Scarborough Arena Gardens, Park Lawn Park) are geocoded
+into `rinks.json` by the pipeline (`geocode-cache.json`).
+
+**Settings** is three groups (Display, Learn and share, Community) with
+one button style; modal overlays are neutral black so opening one dims
+the page without shifting its hue.
+
 ### PWA (v2.2)
 
 **`manifest.webmanifest` + `sw.js` + `assets/icons/`** — installable app
@@ -486,7 +532,9 @@ location with sessions in the next 14 days and writes `flags`
 export lacks). It never flags on silence (an unreadable feed skips the
 location), ignores sessions already over today, and rewrites the file
 only on change or the 2-hour heartbeat. It runs in the full refresh and
-in every light pass (`--alerts-only`).
+in every light pass (`--alerts-only`). Since v3.4 the client treats it as
+the ground truth: flagged sessions are hidden and `extra` sessions are
+shown (see the v3.4 layer above).
 
 **Workflow cadence, honestly.** `update-skating-data.yml` runs Sunday and
 Friday mornings (the City refreshes its export mid-week). The listener
@@ -557,6 +605,8 @@ tradeoff of accountless.
 - **Add a public room** — one entry in `config.rooms` with a *unique*
   passphrase. `autoJoin: true` if newcomers should be seeded into it
   (only affects devices that haven't seeded yet).
+- **Change the first-visit defaults** — `Actions.firstRun()` in `app.js`
+  (cities, types, which community sections start off).
 - **Add a guide category / activity category / age group / menu label**
   — add a row to the matching config table (`programTypes` keywords,
   `subTypes` — extend `P.subType` if a new group needs new words). The
