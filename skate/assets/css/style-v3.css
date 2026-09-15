@@ -1072,9 +1072,10 @@ body.dark-mode .modal-overlay { background: rgba(0, 0, 0, 0.62); }
     background: var(--paid); color: #fff; text-decoration: none;
 }
 .row-link.strong:hover { filter: brightness(1.08); }
-.tag { text-transform: none; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 10px; }
-.age-badge { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); font-weight: 600; }
-.age-badge.all-ages { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
+/* type badge: capitals + emoji, squarer corners; the age badge is the pill */
+.tag { text-transform: uppercase; letter-spacing: 0.04em; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 5px; }
+.age-badge { background: #eef0fd; color: #4650b8; border: 1px solid #d3d8f6; border-radius: 999px; font-weight: 600; }
+.age-badge.all-ages { background: #e5f6ec; color: #1e7a52; border-color: #bfe6d1; }
 .price-badge {
     display: inline-flex; align-items: center;
     padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap;
@@ -1157,7 +1158,8 @@ body.dark-mode .fchip.active { background: var(--acc-programs); border-color: va
 body.dark-mode .pill.city { background: color-mix(in srgb, var(--acc-programs) 22%, var(--bg-white)); }
 body.dark-mode .pill.city:not(.on) { background: #1b2530; }
 body.dark-mode .pill.toggle.active { background: #2c2718; }
-body.dark-mode .age-badge, body.dark-mode .age-badge.all-ages { background: #1b2530; color: var(--text-muted); border-color: #38485a; }
+body.dark-mode .age-badge { background: #303a5e; color: #cad4ff; border-color: #414d7c; }
+body.dark-mode .age-badge.all-ages { background: #1c3d35; color: #96e7c8; border-color: #2c5e4d; }
 body.dark-mode .price-badge.paid { color: #1a1a1a; }
 body.dark-mode .row-link.strong { color: #1a1a1a; }
 body.dark-mode .program-item.is-paid { background: linear-gradient(180deg, #1c2632, #18212b); }
@@ -1297,4 +1299,52 @@ body.dark-mode .cal-cluster-body { border-left-color: color-mix(in srgb, var(--a
 @media (min-width: 900px) {
     .view-panel.panel-programs { padding-inline: max(10px, calc((100% - 980px) / 2)); }
     .view-panel.panel-guides { padding-inline: max(16px, calc((100% - 760px) / 2)); }
+}
+
+/* ============================================================
+   v3.5e — two-line cards, lit day chip, heart nudge
+   ============================================================ */
+
+/* rink line: the name is the directions link, the ℹ️ the official page */
+.program-where .where-link { color: var(--text-muted); text-decoration: none; min-width: 0; }
+.program-where .where-link:hover { color: var(--acc-programs); text-decoration: underline; }
+.program-where .where-info { font-size: 13px; line-height: 1; text-decoration: none; opacity: 0.85; }
+.program-where .where-info:hover { opacity: 1; }
+
+/* the "Schedule" column label only earns its place next to Guides or Chats */
+body.hide-guides.hide-chats .panel-programs .panel-title { display: none; }
+
+/* tapping a day chip flashes its column (the only feedback on wide screens) */
+@keyframes cal-ping {
+    from { box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc-programs) 75%, transparent); }
+    to   { box-shadow: 0 0 0 0 transparent; }
+}
+.cal-day.pinged { animation: cal-ping 0.9s ease-out; }
+.cal-day.today.pinged { animation: none; outline: 2px solid var(--acc-programs); outline-offset: 1px; }
+
+/* one-time heart nudge on the first card: pulsing ring + a dismissible line */
+@keyframes heart-nudge {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(224, 36, 94, 0.55); }
+    60%      { box-shadow: 0 0 0 7px rgba(224, 36, 94, 0); }
+}
+.btn-favorite.nudge { border-color: #e0245e; animation: heart-nudge 1.8s ease-out infinite; }
+.heart-hint {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px;
+    font-size: 12px; line-height: 1.35; color: var(--text);
+    background: color-mix(in srgb, #e0245e 7%, var(--bg-white));
+    border: 1px dashed color-mix(in srgb, #e0245e 45%, transparent);
+    border-radius: 8px; padding: 6px 10px;
+}
+.heart-hint > span { flex: 1 1 200px; min-width: 0; }
+.heart-hint b { color: #e0245e; font-size: 14px; line-height: 1; }
+.heart-hint-x {
+    margin-left: auto; background: var(--bg-white); border: 1px solid var(--border); border-radius: 6px;
+    padding: 3px 9px; font-size: 11.5px; font-weight: 600; color: var(--text); cursor: pointer;
+}
+.heart-hint-x:hover { border-color: #e0245e; color: #e0245e; }
+body.dark-mode .heart-hint { background: color-mix(in srgb, #e0245e 14%, #1b2530); }
+body.dark-mode .heart-hint-x { background: #1b2530; border-color: #38485a; }
+@media (prefers-reduced-motion: reduce) {
+    .btn-favorite.nudge, .cal-day.pinged { animation: none; }
 }

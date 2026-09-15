@@ -46,6 +46,7 @@ window.SkateApp = (() => {
         day: '',                       // '' | 'today' | 'tomorrow' | 'weekend' | weekday name
         calOpen: new Set(),            // calendar time blocks expanded in place ('YYYY-MM-DD|HH')
         calRenderedWeek: null,         // to keep the grid's scroll position across the minute re-render
+        heartHint: false,              // first card carries the one-time "tap ♡ to save" nudge (Render.programs decides)
         paidVisible: !!SkateSettings.get('paidVisible'),
         rinkScope: SkateSettings.get('rinkScope') || 'all',
         sort: SkateSettings.get('sort') || 'time',
@@ -132,7 +133,7 @@ window.SkateApp = (() => {
         tagFor(p) {
             const a = P.activity(p).toLowerCase();
             const hit = CFG.activityTags.find(t => t.keywords.some(k => a.includes(k)));
-            return hit ? `<span class="tag ${hit.cls}">${hit.label}</span>` : '';
+            return hit ? `<span class="tag ${hit.cls}">${hit.emoji ? hit.emoji + ' ' : ''}${hit.label}</span>` : '';
         },
 
         /** Same keyword table → css class for the calendar's color coding. */
@@ -176,9 +177,6 @@ window.SkateApp = (() => {
         if (!r) return null;
         if (r.source === 'city' && /^\d+$/.test(String(r.locationid))) return TORONTO_LOC_URL + r.locationid;
         return httpOnly(r.website);
-    }
-    function officialLinkHtml(url, site, cls = 'official-link') {
-        return url ? `<a class="${cls}" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="Official page. Verify the schedule there before you go.">${escapeHtml(site)} ↗</a>` : '';
     }
 
     /** 7.5 → "7.50", 5 → "5", null → "?" — prices read like a price tag. */
@@ -794,6 +792,11 @@ window.SkateApp = (() => {
             return;
         }
 
+        // the heart nudge rides the first card until a first save or "Got it";
+        // anyone who already has saved sessions never sees it
+        if (!SkateSettings.get('heartHintDone') && SkateChat.Favorites.count()) SkateSettings.set('heartHintDone', true);
+        S.heartHint = !SkateSettings.get('heartHintDone');
+
         // rows grouped under day headers — the date leaves the row
         const items = filtered.slice(0, S.limit);
         const todayKey = SkateTime.todayKey(), tomorrowKey = SkateTime.addDays(todayKey, 1);
@@ -945,22 +948,32 @@ window.SkateApp = (() => {
             if (a.act === 'fav') {
                 title = isFavorite ? 'Remove from saved' : 'Save this session';
                 text = isFavorite ? '♥' : '♡';
-                extraCls = isFavorite ? ' active' : '';
+                extraCls = isFavorite ? ' active' : (idx === 0 && S.heartHint ? ' nudge' : '');
             }
             return `<button data-act="${a.act}" data-idx="${idx}" class="${a.cls}${extraCls}" title="${title}" aria-label="${title}">${text}</button>`;
         }).join('');
 
         const city = P.city(p);
         const cityTag = city !== 'Toronto' ? `<span class="city-tag">${escapeHtml(city)}</span>` : '';
-        const mapLink = location ? `<a class="row-link" href="${mapsUrl(location, city)}" target="_blank" rel="noopener" title="Directions in Google Maps">Map ↗</a>` : '';
-        const officialLink = officialLinkHtml(off, site, 'row-link');
+        // Rink line: the name is the directions link (📍 … ↗) and the ℹ️ beside
+        // it opens the official page, so a card is two lines, not four.
+        const whereHtml = location
+            ? `<a class="where-link" href="${mapsUrl(location, city)}" target="_blank" rel="noopener" title="Directions in Google Maps">📍 ${escapeHtml(location)} ↗</a>`
+            : '';
+        const infoLink = off
+            ? `<a class="where-info" href="${escapeHtml(off)}" target="_blank" rel="noopener" title="Official page on ${escapeHtml(site)}. Verify the schedule there before you go." aria-label="Official page on ${escapeHtml(site)}">ℹ️</a>`
+            : '';
+        // One-time nudge on the first card: people miss that the heart saves.
+        const hint = (idx === 0 && S.heartHint)
+            ? '<div class="heart-hint" role="note"><span>Try it: tap <b>♡</b> to save a session. Saved sessions come back as a reminder card up top.</span><button class="heart-hint-x" data-hint-x="1">Got it</button></div>'
+            : '';
 
         return `
             <li class="program-item${rowStateCls}${p.Paid ? ' is-paid' : ''}${isFavorite ? ' is-saved' : ''}${alert ? (alert.level === 'closed' ? ' has-alert-closed' : ' has-alert') : ''}" data-pid="${pid}">
                 <div class="program-header">
                     <div class="program-main">
                         <div class="program-title">${escapeHtml(activity)}</div>
-                        <div class="program-where">${escapeHtml(location)}${cityTag}${dist}</div>
+                        <div class="program-where">${whereHtml}${infoLink}${cityTag}${dist}</div>
                     </div>
                     <div class="program-meta">
                         <div class="program-time">${fmtClock(time)}${endTime ? '–' + fmtClock(endTime) : ''}</div>
@@ -971,8 +984,9 @@ window.SkateApp = (() => {
                 <div class="program-footer">
                     <div class="program-badges">${P.tagFor(p)}${P.ageBadge(p)}${price}${spotsBadge}</div>
                     <div class="program-actions">${actionHtml}</div>
-                    <div class="program-links">${mapLink}${officialLink}${registerLink}${noteBtn}</div>
+                    <div class="program-links">${registerLink}${noteBtn}</div>
                     ${noteBadge ? `<div class="program-note">${noteBadge}</div>` : ''}
+                    ${hint}
                 </div>
             </li>`;
     };
@@ -1649,7 +1663,7 @@ window.SkateApp = (() => {
         calBlock(p, anchor = null) {
             const fav = SkateChat.Favorites.has(p);
             const items = [
-                { label: fav ? 'Remove from saved' : 'Save this session', onClick: () => { SkateChat.Favorites.toggle(p); Render.programs(); } },
+                { label: fav ? 'Remove from saved' : 'Save this session', onClick: () => { Actions.toggleSaved(p); } },
                 { label: 'Show in the list', onClick: () => {
                     S.calMode = false;
                     SkateSettings.set('calMode', false);
@@ -2029,6 +2043,12 @@ window.SkateApp = (() => {
      * the spotlight tour starts after the first render with Skip up front.
      * Returns true on a brand-new install.
      */
+    /** ♡ from a row or a calendar block; the first save retires the heart nudge. */
+    Actions.toggleSaved = function (p) {
+        if (SkateChat.Favorites.toggle(p)) SkateSettings.set('heartHintDone', true);
+        Render.programs();
+    };
+
     Actions.firstRun = function () {
         if (SkateSettings.get('setupDone')) return false;
         if (SkateSettings.get('experience') || SkateSettings.get('displayName')) {
@@ -2533,11 +2553,12 @@ window.SkateApp = (() => {
         // ---- List rows + show more ----
         delegate($('program-list'), [
             ['.loc-note', (n, e) => { e.stopPropagation(); SkateChat.Notify.toast(n.dataset.note, 'info', 6000); }],
+            ['.heart-hint-x', (b, e) => { e.stopPropagation(); SkateSettings.set('heartHintDone', true); Render.programs(); }],
             ['button[data-act]', (btn) => {
                 const p = S.filtered[parseInt(btn.dataset.idx)];
                 if (!p) return;
                 const act = btn.dataset.act;
-                if (act === 'fav') { SkateChat.Favorites.toggle(p); Render.programs(); }
+                if (act === 'fav') Actions.toggleSaved(p);
                 else if (act === 'copy') Popover.open(btn, Menus.programCopy(p, btn));
             }]
         ]);

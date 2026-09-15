@@ -35,7 +35,9 @@ window.SkateConfig = {
                 'First visit now plays the 54-second guide (pause and skip on the card). The weather emoji is back.',
                 'Rink list rows show the street address, so Baycrest Arena and Bayview Arena stop looking like twins.',
                 'Rink alerts that name one pad of a two-pad building ("Rink 1 is closed") now say the session likely runs on the other pad instead of "likely cancelled". Thanks to a skater who called Don Montgomery to check.',
-                'Data resilience: the app checks which copy is fresher (home server or GitHub) before loading, so a power cut at home never serves stale data.'
+                'Data resilience: the app checks which copy is fresher (home server or GitHub) before loading, so a power cut at home never serves stale data.',
+                'Session cards are two lines again: the rink name is the directions link (📍), the ℹ️ beside it opens the official page, and the type badge got its capitals and emoji back with the ages as a pill. A one-time hint on the heart shows that sessions can be saved.',
+                'Calendar: the lit day chip follows the day you are looking at (today on wide screens) instead of sticking to Monday. The Schedule label only shows when Guides or Chats are on.'
             ]
         },
         {
@@ -261,7 +263,7 @@ window.SkateConfig = {
         { sel: '#view-seg',              title: 'List or calendar',      text: 'The same sessions as a list or a week grid. In the grid, tap a day chip to jump, and tap a crowded time block to open that day as a list.', sec: 5 },
         { sel: '#btn-paid',              title: 'Paid venues',           text: 'Paid rinks are hidden until you switch this on. Prices then show on each session.', sec: 4 },
         { sel: '#btn-refresh',           title: 'Refresh',               text: 'Reloads the schedule, rink alerts and live spots. The status line under the buttons says when things were last checked.', sec: 5 },
-        { sel: '#program-list .program-item', title: 'A session',        text: 'Time, rink, ages and price. Map opens directions. The toronto.ca link opens the rink page the staff go by.', sec: 7 },
+        { sel: '#program-list .program-item', title: 'A session',        text: 'Time, rink, ages and price. Tap the rink name for directions; the ℹ️ beside it opens the official rink page, the one the staff go by. The heart saves the session.', sec: 7 },
         { sel: '#program-list .btn-copy', title: 'More',                 text: 'Copy the details, add the session to your calendar, share it into a chat, or add this rink to your rinks.', sec: 5 },
         { sel: '#weather-chip',          title: 'Dress for it',          text: 'Live temperature. Tap it to pick a spot, from Scarborough to Mississauga.', sec: 4 },
         { sel: '#btn-settings',          title: 'Settings',              text: 'Theme, time format, sharing, the community sections and privacy. Enjoy the ice.', sec: 4 }
@@ -302,13 +304,14 @@ window.SkateConfig = {
     ],
 
     // Activity → badge tag. First keyword hit wins (order matters).
+    // `emoji` shows on the row badge only (the legend and pills stay plain).
     activityTags: [
-        { keywords: ['shinny', 'hockey', 'stick'], cls: 'hockey',  label: 'Hockey' },
-        { keywords: ['figure', 'ticket ice'],    cls: 'figure',   label: 'Figure' },
-        { keywords: ['speed'],                   cls: 'speed',    label: 'Speed' },
-        { keywords: LEISURE_WORDS,               cls: 'leisure',  label: 'Leisure' },
-        { keywords: ['adapted', 'adaptive'],     cls: 'adapted',  label: 'Adaptive' },
-        { keywords: ['ringette'],                cls: 'ringette', label: 'Ringette' }
+        { keywords: ['shinny', 'hockey', 'stick'], cls: 'hockey',  label: 'Hockey',   emoji: '🏒' },
+        { keywords: ['figure', 'ticket ice'],    cls: 'figure',   label: 'Figure',   emoji: '⛸️' },
+        { keywords: ['speed'],                   cls: 'speed',    label: 'Speed',    emoji: '⛸️' },
+        { keywords: LEISURE_WORDS,               cls: 'leisure',  label: 'Leisure',  emoji: '⛸️' },
+        { keywords: ['adapted', 'adaptive'],     cls: 'adapted',  label: 'Adaptive', emoji: '♿' },
+        { keywords: ['ringette'],                cls: 'ringette', label: 'Ringette', emoji: '🥏' }
     ],
 
     days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],

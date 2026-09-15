@@ -426,11 +426,14 @@ When and Where; then a folded "More options" for age, ended sessions,
 saved-only, dropped sessions and order. `S.expandedCats` and
 `S.moreFilters` remember the folds for the session.
 
-**Rows.** Title, rink line (city tag, distance), then a footer grid:
-type/age/price badges with ♡ and ⋯ on the first line, plain text links
-(Map, toronto.ca or the venue site, Register or Details, Note) on the
-second, the price note on its own line. The ⋯ menu adds "Add this rink to
-my rinks". No emoji in the schedule; prices print like price tags.
+**Rows.** Two lines: title over the rink line, where the rink name is
+the directions link (📍 name ↗) and the ℹ️ beside it opens the official
+page (city tag and distance follow); then a footer grid with the type
+badge (capitals + emoji), the age pill and the price tag, ♡ and ⋯ on the
+right. Register/Details and Note appear as a third line only when a row
+has them, the price note on its own line. The ⋯ menu adds "Add this rink
+to my rinks". The first card carries a one-time "tap ♡ to save" hint
+(`heartHintDone` setting; a first save or "Got it" retires it).
 
 **toronto.ca is the ground truth.** City sessions the live cross-check
 flags as missing or cancelled are hidden (`computeFiltered`,

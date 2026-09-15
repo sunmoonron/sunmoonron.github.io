@@ -18,7 +18,8 @@
  * same pattern as the program list.
  *
  * Layout: 7 columns that horizontally scroll on small screens; the day
- * strip doubles as the scroll affordance and shows which day is in view.
+ * strip doubles as the scroll affordance and lights the day in view (today,
+ * on wide screens where nothing scrolls). Tapping a chip flashes its column.
  */
 window.SkateCalendar = (() => {
     'use strict';
@@ -43,29 +44,63 @@ window.SkateCalendar = (() => {
         return `${fmt(startKey)} – ${fmt(T.addDays(startKey, 6))}`;
     }
 
-    /** Scroll the grid so `dateKey`'s column is in view (narrow screens). */
+    const scrolls = (grid) => grid.scrollWidth > grid.clientWidth + 4;
+
+    /** How many px of `col` sit inside the grid's viewport right now. */
+    function visiblePx(grid, col) {
+        const left = grid.scrollLeft, right = left + grid.clientWidth;
+        return Math.max(0, Math.min(col.offsetLeft + col.offsetWidth, right) - Math.max(col.offsetLeft, left));
+    }
+
+    /**
+     * Jump to `dateKey`'s column: scroll it in when the grid scrolls (phones),
+     * and flash it everywhere so the tap visibly lands — on wide screens all
+     * seven columns are already there and the flash is the whole answer.
+     */
     function scrollToDate(container, dateKey) {
         const grid = container.querySelector('.cal-grid');
         const col = grid && grid.querySelector(`.cal-day[data-date="${dateKey}"]`);
         if (!grid || !col) return;
-        // instant on purpose: smooth scrolling silently no-ops in some mobile viewports
-        grid.scrollLeft = Math.max(0, col.offsetLeft - 12);
-        markInView(container, dateKey);
+        if (scrolls(grid)) {
+            // instant on purpose: smooth scrolling silently no-ops in some mobile viewports
+            grid.scrollLeft = Math.max(0, col.offsetLeft - 12);
+            markInView(container, dateKey);
+        }
+        col.classList.remove('pinged');
+        void col.offsetWidth;   // restart the animation on a second tap
+        col.classList.add('pinged');
     }
 
     function markInView(container, dateKey) {
         container.querySelectorAll('.cal-daychip').forEach(c => c.classList.toggle('in-view', c.dataset.scrollDate === dateKey));
     }
 
-    /** Which column is (mostly) in view → highlight its chip. Called on grid scroll. */
+    /**
+     * Which chip is lit. When the grid scrolls (phones) the lit chip is the
+     * column the reader is looking at: it stays lit while its column is still
+     * mostly on screen, otherwise the most visible column takes over (so
+     * "Sun", which can never be the leftmost column, stays lit after a tap).
+     * When every column fits (wide screens) no column is "in view" in
+     * particular, so today is lit — never Monday by accident.
+     */
     function syncDayStrip(container) {
         const grid = container.querySelector('.cal-grid');
         if (!grid) return;
         const cols = [...grid.querySelectorAll('.cal-day')];
         if (!cols.length) return;
-        const x = grid.scrollLeft + Math.min(grid.clientWidth, cols[0].offsetWidth) / 2;
-        let best = cols[0];
-        cols.forEach(c => { if (c.offsetLeft <= x) best = c; });
+        if (!scrolls(grid)) {
+            const today = cols.find(c => c.classList.contains('today'));
+            markInView(container, today ? today.dataset.date : null);
+            return;
+        }
+        const lit = container.querySelector('.cal-daychip.in-view');
+        const litCol = lit && cols.find(c => c.dataset.date === lit.dataset.scrollDate);
+        if (litCol && visiblePx(grid, litCol) >= Math.min(litCol.offsetWidth, grid.clientWidth) * 0.6) return;
+        let best = cols[0], bestPx = -1;
+        cols.forEach(c => {   // ties (two full columns on screen) go to today, else the left one
+            const px = visiblePx(grid, c);
+            if (px > bestPx || (px === bestPx && c.classList.contains('today'))) { best = c; bestPx = px; }
+        });
         markInView(container, best.dataset.date);
     }
 
@@ -217,10 +252,10 @@ window.SkateCalendar = (() => {
         // purpose: layout is final right after insertion, while a rAF
         // callback can be throttled into never running on hidden tabs
         const todayCol = grid.querySelector('.cal-day.today');
-        if (todayCol && grid.scrollWidth > grid.clientWidth) {
+        if (todayCol && scrolls(grid)) {
             grid.scrollLeft = Math.max(0, todayCol.offsetLeft - 12);
         }
-        wrap.classList.toggle('scrolls', grid.scrollWidth > grid.clientWidth + 4);
+        wrap.classList.toggle('scrolls', scrolls(grid));
         grid.addEventListener('scroll', () => {
             syncDayStrip(container);
             wrap.classList.toggle('at-end', grid.scrollLeft + grid.clientWidth >= grid.scrollWidth - 4);
