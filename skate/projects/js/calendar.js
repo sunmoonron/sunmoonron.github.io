@@ -11,10 +11,11 @@
  * sessions that start in the same hour fold into one "time block" —
  * "10:00 AM–12:00 PM · 5 sessions · Malvern, Agincourt +3" — so a column
  * never grows past ~16 blocks and text never shrinks. Tapping a time
- * block hands app.js the date + hour (data attributes), which opens the
- * list for that day. Single sessions in a crowded day stay tappable
- * blocks. Clicking is handled by app.js via delegation (data-pid /
- * data-cluster), same pattern as the program list.
+ * block expands it IN PLACE (app.js keeps the open set and re-renders;
+ * `opts.isOpen(date, hour)` says which are open): its sessions appear as
+ * ordinary blocks under it, tap again to fold. Nothing leaves the grid.
+ * Clicking is handled by app.js via delegation (data-pid / data-cluster),
+ * same pattern as the program list.
  *
  * Layout: 7 columns that horizontally scroll on small screens; the day
  * strip doubles as the scroll affordance and shows which day is in view.
@@ -102,8 +103,8 @@ window.SkateCalendar = (() => {
         return block;
     }
 
-    /** Several sessions starting in the same hour → one time block. */
-    function clusterBlock(dateKey, hour, list, opts) {
+    /** Several sessions starting in the same hour → one time block (open = its sessions follow). */
+    function clusterBlock(dateKey, hour, list, opts, open) {
         const starts = list.map(p => p['Start Time'] || '').filter(Boolean).sort();
         const ends = list.map(p => p['End Time'] || '').filter(Boolean).sort();
         const timeTxt = opts.fmtClock(starts[0] || '') + (ends.length ? '–' + opts.fmtClock(ends[ends.length - 1]) : '');
@@ -115,18 +116,20 @@ window.SkateCalendar = (() => {
         const anyLive = list.some(p => opts.statusFor(p).phase === 'live');
         const allEnded = list.every(p => opts.statusFor(p).phase === 'ended');
         const paid = list.filter(p => p.Paid).length;
-        let cls = 'cal-block cal-cluster';
+        let cls = 'cal-block cal-cluster' + (open ? ' open' : '');
         if (saved) cls += ' cal-saved';
         if (anyLive) cls += ' cal-live';
         if (allEnded) cls += ' cal-ended';
         const block = el('button', {
             class: cls, dataset: { cluster: dateKey, hour },
-            title: `${list.length} sessions starting ${opts.fmtClock(hour + ':00')}–${opts.fmtClock(hour + ':59')} at ${rinks.length} rink${rinks.length === 1 ? '' : 's'}. Tap to see them as a list.`
+            title: `${list.length} sessions starting ${opts.fmtClock(hour + ':00')}–${opts.fmtClock(hour + ':59')} at ${rinks.length} rink${rinks.length === 1 ? '' : 's'}. Tap to ${open ? 'fold' : 'expand'}.`,
+            'aria-expanded': open ? 'true' : 'false'
         });
         block.appendChild(el('span', { class: 'cal-block-time' }, [timeTxt, ...(saved ? [el('span', { class: 'cal-heart', 'aria-label': 'saved' }, [' ♥'])] : [])]));
         block.appendChild(el('span', { class: 'cal-block-title' }, [
-            `${list.length} sessions`,
-            ...(paid ? [el('span', { class: 'cal-price' }, [paid === list.length ? ' paid' : ` ${paid} paid`])] : [])
+            `${list.length} sessions `,
+            ...(paid ? [el('span', { class: 'cal-price' }, [paid === list.length ? 'paid ' : `${paid} paid `])] : []),
+            el('span', { class: 'caret', 'aria-hidden': 'true' }, ['▾'])
         ]));
         block.appendChild(el('span', { class: 'cal-dots' }, types.map(t => el('span', { class: `legend-dot ${t}`, title: t }))));
         block.appendChild(el('span', { class: 'cal-block-loc' }, [rinkTxt]));
@@ -192,9 +195,12 @@ window.SkateCalendar = (() => {
                     if (!byHour.has(h)) byHour.set(h, []);
                     byHour.get(h).push(p);
                 });
-                col.appendChild(el('div', { class: 'cal-crowded' }, [`${list.length} sessions · tap a block for the list`]));
+                col.appendChild(el('div', { class: 'cal-crowded' }, [`${list.length} sessions · tap a block to expand`]));
                 [...byHour.entries()].sort(([a], [b]) => a.localeCompare(b)).forEach(([hour, group]) => {
-                    col.appendChild(group.length === 1 ? sessionBlock(group[0], opts) : clusterBlock(dateKey, hour, group, opts));
+                    if (group.length === 1) { col.appendChild(sessionBlock(group[0], opts)); return; }
+                    const open = !!(opts.isOpen && opts.isOpen(dateKey, hour));
+                    col.appendChild(clusterBlock(dateKey, hour, group, opts, open));
+                    if (open) col.appendChild(el('div', { class: 'cal-cluster-body' }, group.map(p => sessionBlock(p, opts))));
                 });
             } else {
                 list.forEach(p => col.appendChild(sessionBlock(p, opts)));

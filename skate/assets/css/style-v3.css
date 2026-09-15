@@ -87,40 +87,6 @@ body.dark-mode {
     background: linear-gradient(90deg, color-mix(in srgb, var(--paid) 9%, var(--bg-white)), var(--bg-white) 120px);
 }
 .program-item.is-paid .program-title { color: var(--paid); }
-.paid-badge {
-    display: inline-flex;
-    align-items: center;
-    background: var(--paid);
-    color: #fff;
-    padding: 3px 8px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 700;
-    white-space: nowrap;
-}
-body.dark-mode .paid-badge { color: #1a1a1a; }
-.paid-badge.small { background: none; color: var(--paid); padding: 0; }
-.btn-register {
-    display: inline-block;
-    background: var(--paid);
-    color: #fff;
-    text-decoration: none;
-    padding: 5px 10px;
-    border-radius: var(--radius);
-    font-size: 12px;
-    font-weight: 600;
-}
-body.dark-mode .btn-register { color: #1a1a1a; }
-.btn-register:hover { filter: brightness(1.08); }
-.src-tag {
-    font-size: 10px;
-    color: var(--text-muted);
-    border: 1px dashed var(--border-dark);
-    border-radius: 10px;
-    padding: 2px 7px;
-    white-space: nowrap;
-}
-.toggle-paid span { color: var(--paid); font-weight: 600; }
 
 /* ========== 4. Week calendar ========== */
 .cal-nav {
@@ -258,12 +224,6 @@ body.dark-mode .cal-block[class*="cal-type-"] .cal-block-time { color: color-mix
 .wn-date { font-size: 11px; color: var(--text-muted); font-weight: 400; margin-left: 6px; }
 .wn-entry ul { margin: 0 0 0 18px; display: flex; flex-direction: column; gap: 5px; font-size: 13px; line-height: 1.45; }
 
-.dist-badge {
-    font-size: 11px;
-    color: var(--acc-programs);
-    font-weight: 600;
-    margin-top: 2px;
-}
 .loc-note {
     background: none;
     border: none;
@@ -276,25 +236,12 @@ body.dark-mode .cal-block[class*="cal-type-"] .cal-block-time { color: color-mix
 
 /* schedule-only mode (both community sections hidden): the chat identity
    button is meaningless — community never even boots */
-body.hide-guides.hide-chats .user-name { display: none; }
-
 /* data-health banners sit above the list/calendar */
 #data-warnings .alert-banner { margin: 0 0 8px; }
 
 /* ========== v2.3: pro-UI pass ========== */
 
 /* Saved chip: ♥ + live count, readable at a glance */
-.filter-chip.chip-saved .chip-heart { color: #e0245e; margin-right: 3px; font-size: 12px; }
-.filter-chip.chip-saved.active { background: #e0245e; border-color: #e0245e; color: #fff; }
-.filter-chip.chip-saved.active .chip-heart { color: #fff; }
-.chip-count {
-    display: inline-block; margin-left: 5px;
-    background: color-mix(in srgb, #e0245e 14%, var(--bg-white));
-    color: #e0245e; border-radius: 9px;
-    font-size: 10px; font-weight: 700; min-width: 16px; text-align: center;
-    padding: 0 4px; vertical-align: 1px;
-}
-.filter-chip.chip-saved.active .chip-count { background: rgba(255,255,255,0.25); color: #fff; }
 
 /* Saved rows: gentle tint + the heart already fills */
 .program-item.is-saved { background: linear-gradient(90deg, color-mix(in srgb, #e0245e 6%, var(--bg-white)), var(--bg-white) 140px); }
@@ -312,17 +259,8 @@ body.hide-guides.hide-chats .user-name { display: none; }
     transition: border-color 0.15s, box-shadow 0.15s;
 }
 .saved-next:hover { box-shadow: 0 0 0 3px color-mix(in srgb, #e0245e 15%, transparent); }
-.saved-next-heart { color: #e0245e; font-size: 18px; flex-shrink: 0; }
-.saved-next-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .saved-next-label { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
-.saved-next-title { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.saved-next-when { font-size: 12.5px; font-weight: 700; color: var(--acc-programs); white-space: nowrap; flex-shrink: 0; }
 .saved-next.is-live { border-left-color: var(--live); }
-.saved-next.is-live .saved-next-when { color: var(--live); }
-
-/* Age badge: drop the 👤 pictogram the base stylesheet prepends */
-.age-badge::before { content: none; }
-
 /* Calendar: worded legend + cancelled tag + text heart */
 .cal-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; }
 .legend-group { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; }
@@ -392,9 +330,7 @@ body.dark-mode {
 }
 
 /* --- depth: raised cards get a top hairline of "sheen" + soft drop --- */
-body.dark-mode :is(.program-item, .guide-card, .room-card, .saved-next,
-                   .locator-rink, .myrinks-item, .setup-toggle, .toast,
-                   .onboard-choice) {
+body.dark-mode :is(.program-item, .guide-card, .room-card, .saved-next, .toast) {
     background: linear-gradient(180deg, #1c2632, #18212b);
     border-color: #26323f;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 2px 6px rgba(0, 0, 0, 0.35);
@@ -422,8 +358,6 @@ body.dark-mode .view-tabs {
     border-bottom-color: #223040;
 }
 body.dark-mode .view-tab.active { color: var(--acc-programs); }
-body.dark-mode .btn-icon, body.dark-mode .user-name, body.dark-mode .version-chip { background: #1b2530; }
-
 /* modals float on a real shadow */
 body.dark-mode .modal {
     background: #1a2430;
@@ -445,9 +379,7 @@ body.dark-mode .cal-day.today {
 /* readability on the new blues */
 body.dark-mode .program-title { color: #8cc2f7; }
 body.dark-mode .filter-chip.active { color: #10161d; }
-body.dark-mode .pagination button { background: #1b2530; }
 /* AFTER the generic slab rule — same specificity, so order decides */
-body.dark-mode .pagination button.active { background: var(--text); color: #10161d; }
 body.dark-mode .cal-today-btn, body.dark-mode .btn-small { background: #1b2530; }
 
 /* mid-tone accent fills always carry DARK text in dark mode */
@@ -540,37 +472,8 @@ body.dark-mode ::selection { background: rgba(70, 198, 234, 0.35); }
 .members-bar { display: flex; align-items: flex-start; gap: 6px; }
 
 /* ========== v2.4: Nostr community box (Settings) ========== */
-.nostr-box {
-    border: 1px solid color-mix(in srgb, #f7931a 50%, var(--border));
-    border-radius: var(--radius-lg);
-    background: color-mix(in srgb, #f7931a 5%, var(--bg-white));
-    padding: 14px 14px 6px;
-    margin-bottom: 16px;
-}
-.nostr-box-head {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 11px; font-weight: 700;
-    letter-spacing: 0.07em; text-transform: uppercase;
-    color: #a86200;
-    margin-bottom: 12px;
-}
-.nostr-bolt { font-size: 13px; }
-body.dark-mode .nostr-box {
-    background: color-mix(in srgb, #f7931a 8%, var(--bg-white));
-    border-color: color-mix(in srgb, #f7931a 45%, var(--border));
-}
-body.dark-mode .nostr-box-head { color: #f7a83c; }
 
 /* ========== v2.4: session counts in pickers ========== */
-.myrinks-count {
-    flex-shrink: 0;
-    font-size: 10.5px; font-weight: 700;
-    color: var(--acc-programs);
-    background: color-mix(in srgb, var(--acc-programs) 12%, transparent);
-    border-radius: 9px; padding: 1px 7px;
-    white-space: nowrap;
-}
-.myrinks-count.zero { color: var(--text-muted); background: var(--bg); font-weight: 500; }
 
 /* live spots-left badge on paid sessions (fetched from the venue's API) */
 .spots-badge {
@@ -628,47 +531,11 @@ body.hide-chats #chats-panel { display: none !important; }
 }
 
 /* ========== First-visit setup modal ========== */
-.setup-section { text-align: left; margin: 14px 0; }
-.setup-section h4 {
-    font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
-    text-transform: uppercase; color: var(--text-muted);
-    margin-bottom: 8px;
-}
-.setup-toggle {
-    display: flex; align-items: flex-start; gap: 10px;
-    background: var(--bg); border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 10px 12px; margin-bottom: 8px;
-    font-size: 13px; cursor: pointer;
-    text-align: left;
-    transition: border-color 0.15s;
-}
-.setup-toggle:hover { border-color: var(--primary); }
+
 /* style.css's `.modal input { width:100% }` (meant for text fields) hits
    these checkboxes too — it blew them up to ~130px wide, squeezing the
    label text into a narrow off-centre column. Pin the box + let the text
    take the rest of the row. */
-.setup-toggle input[type="checkbox"] {
-    width: 18px; height: 18px;
-    flex: 0 0 18px;
-    margin: 1px 0 0;
-    padding: 0;
-    cursor: pointer;
-    accent-color: var(--primary);
-}
-.setup-toggle span { flex: 1; min-width: 0; }
-.setup-rinks { display: flex; gap: 8px; margin-bottom: 6px; }
-.setup-rinks button {
-    flex: 1; padding: 10px; font-size: 13px;
-    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
-}
-.setup-rinks button:hover { border-color: var(--acc-programs); }
-.setup-done { width: 100%; padding: 12px; font-size: 14px; margin-top: 4px; }
-.onboard-skip {
-    background: none; border: none; color: var(--text-muted);
-    font-size: 12px; text-decoration: underline; margin-top: 2px;
-}
-.onboard-skip:hover { color: var(--text); }
 
 /* Settings → Sections: independent on/off buttons (not radio) */
 .seg-control.seg-multi button { opacity: 0.55; }
@@ -722,11 +589,6 @@ body.dark-mode .share-paid-badge { color: #10151a; }
 .qr-copy { width: 100%; }
 
 /* ---- Interactive rink map ---- */
-.map-modal-box {
-    max-width: 900px; width: 96vw;
-    display: flex; flex-direction: column;
-    max-height: 92vh;
-}
 .map-header-actions { display: flex; align-items: center; gap: 8px; }
 .map-filter-seg button { font-size: 12px; padding: 6px 10px; }
 .map-canvas {
@@ -737,13 +599,10 @@ body.dark-mode .share-paid-badge { color: #10151a; }
     border: 1px solid var(--border);
     background: var(--bg);
 }
-.map-hint { margin-top: 8px; }
 @media (max-width: 767px) {
     /* phones: the map takes the whole screen — free scroll everywhere */
     #map-modal { padding: 0; }
-    .map-modal-box { width: 100vw; max-width: none; height: 100dvh; max-height: none; border-radius: 0; }
-    .map-canvas { flex: 1; height: auto; min-height: 0; }
-    .map-hint { display: none; }
+.map-canvas { flex: 1; height: auto; min-height: 0; }
 }
 /* Leaflet popup content */
 .map-pop { display: flex; flex-direction: column; gap: 4px; font-size: 13px; min-width: 180px; }
@@ -804,7 +663,6 @@ body.dark-mode .leaflet-control-attribution a { color: var(--acc-programs); }
 .tour-next { min-width: 88px; }
 body.dark-mode .tour-card { background: #1a2430; border-color: #26323f; }
 
-
 /* ============================================================
    v3.1 — live cross-check flags, verify links, calendar menu,
    weather picker, pull-to-refresh, chat privacy line, guide
@@ -819,13 +677,7 @@ body.dark-mode .tour-card { background: #1a2430; border-color: #26323f; }
 }
 
 /* ---- compact official-page link beside the map link ---- */
-.official-link {
-    display: inline-block; margin-left: 6px; margin-top: 2px;
-    font-size: 11px; color: var(--text-muted);
-    text-decoration: none; white-space: nowrap;
-    border: 1px dashed var(--border-dark); border-radius: 10px; padding: 0 6px;
-}
-.official-link:hover { color: var(--acc-programs); border-color: var(--acc-programs); }
+
 .share-official { font-size: 12px; color: var(--primary); font-weight: 600; text-decoration: none; }
 .share-official:hover { text-decoration: underline; }
 
@@ -837,8 +689,6 @@ body.dark-mode .tour-card { background: #1a2430; border-color: #26323f; }
 }
 
 /* ---- picker counts: paid-only rinks read "N paid", not "0 sessions" ---- */
-.myrinks-count.paid-only { color: var(--paid); background: color-mix(in srgb, var(--paid) 14%, transparent); }
-
 /* ---- weather chip now carries the spot name; picker is a tall popover ---- */
 .weather-chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .popover { max-height: min(70vh, 520px); overflow-y: auto; }
@@ -873,8 +723,6 @@ body.dark-mode .tour-card { background: #1a2430; border-color: #26323f; }
 .chat-privacy-hint.private { border-left: 3px solid var(--live); }
 
 /* ---- settings: tour + guide buttons ---- */
-.tour-buttons { flex-wrap: wrap; }
-.tour-buttons button { flex: 1 1 auto; }
 
 /* ---- auto-playing guide: progress bar + pause ---- */
 .tour-progress {
@@ -891,12 +739,10 @@ body.dark-mode .tour-card { background: #1a2430; border-color: #26323f; }
 .tour-pause:hover { border-color: var(--border-dark); }
 
 /* ---- dark mode ---- */
-body.dark-mode .official-link { border-color: #38485a; }
 body.dark-mode .chat-privacy-hint { background: #16202a; border-top-color: #26323f; }
 body.dark-mode .ptr.armed { color: var(--acc-programs); }
 body.dark-mode .tour-pause { background: #1b2530; color: var(--text); border-color: #38485a; }
 body.dark-mode .spots-badge.full { background: var(--alert-red-bg); }
-
 
 /* ============================================================
    v3.2 — the calm schedule: search · Filters / Rinks & map / Week ·
@@ -1095,7 +941,6 @@ body.dark-mode .rink-row { background: #1b2530; }
 body.dark-mode .rink-actions .star.starred { background: #2c2718; }
 body.dark-mode .status-btn.stale { color: #ffce4d; }
 
-
 /* ============================================================
    v3.4 — the readable schedule: top-bar Paid + Refresh, List/Calendar
    switch, city pill picker, folded Filters, emoji-light rows, calmer
@@ -1210,7 +1055,6 @@ body.dark-mode .modal-overlay { background: rgba(0, 0, 0, 0.62); }
 .dist { color: var(--acc-programs); font-weight: 600; }
 .program-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .program-time { font-size: 14px; }
-.happening-now::before { content: none; }
 /* footer grid: badges | actions on line one; links and the note on their own full-width lines */
 .program-footer {
     display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 10px;
@@ -1334,7 +1178,6 @@ body.dark-mode .fcheck:hover { background: rgba(255, 255, 255, 0.04); }
     .tb-count { margin-left: 4px; }
 }
 
-
 /* ============================================================
    v3.5 — calendar that scales (day strip, time blocks, scroll hint),
    saved-day card, flat top bar under the iOS status bar
@@ -1423,3 +1266,25 @@ body.dark-mode .cal-cluster { background: #141c25; border-color: #38485a; }
 body.dark-mode .cal-cluster:hover { background: color-mix(in srgb, var(--acc-programs) 14%, #141c25); }
 body.dark-mode .saved-row { background: #1b2530; border-color: #38485a; }
 body.dark-mode .cal-grid::-webkit-scrollbar-thumb { background: #38485a; }
+
+/* ============================================================
+   v3.5b — time blocks expand in place; lean rink rows
+   ============================================================ */
+.cal-cluster .caret { font-size: 11px; margin-left: 2px; }
+.cal-cluster.open { border-style: solid; border-color: var(--acc-programs); }
+.cal-cluster.open .caret { transform: rotate(180deg); }
+.cal-cluster-body {
+    display: flex; flex-direction: column; gap: 5px;
+    margin: -2px 0 4px 6px; padding-left: 6px;
+    border-left: 2px solid color-mix(in srgb, var(--acc-programs) 45%, var(--border));
+}
+.rink-alert {
+    display: inline-block; margin-left: 6px; vertical-align: 1px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--alert-amber); background: var(--alert-amber-bg);
+    border-radius: 8px; padding: 1px 6px;
+}
+.rink-row.has-alert .rink-meta { color: var(--text-muted); }
+.rink-sessions { white-space: nowrap; }
+.rink-sessions:disabled { opacity: 0.55; cursor: default; }
+body.dark-mode .cal-cluster-body { border-left-color: color-mix(in srgb, var(--acc-programs) 55%, #38485a); }

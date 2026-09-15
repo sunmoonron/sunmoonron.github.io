@@ -2126,24 +2126,15 @@ function favouriteId(p) {
     }
     return out.slice(0, 16);
 }
-const torontoOffsetFmt = new Intl.DateTimeFormat('en-CA', { timeZone: TORONTO_TZ, timeZoneName: 'longOffset', year: 'numeric', month: '2-digit', day: '2-digit' });
-function torontoOffsetMinutes(date) {
-    const part = torontoOffsetFmt.formatToParts(date).find(x => x.type === 'timeZoneName');
-    const m = /GMT([+-])(\d{2}):(\d{2})/.exec(part ? part.value : '');
-    return m ? (m[1] === '-' ? -1 : 1) * (parseInt(m[2], 10) * 60 + parseInt(m[3], 10)) : -300;
-}
-/** Toronto wall-clock 'YYYY-MM-DD' + 'HH:MM' → epoch ms (DST-safe, same math as the app's SkateTime). */
-function torontoEpoch(dateStr, timeStr) {
-    const dm = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(dateStr || ''));
-    if (!dm) return null;
-    const tm = /^(\d{1,2}):(\d{2})/.exec(String(timeStr || '')) || [null, '0', '0'];
-    const guess = Date.UTC(+dm[1], +dm[2] - 1, +dm[3], +tm[1], +tm[2]);
-    let off = torontoOffsetMinutes(new Date(guess));
-    let result = guess - off * 60000;
-    const off2 = torontoOffsetMinutes(new Date(result));
-    if (off2 !== off) result = guess - off2 * 60000;
-    return result;
-}
+// Wall-clock times with a VTIMEZONE: Calendar apps then show 11:30 AM EDT, not
+// a "(GMT)" conversion. Only DTSTAMP is UTC.
+const ICS_VTIMEZONE = [
+    'BEGIN:VTIMEZONE', 'TZID:America/Toronto',
+    'BEGIN:STANDARD', 'DTSTART:19701101T020000', 'RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU', 'TZOFFSETFROM:-0400', 'TZOFFSETTO:-0500', 'TZNAME:EST', 'END:STANDARD',
+    'BEGIN:DAYLIGHT', 'DTSTART:19700308T020000', 'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU', 'TZOFFSETFROM:-0500', 'TZOFFSETTO:-0400', 'TZNAME:EDT', 'END:DAYLIGHT',
+    'END:VTIMEZONE'
+];
+const icsLocal = (dateKey, hhmm) => `${dateKey.replace(/-/g, '')}T${String(hhmm || '00:00').replace(':', '').padStart(4, '0')}00`;
 const icsStamp = ms => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
 const icsEsc = s => String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
 function writeIcsFiles(programs, dir) {
@@ -2154,10 +2145,8 @@ function writeIcsFiles(programs, dir) {
     programs.forEach(p => {
         const date = p['Start Date'] || '';
         if (date < today || date > until || !p['Start Time']) return;
-        const start = torontoEpoch(date, p['Start Time']);
-        if (start == null) return;
-        let end = p['End Time'] ? torontoEpoch(date, p['End Time']) : null;
-        if (end == null || end <= start) end = (end != null && end <= start) ? end + 86400000 : start + 3600000;
+        const startT = p['Start Time'], endT = p['End Time'] || '';
+        const endDate = endT && endT <= startT ? addDays(date, 1) : date;   // crosses midnight
         const id = favouriteId(p);
         const city = (p.Source && p.Source !== 'city' && p.District) ? p.District : 'Toronto';
         const addr = [p.Address, p.PostalCode].filter(Boolean).join(', ');
@@ -2176,11 +2165,12 @@ function writeIcsFiles(programs, dir) {
         ].filter(Boolean).join('\n');
         const ics = [
             'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Toronto Skating//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+            ...ICS_VTIMEZONE,
             'BEGIN:VEVENT',
             `UID:${id}@toronto-skating`,
             `DTSTAMP:${icsStamp(Date.now())}`,
-            `DTSTART:${icsStamp(start)}`,
-            `DTEND:${icsStamp(end)}`,
+            `DTSTART;TZID=America/Toronto:${icsLocal(date, startT)}`,
+            `DTEND;TZID=America/Toronto:${endT ? icsLocal(endDate, endT) : icsLocal(date, startT)}`,
             `SUMMARY:${icsEsc(`${p.Activity} at ${p.LocationName}`)}`,
             `LOCATION:${icsEsc(`${p.LocationName}${addr ? ', ' + addr : ''}, ${city}, ON`)}`,
             `DESCRIPTION:${icsEsc(details)}`,

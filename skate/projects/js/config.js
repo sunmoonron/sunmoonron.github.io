@@ -320,25 +320,6 @@ window.SkateConfig = {
         { id: 'near', label: 'Nearest', title: 'Order by distance from your location' }
     ],
 
-    // Age quick-picks. Each preset filters with a representative age
-    // (a 30-year-old can't join a 60+ session, a kid preset must clear
-    // "6+" minimums, etc). 'exact' reveals the precise-age input.
-    agePresets: [
-        { id: '',      label: 'Any age' },
-        { id: '8',     label: 'Kids (≤12)' },
-        { id: '15',    label: 'Teens (13–17)' },
-        { id: '30',    label: 'Adults (18+)' },
-        { id: '65',    label: 'Seniors (60+)' },
-        { id: 'exact', label: 'Exact age…' }
-    ],
-
-    // Rink scope segmented control (personalization). 'mine' filters every
-    // list/calendar/search to the user's picked rinks.
-    rinkScopes: [
-        { id: 'all',  label: 'All rinks' },
-        { id: 'mine', label: 'My rinks' }
-    ],
-
     // Appearance (Settings): Auto follows the device's light/dark preference.
     themes: [
         { id: 'system', seg: 'Auto' },

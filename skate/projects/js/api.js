@@ -133,8 +133,8 @@ const SkateAPI = {
             console.log(`[SkateAPI] Loaded ${this._skatingPrograms.length} skating programs`);
             console.log(`[SkateAPI] Data last updated: ${this._metadata?.lastUpdated}`);
 
-            // Store just metadata in localStorage (small)
-            SkateStorage.set('skating_metadata', this._metadata);
+            // just the metadata (small) so the stale banner has a date before the first load
+            try { localStorage.setItem('skate_meta_v1', JSON.stringify(this._metadata)); } catch { /* private mode */ }
 
             return this._skatingPrograms;
 
@@ -150,37 +150,10 @@ const SkateAPI = {
      * Get metadata about the data
      */
     getMetadata() {
-        return this._metadata || SkateStorage.get('skating_metadata');
+        if (this._metadata) return this._metadata;
+        try { return JSON.parse(localStorage.getItem('skate_meta_v1')); } catch { return null; }
     },
 
-    /**
-     * Check if data needs refresh
-     * Returns true if data is older than 7 days
-     */
-    needsRefresh() {
-        const metadata = this.getMetadata();
-        if (!metadata?.lastUpdated) return true;
-
-        const lastUpdate = new Date(metadata.lastUpdated);
-        const now = new Date();
-        const daysSinceUpdate = (now - lastUpdate) / (1000 * 60 * 60 * 24);
-
-        return daysSinceUpdate > 7;
-    },
-
-    /**
-     * Clear all cached data
-     * Call this before re-fetching fresh data
-     */
-    clearCache() {
-        SkateStorage.clear('skating_programs');
-        SkateStorage.clear('skating_metadata');
-
-        this._skatingPrograms = null;
-        this._metadata = null;
-
-        console.log('[SkateAPI] Cache cleared');
-    }
 };
 
 // Export for browser

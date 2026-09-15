@@ -44,7 +44,8 @@ window.SkateApp = (() => {
         types: sanitizeTypes(SkateSettings.get('typeSel')),
         cities: Array.isArray(SkateSettings.get('cities')) ? SkateSettings.get('cities').filter(c => typeof c === 'string') : [],
         day: '',                       // '' | 'today' | 'tomorrow' | 'weekend' | weekday name
-        date: '',                      // 'YYYY-MM-DD' exact day (from a calendar time block); session-only
+        calOpen: new Set(),            // calendar time blocks expanded in place ('YYYY-MM-DD|HH')
+        calRenderedWeek: null,         // to keep the grid's scroll position across the minute re-render
         paidVisible: !!SkateSettings.get('paidVisible'),
         rinkScope: SkateSettings.get('rinkScope') || 'all',
         sort: SkateSettings.get('sort') || 'time',
@@ -225,6 +226,7 @@ window.SkateApp = (() => {
         return {
             title: `${P.activity(p)} at ${P.location(p)}`,
             start: st.startEpoch, end: st.endEpoch,
+            date: P.dateStr(p).slice(0, 10), startTime: P.time(p), endTime: P.endTime(p),
             location: `${P.location(p)}${addr ? ', ' + addr : ''}, ${town}, ON`,
             details, uid: P.id(p)
         };
@@ -239,15 +241,27 @@ window.SkateApp = (() => {
         const q = new URLSearchParams({ rru: 'addevent', subject: ev.title, startdt: new Date(ev.start).toISOString(), enddt: new Date(ev.end).toISOString(), body: ev.details, location: ev.location });
         return `https://outlook.live.com/calendar/0/action/compose?${q}`;
     }
+    // VTIMEZONE for America/Toronto so Calendar apps show the wall-clock time,
+    // not a "(GMT)" conversion. Wall-clock DTSTART/DTEND come straight from the
+    // program's date + time strings; only DTSTAMP is UTC.
+    const VTIMEZONE = [
+        'BEGIN:VTIMEZONE', 'TZID:America/Toronto',
+        'BEGIN:STANDARD', 'DTSTART:19701101T020000', 'RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU', 'TZOFFSETFROM:-0400', 'TZOFFSETTO:-0500', 'TZNAME:EST', 'END:STANDARD',
+        'BEGIN:DAYLIGHT', 'DTSTART:19700308T020000', 'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU', 'TZOFFSETFROM:-0500', 'TZOFFSETTO:-0400', 'TZNAME:EDT', 'END:DAYLIGHT',
+        'END:VTIMEZONE'
+    ];
+    const localStamp = (dateKey, hhmm) => `${dateKey.replace(/-/g, '')}T${String(hhmm || '00:00').replace(':', '').padStart(4, '0')}00`;
     function icsText(ev) {
         const esc = s => String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+        const endDate = ev.endTime && ev.endTime <= ev.startTime ? SkateTime.addDays(ev.date, 1) : ev.date;   // crosses midnight
         return [
             'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Toronto Skating//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+            ...VTIMEZONE,
             'BEGIN:VEVENT',
             `UID:${ev.uid}@toronto-skating`,
             `DTSTAMP:${utcStamp(Date.now())}`,
-            `DTSTART:${utcStamp(ev.start)}`,
-            `DTEND:${utcStamp(ev.end)}`,
+            `DTSTART;TZID=America/Toronto:${localStamp(ev.date, ev.startTime)}`,
+            `DTEND;TZID=America/Toronto:${ev.endTime ? localStamp(endDate, ev.endTime) : localStamp(ev.date, ev.startTime)}`,
             `SUMMARY:${esc(ev.title)}`,
             `LOCATION:${esc(ev.location)}`,
             `DESCRIPTION:${esc(ev.details)}`,
@@ -265,29 +279,50 @@ window.SkateApp = (() => {
         return base ? `${base}/${P.id(p)}.ics` : null;
     }
 
-    /** Apple path: a real https .ics opens straight in Calendar (data: URLs are refused on iOS). */
-    function openIcs(p) {
+    /** A readable file name: "Leisure Skate - Malvern Recreation Centre - Sep 15.ics". */
+    function icsFileName(p) {
+        const day = P.dateStr(p) ? parseLocalDate(P.dateStr(p)).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) : '';
+        return `${P.activity(p)} - ${P.location(p)}${day ? ' - ' + day : ''}`.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90) + '.ics';
+    }
+    function saveBlob(blob, name) {
+        const a = el('a', { href: URL.createObjectURL(blob), download: name });
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    }
+
+    /**
+     * The .ics path. iOS opens the home server's https file in Safari (data:
+     * and blob: URLs are refused as top-level pages there; Safari hands the
+     * file to Calendar). Everything else downloads the file straight away,
+     * no new tab: the same click can be repeated as often as you like.
+     */
+    async function openIcs(p) {
         const url = icsUrl(p);
-        if (url) { window.open(url, '_blank', 'noopener'); return; }
-        downloadIcs(p);   // home server unreachable: local file
+        if (url && isIOS()) { window.open(url, '_blank', 'noopener'); return; }
+        if (url) {
+            try {
+                const r = await fetch(url, { cache: 'no-store' });
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                saveBlob(await r.blob(), icsFileName(p));
+                SkateChat.Notify.toast('Calendar file saved. Open it to add the session.', 'success', 2500);
+                return;
+            } catch (e) { /* home server unreachable: build the file here */ }
+        }
+        downloadIcs(p);
     }
 
     function downloadIcs(p) {
         const ev = calEvent(p);
         if (!ev) return SkateChat.Notify.toast('This session has no date to add', 'error');
-        const ics = icsText(ev);
-        const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+        const blob = new Blob([icsText(ev)], { type: 'text/calendar;charset=utf-8' });
         if (isIOS()) {
-            // iOS refuses top-level data: URLs; a blob in a new tab is the best a static page can do
             const url = URL.createObjectURL(blob);
             window.open(url, '_blank');
             setTimeout(() => URL.revokeObjectURL(url), 60000);
             return;
         }
-        const a = el('a', { href: URL.createObjectURL(blob), download: `skating-${ev.uid}.ics` });
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-        SkateChat.Notify.toast('Calendar file downloaded. Open it to add the session.', 'success', 2500);
+        saveBlob(blob, icsFileName(p));
+        SkateChat.Notify.toast('Calendar file saved. Open it to add the session.', 'success', 2500);
     }
     function openCalendarLink(p, kind) {
         const ev = calEvent(p);
@@ -367,15 +402,6 @@ window.SkateApp = (() => {
     };
 
     /* ---------- Rink scope (personalization) ---------- */
-    /**
-     * Upcoming (not-ended) session count at one location key, honouring the
-     * Paid toggle — so every count in the UI moves together when Paid flips.
-     */
-    function upcomingCountFor(key, nowMs = Date.now()) {
-        const sp = upcomingSplit(key, nowMs);
-        return S.paidVisible ? sp.free + sp.paid : sp.free;
-    }
-
     /** Upcoming sessions at a location split by Paid, ignoring sessions the
      *  City's live schedule dropped — so a paid-only rink (Markham, Canlan)
      *  can say "12 paid" instead of a misleading "0 sessions". */
@@ -387,14 +413,6 @@ window.SkateApp = (() => {
             if (p.Paid) paid++; else free++;
         });
         return { free, paid };
-    }
-
-    /** "12 sessions" / "3 sessions · 9 paid" / "9 paid" — honest under the Paid toggle. */
-    function sessionsLabel(sp) {
-        const shown = S.paidVisible ? sp.free + sp.paid : sp.free;
-        const n = `${shown} session${shown === 1 ? '' : 's'}`;
-        if (S.paidVisible || !sp.paid) return n;
-        return shown ? `${n} · ${sp.paid} paid` : `${sp.paid} paid`;
     }
 
     /* ---------- Active filters as removable pills ---------- */
@@ -410,7 +428,6 @@ window.SkateApp = (() => {
             pills.push({ key: `type:${cat}`, label: `${CAT_LABEL(cat)}${subs}` });
         });
         if (S.day) pills.push({ key: 'day', label: DAY_LABEL(S.day) });
-        if (S.date) pills.push({ key: 'date', label: parseLocalDate(S.date).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' }) });
         if (S.age !== null) pills.push({ key: 'age', label: `Age ${S.age}` });
         if (S.savedOnly) pills.push({ key: 'saved', label: 'Saved only' });
         if (S.nearRink) pills.push({ key: 'near', label: `Only ${S.nearRink.name}` });
@@ -791,7 +808,11 @@ window.SkateApp = (() => {
     };
 
     Render.calendar = function () {
-        const res = SkateCalendar.render($('calendar-view'), S.filtered, {
+        const view = $('calendar-view');
+        const prevGrid = view.querySelector('.cal-grid');
+        const sameWeek = S.calRenderedWeek === S.calWeekOffset;
+        const keepScroll = sameWeek && prevGrid ? prevGrid.scrollLeft : null;
+        const res = SkateCalendar.render(view, S.filtered, {
             weekOffset: S.calWeekOffset,
             fmtClock,
             idFor: p => P.id(p),
@@ -799,8 +820,15 @@ window.SkateApp = (() => {
             alertFor: p => SkateAlerts.forProgram(p),
             statusFor: p => SkateTime.status(p),
             typeFor: p => P.typeCls(p),
-            maxBlocks: 8
+            maxBlocks: 8,
+            isOpen: (dateKey, hour) => S.calOpen.has(`${dateKey}|${hour}`)
         });
+        // the minute tick re-renders: never yank the reader back to today's column
+        if (keepScroll != null) {
+            const grid = view.querySelector('.cal-grid');
+            if (grid) { grid.scrollLeft = keepScroll; SkateCalendar.syncDayStrip(view); }
+        }
+        S.calRenderedWeek = S.calWeekOffset;
         $('cal-label').textContent = `${res.label} · ${res.total} session${res.total === 1 ? '' : 's'}`;
     };
 
@@ -1280,19 +1308,22 @@ window.SkateApp = (() => {
             const meta = [
                 r.km != null ? SkateGeo.fmtKm(r.km) : null,
                 r.address || null,
-                r.city !== 'Toronto' ? r.city : (r.district || null),
                 (r.kinds || []).map(k => k === 'indoor' ? 'indoor' : 'outdoor').join(' + ') || null,
-                r.paid ? 'paid' : null,
-                sessions ? `${sessions} upcoming` : (sp.paid ? `${sp.paid} paid` : 'no drop-ins listed'),
-                alerts.length ? 'alert' : null
+                r.paid ? 'paid' : null
             ].filter(Boolean).join(' · ');
+            const label = sessions ? `${sessions} session${sessions === 1 ? '' : 's'}` : (sp.paid ? `${sp.paid} paid` : 'No sessions');
             const node = el('div', { class: 'rink-row' + (starred ? ' starred' : '') + (alerts.length ? ' has-alert' : '') });
             node.appendChild(el('div', { class: 'rink-info' }, [
-                el('strong', {}, [r.name]),
-                el('span', { class: 'rink-meta', title: alerts.length ? alerts.map(a => a.Reason).join(', ') : null }, [meta])
+                el('strong', {}, [r.name, ...(alerts.length ? [el('span', { class: 'rink-alert', title: 'Service alert: ' + alerts.map(a => a.Reason).join(', ') }, ['alert'])] : [])]),
+                el('span', { class: 'rink-meta' }, [meta])
             ]));
+            const sessionsBtn = el('button', {
+                class: 'btn-small rink-sessions', dataset: { locFilter: key, locName: r.name },
+                title: (sessions || sp.paid) ? 'Show only this rink\'s sessions' : 'No drop-in sessions listed for this rink'
+            }, [label]);
+            if (!sessions && !sp.paid) sessionsBtn.disabled = true;
             node.appendChild(el('div', { class: 'rink-actions' }, [
-                el('button', { class: 'btn-small', dataset: { locFilter: key, locName: r.name }, title: 'Show only this rink\'s sessions' }, ['Sessions']),
+                sessionsBtn,
                 el('button', { class: 'btn-small star' + (starred ? ' starred' : ''), dataset: { locStar: key }, title: starred ? 'Remove from my rinks' : 'Add to my rinks', 'aria-label': starred ? 'Remove from my rinks' : 'Add to my rinks' }, [starred ? '★' : '☆'])
             ]));
             return node;
@@ -1622,7 +1653,6 @@ window.SkateApp = (() => {
                 if (S.day === 'weekend' && dow !== 'Saturday' && dow !== 'Sunday') return false;
                 if (!dayIsRel && dow !== S.day) return false;
             }
-            if (S.date && P.dateStr(p).slice(0, 10) !== S.date) return false;
             // Parsed bounds so a stray "None"/"" can never silently exclude a row
             if (S.age !== null && !(S.age >= (P.age(p['Age Min']) ?? 0) && S.age <= (P.age(p['Age Max']) ?? 999))) return false;
             // Past filter on the real END time in Toronto — an event disappears
@@ -1731,7 +1761,7 @@ window.SkateApp = (() => {
         filtersChanged();
     };
     Actions.resetFilters = function () {
-        S.types = {}; S.cities = []; S.day = ''; S.date = ''; S.age = null; S.savedOnly = false;
+        S.types = {}; S.cities = []; S.day = ''; S.age = null; S.savedOnly = false;
         S.showPast = false; S.nearRink = null; S.rinkScope = 'all'; S.sort = 'time'; S.paidVisible = false;
         S.showDropped = false; S.moreFilters = false; S.expandedCats = {};
         filtersChanged();
@@ -1742,7 +1772,6 @@ window.SkateApp = (() => {
         if (key.startsWith('type:')) { const t = { ...S.types }; delete t[key.slice(5)]; S.types = t; }
         else if (key.startsWith('city:')) S.cities = S.cities.filter(c => c !== key.slice(5));
         else if (key === 'day') S.day = '';
-        else if (key === 'date') S.date = '';
         else if (key === 'age') S.age = null;
         else if (key === 'saved') S.savedOnly = false;
         else if (key === 'near') S.nearRink = null;
@@ -1759,16 +1788,11 @@ window.SkateApp = (() => {
         Render.programs();
     };
 
-    /** A calendar time block → the list for that day, scrolled to that hour. */
-    Actions.showDate = function (dateKey, hour) {
-        S.date = dateKey; S.day = '';
-        if (S.calMode) { S.calMode = false; SkateSettings.set('calMode', false); }
-        S.limit = 60;
-        Actions.applyFilters(true);
-        const first = hour
-            ? S.filtered.find(p => P.dateStr(p).slice(0, 10) === dateKey && P.time(p) >= `${hour}:00`)
-            : S.filtered[0];
-        if (first) requestAnimationFrame(() => flash(document.querySelector(`.program-item[data-pid="${P.id(first)}"]`)));
+    /** A calendar time block opens or closes in place (the grid re-renders, keeping its scroll). */
+    Actions.toggleCluster = function (dateKey, hour) {
+        const k = `${dateKey}|${hour}`;
+        if (S.calOpen.has(k)) S.calOpen.delete(k); else S.calOpen.add(k);
+        Render.calendar();
     };
 
     /** One tap, the right app: Apple devices get the .ics (Calendar), Android gets Google Calendar, other desktops pick. */
@@ -1785,7 +1809,7 @@ window.SkateApp = (() => {
         if (idx === -1) {
             // widen the net: clear every filter, include past + paid, all rinks
             // (session-only — the persisted prefs are untouched)
-            S.types = {}; S.cities = []; S.search = ''; S.day = ''; S.date = ''; S.age = null; S.savedOnly = false;
+            S.types = {}; S.cities = []; S.search = ''; S.day = ''; S.age = null; S.savedOnly = false;
             S.showPast = true; S.paidVisible = true; S.rinkScope = 'all'; S.nearRink = null;
             $('search-input').value = '';
             Actions.applyFilters();
@@ -2452,7 +2476,7 @@ window.SkateApp = (() => {
         $('btn-cal-today').onclick = () => { S.calWeekOffset = 0; Render.calendar(); };
         delegate($('calendar-view'), [
             ['.cal-daychip', (b) => SkateCalendar.scrollToDate($('calendar-view'), b.dataset.scrollDate)],
-            ['.cal-cluster', (b, e) => { e.stopPropagation(); Actions.showDate(b.dataset.cluster, b.dataset.hour); }],
+            ['.cal-cluster', (b, e) => { e.stopPropagation(); Actions.toggleCluster(b.dataset.cluster, b.dataset.hour); }],
             ['.cal-block', (block, e) => {
                 e.stopPropagation();
                 const p = S.filtered.find(x => P.id(x) === block.dataset.pid);

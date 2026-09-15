@@ -452,9 +452,11 @@ while columns hide off-screen, and week arrows labelled "‹ Week" /
 "Week ›". A day holding more than `maxBlocks` (8) sessions folds sessions
 that start in the same hour into one dashed time block ("10:00 AM–12:00 PM
 · 5 sessions · Malvern, Agincourt +3", type dots, paid count); tapping it
-sets `S.date` (an exact-day filter, session-only, shown as a pill) and
-opens the list scrolled to that hour (`Actions.showDate`). Single
-sessions in a crowded day stay ordinary blocks. Text size never changes.
+expands it in place (`Actions.toggleCluster`, `S.calOpen`), its sessions
+appearing as ordinary blocks beneath it, tap again to fold. Nothing
+leaves the grid, and the minute re-render keeps the grid's scroll
+position (`S.calRenderedWeek`). Single sessions in a crowded day stay
+ordinary blocks. Text size never changes.
 
 **Add to calendar** is one tap: Apple devices open a real https `.ics`
 (`Actions.addToCalendar` → `openIcs`), Android opens the Google Calendar
@@ -462,9 +464,13 @@ template link, other desktops get the Google / Outlook / .ics popover.
 The `.ics` files are pre-built per session by the home server (pipeline
 `writeIcsFiles`, `ICS_DIR`; id = the favourites hash, mirrored in
 `favouriteId`) and served at `https://skate-data.ronishbhatt.com/ics/<id>.ics`
-as `text/calendar`; iOS refuses top-level `data:` URLs, which is why the
-old "Apple" option did nothing on phones. Without the home server the
-client falls back to a blob `.ics`.
+as `text/calendar` with open CORS. Times are wall-clock with a
+`VTIMEZONE` for America/Toronto, so Calendar shows "11:30 AM EDT" rather
+than a GMT conversion. iOS opens the URL (it refuses top-level `data:`
+URLs, which is why the old "Apple" option did nothing on phones); every
+other platform fetches the file and saves it directly, no new tab, so the
+same click can be repeated. Without the home server the client builds
+the same file itself.
 
 **Saved sessions** that have ended are removed on the minute tick
 (`pruneEndedSaved`, `Favorites.remove` is silent), and the card above the
@@ -644,6 +650,8 @@ tradeoff of accountless.
   (only affects devices that haven't seeded yet).
 - **Change the first-visit defaults** — `Actions.firstRun()` in `app.js`
   (cities, types, which community sections start off).
+- **Rink list rows** show address, indoor/outdoor and paid; the upcoming
+  count lives on the Sessions button (disabled when there is nothing).
 - **Add a guide category / activity category / age group / menu label**
   — add a row to the matching config table (`programTypes` keywords,
   `subTypes` — extend `P.subType` if a new group needs new words). The
