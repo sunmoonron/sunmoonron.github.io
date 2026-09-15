@@ -17,7 +17,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=11">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=4">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=23">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=24">
 </head>
 <body>
     <div class="app" id="app">
@@ -219,7 +219,7 @@
                 </div>
                 <div class="settings-field">
                     <span>Calendar 2.0 (experimental)</span>
-                    <label class="fcheck"><input type="checkbox" id="set-cal2"><span class="fcheck-label">Try the new calendar layouts: Hours, Rinks and a Week heatmap. Off = the classic week grid.</span></label>
+                    <label class="fcheck"><input type="checkbox" id="set-cal2"><span class="fcheck-label">Try the new calendar layouts: Open at (a time slider), Rinks, Hours and a Week heatmap. Off = the classic week grid.</span></label>
                 </div>
             </section>
 
@@ -278,7 +278,7 @@
         <div class="modal sheet">
             <div class="modal-header">
                 <h3>Filters</h3>
-                <button class="btn-icon" id="btn-filters-close" aria-label="Close">✕</button>
+                <button class="btn-icon" id="btn-filters-close" aria-label="Close" title="Close. Changes apply as you make them.">✕</button>
             </div>
             <div id="filters-body"></div>
             <div class="sheet-footer">
@@ -390,7 +390,7 @@
     <script src="../assets/js/nostr.bundle.js"></script>
     <!-- profanity-list.js is injected lazily by app.js bootCommunity() —
          schedule-only visits (community sections hidden) never download it -->
-    <script src="projects/js/config.js?v=25"></script>
+    <script src="projects/js/config.js?v=26"></script>
     <script src="projects/js/settings.js?v=7"></script>
     <script src="projects/js/moderation.js?v=5"></script>
     <script src="projects/js/nostr-core.js?v=3"></script>
@@ -404,10 +404,10 @@
     <script src="projects/js/guides.js?v=4"></script>
     <script src="projects/js/ui.js?v=2"></script>
     <script src="projects/js/calendar.js?v=10"></script>
-    <script src="projects/js/calendar2.js?v=1"></script>
+    <script src="projects/js/calendar2.js?v=2"></script>
     <script src="projects/js/map.js?v=3"></script>
     <script src="projects/js/tour.js?v=5"></script>
-    <script src="projects/js/app.js?v=26"></script>
+    <script src="projects/js/app.js?v=27"></script>
     <script src="projects/js/refresh.js?v=4"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)

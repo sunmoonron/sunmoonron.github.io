@@ -3,9 +3,16 @@
  * "Calendar 2.0"). The research behind it is in docs/calendar-2.md.
  *
  * The classic week grid puts text in every block, which is fine on a wide
- * screen and unreadable in a 130 px phone column. These three layouts each
+ * screen and unreadable in a 130 px phone column. These layouts each
  * answer one question with as little text as possible:
  *
+ *   at    — "Open at": one time-of-day slider over a density strip (how
+ *           many rinks are open per quarter hour). The list under it is
+ *           the slice at that moment: every rink open then, yours first
+ *           and nearest next, each with how long it still runs, plus what
+ *           starts within the hour. Sessions overlap in time but never at
+ *           one rink, so a slice is always a short list of unique rinks —
+ *           the 2-D calendar collapses into one slider and one list.
  *   hours — one day as hour rows. Every session is a small chip
  *           "6:15 Centennial · 1 h" (start, rink, length). The agenda-by-
  *           hour hybrid: scannable on a phone, honest about how long a
@@ -31,7 +38,7 @@ window.SkateCalendar2 = (() => {
     const T = window.SkateTime;
 
     const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const MODES = [['hours', 'Hours'], ['rinks', 'Rinks'], ['week', 'Week']];
+    const MODES = [['at', 'Open at'], ['rinks', 'Rinks'], ['hours', 'Hours'], ['week', 'Week']];
     const PX_PER_HOUR = 64, LANE_H = 24, LANE_GAP = 3;   // timetable geometry
 
     /* ---- small helpers ---- */
@@ -267,15 +274,99 @@ window.SkateCalendar2 = (() => {
         return table;
     }
 
+
+    /* ---- open at: one time scrubber; the slice at t is a short, sorted list ---- */
+    const STEP = 15;   // minutes; Toronto sessions start on the quarter hour
+    function renderAt(list, opts, dayKey) {
+        const wrap = el('div', { class: 'c2-at' });
+        if (!list.length) { wrap.appendChild(empty('Nothing this day with these filters.')); return wrap; }
+        const isToday = dayKey === opts.todayKey;
+        const items = list.map(p => { const a = mins(p['Start Time']); return a == null ? null : { p, a, b: a + (dur(p) || 60) }; }).filter(Boolean);
+        // axis: 6 AM → 11 PM, stretched to the day's sessions
+        let lo = 6 * 60, hi = 23 * 60;
+        items.forEach(({ a, b }) => { lo = Math.min(lo, Math.floor(a / 60) * 60); hi = Math.max(hi, Math.min(1440, Math.ceil(b / 60) * 60)); });
+        // t: the reader's last scrub, else now (today) or 6 PM
+        let t = opts.at != null ? opts.at : isToday ? opts.nowMinutes : 18 * 60;
+        t = Math.min(hi, Math.max(lo, Math.round(t / STEP) * STEP));
+
+        // the overview: how many rinks are open, per quarter hour
+        const bins = [];
+        for (let m = lo; m < hi; m += STEP) bins.push(items.filter(x => x.a <= m && x.b > m).length);
+        const max = Math.max(1, ...bins);
+        const strip = el('div', { class: 'c2-strip', 'aria-hidden': 'true' }, bins.map((n, i) => el('i', {
+            class: isToday && lo + (i + 1) * STEP <= opts.nowMinutes ? 'past' : '',
+            style: `height:${n ? Math.max(12, Math.round(100 * n / max)) : 4}%`
+        })));
+        const range = el('input', { type: 'range', class: 'c2-range', min: lo, max: hi, step: STEP, value: t, 'aria-label': 'Time of day' });
+        const scrub = el('div', { class: 'c2-scrub' }, [strip, range]);
+        if (isToday && opts.nowMinutes >= lo && opts.nowMinutes <= hi) {
+            scrub.appendChild(el('span', { class: 'c2-now c2-now-strip', style: `left:${(opts.nowMinutes - lo) / (hi - lo) * 100}%` }));
+        }
+        const ticks = el('div', { class: 'c2-ticks' });
+        for (let h = Math.ceil(lo / 60); h * 60 <= hi; h += 3) ticks.appendChild(el('span', { style: `left:${(h * 60 - lo) / (hi - lo) * 100}%` }, [hourLabel(opts.fmtClock, h)]));
+        const readout = el('div', { class: 'c2-at-readout' });
+        const slice = el('div', { class: 'c2-slice' });
+        wrap.append(readout, scrub, ticks, slice);
+
+        const clock = (m) => opts.fmtClock(`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
+        const chip = (p) => el('button', { class: 'cal-block c2-chip' + stateCls(p, opts), dataset: { pid: opts.idFor(p) }, title: tip(p, opts) }, [
+            el('b', {}, [clockNoMeridiem(opts.fmtClock, p['Start Time'])]),
+            el('span', { class: 'c2-chip-rink' }, [short(p.LocationName)]),
+            el('i', {}, [fmtDur(dur(p))]),
+            ...(p.Paid ? [el('span', { class: 'cal-price' }, ['$'])] : [])
+        ]);
+
+        /** Repaint the slice for time tt: who is open (mine, then nearest), then what starts next. */
+        const paint = (tt) => {
+            const open = items.filter(x => x.a <= tt && x.b > tt)
+                .map(x => ({ ...x, ...opts.rinkInfo(opts.rinkKey(x.p), x.p) }))
+                .sort((x, y) => ((y.mine ? 1 : 0) - (x.mine ? 1 : 0)) || ((x.dist ?? 1e9) - (y.dist ?? 1e9)) || (y.b - x.b));
+            const next = items.filter(x => x.a > tt).sort((x, y) => x.a - y.a);
+            const soon = open.length ? next.filter(x => x.a <= tt + 60).slice(0, 6) : next.slice(0, 5);
+            readout.innerHTML = '';
+            readout.append(
+                el('b', {}, [clock(tt)]),
+                el('span', {}, [open.length ? `${open.length} rink${open.length === 1 ? '' : 's'} open` : 'nothing open']),
+                ...(isToday ? [el('button', { class: 'c2-at-now', type: 'button', title: 'Back to the current time' }, ['Now'])] : [])
+            );
+            slice.innerHTML = '';
+            open.forEach(({ p, a, b, mine, dist }) => {
+                const pct = Math.round((tt - a) / (b - a) * 100);
+                slice.appendChild(el('button', { class: 'cal-block c2-card' + stateCls(p, opts), dataset: { pid: opts.idFor(p) }, title: tip(p, opts) }, [
+                    el('span', { class: 'c2-card-top' }, [
+                        el('b', {}, [(mine ? '★ ' : '') + short(p.LocationName)]),
+                        ...(dist != null ? [el('small', {}, [opts.fmtKm(dist)])] : []),
+                        el('span', { class: 'c2-card-kind' }, [p.Activity || '']),
+                        ...(p.Paid ? [el('span', { class: 'cal-price' }, ['$'])] : []),
+                        ...(opts.isSaved(p) ? [el('span', { class: 'cal-heart', 'aria-label': 'saved' }, ['♥'])] : [])
+                    ]),
+                    el('span', { class: 'c2-card-time' }, [
+                        `${opts.fmtClock(p['Start Time'] || '')}${p['End Time'] ? '–' + opts.fmtClock(p['End Time']) : ''} · ${tt === a ? 'starts then' : `${fmtDur(b - tt)} left`}`
+                    ]),
+                    el('span', { class: 'c2-card-bar' }, [el('i', { style: `width:${pct}%` })])
+                ]));
+            });
+            if (soon.length) {
+                slice.appendChild(el('div', { class: 'c2-soon-label' }, [open.length ? 'Starting within the hour' : 'Next starts']));
+                slice.appendChild(el('div', { class: 'c2-chips' }, soon.map(({ p }) => chip(p))));
+            }
+        };
+        const goTo = (m) => { t = Math.min(hi, Math.max(lo, Math.round(m / STEP) * STEP)); range.value = t; paint(t); if (opts.onScrub) opts.onScrub(t); };
+        range.addEventListener('input', () => goTo(+range.value));
+        readout.addEventListener('click', (e) => { if (e.target.closest('.c2-at-now')) { e.stopPropagation(); goTo(opts.nowMinutes); } });
+        paint(t);
+        return wrap;
+    }
+
     /**
      * Render into `container`.
-     * opts: { mode, day, todayKey, nowMinutes (Toronto), scrollHour,
+     * opts: { mode, day, todayKey, nowMinutes (Toronto), scrollHour, at, onScrub(t),
      *         fmtClock(t), fmtKm(km), idFor(p), isSaved(p), alertFor(p),
      *         statusFor(p), typeFor(p), rinkKey(p), rinkInfo(key, p) → { mine, dist } }
      * Returns { label, total, types, states, mode, day, weekStart }.
      */
     function render(container, programs, opts) {
-        const mode = MODES.some(m => m[0] === opts.mode) ? opts.mode : 'hours';
+        const mode = MODES.some(m => m[0] === opts.mode) ? opts.mode : 'at';
         const dayKey = opts.day || opts.todayKey;
         const weekStartKey = T.addDays(dayKey, -T.mondayIndex(dayKey));
         const weekEndKey = T.addDays(weekStartKey, 6);
@@ -293,7 +384,7 @@ window.SkateCalendar2 = (() => {
             scope = inWeek;
         } else {
             container.appendChild(dayStrip(weekStartKey, counts, dayKey, opts.todayKey));
-            body = mode === 'rinks' ? renderRinks(onDay, opts, dayKey) : renderHours(onDay, opts, dayKey);
+            body = mode === 'rinks' ? renderRinks(onDay, opts, dayKey) : mode === 'at' ? renderAt(onDay, opts, dayKey) : renderHours(onDay, opts, dayKey);
             label = longDate(dayKey);
             scope = onDay;
         }

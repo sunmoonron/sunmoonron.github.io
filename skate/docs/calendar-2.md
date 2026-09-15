@@ -1,6 +1,7 @@
 # Calendar 2.0 — research notes and the experiment
 
 Status: **experimental**, off by default. Settings → Display → "Calendar 2.0".
+Layouts, in the bar's order: Open at (default), Rinks, Hours, Week.
 Code: `projects/js/calendar2.js` (renderer), wiring in `app.js`
 (`Render.calendar2`, `Actions.cal2SetMode`, `Actions.cal2SetDay`), styles under
 "Calendar 2.0" in `assets/css/style-v3.css`. The classic grid
@@ -63,7 +64,38 @@ The week grid answers 4 on a desktop and none of the others on a phone.
   [Class Timetable](https://apps.apple.com/us/app/class-timetable-schedule-app/id425121147),
   [Smart Timetable](https://smart-timetable.app/))
 
-## 3. The three layouts (one per question)
+## 3. The idea that is actually new: "Open at"
+
+The three conventional layouts below are known patterns applied well. This
+one is built on the structure of the data rather than on a calendar
+convention:
+
+> Sessions overlap in time, but never at one rink. So at any moment the
+> answer to "where can I skate?" is a short list of *unique rinks*, and
+> the only thing a calendar has to let you choose is the moment.
+
+**Open at** is therefore one control and one list. The control is a
+time-of-day slider drawn over a bar chart of how many rinks are open per
+quarter hour (the overview: the morning and evening humps are visible
+without reading a word). The list is the slice at the chosen moment:
+every rink open then, starred rinks first and the nearest next, each card
+saying how long it still runs (with a thin bar showing where in the
+session that moment falls), plus a row of what starts within the hour so
+scrubbing forward is never a surprise. Today it opens at now with a Now
+button; other days at 6 PM; the slider snaps to quarter hours and works
+with the arrow keys.
+
+Why it is different from a grid: a grid shows every session and asks you
+to find the moment; Open at asks for the moment and shows only what
+matters then. The 2-D calendar collapses into one dimension, which is why
+it fits a phone without shrinking anything, and it answers the three
+real questions in one gesture: drag to tonight, read the list, see the
+lengths.
+
+Known limits: you cannot see two moments at once (the Rinks timetable is
+there for that), and a day's overview is a histogram, not a schedule.
+
+## 4. The three conventional layouts (one per question)
 
 All three share the day strip (Mon–Sun with counts), the layout bar, the
 Today button, the popover on tap (save, show in the list, add to calendar,
@@ -71,7 +103,7 @@ directions…), and the same colour key as the list badges.
 
 | Layout | What it is | Answers | Text per session |
 |---|---|---|---|
-| **Hours** (default) | One day as hour rows; each session is a chip "6:15 Centennial · 1 h" | 1, 3 | start · rink · length |
+| **Hours** | One day as hour rows; each session is a chip "6:15 Centennial · 1 h" | 1, 3 | start · rink · length |
 | **Rinks** | Timetable: one row per rink (★ mine first, then nearest), x = time of day, a bar as long as the session, a now-line today | 3, 1 | start time inside the bar when it fits, else none |
 | **Week** | Heatmap: 7 columns × hour rows, darker = more sessions on the ice that hour; tap an hour → Hours at that hour, tap a day → that day | 2, 4 | none (a count) |
 
@@ -90,7 +122,7 @@ Design rules applied:
 - Now: the current hour row is marked (Hours), a live now-line runs down
   the timetable (Rinks), the current cell is ringed (Week); past hours dim.
 
-## 4. What to look at while testing
+## 5. What to look at while testing
 
 - Phone, Toronto, leisure + figure, a weekday evening: Hours should read
   in one scroll; Rinks should show ~10–20 rows with the 6 PM bars lined up.
@@ -103,7 +135,7 @@ Design rules applied:
   still wins on wide screens, the decision may be "2.0 on phones, grid on
   desktop" — the code allows either.
 
-## 5. Open questions
+## 6. Open questions
 
 - Should Week replace the day strip on phones (heatmap as the navigator)?
 - Rinks: should a rink with no session that day still appear as an empty
