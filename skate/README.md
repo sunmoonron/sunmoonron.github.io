@@ -439,11 +439,11 @@ to my rinks". The first card carries a one-time "tap ♡ to save" hint
 (`heartHintDone` setting; a first save or "Got it" retires it).
 
 **Calendar 2.0 (experimental).** Settings → Display → "Calendar 2.0"
-swaps the week grid for `projects/js/calendar2.js`: Hours (a day as hour
-rows of small chips), Rinks (a TV-guide timetable, rows = rinks, bars as
-long as the session) and Week (a heatmap, darker = more sessions on the
-ice that hour). Same popover, same colour key. The research behind it and
-what to evaluate: `docs/calendar-2.md`.
+swaps the week grid for `projects/js/calendar2.js`: one board, a row per
+rink (starred first, nearest next), a bar per session drawn to its length
+on a time axis fitted to the screen, and a cursor on the axis that floats
+the rinks open at that time to the top. Tap a rink for its sessions as
+chips, a bar for the usual popover. Same colour key as the list.
 
 **toronto.ca is the ground truth.** City sessions the live cross-check
 flags as missing or cancelled are hidden (`computeFiltered`,

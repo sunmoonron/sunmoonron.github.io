@@ -42,7 +42,7 @@ window.SkateConfig = {
                 'Filters sits beside the search box. A Show all button ends the list. Bigger ♡ and ⋯. The rink note moved onto the rink line (📝) and the official-page icon is a plain 📄.',
                 'Postal codes work in the locator: exact when OpenStreetMap knows the code, otherwise the postal area, marked approximate. The guide has a Back button. The saved-day card shows time ranges, durations, distance and any rink alert.',
                 'Fixed: the page flickering with black patches in Safari (the heart nudge animated a shadow; it now animates a ring that costs the browser nothing).',
-                'Calendar 2.0 (experimental, Settings → Display): layouts that keep text out of the way. Open at is one slider over a bar chart of how many rinks are open through the day; the list under it is who is open at that moment, your rinks first and nearest next, with time left. Rinks is a TV-guide timetable (one row per rink, bars as long as the session); Hours lists a day as hour rows of small chips; Week is a heatmap. Research notes in docs/calendar-2.md.',
+                'Calendar 2.0 (experimental, Settings → Display): one board instead of a week grid. A row per rink (your rinks first, nearest next), a bar per session drawn to its length on a time axis that fits the screen, and a handle you drag along the axis: rinks open at that time float to the top. Tap a rink for its times, a bar for details.',
                 'The official-page link on each card is a small globe in the text colour instead of an emoji. The Filters sheet applies every change immediately; its big button is now Done, and the x closes it the same way.'
             ]
         },

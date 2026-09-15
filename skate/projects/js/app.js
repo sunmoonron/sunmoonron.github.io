@@ -47,10 +47,9 @@ window.SkateApp = (() => {
         calOpen: new Set(),            // calendar time blocks expanded in place ('YYYY-MM-DD|HH')
         calRenderedWeek: null,         // to keep the grid's scroll position across the minute re-render
         heartHint: false,              // first card carries the one-time "tap ♡ to save" nudge (Render.programs decides)
-        cal2Mode: SkateSettings.get('cal2Mode') || 'at',      // Calendar 2.0 layout (at | rinks | hours | week)
         cal2Day: null,                 // Calendar 2.0's selected day (today until tapped)
-        cal2ScrollHour: null,          // heat cell → open Hours at this hour
-        cal2At: null,                  // "Open at" slider position in minutes (null = follow now / 6 PM)
+        cal2At: null,                  // Calendar 2.0 cursor, minutes of the day (null = follow now / 6 PM)
+        cal2Open: new Set(),           // Calendar 2.0 rink rows unfolded into chips
         paidVisible: !!SkateSettings.get('paidVisible'),
         rinkScope: SkateSettings.get('rinkScope') || 'all',
         sort: SkateSettings.get('sort') || 'time',
@@ -659,10 +658,7 @@ window.SkateApp = (() => {
             (types ? `<span class="legend-group">${types}</span>` : '') +
             (states ? `<span class="legend-group">${states}</span>` : '') +
             `<span class="legend-hint">${!res?.total ? 'Nothing here with these filters.'
-                : mode === 'at' ? 'Drag to a time of day. The bars show how many rinks are open through the day; the list is who is open at that moment, your rinks first and nearest next. Tap a card for details.'
-                : mode === 'hours' ? 'Each chip is one session: start, rink, length. Tap it for details and actions.'
-                : mode === 'rinks' ? 'One row per rink; a bar runs as long as the session. Swipe sideways through the day, tap a bar for details.'
-                : mode === 'week' ? 'Darker = more sessions on the ice that hour. Tap an hour to open it, or a day name for the whole day.'
+                : mode === 'board' ? 'One row per rink, a bar per session drawn to its length. Drag the handle on the time axis: rinks open at that time come first. Tap a rink for its times, a bar for details.'
                 : 'Tap a session for details and actions; tap a time block to open it.'}</span>`;
     };
 
@@ -874,7 +870,7 @@ window.SkateApp = (() => {
             : '';
     };
 
-    /** Settings → Display → Calendar 2.0 (experimental layouts; docs/calendar-2.md). */
+    /** Settings → Display → Calendar 2.0 (the experimental rinks × time board). */
     const cal2Active = () => SkateSettings.get('cal2') === true;
 
     function setCalNav(dayMode) {
@@ -912,7 +908,7 @@ window.SkateApp = (() => {
         Render.calLegend(res);
     };
 
-    /** Calendar 2.0: hours / rinks / week layouts (SkateCalendar2), same popover as the grid. */
+    /** Calendar 2.0: the rinks × time board (SkateCalendar2), same popover as the grid. */
     Render.calendar2 = function () {
         const view = $('calendar-view');
         const todayKey = SkateTime.todayKey();
@@ -921,8 +917,9 @@ window.SkateApp = (() => {
         const nowMinutes = (+tor.slice(0, 2)) * 60 + (+tor.slice(3, 5));
         const mine = new Set(SkateSettings.get('myRinks') || []);
         const res = SkateCalendar2.render(view, S.filtered, {
-            mode: S.cal2Mode, day: S.cal2Day, todayKey, nowMinutes, scrollHour: S.cal2ScrollHour,
-            at: S.cal2At, onScrub: (t) => { S.cal2At = t; },
+            day: S.cal2Day, todayKey, nowMinutes, at: S.cal2At,
+            isOpen: key => S.cal2Open.has(key),
+            onScrub: (t) => { S.cal2At = t; Render.calendar(); },   // release → rows re-sort around the new time
             fmtClock, fmtKm: SkateGeo.fmtKm,
             idFor: p => P.id(p),
             isSaved: p => SkateChat.Favorites.has(p),
@@ -932,11 +929,10 @@ window.SkateApp = (() => {
             rinkKey: p => P.locKey(p),
             rinkInfo: (key, p) => ({ mine: mine.has(key), dist: SkateGeo.distanceForProgram(p) })
         });
-        S.cal2ScrollHour = null;
         S.calRenderedWeek = null;   // the classic grid must not restore a stale scroll when switched back
-        setCalNav(res.mode !== 'week');
+        setCalNav(true);
         $('cal-label').textContent = `${res.label} · ${res.total} session${res.total === 1 ? '' : 's'}`;
-        Render.calLegend(res, res.mode);
+        Render.calLegend(res, 'board');
     };
 
     Render.programRow = function (p, idx, chatState, now) {
@@ -1923,18 +1919,15 @@ window.SkateApp = (() => {
         Render.programs();
     };
 
-    /** Calendar 2.0: switch layout (remembered). */
-    Actions.cal2SetMode = function (mode) {
-        S.cal2Mode = mode;
-        SkateSettings.set('cal2Mode', mode);
+    /** Calendar 2.0: pick a day on the strip. */
+    Actions.cal2SetDay = function (day) {
+        S.cal2Day = day;
         Render.calendar();
     };
 
-    /** Calendar 2.0: pick a day; from the week heatmap this lands in Hours (at `hour` when a cell was tapped). */
-    Actions.cal2SetDay = function (day, hour = null) {
-        S.cal2Day = day;
-        if (S.cal2Mode === 'week') { S.cal2Mode = 'hours'; SkateSettings.set('cal2Mode', 'hours'); }
-        S.cal2ScrollHour = hour;
+    /** Calendar 2.0: a rink row unfolds into its sessions as chips (and folds again). */
+    Actions.cal2ToggleRink = function (key) {
+        if (S.cal2Open.has(key)) S.cal2Open.delete(key); else S.cal2Open.add(key);
         Render.calendar();
     };
 
@@ -2627,7 +2620,7 @@ window.SkateApp = (() => {
 
         // ---- Week calendar ----
         const calStep = (n) => {
-            if (cal2Active()) S.cal2Day = SkateTime.addDays(S.cal2Day || SkateTime.todayKey(), S.cal2Mode === 'week' ? 7 * n : n);
+            if (cal2Active()) S.cal2Day = SkateTime.addDays(S.cal2Day || SkateTime.todayKey(), n);
             else S.calWeekOffset += n;
             Render.calendar();
         };
@@ -2635,8 +2628,7 @@ window.SkateApp = (() => {
         $('btn-cal-next').onclick = () => calStep(1);
         $('btn-cal-today').onclick = () => { S.calWeekOffset = 0; S.cal2Day = SkateTime.todayKey(); Render.calendar(); };
         delegate($('calendar-view'), [
-            ['[data-cal2-mode]', (b) => Actions.cal2SetMode(b.dataset.cal2Mode)],
-            ['[data-cal2-cell]', (b) => { const [d, h] = b.dataset.cal2Cell.split('|'); Actions.cal2SetDay(d, +h); }],
+            ['[data-cal2-rink]', (b) => Actions.cal2ToggleRink(b.dataset.cal2Rink)],
             ['[data-cal2-day]', (b) => Actions.cal2SetDay(b.dataset.cal2Day)],
             ['.cal-daychip', (b) => SkateCalendar.scrollToDate($('calendar-view'), b.dataset.scrollDate)],
             ['.cal-cluster', (b, e) => { e.stopPropagation(); Actions.toggleCluster(b.dataset.cluster, b.dataset.hour); }],
@@ -2698,7 +2690,7 @@ window.SkateApp = (() => {
             Modal.close('settings-modal');
             Actions.switchView('programs');
             Render.programs();
-            SkateChat.Notify.toast(cal2.checked ? 'Calendar 2.0 is on: Hours, Rinks and Week layouts in the Calendar tab.' : 'Back to the classic week grid.', 'info', 3500);
+            SkateChat.Notify.toast(cal2.checked ? 'Calendar 2.0 is on: the rinks board in the Calendar tab.' : 'Back to the classic week grid.', 'info', 3500);
         };
         $('btn-whatsnew').onclick = () => { Modal.close('settings-modal'); Actions.openWhatsNew(); };
         $('btn-whatsnew-close').onclick = () => Modal.close('whatsnew-modal');
