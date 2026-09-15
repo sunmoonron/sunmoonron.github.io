@@ -1335,7 +1335,6 @@ body.hide-guides.hide-chats .panel-programs .panel-title { display: none; }
 .btn-favorite.nudge::after {
     content: ''; position: absolute; inset: -2px; border-radius: inherit;
     border: 2px solid #e0245e; opacity: 0; pointer-events: none;
-    will-change: transform, opacity;
     animation: heart-nudge 1.8s ease-out infinite;
 }
 .heart-hint {

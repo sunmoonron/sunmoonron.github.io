@@ -51,7 +51,11 @@ const SkateSettings = (() => {
     }
 
     function get(k) { return k ? settings[k] : { ...settings }; }
-    function set(k, v) { settings[k] = v; save(); }
+    /** Writes only on a real change: every write re-renders the schedule, so a same-value write must be free. */
+    function set(k, v) {
+        if (JSON.stringify(settings[k]) === JSON.stringify(v)) return;
+        settings[k] = v; save();
+    }
     function onChange(cb) { cbs.push(cb); }
 
     /** "14:30" or "2:30 PM" from an "HH:MM" string (program times). */
