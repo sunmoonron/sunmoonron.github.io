@@ -26,8 +26,17 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.4',
+    version: '3.5',
     changelog: [
+        {
+            v: '3.5', date: '2026-09-15', items: [
+                'Calendar that scales: a tap-to-jump day strip with counts (and a visible way to swipe on phones), week arrows that say Week, and crowded days fold same-hour sessions into time blocks that open the list for that day. Text never shrinks.',
+                'Add to calendar just opens your calendar: iPhone, iPad and Mac get a real .ics from the home server (Apple Calendar), Android gets Google Calendar, other desktops still pick. Saved sessions vanish once they have ended, and the reminder card lists every saved session of that day.',
+                'First visit now plays the 54-second guide (pause and skip on the card). The weather emoji is back.',
+                'Rink list rows show the street address, so Baycrest Arena and Bayview Arena stop looking like twins.',
+                'Data resilience: the app checks which copy is fresher (home server or GitHub) before loading, so a power cut at home never serves stale data.'
+            ]
+        },
         {
             v: '3.4', date: '2026-09-14', items: [
                 'Calmer first visit: no welcome form. New visitors start on Toronto leisure and figure skating, get the 20-second tour with a big Skip, and can turn Guides and Chats on in Settings whenever they like.',
@@ -248,7 +257,7 @@ window.SkateConfig = {
         { sel: '#btn-filters',           title: 'Filters',               text: 'Leisure, figure and hockey with their age groups, a day, cities, your rinks and the order. Your picks are remembered on this device.', sec: 6 },
         { sel: '#active-filters',        title: 'Your active filters',   text: 'Each pill is one filter. Tap the x to remove it. Tap the city pill to pick other cities.', sec: 5 },
         { sel: '#btn-rinks',             title: 'Rinks and map',         text: 'Every rink on a map, with distances from your location or an address you type. Star the rinks that are yours.', sec: 6 },
-        { sel: '#view-seg',              title: 'List or calendar',      text: 'The same sessions as a list or as a week grid. Tap the other side to switch back.', sec: 4 },
+        { sel: '#view-seg',              title: 'List or calendar',      text: 'The same sessions as a list or a week grid. In the grid, tap a day chip to jump, and tap a crowded time block to open that day as a list.', sec: 5 },
         { sel: '#btn-paid',              title: 'Paid venues',           text: 'Paid rinks are hidden until you switch this on. Prices then show on each session.', sec: 4 },
         { sel: '#btn-refresh',           title: 'Refresh',               text: 'Reloads the schedule, rink alerts and live spots. The status line under the buttons says when things were last checked.', sec: 5 },
         { sel: '#program-list .program-item', title: 'A session',        text: 'Time, rink, ages and price. Map opens directions. The toronto.ca link opens the rink page the staff go by.', sec: 7 },

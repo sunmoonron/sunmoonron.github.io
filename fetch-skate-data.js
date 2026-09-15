@@ -2107,6 +2107,92 @@ async function fetchHtmlGrid(sourceKey, cfg) {
     return records;
 }
 
+/* ================= Per-session .ics files (home server only) =================
+ * iOS refuses data: URLs, so "Add to calendar" on Apple devices opens a real
+ * https .ics instead. When ICS_DIR is set (dell-nix skate-data runner), the
+ * full run writes one file per session for the next 45 days, named by the
+ * app's favourites id (a mirror of Favorites.getId in chat-v2.js: FNV-1a +
+ * murmur finalizer, first 16 hex chars). Stale files are pruned by the runner. */
+function favouriteId(p) {
+    const str = `${p.Activity || ''}|${p.LocationName || ''}|${p['Start Date'] || ''}|${p['Start Time'] || ''}`;
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) { hash ^= str.charCodeAt(i); hash = Math.imul(hash, 0x01000193); }
+    let out = '';
+    for (let round = 0; round < 4; round++) {
+        hash = Math.imul(hash ^ (hash >>> 16), 0x85ebca6b);
+        hash = Math.imul(hash ^ (hash >>> 13), 0xc2b2ae35);
+        hash ^= hash >>> 16;
+        out += (hash >>> 0).toString(16).padStart(8, '0');
+    }
+    return out.slice(0, 16);
+}
+const torontoOffsetFmt = new Intl.DateTimeFormat('en-CA', { timeZone: TORONTO_TZ, timeZoneName: 'longOffset', year: 'numeric', month: '2-digit', day: '2-digit' });
+function torontoOffsetMinutes(date) {
+    const part = torontoOffsetFmt.formatToParts(date).find(x => x.type === 'timeZoneName');
+    const m = /GMT([+-])(\d{2}):(\d{2})/.exec(part ? part.value : '');
+    return m ? (m[1] === '-' ? -1 : 1) * (parseInt(m[2], 10) * 60 + parseInt(m[3], 10)) : -300;
+}
+/** Toronto wall-clock 'YYYY-MM-DD' + 'HH:MM' → epoch ms (DST-safe, same math as the app's SkateTime). */
+function torontoEpoch(dateStr, timeStr) {
+    const dm = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(dateStr || ''));
+    if (!dm) return null;
+    const tm = /^(\d{1,2}):(\d{2})/.exec(String(timeStr || '')) || [null, '0', '0'];
+    const guess = Date.UTC(+dm[1], +dm[2] - 1, +dm[3], +tm[1], +tm[2]);
+    let off = torontoOffsetMinutes(new Date(guess));
+    let result = guess - off * 60000;
+    const off2 = torontoOffsetMinutes(new Date(result));
+    if (off2 !== off) result = guess - off2 * 60000;
+    return result;
+}
+const icsStamp = ms => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+const icsEsc = s => String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+function writeIcsFiles(programs, dir) {
+    fs.mkdirSync(dir, { recursive: true });
+    const today = torontoDateStr(), until = addDays(today, 45);
+    const site = 'https://sunmoonron.github.io/skate/';
+    let n = 0;
+    programs.forEach(p => {
+        const date = p['Start Date'] || '';
+        if (date < today || date > until || !p['Start Time']) return;
+        const start = torontoEpoch(date, p['Start Time']);
+        if (start == null) return;
+        let end = p['End Time'] ? torontoEpoch(date, p['End Time']) : null;
+        if (end == null || end <= start) end = (end != null && end <= start) ? end + 86400000 : start + 3600000;
+        const id = favouriteId(p);
+        const city = (p.Source && p.Source !== 'city' && p.District) ? p.District : 'Toronto';
+        const addr = [p.Address, p.PostalCode].filter(Boolean).join(', ');
+        const min = parseInt(p['Age Min'], 10), max = parseInt(p['Age Max'], 10);
+        const ages = Number.isFinite(min) && min > 0 && Number.isFinite(max) ? `Ages ${min}–${max}` : Number.isFinite(min) && min > 0 ? `${min >= 18 ? 'Adults' : 'Ages'} ${min}+` : Number.isFinite(max) ? `Up to ${max}` : 'All ages';
+        const official = (!p.Source || p.Source === 'city') && p['Location ID'] != null
+            ? `https://www.toronto.ca/explore-enjoy/parks-recreation/places-spaces/parks-and-recreation-facilities/location/?id=${p['Location ID']}`
+            : (/^https?:\/\//.test(p.InfoUrl || '') ? p.InfoUrl : '');
+        const details = [
+            `${p.Activity} · ${ages}`,
+            addr ? `${p.LocationName}, ${addr}` : p.LocationName,
+            p.Paid ? `Paid session${p.Price != null ? `, $${Number(p.Price).toFixed(2).replace(/\.00$/, '')}` : ''}${p.RegistrationUrl ? ` · ${p.RegistrationUrl === p.InfoUrl ? 'Details' : 'Register'}: ${p.RegistrationUrl}` : ''}` : (p.PriceNote || 'Free drop-in'),
+            p.Unverified ? 'Unverified schedule (read from the venue site). Confirm with the venue.' : '',
+            official ? `Verify: ${official}` : '',
+            `Toronto Skating: ${site}#p=${id}`
+        ].filter(Boolean).join('\n');
+        const ics = [
+            'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Toronto Skating//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+            'BEGIN:VEVENT',
+            `UID:${id}@toronto-skating`,
+            `DTSTAMP:${icsStamp(Date.now())}`,
+            `DTSTART:${icsStamp(start)}`,
+            `DTEND:${icsStamp(end)}`,
+            `SUMMARY:${icsEsc(`${p.Activity} at ${p.LocationName}`)}`,
+            `LOCATION:${icsEsc(`${p.LocationName}${addr ? ', ' + addr : ''}, ${city}, ON`)}`,
+            `DESCRIPTION:${icsEsc(details)}`,
+            `URL:${site}#p=${id}`,
+            'END:VEVENT', 'END:VCALENDAR'
+        ].join('\r\n');
+        fs.writeFileSync(path.join(dir, `${id}.ics`), ics);
+        n++;
+    });
+    console.log(`   📆 ${n} .ics files in ${dir}`);
+}
+
 /** If a source fails today, keep its still-future records from the previous file. */
 function salvageExisting(sourceKey) {
     try {
@@ -2347,6 +2433,12 @@ async function main() {
         fs.writeFileSync(metaFile, JSON.stringify(metadata));
         console.log(`   ✅ ${metaFile}`);
 
+        // Home server only: one .ics per upcoming session for Apple's Calendar
+        if (process.env.ICS_DIR) {
+            try { writeIcsFiles(allPrograms, process.env.ICS_DIR); }
+            catch (e) { console.warn(`   ⚠️ .ics export failed: ${e.message}`); }
+        }
+
         // Step 5: cross-check the fresh city rows against toronto.ca's live
         // per-location schedules (the export lags the live system by days)
         try {
@@ -2373,5 +2465,5 @@ async function main() {
 }
 
 if (require.main === module) main();
-module.exports = { llmParseSchedule, parseScheduleText, fetchLiveCheck, EXTERNAL_SOURCES, parseTimeRange, parseSeasonRange, parseDateList, parseWeekdayGridText, parseWeekdayLinesText };
+module.exports = { llmParseSchedule, parseScheduleText, fetchLiveCheck, EXTERNAL_SOURCES, parseTimeRange, parseSeasonRange, parseDateList, parseWeekdayGridText, parseWeekdayLinesText, favouriteId, writeIcsFiles };
 

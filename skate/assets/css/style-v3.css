@@ -1333,3 +1333,93 @@ body.dark-mode .fcheck:hover { background: rgba(255, 255, 255, 0.04); }
     .view-seg button { font-size: 12px; padding: 0 4px; }
     .tb-count { margin-left: 4px; }
 }
+
+
+/* ============================================================
+   v3.5 — calendar that scales (day strip, time blocks, scroll hint),
+   saved-day card, flat top bar under the iOS status bar
+   ============================================================ */
+
+/* ---- day strip: jump + "which day am I looking at" ---- */
+.cal-days { display: flex; gap: 6px; margin: 0 0 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.cal-days::-webkit-scrollbar { display: none; }
+.cal-daychip {
+    flex: 1 1 0; min-width: 44px;
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
+    padding: 6px 4px;
+    background: var(--bg-white); border: 1px solid var(--border); border-radius: 10px;
+    font-size: 11px; color: var(--text-muted);
+}
+.cal-daychip-name { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.cal-daychip-num { font-size: 15px; font-weight: 700; color: var(--text); line-height: 1.1; }
+.cal-daychip-count { font-size: 10px; min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--bg); }
+.cal-daychip.empty .cal-daychip-count { opacity: 0.5; }
+.cal-daychip.today { border-color: var(--acc-programs); }
+.cal-daychip.today .cal-daychip-num { color: var(--acc-programs); }
+.cal-daychip.in-view { background: color-mix(in srgb, var(--acc-programs) 14%, var(--bg-white)); border-color: var(--acc-programs); }
+.cal-daychip:hover { border-color: var(--acc-programs); }
+
+/* ---- week arrows say what they do ---- */
+.cal-week-btn {
+    font-size: 12px; font-weight: 600; padding: 6px 10px; white-space: nowrap;
+    background: var(--bg-white); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.cal-week-btn:hover { border-color: var(--acc-programs); }
+.cal-nav { flex-wrap: wrap; }
+.cal-label { min-width: 0; }
+
+/* ---- horizontal scroll: visible bar + a fading edge while more columns hide ---- */
+.cal-scroll { position: relative; }
+.cal-scroll.scrolls:not(.at-end)::after {
+    content: ''; position: absolute; top: 0; right: 0; bottom: 10px; width: 28px;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, var(--bg));
+}
+.cal-grid { scrollbar-width: thin; padding-bottom: 10px; }
+.cal-grid::-webkit-scrollbar { height: 8px; }
+.cal-grid::-webkit-scrollbar-thumb { background: var(--border-dark); border-radius: 4px; }
+.cal-grid::-webkit-scrollbar-track { background: var(--bg); }
+
+/* ---- crowded days: time blocks ---- */
+.cal-crowded { font-size: 10px; color: var(--text-muted); padding: 2px 0 0; }
+.cal-cluster { background: var(--bg); border-style: dashed; border-color: var(--border-dark); }
+.cal-cluster .cal-block-title { font-weight: 700; }
+.cal-cluster:hover { border-color: var(--acc-programs); background: color-mix(in srgb, var(--acc-programs) 8%, var(--bg-white)); }
+.cal-dots { display: inline-flex; gap: 3px; }
+.cal-dots .legend-dot { margin: 0; width: 7px; height: 7px; }
+
+/* ---- saved-day card: every saved session on that day ---- */
+.saved-next { display: flex; flex-direction: column; gap: 5px; cursor: default; }
+.saved-next-head { display: flex; justify-content: space-between; align-items: baseline; }
+.saved-next-count { font-size: 11px; color: var(--text-muted); }
+.saved-row {
+    display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; align-items: center; gap: 8px;
+    width: 100%; text-align: left; padding: 6px 8px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+    font-size: 12.5px; color: var(--text);
+}
+.saved-row:hover { border-color: #e0245e; }
+.saved-row-when { font-weight: 700; }
+.saved-row-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.saved-row-state { font-size: 11.5px; font-weight: 700; color: var(--acc-programs); white-space: nowrap; }
+.saved-row.is-live .saved-row-state { color: var(--live); }
+.saved-row.is-live { border-left: 3px solid var(--live); }
+
+/* ---- flat top bar: the iOS status bar (theme-color) and the bar read as one slab ---- */
+body.dark-mode .top-bar { background: #17222d; }
+
+/* ---- narrow phones: the List/Calendar switch gets the room "Calendar" needs ---- */
+@media (max-width: 420px) {
+    .view-seg { flex: 1.5 1 0; }
+    .cal-week-btn { padding: 6px 8px; }
+}
+
+/* ---- dark mode ---- */
+body.dark-mode .cal-daychip, body.dark-mode .cal-week-btn { background: #1b2530; border-color: #38485a; color: var(--text-muted); }
+body.dark-mode .cal-daychip-num { color: var(--text); }
+body.dark-mode .cal-daychip.today { border-color: var(--acc-programs); }
+body.dark-mode .cal-daychip.in-view { background: color-mix(in srgb, var(--acc-programs) 22%, #1b2530); border-color: var(--acc-programs); }
+body.dark-mode .cal-cluster { background: #141c25; border-color: #38485a; }
+body.dark-mode .cal-cluster:hover { background: color-mix(in srgb, var(--acc-programs) 14%, #141c25); }
+body.dark-mode .saved-row { background: #1b2530; border-color: #38485a; }
+body.dark-mode .cal-grid::-webkit-scrollbar-thumb { background: #38485a; }

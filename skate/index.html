@@ -7,16 +7,17 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <!-- PWA: installable to the home screen; sw.js keeps the last-seen
          schedule browsable offline (network-first, so never stale online) -->
-    <meta name="theme-color" content="#2f9fc4">
+    <meta name="theme-color" content="#ffffff">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png">
     <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <!-- theme-color matches the top bar in both themes (see applyTheme) so the iOS status bar and the bar read as one flat slab -->
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=10">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=3">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=15">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=16">
 </head>
 <body>
     <div class="app" id="app">
@@ -65,7 +66,7 @@
                 </div>
 
                 <!-- Next saved session countdown (only when something is saved & upcoming) -->
-                <button class="saved-next hidden" id="saved-next" title="Jump to this session"></button>
+                <div class="saved-next hidden" id="saved-next"></div>
 
                 <!-- Data-health warnings (stale schedule / failed source feeds) -->
                 <div id="data-warnings"></div>
@@ -73,10 +74,10 @@
                 <!-- Week calendar (list ↔ week toggled by the Week button) -->
                 <div id="calendar-wrap" class="hidden">
                     <div class="cal-nav">
-                        <button class="btn-icon" id="btn-cal-prev" title="Previous week" aria-label="Previous week">‹</button>
+                        <button class="cal-week-btn" id="btn-cal-prev" title="Previous week" aria-label="Previous week">‹ Week</button>
                         <button class="cal-today-btn" id="btn-cal-today">Today</button>
                         <span class="cal-label" id="cal-label"></span>
-                        <button class="btn-icon" id="btn-cal-next" title="Next week" aria-label="Next week">›</button>
+                        <button class="cal-week-btn" id="btn-cal-next" title="Next week" aria-label="Next week">Week ›</button>
                     </div>
                     <div id="calendar-view"></div>
                     <!-- legend content generated from SkateConfig.activityTags -->
@@ -383,24 +384,24 @@
     <script src="../assets/js/nostr.bundle.js"></script>
     <!-- profanity-list.js is injected lazily by app.js bootCommunity() —
          schedule-only visits (community sections hidden) never download it -->
-    <script src="projects/js/config.js?v=18"></script>
+    <script src="projects/js/config.js?v=19"></script>
     <script src="projects/js/settings.js?v=7"></script>
     <script src="projects/js/moderation.js?v=4"></script>
     <script src="projects/js/nostr-core.js?v=2"></script>
     <script src="projects/js/storage.js?v=10"></script>
-    <script src="projects/js/api.js?v=14"></script>
+    <script src="projects/js/api.js?v=15"></script>
     <script src="projects/js/time.js?v=1"></script>
     <script src="projects/js/geo.js?v=3"></script>
     <script src="projects/js/live.js?v=2"></script>
     <script src="projects/js/weather.js?v=2"></script>
     <script src="projects/js/alerts.js?v=4"></script>
-    <script src="projects/js/chat-v2.js?v=9"></script>
+    <script src="projects/js/chat-v2.js?v=10"></script>
     <script src="projects/js/guides.js?v=4"></script>
     <script src="projects/js/ui.js?v=2"></script>
-    <script src="projects/js/calendar.js?v=5"></script>
+    <script src="projects/js/calendar.js?v=6"></script>
     <script src="projects/js/map.js?v=3"></script>
     <script src="projects/js/tour.js?v=4"></script>
-    <script src="projects/js/app.js?v=19"></script>
+    <script src="projects/js/app.js?v=20"></script>
     <script src="projects/js/refresh.js?v=4"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)

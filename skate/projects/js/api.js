@@ -39,6 +39,37 @@ const SkateAPI = {
         return `${base}/${name}?t=${bust}`;
     },
 
+    /**
+     * v3.5: pick the origin with the newer meta.json before the first load.
+     * The home server can be off (power cut) or up-but-stale (its pipeline
+     * failing), and a static site cannot tell those apart from "fresh"
+     * without looking. Both metas are ~1 KB; unreachable remote → local;
+     * remote more than an hour behind the committed copy → local.
+     */
+    _originChecked: false,
+    async pickOrigin() {
+        if (!this._dataBase || this._remoteBroken || this._originChecked) return;
+        this._originChecked = true;
+        const t = Date.now();
+        const stamp = async (base) => {
+            try {
+                const opts = (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? { signal: AbortSignal.timeout(6000) } : {};
+                const r = await fetch(`${base}/meta.json?t=${t}`, opts);
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const j = await r.json();
+                return j && j.lastUpdated ? new Date(j.lastUpdated).getTime() : null;
+            } catch { return null; }
+        };
+        const [remote, local] = await Promise.all([stamp(this._dataBase), stamp(this.LOCAL_DATA_PATH)]);
+        if (!remote) return this._fallbackLocal('meta.json unreachable');
+        if (local && local - remote > 60 * 60000) this._fallbackLocal(`its copy is ${Math.round((local - remote) / 60000)} min behind the committed one`);
+    },
+
+    /** Where the home server publishes per-session .ics files (null when using the committed copies). */
+    icsBase() {
+        return (this._dataBase && !this._remoteBroken) ? this._dataBase.replace(/\/projects\/data$/, '') + '/ics' : null;
+    },
+
     /** Remote data origin failed → same-origin for the rest of the session. */
     _fallbackLocal(reason) {
         if (this._dataBase && !this._remoteBroken) {
@@ -92,6 +123,8 @@ const SkateAPI = {
         }
 
         try {
+            if (force) this._originChecked = false;   // a manual refresh re-checks which origin is fresher
+            await this.pickOrigin();
             const data = await this.fetchData('skating-programs.json', force);
 
             this._metadata = data.metadata;

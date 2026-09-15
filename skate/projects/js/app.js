@@ -44,6 +44,7 @@ window.SkateApp = (() => {
         types: sanitizeTypes(SkateSettings.get('typeSel')),
         cities: Array.isArray(SkateSettings.get('cities')) ? SkateSettings.get('cities').filter(c => typeof c === 'string') : [],
         day: '',                       // '' | 'today' | 'tomorrow' | 'weekend' | weekday name
+        date: '',                      // 'YYYY-MM-DD' exact day (from a calendar time block); session-only
         paidVisible: !!SkateSettings.get('paidVisible'),
         rinkScope: SkateSettings.get('rinkScope') || 'all',
         sort: SkateSettings.get('sort') || 'time',
@@ -255,18 +256,34 @@ window.SkateApp = (() => {
         ].join('\r\n');
     }
     const isIOS = () => /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isAndroid = () => /Android/i.test(navigator.userAgent);
+    const isApple = () => isIOS() || (/Macintosh/.test(navigator.userAgent) && !isAndroid());
+
+    /** The home server pre-builds one .ics per session under the favourites id (dell-nix skate-data). */
+    function icsUrl(p) {
+        const base = SkateAPI.icsBase ? SkateAPI.icsBase() : null;
+        return base ? `${base}/${P.id(p)}.ics` : null;
+    }
+
+    /** Apple path: a real https .ics opens straight in Calendar (data: URLs are refused on iOS). */
+    function openIcs(p) {
+        const url = icsUrl(p);
+        if (url) { window.open(url, '_blank', 'noopener'); return; }
+        downloadIcs(p);   // home server unreachable: local file
+    }
 
     function downloadIcs(p) {
         const ev = calEvent(p);
         if (!ev) return SkateChat.Notify.toast('This session has no date to add', 'error');
         const ics = icsText(ev);
+        const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
         if (isIOS()) {
-            // iOS hands text/calendar straight to the Calendar app ("Add All");
-            // <a download> is a no-op there, doubly so inside the installed app.
-            window.location.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
+            // iOS refuses top-level data: URLs; a blob in a new tab is the best a static page can do
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
             return;
         }
-        const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
         const a = el('a', { href: URL.createObjectURL(blob), download: `skating-${ev.uid}.ics` });
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(a.href), 5000);
@@ -393,6 +410,7 @@ window.SkateApp = (() => {
             pills.push({ key: `type:${cat}`, label: `${CAT_LABEL(cat)}${subs}` });
         });
         if (S.day) pills.push({ key: 'day', label: DAY_LABEL(S.day) });
+        if (S.date) pills.push({ key: 'date', label: parseLocalDate(S.date).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' }) });
         if (S.age !== null) pills.push({ key: 'age', label: `Age ${S.age}` });
         if (S.savedOnly) pills.push({ key: 'saved', label: 'Saved only' });
         if (S.nearRink) pills.push({ key: 'near', label: `Only ${S.nearRink.name}` });
@@ -597,37 +615,41 @@ window.SkateApp = (() => {
     Render.savedNext = function () {
         const card = $('saved-next');
         const nowMs = Date.now();
-        let best = null, bestSt = null;
+        const rows = [];
         S.programs.forEach(p => {
             if (!SkateChat.Favorites.has(p)) return;
-            if (SkateAlerts.isDropped(p)) return;           // the City dropped it — no countdown to nothing
+            if (SkateAlerts.isDropped(p)) return;           // the City dropped it: no countdown to nothing
             const st = SkateTime.status(p, nowMs);
             if (st.phase === 'ended' || st.phase === 'undated') return;
-            const rank = (st.phase === 'live' ? 0 : 1);
-            const bestRank = bestSt ? (bestSt.phase === 'live' ? 0 : 1) : 9;
-            if (!best || rank < bestRank || (rank === bestRank && st.startEpoch < bestSt.startEpoch)) {
-                best = p; bestSt = st;
-            }
+            rows.push({ p, st });
         });
-        if (!best) { card.classList.add('hidden'); return; }
-
-        const when = bestSt.phase === 'live'
-            ? `On the ice now · ${SkateTime.fmtMins(bestSt.minsLeft)} left`
-            : bestSt.minsToStart < 24 * 60
-                ? `Starts in ${SkateTime.fmtMins(bestSt.minsToStart)}`
-                : parseLocalDate(P.dateStr(best)).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' }) + ' · ' + fmtClock(P.time(best));
-
+        if (!rows.length) { card.classList.add('hidden'); return; }
+        rows.sort((a, b) => (a.st.phase === 'live' ? 0 : 1) - (b.st.phase === 'live' ? 0 : 1) || a.st.startEpoch - b.st.startEpoch);
+        // every saved session on the soonest day, in order (the fridge note for that day)
+        const day = P.dateStr(rows[0].p).slice(0, 10);
+        const todayKey = SkateTime.todayKey(), tomorrowKey = SkateTime.addDays(todayKey, 1);
+        const dayLabel = day === todayKey ? 'Today' : day === tomorrowKey ? 'Tomorrow'
+            : parseLocalDate(day).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
+        const onDay = rows.filter(r => P.dateStr(r.p).slice(0, 10) === day).sort((a, b) => a.st.startEpoch - b.st.startEpoch).slice(0, 5);
+        const state = (st) => st.phase === 'live' ? `On now · ${SkateTime.fmtMins(st.minsLeft)} left`
+            : st.minsToStart < 24 * 60 ? `Starts in ${SkateTime.fmtMins(st.minsToStart)}` : '';
         card.classList.remove('hidden');
-        card.classList.toggle('is-live', bestSt.phase === 'live');
-        card.dataset.pid = P.id(best);
+        card.classList.toggle('is-live', onDay[0].st.phase === 'live');
         card.innerHTML = `
-            <span class="saved-next-heart" aria-hidden="true">♥</span>
-            <span class="saved-next-info">
-                <span class="saved-next-label">Next saved session</span>
-                <span class="saved-next-title">${escapeHtml(P.activity(best))} · ${escapeHtml(P.location(best))}</span>
-            </span>
-            <span class="saved-next-when">${escapeHtml(when)}</span>`;
+            <div class="saved-next-head"><span class="saved-next-label">Saved · ${escapeHtml(dayLabel)}</span><span class="saved-next-count">${rows.length} saved</span></div>
+            ${onDay.map(({ p, st }) => `<button class="saved-row${st.phase === 'live' ? ' is-live' : ''}" data-pid="${P.id(p)}" title="Jump to this session">
+                <span class="saved-row-when">${fmtClock(P.time(p))}</span>
+                <span class="saved-row-title">${escapeHtml(P.activity(p))} · ${escapeHtml(P.location(p))}</span>
+                <span class="saved-row-state">${escapeHtml(state(st))}</span>
+            </button>`).join('')}`;
     };
+
+    /** Saved sessions that have ended leave the list on their own (quietly). */
+    function pruneEndedSaved(nowMs) {
+        S.programs.forEach(p => {
+            if (SkateChat.Favorites.has(p) && SkateTime.status(p, nowMs).phase === 'ended') SkateChat.Favorites.remove(p);
+        });
+    }
 
     /* ---------- Programs ---------- */
     /**
@@ -704,6 +726,7 @@ window.SkateApp = (() => {
         Render.dataWarnings(SkateAPI.getMetadata(), now);
         Render.status();
         Render.pills();
+        pruneEndedSaved(now.getTime());
         Render.savedNext();
 
         // list ↔ week (the Week button)
@@ -775,7 +798,8 @@ window.SkateApp = (() => {
             isSaved: p => SkateChat.Favorites.has(p),
             alertFor: p => SkateAlerts.forProgram(p),
             statusFor: p => SkateTime.status(p),
-            typeFor: p => P.typeCls(p)
+            typeFor: p => P.typeCls(p),
+            maxBlocks: 8
         });
         $('cal-label').textContent = `${res.label} · ${res.total} session${res.total === 1 ? '' : 's'}`;
     };
@@ -1205,7 +1229,7 @@ window.SkateApp = (() => {
         if (!w) { chip.classList.add('hidden'); return; }
         chip.classList.remove('hidden');
         const label = /^my location$/i.test(w.label || '') ? 'near you' : (w.label || '');
-        chip.textContent = `${w.temp}° · ${label.length > 18 ? label.slice(0, 17) + '…' : label} ▾`;
+        chip.textContent = `${w.emoji} ${w.temp}° · ${label.length > 18 ? label.slice(0, 17) + '…' : label} ▾`;
         chip.title = `${w.text} in ${w.label}: ${w.temp}°C, feels like ${w.feels}°C. Tap to pick another spot (Open-Meteo).`;
     };
 
@@ -1255,6 +1279,7 @@ window.SkateApp = (() => {
             const starred = mine.has(key);
             const meta = [
                 r.km != null ? SkateGeo.fmtKm(r.km) : null,
+                r.address || null,
                 r.city !== 'Toronto' ? r.city : (r.district || null),
                 (r.kinds || []).map(k => k === 'indoor' ? 'indoor' : 'outdoor').join(' + ') || null,
                 r.paid ? 'paid' : null,
@@ -1469,9 +1494,9 @@ window.SkateApp = (() => {
                 { ...A('copyDetails'), onClick: () => copyText(programText(p)) },
                 { ...A('copyLink'), onClick: () => copyText(`${baseUrl()}#p=${P.id(p)}`, 'Link copied') },
                 { ...A('addCalendar'), onClick: () => {
-                    // second-level popover on the same anchor (Popover.close ran first)
-                    const at = anchor || document.querySelector(`.program-item[data-pid="${P.id(p)}"] .btn-copy`) || document.body;
-                    Popover.open(at, Menus.calendar(p));
+                    // the list re-renders every minute, so the anchor may be detached: find it fresh
+                    const at = (anchor && document.contains(anchor)) ? anchor : (document.querySelector(`.program-item[data-pid="${P.id(p)}"] .btn-copy`) || document.body);
+                    Actions.addToCalendar(p, at);
                 } }
             ];
             // This rink → My rinks, right from the card (no scrolling up to the list)
@@ -1497,7 +1522,7 @@ window.SkateApp = (() => {
             return [
                 { ...A('calGoogle'),  onClick: () => openCalendarLink(p, 'google') },
                 { ...A('calOutlook'), onClick: () => openCalendarLink(p, 'outlook') },
-                { ...A('calIcs'),     onClick: () => downloadIcs(p) }
+                { ...A('calIcs'),     onClick: () => openIcs(p) }
             ];
         },
 
@@ -1536,7 +1561,7 @@ window.SkateApp = (() => {
             const cur = SkateWeather.selectedId();
             const user = SkateGeo.getUserLocation();
             const items = [];
-            if (w) items.push({ label: `${w.text}, ${w.temp}°C, feels like ${w.feels}°C (Open-Meteo)`, onClick: () => SkateWeather.load(true) });
+            if (w) items.push({ label: `${w.emoji} ${w.text}, ${w.temp}°C, feels like ${w.feels}°C (Open-Meteo)`, onClick: () => SkateWeather.load(true) });
             items.push({ label: `${cur === 'auto' ? '✓ ' : '\u2007\u2007'}${user ? user.label : 'Toronto (or your location once set)'}`, onClick: () => Actions.pickWeatherSpot('auto') });
             SkateWeather.spots().forEach(sp => items.push({ label: `${cur === sp.id ? '✓ ' : '\u2007\u2007'}${sp.label}`, onClick: () => Actions.pickWeatherSpot(sp.id) }));
             return items;
@@ -1597,6 +1622,7 @@ window.SkateApp = (() => {
                 if (S.day === 'weekend' && dow !== 'Saturday' && dow !== 'Sunday') return false;
                 if (!dayIsRel && dow !== S.day) return false;
             }
+            if (S.date && P.dateStr(p).slice(0, 10) !== S.date) return false;
             // Parsed bounds so a stray "None"/"" can never silently exclude a row
             if (S.age !== null && !(S.age >= (P.age(p['Age Min']) ?? 0) && S.age <= (P.age(p['Age Max']) ?? 999))) return false;
             // Past filter on the real END time in Toronto — an event disappears
@@ -1705,7 +1731,7 @@ window.SkateApp = (() => {
         filtersChanged();
     };
     Actions.resetFilters = function () {
-        S.types = {}; S.cities = []; S.day = ''; S.age = null; S.savedOnly = false;
+        S.types = {}; S.cities = []; S.day = ''; S.date = ''; S.age = null; S.savedOnly = false;
         S.showPast = false; S.nearRink = null; S.rinkScope = 'all'; S.sort = 'time'; S.paidVisible = false;
         S.showDropped = false; S.moreFilters = false; S.expandedCats = {};
         filtersChanged();
@@ -1716,6 +1742,7 @@ window.SkateApp = (() => {
         if (key.startsWith('type:')) { const t = { ...S.types }; delete t[key.slice(5)]; S.types = t; }
         else if (key.startsWith('city:')) S.cities = S.cities.filter(c => c !== key.slice(5));
         else if (key === 'day') S.day = '';
+        else if (key === 'date') S.date = '';
         else if (key === 'age') S.age = null;
         else if (key === 'saved') S.savedOnly = false;
         else if (key === 'near') S.nearRink = null;
@@ -1732,13 +1759,33 @@ window.SkateApp = (() => {
         Render.programs();
     };
 
+    /** A calendar time block → the list for that day, scrolled to that hour. */
+    Actions.showDate = function (dateKey, hour) {
+        S.date = dateKey; S.day = '';
+        if (S.calMode) { S.calMode = false; SkateSettings.set('calMode', false); }
+        S.limit = 60;
+        Actions.applyFilters(true);
+        const first = hour
+            ? S.filtered.find(p => P.dateStr(p).slice(0, 10) === dateKey && P.time(p) >= `${hour}:00`)
+            : S.filtered[0];
+        if (first) requestAnimationFrame(() => flash(document.querySelector(`.program-item[data-pid="${P.id(first)}"]`)));
+    };
+
+    /** One tap, the right app: Apple devices get the .ics (Calendar), Android gets Google Calendar, other desktops pick. */
+    Actions.addToCalendar = function (p, anchor) {
+        if (isApple()) return openIcs(p);
+        if (isAndroid()) return openCalendarLink(p, 'google');
+        const at = (anchor && document.contains(anchor)) ? anchor : (document.querySelector(`.program-item[data-pid="${P.id(p)}"] .btn-copy`) || document.body);
+        Popover.open(at, Menus.calendar(p));
+    };
+
     Actions.focusProgram = function (pid) {
         const find = () => S.filtered.findIndex(p => P.id(p) === pid);
         let idx = find();
         if (idx === -1) {
             // widen the net: clear every filter, include past + paid, all rinks
             // (session-only — the persisted prefs are untouched)
-            S.types = {}; S.cities = []; S.search = ''; S.day = ''; S.age = null; S.savedOnly = false;
+            S.types = {}; S.cities = []; S.search = ''; S.day = ''; S.date = ''; S.age = null; S.savedOnly = false;
             S.showPast = true; S.paidVisible = true; S.rinkScope = 'all'; S.nearRink = null;
             $('search-input').value = '';
             Actions.applyFilters();
@@ -2307,7 +2354,7 @@ window.SkateApp = (() => {
         document.body.classList.toggle('dark-mode', dark);
         // keep the browser/OS chrome (PWA status bar, mobile URL bar) in step
         const meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.content = dark ? '#0e141b' : '#2f9fc4';
+        if (meta) meta.content = dark ? '#17222d' : '#ffffff';   // = the top bar, so the status bar and the bar read as one slab
     };
     if (systemDark?.addEventListener) {
         systemDark.addEventListener('change', () => { if (themeSetting() === 'system') Actions.applyTheme(); });
@@ -2374,10 +2421,7 @@ window.SkateApp = (() => {
         // ---- Status line + weather ----
         $('status-data').onclick = (e) => { e.stopPropagation(); Popover.open($('status-data'), Menus.status()); };
         $('weather-chip').onclick = (e) => { e.stopPropagation(); Popover.open($('weather-chip'), Menus.weather()); };
-        $('saved-next').onclick = () => {
-            const pid = $('saved-next').dataset.pid;
-            if (pid) Actions.focusProgram(pid);
-        };
+        delegate($('saved-next'), [['.saved-row', (b) => Actions.focusProgram(b.dataset.pid)]]);
 
         // ---- Filters sheet ----
         $('btn-filters-close').onclick = Actions.closeFilters;
@@ -2407,6 +2451,8 @@ window.SkateApp = (() => {
         $('btn-cal-next').onclick = () => { S.calWeekOffset++; Render.calendar(); };
         $('btn-cal-today').onclick = () => { S.calWeekOffset = 0; Render.calendar(); };
         delegate($('calendar-view'), [
+            ['.cal-daychip', (b) => SkateCalendar.scrollToDate($('calendar-view'), b.dataset.scrollDate)],
+            ['.cal-cluster', (b, e) => { e.stopPropagation(); Actions.showDate(b.dataset.cluster, b.dataset.hour); }],
             ['.cal-block', (block, e) => {
                 e.stopPropagation();
                 const p = S.filtered.find(x => P.id(x) === block.dataset.pid);
@@ -2734,7 +2780,7 @@ window.SkateApp = (() => {
             SkateLive.load(S.programs);   // live venue spots (TTL-throttled)
             if (S.pendingProgramFocus) { Actions.focusProgram(S.pendingProgramFocus); S.pendingProgramFocus = null; }
             // Brand-new visitor: the spotlight tour, Skip front and centre.
-            if (freshInstall && !SkateSettings.get('tourDone')) setTimeout(() => SkateTour.start(), 700);
+            if (freshInstall && !SkateSettings.get('tourDone')) setTimeout(() => SkateTour.play(), 700);
         } catch (e) {
             $('program-list').innerHTML = '<li class="loading">Could not load the schedule. Pull to refresh or try again later.</li>';
         }

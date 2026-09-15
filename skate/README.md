@@ -443,6 +443,43 @@ into `rinks.json` by the pipeline (`geocode-cache.json`).
 one button style; modal overlays are neutral black so opening one dims
 the page without shifting its hue.
 
+### v3.5 layer (calendar that scales, one-tap calendar export)
+
+**Calendar.** `calendar.js` now renders a day strip (Mon 14 … Sun 20 with
+counts; tap to scroll that column into view, the chip in view is
+highlighted) over the grid, a fading right edge plus a visible scrollbar
+while columns hide off-screen, and week arrows labelled "‹ Week" /
+"Week ›". A day holding more than `maxBlocks` (8) sessions folds sessions
+that start in the same hour into one dashed time block ("10:00 AM–12:00 PM
+· 5 sessions · Malvern, Agincourt +3", type dots, paid count); tapping it
+sets `S.date` (an exact-day filter, session-only, shown as a pill) and
+opens the list scrolled to that hour (`Actions.showDate`). Single
+sessions in a crowded day stay ordinary blocks. Text size never changes.
+
+**Add to calendar** is one tap: Apple devices open a real https `.ics`
+(`Actions.addToCalendar` → `openIcs`), Android opens the Google Calendar
+template link, other desktops get the Google / Outlook / .ics popover.
+The `.ics` files are pre-built per session by the home server (pipeline
+`writeIcsFiles`, `ICS_DIR`; id = the favourites hash, mirrored in
+`favouriteId`) and served at `https://skate-data.ronishbhatt.com/ics/<id>.ics`
+as `text/calendar`; iOS refuses top-level `data:` URLs, which is why the
+old "Apple" option did nothing on phones. Without the home server the
+client falls back to a blob `.ics`.
+
+**Saved sessions** that have ended are removed on the minute tick
+(`pruneEndedSaved`, `Favorites.remove` is silent), and the card above the
+list shows every saved session on the soonest day, each row jumping to
+its session.
+
+**Data origin check.** `SkateAPI.pickOrigin()` fetches both `meta.json`
+files before the first load and uses the committed copy when the home
+server is unreachable or more than an hour behind it (a power cut leaves
+the Dell serving whatever it last published; the GitHub cron keeps
+moving). A manual Refresh re-checks.
+
+**First visit** plays the auto-advancing guide (`SkateTour.play()`, pause
+and skip on the card) instead of the tap-through tour.
+
 ### PWA (v2.2)
 
 **`manifest.webmanifest` + `sw.js` + `assets/icons/`** — installable app

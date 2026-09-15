@@ -134,6 +134,8 @@ const SkateChat = (() => {
             return state.favorites.has(id);
         },
         has(program) { return state.favorites.has(this.getId(program)); },
+        /** Drop a saved session quietly (the ended-session sweep). */
+        remove(program) { if (state.favorites.delete(this.getId(program))) this.save(); },
         count() { return state.favorites.size; }
     };
 
