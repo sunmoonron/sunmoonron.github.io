@@ -2756,6 +2756,7 @@ window.SkateApp = (() => {
         $('btn-clear-location').onclick = Actions.clearLocation;
         $('btn-install').onclick = Actions.openInstall;
         $('btn-devchat').onclick = () => window.SkateDev && SkateDev.open();
+        $('btn-feedback').onclick = () => window.SkateDev && SkateDev.open();
         $('devchat-link').onclick = () => window.SkateDev && SkateDev.open();
         $('btn-import-key').onclick = async () => {
             const v = prompt('Paste the owner key (nsec or 64-character hex). This device then reads the dev inbox.');
@@ -3044,6 +3045,8 @@ window.SkateApp = (() => {
     async function init() {
         Render.bootstrap();
         Actions.applyTheme();
+        // installed iOS copies: the bar's content starts below iOS 26's status-bar band (see the CSS)
+        document.documentElement.classList.toggle('ios-standalone', isIOS() && isStandalone());
         bind();
 
         // Everyone lands on the schedule (the first tab), on every device.

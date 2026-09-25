@@ -1497,3 +1497,50 @@ body.dark-mode .install-btns .btn-primary { color: #fff; border-color: transpare
 body.dark-mode .devchat-msg { background: #141c25; border-color: #38485a; }
 body.dark-mode .devchat-msg.mine { background: color-mix(in srgb, var(--acc-programs) 22%, #1b2530); }
 body.dark-mode .devchat-thread { background: #141c25; border-color: #38485a; }
+
+/* ---- top bar: stacked pills (Show paid, Report bug & feedback) ---- */
+.top-bar h1 { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.top-bar-actions { gap: 8px; }
+.top-toggle { padding: 0 10px 0 9px; gap: 6px; }
+.top-toggle-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; font-size: 11px; letter-spacing: 0.01em; }
+.top-toggle-icon { font-size: 14px; line-height: 1; }
+.top-feedback:hover { border-color: var(--acc-programs); color: var(--text); }
+@media (max-width: 420px) {
+    .top-bar { gap: 6px; padding-left: 8px; padding-right: 8px; }
+    .top-bar h1 { font-size: 15px; }
+    .top-bar-actions { gap: 5px; }
+    .top-toggle { padding: 0 7px 0 7px; gap: 5px; }
+    .top-toggle-text { font-size: 10.5px; }
+    .top-toggle-icon { display: none; }
+}
+
+/* ---- installed iOS copies: iOS 26 paints a frosted band roughly 62–100 pt from the
+   top of the screen, over whatever the page shows there, and nothing turns it off.
+   So the bar's content starts below the band and the band blurs a flat colour. ---- */
+html.ios-standalone .top-bar { padding-top: calc(44px + env(safe-area-inset-top, 0px)); }
+
+/* ---- report a bug / feedback sheet ---- */
+.modal.sheet.devchat { display: flex; flex-direction: column; max-height: 88vh; position: relative; }
+@media (min-width: 768px) { .modal.sheet.devchat { max-width: 720px; max-height: 84vh; } .devchat-messages { min-height: 240px; } }
+.devchat-intro { padding: 6px 4px 2px; font-size: 14px; line-height: 1.45; color: var(--text); }
+.devchat-intro p { margin: 0 0 10px; }
+.devchat-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.devchat-chip { padding: 7px 12px; border: 1px solid color-mix(in srgb, var(--acc-programs) 45%, var(--border)); border-radius: 999px; background: color-mix(in srgb, var(--acc-programs) 8%, var(--bg-white)); font-size: 13px; font-weight: 600; color: var(--text); cursor: pointer; }
+.devchat-chip:hover { border-color: var(--acc-programs); }
+.devchat-note { font-size: 12px; color: var(--text-muted); }
+.devchat-drop[hidden] { display: none; }
+.devchat-drop { position: absolute; inset: 8px; z-index: 5; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--acc-programs); border-radius: var(--radius-lg, 14px); background: color-mix(in srgb, var(--acc-programs) 12%, var(--bg-white)); font-size: 15px; font-weight: 600; color: var(--text); pointer-events: none; }
+.devchat-preview { display: flex; align-items: center; gap: 10px; }
+.devchat-preview-name { font-size: 12.5px; color: var(--text-muted); }
+.devchat-preview-x { position: static; width: 26px; height: 26px; }
+.devchat-compose { display: block; }
+.devchat-compose textarea { width: 100%; box-sizing: border-box; min-height: 72px; max-height: 200px; resize: vertical; font-size: 15px; line-height: 1.4; padding: 10px 12px; }
+.devchat-tools { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.devchat-tool { padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-white); font-size: 13px; font-weight: 600; color: var(--text); cursor: pointer; }
+.devchat-tool:hover { border-color: var(--acc-programs); }
+.devchat-tip { flex: 1 1 140px; font-size: 11.5px; color: var(--text-muted); }
+.devchat-tools .btn-primary { height: 38px; padding: 0 18px; margin-left: auto; }
+.devchat-tools .btn-primary:disabled { opacity: 0.45; cursor: default; }
+body.dark-mode .devchat-chip { background: color-mix(in srgb, var(--acc-programs) 14%, #1b2530); border-color: #38485a; }
+body.dark-mode .devchat-tool { background: #1b2530; border-color: #38485a; }
+body.dark-mode .devchat-drop { background: color-mix(in srgb, var(--acc-programs) 18%, #1b2530); }

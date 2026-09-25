@@ -17,7 +17,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=11">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=4">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=30">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=32">
 </head>
 <body>
     <div class="app" id="app">
@@ -25,7 +25,8 @@
         <div class="top-bar">
             <h1>Toronto Skating</h1>
             <div class="top-bar-actions">
-                <button class="top-toggle" id="btn-paid" title="Show or hide paid venues. Off = free sessions only." aria-pressed="false"><span class="top-toggle-dot" aria-hidden="true"></span>Show paid</button>
+                <button class="top-toggle" id="btn-paid" title="Show or hide paid venues. Off = free sessions only." aria-pressed="false"><span class="top-toggle-dot" aria-hidden="true"></span><span class="top-toggle-text"><span>Show</span><span>paid</span></span></button>
+                <button class="top-toggle top-feedback" id="btn-feedback" title="Report a bug or send feedback to the dev"><span class="top-toggle-icon" aria-hidden="true">💬</span><span class="top-toggle-text"><span>Report bug</span><span>&amp; feedback</span></span></button>
                 <button class="btn-icon btn-refresh" id="btn-refresh" title="Refresh the schedule, rink alerts and live spots" aria-label="Refresh">↻</button>
                 <button class="btn-icon btn-settings" id="btn-settings" title="Settings" aria-label="Settings">⚙️<span class="new-dot hidden" id="settings-dot"></span></button>
             </div>
@@ -192,21 +193,24 @@
 
     <!-- What's new (version changelog) -->
     <div class="modal-overlay hidden sheet-overlay" id="devchat-modal">
-        <div class="modal sheet devchat">
+        <div class="modal sheet devchat" id="devchat-box">
             <div class="modal-header">
-                <div><h3 id="devchat-title">Message the dev</h3><p class="settings-hint" id="devchat-sub"></p></div>
+                <div><h3 id="devchat-title">Report a bug or send feedback</h3><p class="settings-hint" id="devchat-sub"></p></div>
                 <button class="btn-icon" id="devchat-close" aria-label="Close">✕</button>
             </div>
             <div class="devchat-threads hidden" id="devchat-threads"></div>
             <div class="devchat-messages" id="devchat-messages"></div>
+            <div class="devchat-drop" id="devchat-drop" hidden>Drop the screenshot here</div>
             <div class="devchat-preview hidden" id="devchat-preview"></div>
             <div class="devchat-compose">
-                <button class="btn-icon" id="devchat-attach" title="Attach a photo" aria-label="Attach a photo">📎</button>
+                <textarea id="devchat-input" rows="3" maxlength="2000" placeholder="What happened? Which rink and time?" aria-label="Your message"></textarea>
+                <div class="devchat-tools">
+                    <button class="devchat-tool" id="devchat-attach">📎 Screenshot or photo</button>
+                    <span class="devchat-tip" id="devchat-tip"></span>
+                    <button class="btn-primary" id="devchat-send" disabled>Send</button>
+                </div>
                 <input type="file" id="devchat-file" accept="image/*" class="hidden">
-                <textarea id="devchat-input" rows="2" maxlength="2000" placeholder="What happened, and where? (Cmd/Ctrl+Enter sends)"></textarea>
-                <button class="btn-primary" id="devchat-send">Send</button>
             </div>
-            <p class="settings-hint devchat-foot">Private to you and the dev, over the site's own relay. Photos are shrunk; videos as a link. Kept 90 days.</p>
         </div>
     </div>
 
@@ -429,7 +433,7 @@
     <script src="../assets/js/nostr.bundle.js"></script>
     <!-- profanity-list.js is injected lazily by app.js bootCommunity() —
          schedule-only visits (community sections hidden) never download it -->
-    <script src="projects/js/config.js?v=32"></script>
+    <script src="projects/js/config.js?v=33"></script>
     <script src="projects/js/settings.js?v=8"></script>
     <script src="projects/js/moderation.js?v=5"></script>
     <script src="projects/js/nostr-core.js?v=3"></script>
@@ -440,14 +444,14 @@
     <script src="projects/js/weather.js?v=2"></script>
     <script src="projects/js/alerts.js?v=5"></script>
     <script src="projects/js/chat-v2.js?v=12"></script>
-    <script src="projects/js/devchat.js?v=3"></script>
+    <script src="projects/js/devchat.js?v=4"></script>
     <script src="projects/js/guides.js?v=4"></script>
     <script src="projects/js/ui.js?v=2"></script>
     <script src="projects/js/calendar.js?v=11"></script>
     <script src="projects/js/calendar2.js?v=4"></script>
     <script src="projects/js/map.js?v=3"></script>
     <script src="projects/js/tour.js?v=5"></script>
-    <script src="projects/js/app.js?v=33"></script>
+    <script src="projects/js/app.js?v=34"></script>
     <script src="projects/js/refresh.js?v=4"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)

@@ -29,6 +29,9 @@ window.SkateConfig = {
     version: '3.6',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
+    // Where "Report a bug or feedback" goes: the personal site / relay key
+    // (npub1p07dm5lcx2gn6qq8t7fyduh5tsmz64r823h9j0kgutcas757tg7s096ykw).
+    devPubkey: '0bfcddd3f832913d00075f9246f2f45c362d5467546e593ec8e2f1d87a9e5a3d',
     changelog: [
         {
             v: '3.6', date: '2026-09-25', items: [
@@ -36,7 +39,8 @@ window.SkateConfig = {
                 'Your age is its own filter section, no longer folded away, and the pill reads "19 years old" (the sessions a 19-year-old can join) so it cannot be mistaken for an age group.',
                 'The top-bar switch says Show paid. The status line says "checked 8:11 AM" so nobody reads it as the clock. The official-page link on every card is a visible toronto.ca (or venue) chip.',
                 'Rinks and map: a Clear button forgets your saved location. On phones a one-time card explains how to add the app to your Home Screen; it also lives in Settings next to the QR code. If an already-installed copy shows a blurred top edge on iOS 26, remove the icon and add it again (iOS reads the setting only when the icon is created).',
-                'Message the dev (Settings, and the link under the list): a private chat with the site owner over the site\'s own relay, for bugs, wrong times and ideas. Photos go through too (shrunk in the browser); videos as a link. Messages are kept 90 days.',
+                'Report bug or feedback sits in the top bar beside Show paid (both stacked to fit). The sheet opens with three quick templates (wrong time or rink, something broke, an idea), takes a pasted or dropped screenshot on a computer, and keeps the technical context out of your view; the dev sees it. Private, over the site\'s own relay, kept 90 days.',
+                'Installed iOS app: iOS 26 paints a frosted band under the status bar that no setting turns off, so the top bar now starts below it and the band blurs a flat colour instead of the title.',
                 'A rink alert that names one pad and a building notice that names the same pad no longer add up to "likely cancelled": the session runs on the other pad. Building-wide closures do cancel. Stale "cancelled today" notices only count on the day they were posted.'
             ]
         },
