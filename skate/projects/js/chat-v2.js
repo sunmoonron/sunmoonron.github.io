@@ -301,6 +301,8 @@ const SkateChat = (() => {
                     publicRooms: slim(state.publicRooms),
                     publicRoomSecrets: state.publicRoomSecrets,
                     dmThreads: state.dmThreads,
+                    threadsOwner: state.threadsOwner || null,
+                    dmArchive: state.dmArchive || {},
                     activeGroupId: state.activeGroupId,
                     activeIsPublic: state.activeIsPublic,
                     seededRooms: state.seededRooms
@@ -342,6 +344,8 @@ const SkateChat = (() => {
             state.publicRooms = p.publicRooms || {};
             state.publicRoomSecrets = p.publicRoomSecrets || {};
             state.dmThreads = p.dmThreads || {};
+            state.threadsOwner = p.threadsOwner || null;
+            state.dmArchive = p.dmArchive || {};
             state.activeGroupId = p.activeGroupId || null;
             state.activeIsPublic = p.activeIsPublic || false;
             state.seededRooms = !!p.seededRooms;
@@ -736,6 +740,29 @@ const SkateChat = (() => {
         return ok;
     }
 
+    /**
+     * Private threads belong to a key, not to the device. When the device's
+     * key changes (import, reset), the old key's threads are archived (kept
+     * in storage, never shown) and the new key starts clean; the relay
+     * replays the new key's last 30 days on subscribe. A thread addressed
+     * to one's own key (the visitor→dev thread, after importing the dev key)
+     * is dropped: it cannot be a conversation with oneself.
+     */
+    function adoptThreads() {
+        const me = state.myPublicKey;
+        if (!me) return;
+        state.dmArchive ||= {};
+        if (state.threadsOwner && state.threadsOwner !== me) {
+            if (Object.keys(state.dmThreads).length) state.dmArchive[state.threadsOwner] = state.dmThreads;
+            state.dmThreads = {};
+            state.activeDmRecipient = null;
+            state.dmAttach = {};
+        }
+        if (state.dmThreads[me]) delete state.dmThreads[me];
+        state.threadsOwner = me;
+        saveState();
+    }
+
     /** Owner side: run this device as a given key (hex or nsec) so the dev inbox is readable. */
     function importIdentity(str) {
         // phones capitalise or pad pasted text: bech32 is case-insensitive as a whole, so lowercase it all
@@ -750,6 +777,7 @@ const SkateChat = (() => {
         state.mySecretKey = Crypto.hexToBytes(hex);
         state.myPublicKey = NostrTools.getPublicKey(state.mySecretKey);
         saveIdentity();
+        adoptThreads();
         try { resubscribe(); } catch {}
         notifyUpdate();
         return state.myPublicKey;
@@ -760,6 +788,7 @@ const SkateChat = (() => {
         state.mySecretKey = NostrTools.generateSecretKey();
         state.myPublicKey = NostrTools.getPublicKey(state.mySecretKey);
         saveIdentity();
+        adoptThreads();
         try { resubscribe(); } catch {}
         notifyUpdate();
         return state.myPublicKey;
@@ -1236,6 +1265,7 @@ const SkateChat = (() => {
         if (typeof NostrTools === 'undefined') { console.error('[SkateChat] NostrTools not loaded'); return; }
         loadState();
         initIdentity();
+        adoptThreads();
         Favorites.load();
         Mutes.load();
 

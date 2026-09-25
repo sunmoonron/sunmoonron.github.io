@@ -89,6 +89,8 @@ window.SkateDev = (() => {
             });
         }
 
+        // the thread on screen may have gone (identity changed): fall back cleanly
+        if (target && !st.dmThreads[target] && owner) target = firstThread();
         const box = $('devchat-messages');
         box.innerHTML = '';
         const thread = target ? st.dmThreads[target] : null;

@@ -41,6 +41,7 @@ window.SkateConfig = {
                 'Rinks and map: a Clear button forgets your saved location. On phones a one-time card explains how to add the app to your Home Screen; it also lives in Settings next to the QR code. If an already-installed copy shows a blurred top edge on iOS 26, remove the icon and add it again (iOS reads the setting only when the icon is created).',
                 'Report bug or feedback sits in the top bar beside Show paid (both stacked to fit). The sheet opens with three quick templates (wrong time or rink, something broke, an idea), takes a pasted or dropped screenshot on a computer, and keeps the technical context out of your view; the dev sees it. Private, over the site\'s own relay, kept 90 days.',
                 'Installed iOS app: iOS 26 paints a frosted band under the status bar that no setting turns off, so the top bar now starts below it and the band blurs a flat colour instead of the title.',
+                'Private threads follow the key: importing or resetting the identity archives the old key\'s threads and starts the new key clean (the relay replays its last 30 days). Settings shows which key the device holds and whether the dev inbox is on; Reset identity keeps saved sessions and settings.',
                 'A rink alert that names one pad and a building notice that names the same pad no longer add up to "likely cancelled": the session runs on the other pad. Building-wide closures do cancel. Stale "cancelled today" notices only count on the day they were posted.'
             ]
         },
