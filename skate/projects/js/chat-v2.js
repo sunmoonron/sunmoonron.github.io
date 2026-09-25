@@ -535,8 +535,11 @@ const SkateChat = (() => {
 
         // ✉️ DMs disabled: silently drop INCOMING private messages (no
         // thread, no notification — senders aren't told). Your own sent
-        // DMs still echo so conversations you start keep working.
-        if (!isFromMe && window.SkateSettings?.get('dmsAllowed') === false) return;
+        // DMs still echo so conversations you start keep working. The dev
+        // inbox is the exception: a device holding the dev key exists to
+        // receive, whatever the privacy switch says.
+        const devInbox = state.myPublicKey === (window.SkateConfig?.devPubkey || window.SkateConfig?.ownerPubkey);
+        if (!isFromMe && !devInbox && window.SkateSettings?.get('dmsAllowed') === false) return;
 
         const plain = Crypto.decryptDm(event.content, state.mySecretKey, otherPubkey);
         if (!plain) return;

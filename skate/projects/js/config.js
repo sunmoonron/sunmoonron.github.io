@@ -42,6 +42,7 @@ window.SkateConfig = {
                 'Report bug or feedback sits in the top bar beside Show paid (both stacked to fit). The sheet opens with three quick templates (wrong time or rink, something broke, an idea), takes a pasted or dropped screenshot on a computer, and keeps the technical context out of your view; the dev sees it. Private, over the site\'s own relay, kept 90 days.',
                 'Installed iOS app: iOS 26 paints a frosted band under the status bar that no setting turns off, so the top bar now starts below it and the band blurs a flat colour instead of the title.',
                 'Private threads follow the key: importing or resetting the identity archives the old key\'s threads and starts the new key clean (the relay replays its last 30 days). Settings shows which key the device holds and whether the dev inbox is on; Reset identity keeps saved sessions and settings.',
+                'The dev inbox receives even when Allow DMs is off in Privacy (importing the dev key switches it on and says so).',
                 'A rink alert that names one pad and a building notice that names the same pad no longer add up to "likely cancelled": the session runs on the other pad. Building-wide closures do cancel. Stale "cancelled today" notices only count on the day they were posted.'
             ]
         },

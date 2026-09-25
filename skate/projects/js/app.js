@@ -2635,7 +2635,7 @@ window.SkateApp = (() => {
         const dev = pk === (CFG.devPubkey || CFG.ownerPubkey);
         let npub = pk;
         try { npub = NostrTools.nip19.npubEncode(pk); } catch {}
-        line.textContent = `This device: ${npub.slice(0, 12)}…${npub.slice(-6)} · dev inbox ${dev ? 'on' : 'off'}`;
+        line.textContent = `This device: ${npub.slice(0, 12)}…${npub.slice(-6)} · dev inbox ${dev ? 'on' : 'off'}` + (!dev && SkateSettings.get('dmsAllowed') === false ? ' · Allow DMs is off (Privacy above)' : '');
     };
 
     /** Silent full data reload (programs + alerts + spots) — shared by the
@@ -2776,9 +2776,11 @@ window.SkateApp = (() => {
             if (!v) return;
             const pk = SkateChat.importIdentity(v);   // works before the chat stack boots: the key is saved, init picks it up
             if (!pk) { SkateChat.Notify.toast('That is not a valid key. It should start with nsec1 or be 64 hex characters.', 'error', 5000); return; }
-            Render.identityLine();
             const dev = pk === (CFG.devPubkey || CFG.ownerPubkey);
-            SkateChat.Notify.toast(dev ? 'Dev inbox is on for this device.' : `Identity set (${pk.slice(0, 8)}…), but that is not the dev inbox key.`, dev ? 'success' : 'info', 5000);
+            let note = '';
+            if (dev && SkateSettings.get('dmsAllowed') === false) { SkateSettings.set('dmsAllowed', true); note = ' Allow DMs was off on this device; it is on now so the inbox can receive.'; }
+            Render.identityLine();
+            SkateChat.Notify.toast(dev ? 'Dev inbox is on for this device.' + note : `Identity set (${pk.slice(0, 8)}…), but that is not the dev inbox key.`, dev ? 'success' : 'info', note ? 7000 : 5000);
             Actions.bootCommunity().then(() => { if (chatBooted) Render.chatUI(SkateChat.getState()); }).catch(() => {});
         };
         $('btn-reset-key').onclick = () => {
