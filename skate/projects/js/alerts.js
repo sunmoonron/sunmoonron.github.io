@@ -142,6 +142,7 @@ window.SkateAlerts = (() => {
      * on ANY of them so a feed-side rename can't silently blind us again.
      */
     function isSkateAlert(a) {
+        if (a.Scope === 'facility') return true;   // the building's own notice (pipeline-tagged)
         const cat = `${a.Category || ''} ${a.Type || ''}`.toLowerCase();
         return (a.DisplayAlertName || '') === 'Skate' ||
                /skat|rink|\bice\b/.test(cat);
@@ -164,10 +165,42 @@ window.SkateAlerts = (() => {
 
     /** 'indoor' | 'outdoor' | 'any' from the alert's asset Type/name. */
     function alertKind(a) {
+        if (a.Scope === 'facility') return 'any';   // the whole building, every pad
         const t = `${a.Type || ''} ${a.AssetName || ''}`.toLowerCase();
         if (t.includes('outdoor')) return 'outdoor';
         if (t.includes('indoor')) return 'indoor';
         return 'any';
+    }
+
+    /**
+     * A building notice that closes the ice or the building, AND applies to
+     * this date: dated windows must cover it, and a "today" notice only
+     * counts on the day it was posted (the feed keeps old ones around).
+     */
+    function facilityClosesOn(a, programDate) {
+        if (!facilityCloses(a)) return false;
+        const year = +(programDate.slice(0, 4) || new Date().getFullYear());
+        const wins = dateWindows(a.Comments, year);
+        if (wins.length) return !!programDate && wins.some(w => (!w.from || programDate >= w.from) && (!w.to || programDate <= w.to));
+        if (/\btoday\b|\btonight\b|\bthis (morning|afternoon|evening)\b/i.test(a.Comments || '')) {
+            const posted = String(a.PostedDate || '').slice(0, 10);
+            return !!posted && posted === programDate;
+        }
+        return true;
+    }
+
+    /**
+     * A facility-wide notice (Scope 'facility', from the location's own
+     * feed) only cancels skating when its text closes the building or the
+     * ice: "the centre is closed", "rink closed for repairs". A parking or
+     * program notice on the same feed must not.
+     */
+    function facilityCloses(a) {
+        const txt = `${a.Reason || ''} ${a.Comments || ''}`.toLowerCase();
+        const closedWord = /(closed|closure|cancel+ed|unavailable|out of service|no ice)/.test(txt);
+        const target = /(rink|ice pad|\bice\b|skat|centre|center|facility|building|arena)/.test(txt);
+        const amenityOnly = /(parking|washroom|change\s*room|changeroom|sauna|lobby|elevator|locker|pool|gym|fitness)/.test(txt) && !/(rink|ice pad|skat|centre is|center is|facility is|building is)/.test(txt);
+        return closedWord && target && !amenityOnly;
     }
 
     /**
@@ -292,7 +325,7 @@ window.SkateAlerts = (() => {
 
         let level = 'warning';
         let padOnly = false;
-        const closedKinds = alerts.filter(a => a.Status === CLOSED_STATUS).map(alertKind);
+        const closedKinds = alerts.filter(a => a.Scope === 'facility' ? facilityClosesOn(a, programDate) : a.Status === CLOSED_STATUS).map(alertKind);
         const padAlerts = alerts.filter(a => namesOnePad(`${a.Reason || ''} ${cleanComment(a.Comments)}`, pads));
         if (padAlerts.length && padAlerts.length === alerts.length) {
             // every alert here is about one pad of several: the other pad keeps skating

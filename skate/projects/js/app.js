@@ -442,11 +442,19 @@ window.SkateApp = (() => {
     function activeFilterPills() {
         const pills = [];
         Object.entries(S.types).forEach(([cat, sel]) => {
+            if (OTHER_GROUP.includes(cat)) return;   // folded into the one Other pill below
             const subs = sel === 'all' ? '' : sel.length === 1 ? `: ${SUB_LABEL(sel[0])}` : `: ${SUB_LABEL(sel[0])} +${sel.length - 1}`;
             pills.push({ key: `type:${cat}`, label: `${CAT_LABEL(cat)}${subs}`, ages: subsPresentFor(cat).length > 1 });
         });
+        const present = otherMembersPresent();
+        const onMembers = present.filter(c => S.types[c]);
+        if (onMembers.length) {
+            const partial = onMembers.length < present.length;
+            const label = !partial ? 'Other' : onMembers.length <= 2 ? `Other: ${onMembers.map(CAT_LABEL).join(', ')}` : `Other: ${onMembers.length} of ${present.length}`;
+            pills.push({ key: `type:${OTHER_KEY}`, label, ages: present.length > 1 });
+        }
         if (S.day) pills.push({ key: 'day', label: DAY_LABEL(S.day) });
-        if (S.age !== null) pills.push({ key: 'age', label: `Age ${S.age}` });
+        if (S.age !== null) pills.push({ key: 'age', label: `${S.age} years old` });
         if (S.savedOnly) pills.push({ key: 'saved', label: 'Saved only' });
         if (S.nearRink) pills.push({ key: 'near', label: `Only ${S.nearRink.name}` });
         if (S.showPast) pills.push({ key: 'past', label: 'Ended shown' });
@@ -535,8 +543,13 @@ window.SkateApp = (() => {
         return f ? CFG.subTypes.map(x => x.id).filter(id => f.subs[id]) : [];
     };
 
-    // The everyday kinds sit first; the rest fold away behind "More types".
+    // The everyday kinds sit first; everything else is one "Other" group
+    // (its members stay separate categories in S.types, the group is just
+    // how the sheet and the pill present them).
     const MAIN_TYPES = ['leisure', 'figure', 'hockey'];
+    const OTHER_GROUP = ['other', 'adapted', 'ringette', 'speed'];
+    const OTHER_KEY = '__other';
+    const otherMembersPresent = () => { const f = filterFacets().cats; return OTHER_GROUP.filter(c => f[c]); };
 
     Render.filters = function () {
         const f = filterFacets();
@@ -578,17 +591,36 @@ window.SkateApp = (() => {
             }
         };
 
-        // WHAT: leisure, figure, hockey up front; the rest behind one fold
+        // WHAT: leisure, figure, hockey, then Other (one row that groups the rest)
         const t = section('What kind of skating');
         CFG.programTypes.filter(c => MAIN_TYPES.includes(c.id)).forEach(c => typeRow(c, t));
-        const rest = CFG.programTypes.filter(c => !MAIN_TYPES.includes(c.id) && f.cats[c.id]);
-        if (rest.length) {
-            const open = !!S.expandedCats.__more || rest.some(c => S.types[c.id]);
-            t.appendChild(foldBtn('__more', open, `${open ? 'Fewer' : 'More'} types: ${rest.map(c => c.label).join(', ')}`));
-            const more = el('div', { class: 'fmore' + (open ? '' : ' hidden') });
-            rest.forEach(c => typeRow(c, more));
-            t.appendChild(more);
+        const members = CFG.programTypes.filter(c => OTHER_GROUP.includes(c.id) && f.cats[c.id]);
+        if (members.length) {
+            const onMembers = members.filter(c => S.types[c.id]);
+            const anyOn = onMembers.length > 0, allOn = onMembers.length === members.length;
+            const open = !!S.expandedCats[OTHER_KEY] || (anyOn && !allOn);
+            const row = el('div', { class: `fcat type-other group` + (anyOn ? ' on' : '') });
+            const box = check('Other', anyOn, { type: OTHER_KEY }, ' cat');
+            box.querySelector('input').indeterminate = anyOn && !allOn;
+            box.title = members.map(c => c.label).join(', ');
+            row.appendChild(box);
+            row.appendChild(count(members.reduce((n, c) => n + f.cats[c.id].n, 0)));
+            row.appendChild(el('button', { class: 'fexpand' + (open ? ' open' : ''), dataset: { expand: OTHER_KEY }, title: open ? 'Hide the kinds' : 'Choose kinds', 'aria-expanded': open ? 'true' : 'false' }, ['Kinds ', el('span', { class: 'caret', 'aria-hidden': 'true' }, ['▾'])]));
+            t.appendChild(row);
+            const subs = el('div', { class: 'fsubs' + (open ? '' : ' hidden') });
+            members.forEach(c => { const cb = check(c.label, !!S.types[c.id], { type: c.id }); cb.appendChild(count(f.cats[c.id].n)); subs.appendChild(cb); });
+            t.appendChild(subs);
         }
+
+        // YOUR AGE: visible, not folded — the most-asked question after "when"
+        const ageSec = section('Your age');
+        const ageInput = el('input', { type: 'number', min: '0', max: '120', id: 'f-age', placeholder: 'any', inputmode: 'numeric', 'aria-label': 'Your age' });
+        if (S.age !== null) ageInput.value = S.age;
+        ageSec.appendChild(el('div', { class: 'fage-row' }, [
+            el('label', { class: 'fage', for: 'f-age' }, ['I am ', ageInput, ' years old']),
+            ...(S.age !== null ? [el('button', { class: 'flink', dataset: { clearAge: '1' } }, ['Any age'])] : [])
+        ]));
+        ageSec.appendChild(el('p', { class: 'settings-hint' }, [S.age !== null ? `Showing sessions a ${S.age}-year-old can join.` : 'Type an age to keep only the sessions that person can join.']));
 
         // WHEN
         const w = section('When');
@@ -609,15 +641,12 @@ window.SkateApp = (() => {
         where.appendChild(mineRow);
         where.appendChild(check(`Include paid venues (${f.paid})`, S.paidVisible, { flag: 'paid' }));
 
-        // MORE: age, ended, saved-only, dropped, order (folded unless something in it is set)
-        const inUse = S.age !== null || S.showPast || S.savedOnly || S.showDropped || S.sort !== 'time';
+        // MORE: ended, saved-only, dropped, order (folded unless something in it is set)
+        const inUse = S.showPast || S.savedOnly || S.showDropped || S.sort !== 'time';
         const openMore = S.moreFilters || inUse;
         const m = section('');
-        m.appendChild(foldBtn('__filters', openMore, `${openMore ? 'Fewer' : 'More'} options: age, ended sessions, saved, order`));
+        m.appendChild(foldBtn('__filters', openMore, `${openMore ? 'Fewer' : 'More'} options: ended sessions, saved, order`));
         const mbody = el('div', { class: 'fmore' + (openMore ? '' : ' hidden') });
-        const ageInput = el('input', { type: 'number', min: '0', max: '120', id: 'f-age', placeholder: 'any', inputmode: 'numeric', 'aria-label': 'Age' });
-        if (S.age !== null) ageInput.value = S.age;
-        mbody.appendChild(el('label', { class: 'fage' }, ['Only sessions open to someone aged ', ageInput]));
         mbody.appendChild(check('Include sessions that already ended', S.showPast, { flag: 'past' }));
         mbody.appendChild(check('Only sessions I saved', S.savedOnly, { flag: 'saved' }));
         const dropped = SkateAlerts.liveStats?.missing || 0;
@@ -801,6 +830,8 @@ window.SkateApp = (() => {
         Render.pills();
         pruneEndedSaved(now.getTime());
         Render.savedNext();
+        Render.installHint();
+        $('btn-clear-location').classList.toggle('hidden', !SkateGeo.getUserLocation());
 
         // list ↔ week (the Week button)
         $('calendar-wrap').classList.toggle('hidden', !S.calMode);
@@ -855,7 +886,7 @@ window.SkateApp = (() => {
         const stale = (SkateAlerts.checkedAt && now - new Date(SkateAlerts.checkedAt) > ALERTS_STALE_MS) ||
                       (SkateAlerts.liveCheckedAt && now - new Date(SkateAlerts.liveCheckedAt) > LIVE_STALE_MS) ||
                       (meta?.lastUpdated && (now - new Date(meta.lastUpdated)) / 86400000 > 7);
-        if (stamps.length) txt += ` · ${stale ? '⚠️' : '✓'} ${SkateSettings.formatTime(Math.max(...stamps))}`;
+        if (stamps.length) txt += ` · ${stale ? '⚠️' : '✓'} checked ${SkateSettings.formatTime(Math.max(...stamps))}`;
         else if (meta?.lastUpdated) txt += ` · updated ${new Date(meta.lastUpdated).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}`;
         btn.textContent = txt;
         btn.classList.toggle('stale', !!stale);
@@ -1028,7 +1059,7 @@ window.SkateApp = (() => {
             ? `<a class="where-link" href="${mapsUrl(location, city)}" target="_blank" rel="noopener" title="Directions in Google Maps">📍 ${escapeHtml(location)} ↗</a>`
             : '';
         const infoLink = off
-            ? `<a class="where-info" href="${escapeHtml(off)}" target="_blank" rel="noopener" title="Official page on ${escapeHtml(site)}. Verify the schedule there before you go." aria-label="Official page on ${escapeHtml(site)}"><svg class=\"where-glyph\" viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"8\" r=\"6.4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.4\"/><path d=\"M1.6 8h12.8M8 1.6c2.3 2.1 2.3 10.7 0 12.8M8 1.6c-2.3 2.1-2.3 10.7 0 12.8M2.8 4.6h10.4M2.8 11.4h10.4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.1\"/></svg></a>`
+            ? `<a class="where-info" href="${escapeHtml(off)}" target="_blank" rel="noopener" title="Official page on ${escapeHtml(site)}: the schedule the staff go by. Verify there before you go."><span class="where-info-site">${escapeHtml(site)}</span><svg class=\"where-glyph\" viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"8\" r=\"6.4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.4\"/><path d=\"M1.6 8h12.8M8 1.6c2.3 2.1 2.3 10.7 0 12.8M8 1.6c-2.3 2.1-2.3 10.7 0 12.8M2.8 4.6h10.4M2.8 11.4h10.4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.1\"/></svg></a>`
             : '';
         // One-time nudge on the first card: people miss that the heart saves.
         const hint = (idx === 0 && S.heartHint)
@@ -1702,6 +1733,20 @@ window.SkateApp = (() => {
             return items;
         },
 
+        /** The Other pill: its kinds, each a toggle (stays open while you pick). */
+        otherTypes() {
+            const f = filterFacets().cats;
+            const present = otherMembersPresent();
+            const reopen = () => { const a = $('active-filters').querySelector(`.pill.type[data-pill="type:${OTHER_KEY}"]`); if (a) Popover.open(a, Menus.otherTypes()); };
+            const allOn = present.every(c => S.types[c]);
+            const items = [{ label: `${allOn ? '✓ ' : '\u2007\u2007 '}Everything in Other`, onClick: () => { Actions.setType(OTHER_KEY, null, true); reopen(); } }];
+            present.forEach(c => items.push({
+                label: `${S.types[c] ? '✓ ' : '\u2007\u2007 '}${CAT_LABEL(c)} · ${f[c].n}`,
+                onClick: () => { Actions.setType(c, null, !S.types[c]); reopen(); }
+            }));
+            return items;
+        },
+
         /** City picker behind the standing city pill (multi-select; stays open while you pick). */
         cities() {
             const f = filterFacets().cities;
@@ -1840,7 +1885,9 @@ window.SkateApp = (() => {
     /** Category checkbox (sub=null) or one age group under it. */
     Actions.setType = function (cat, sub, on) {
         const types = { ...S.types };
-        if (!sub) {
+        if (cat === OTHER_KEY) {
+            otherMembersPresent().forEach(c => { if (on) types[c] = 'all'; else delete types[c]; });
+        } else if (!sub) {
             if (on) types[cat] = 'all'; else delete types[cat];
         } else {
             const present = subsPresentFor(cat);
@@ -1897,7 +1944,8 @@ window.SkateApp = (() => {
     /** Tapping a pill removes that one filter (or toggles ⭐ My rinks). */
     Actions.removePill = function (key) {
         if (key === 'mine') return Actions.setFlag('mine', S.rinkScope !== 'mine');
-        if (key.startsWith('type:')) { const t = { ...S.types }; delete t[key.slice(5)]; S.types = t; }
+        if (key === `type:${OTHER_KEY}`) { const t = { ...S.types }; OTHER_GROUP.forEach(c => delete t[c]); S.types = t; }
+        else if (key.startsWith('type:')) { const t = { ...S.types }; delete t[key.slice(5)]; S.types = t; }
         else if (key.startsWith('city:')) S.cities = S.cities.filter(c => c !== key.slice(5));
         else if (key === 'day') S.day = '';
         else if (key === 'age') S.age = null;
@@ -2021,6 +2069,53 @@ window.SkateApp = (() => {
         btn.disabled = false; btn.textContent = 'Use my location';
     };
 
+    /** Forget the saved location: distances, Nearest order and the weather spot fall back. */
+    Actions.clearLocation = function () {
+        SkateGeo.setUserLocation(null);
+        S.sort = S.sort === 'near' ? 'time' : S.sort;
+        persistFilters();
+        $('locator-input').value = '';
+        $('locator-status').textContent = 'Location cleared. Distances are off until you set one again.';
+        locationChanged();
+    };
+
+    /* ---------- Add to Home Screen (phones) ---------- */
+    const isMobileBrowser = () => /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
+    let deferredInstall = null;
+    window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; });
+
+    /** One-time card above the list on phones (browser, not the installed app). */
+    Render.installHint = function () {
+        const box = $('install-hint');
+        if (!box) return;
+        const show = isMobileBrowser() && !isStandalone() && !SkateSettings.get('installSeen');
+        box.classList.toggle('hidden', !show);
+        if (!show) { box.innerHTML = ''; return; }
+        box.innerHTML = `<div class="install-card"><div class="install-text"><strong>Put Toronto Skating on your Home Screen.</strong> Opens with one tap, no browser bar, works like an app.</div>
+            <div class="install-btns"><button class="btn-primary" data-install="how">Show me how</button><button data-install="later">Not now</button></div></div>`;
+    };
+
+    Actions.openInstall = function () {
+        SkateSettings.set('installSeen', true);
+        Render.installHint();
+        const body = $('install-body');
+        if (isStandalone()) {
+            body.innerHTML = '<p>You are already using the installed app.</p>';
+        } else if (isIOS()) {
+            body.innerHTML = `<ol class="install-steps"><li>Tap the <strong>Share</strong> button in Safari (the square with an arrow, bottom of the screen).</li><li>Scroll and choose <strong>Add to Home Screen</strong>.</li><li>Tap <strong>Add</strong>.</li></ol>
+                <p class="settings-hint">Added it a while ago and the top of the app looks blurred? Remove the icon and add it again: iOS reads the app's settings only when the icon is created.</p>`;
+        } else if (deferredInstall) {
+            body.innerHTML = '<p>Your browser can install it directly.</p><button class="btn-primary" id="btn-install-now">Install</button>';
+            $('btn-install-now').onclick = async () => { const ev = deferredInstall; deferredInstall = null; try { await ev.prompt(); } catch {} Modal.close('install-modal'); };
+        } else if (isMobileBrowser()) {
+            body.innerHTML = '<ol class="install-steps"><li>Open the browser menu (the three dots).</li><li>Choose <strong>Add to Home screen</strong> or <strong>Install app</strong>.</li><li>Confirm.</li></ol>';
+        } else {
+            body.innerHTML = '<p>On your phone, open this site in Safari or Chrome and choose <strong>Add to Home Screen</strong>. The QR code in Settings gets you there.</p>';
+        }
+        Modal.close('settings-modal');
+        Modal.open('install-modal');
+    };
+
     Actions.searchLocation = async function () {
         const btn = $('btn-locator-search');
         btn.disabled = true;
@@ -2137,7 +2232,7 @@ window.SkateApp = (() => {
         SkateSettings.set('showGuides', false);
         SkateSettings.set('showChats', false);
         S.cities = ['Toronto'];
-        S.types = { leisure: 'all', figure: 'all' };
+        S.types = { leisure: 'all', figure: 'all', other: 'all', adapted: 'all', ringette: 'all', speed: 'all' };
         persistFilters();
         SkateSettings.set('setupDone', true);
         return true;
@@ -2583,7 +2678,7 @@ window.SkateApp = (() => {
             ['.pill.city .pill-x', (x, e) => { e.stopPropagation(); Actions.setCities([]); }],
             ['.pill.city', (b, e) => { e.stopPropagation(); Popover.open(b, Menus.cities()); }],
             ['.pill.type .pill-x', (x, e) => { e.stopPropagation(); Actions.removePill(x.closest('.pill').dataset.pill); }],
-            ['.pill.type', (b, e) => { e.stopPropagation(); Popover.open(b, Menus.subTypes(b.dataset.pill.slice(5))); }],
+            ['.pill.type', (b, e) => { e.stopPropagation(); const cat = b.dataset.pill.slice(5); Popover.open(b, cat === OTHER_KEY ? Menus.otherTypes() : Menus.subTypes(cat)); }],
             ['.pill', (b) => Actions.removePill(b.dataset.pill)]
         ]);
 
@@ -2603,6 +2698,7 @@ window.SkateApp = (() => {
             if (t.dataset.type) return Actions.setType(t.dataset.type, t.dataset.sub || null, t.checked);
         });
         delegate($('filters-body'), [
+            ['[data-clear-age]', () => Actions.setAge('')],
             ['.fexpand, .ftoggle', (b) => {
                 const k = b.dataset.expand;
                 if (k === '__filters') S.moreFilters = !S.moreFilters;
@@ -2654,6 +2750,13 @@ window.SkateApp = (() => {
         // ---- Rinks & map ----
         $('btn-rinks-close').onclick = Actions.closeRinks;
         $('btn-share-location').onclick = Actions.useMyLocation;
+        $('btn-clear-location').onclick = Actions.clearLocation;
+        $('btn-install').onclick = Actions.openInstall;
+        $('btn-install-close').onclick = () => Modal.close('install-modal');
+        delegate($('install-hint'), [
+            ['[data-install="how"]', Actions.openInstall],
+            ['[data-install="later"]', () => { SkateSettings.set('installSeen', true); Render.installHint(); }]
+        ]);
         $('btn-locator-search').onclick = Actions.searchLocation;
         $('locator-input').onkeydown = e => { if (e.key === 'Enter') Actions.searchLocation(); };
         $('rinks-search').oninput = () => Render.rinks();

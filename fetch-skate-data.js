@@ -890,7 +890,65 @@ async function fetchRinkInventory(programs = []) {
  * CONTENT changed, so the 30-min CI tick doesn't spam commits.
  * Returns { changed, count }.
  */
-async function fetchAlerts() {
+/**
+ * The skate feed only carries rink-asset alerts. Facility-wide notices
+ * ("Unplanned Closure" of the whole centre, Type "Centre") live in each
+ * location's own feed, /locations/<id>/alerts.json — that is where
+ * toronto.ca's "Closures" box on a rink page comes from (Don Montgomery,
+ * 2026-09-16: a Centre closure AND a rink alert, both about Rink 1).
+ * Fetched for every City location that has skating sessions, kept when
+ * they concern the building or the ice, tagged Scope: 'facility'.
+ */
+const LOC_ALERTS_URL = (id) => `https://www.toronto.ca/data/parks/live/locations/${id}/alerts.json`;
+const FACILITY_TYPE_RE = /centre|center|arena|facility|building|rink|skat/i;
+const NON_ICE_ASSET_RE = /pool|swim|gym|fitness|weight|track|field|court|tennis|sauna|studio|splash|wading|library|daycare|camp/i;
+// A building notice earns a place on a skating card when it is about the
+// ice, the building as a whole, or a building-wide condition. A spa, gym,
+// pool or parking notice does not (unless it also mentions the ice).
+const ABOUT_ICE_RE = /rink|\bice\b|skat|arena/i;
+const ABOUT_BUILDING_RE = /(centre|center|facility|building|arena|site)\s+(is|will be|remains|are)?\s*(closed|closing|closure)|no (hot )?water|power (outage|failure)|\bheat(ing)?\b|temperature|hvac|roof|evacuat|flood/i;
+const AMENITY_RE = /\bspa\b|sauna|gym\b|gymnasium|pool|parking|washroom|change\s*room|mezzanine|fitness|weight room|track|court|tennis|library|daycare|camp\b|table tennis/i;
+async function fetchFacilityAlerts(locIds) {
+    const out = [];
+    const ids = [...new Set(locIds.map(String).filter(x => /^\d+$/.test(x)))];
+    let failed = 0;
+    for (let i = 0; i < ids.length; i += 6) {
+        await Promise.all(ids.slice(i, i + 6).map(async (id) => {
+            try {
+                const raw = await fetchJSON(LOC_ALERTS_URL(id));
+                const list = raw?.locations?.[`id_${id}`] || [];
+                list.forEach(a => {
+                    if (!a || a.Status == null) return;
+                    const where = `${a.Type || ''} ${a.Category || ''} ${a.DisplayAlertName || ''}`;
+                    const text = `${a.Reason || ''} ${a.Comments || ''}`;
+                    const aboutIce = ABOUT_ICE_RE.test(text);
+                    if (!FACILITY_TYPE_RE.test(where) && !aboutIce) return;          // gyms, pools, camps: not ours
+                    if (NON_ICE_ASSET_RE.test(where) && !aboutIce) return;
+                    if (!aboutIce && !ABOUT_BUILDING_RE.test(text)) return;          // a spa or gym notice is not a skating alert
+                    if (!aboutIce && AMENITY_RE.test(text) && !ABOUT_BUILDING_RE.test(text)) return;
+                    const facility = /centre|center|arena|facility|building/i.test(`${a.Type || ''} ${a.DisplayAlertName || ''}`) && !/rink/i.test(a.Type || '');
+                    out.push({
+                        LocationID: Number(a.locationid ?? a.LocationID ?? id),
+                        AssetID: a.AssetID ?? null,
+                        AssetName: a.AssetName || '',
+                        Reason: a.Reason || '',
+                        Comments: a.Comments || '',
+                        Status: a.Status,
+                        Category: a.Category || '',
+                        Type: a.Type || '',
+                        DisplayAlertName: a.DisplayAlertName || '',
+                        PostedDate: a.PostedDate || '',
+                        Scope: facility ? 'facility' : 'asset'
+                    });
+                });
+            } catch (e) { failed++; }
+        }));
+    }
+    console.log(`   facility feeds: ${ids.length} locations, ${out.length} kept, ${failed} failed`);
+    return out;
+}
+
+async function fetchAlerts(programs = null) {
     console.log('\n🚨 Fetching skate service alerts...');
     const raw = await fetchJSON(ALERTS_URL);
     const all = [];
@@ -916,6 +974,17 @@ async function fetchAlerts() {
             });
         });
     });
+    // Facility-wide notices from each rink location's own feed (deduped against the skate feed)
+    if (programs && programs.length) {
+        const locIds = programs.filter(p => !p.Source || p.Source === 'city').map(p => p['Location ID']).filter(x => x != null);
+        try {
+            const seen = new Set(all.map(a => `${a.LocationID}|${a.AssetID}|${a.PostedDate}`));
+            (await fetchFacilityAlerts(locIds)).forEach(a => {
+                const k = `${a.LocationID}|${a.AssetID}|${a.PostedDate}`;
+                if (!seen.has(k)) { seen.add(k); all.push(a); }
+            });
+        } catch (e) { console.warn(`   ⚠️ facility feeds skipped: ${e.message}`); }
+    }
     // Stable order → stable diffs
     all.sort((a, b) => (a.LocationID - b.LocationID) || String(a.AssetID).localeCompare(String(b.AssetID)));
 
@@ -2239,10 +2308,11 @@ async function main() {
             return;
         }
         if (ALERTS_ONLY) {
-            await fetchAlerts();
+            let prevPrograms = [];
+            try { prevPrograms = JSON.parse(fs.readFileSync(path.join(OUTPUT_DIR, 'skating-programs.json'), 'utf8')).programs || []; } catch {}
+            await fetchAlerts(prevPrograms);
             try {
-                const prev = JSON.parse(fs.readFileSync(path.join(OUTPUT_DIR, 'skating-programs.json'), 'utf8'));
-                await fetchLiveCheck(prev.programs || []);
+                await fetchLiveCheck(prevPrograms);
             } catch (e) {
                 console.warn(`   ⚠️ live check skipped: ${e.message}`);
             }
@@ -2375,7 +2445,7 @@ async function main() {
         // Step 3d: Service alerts snapshot
         let alertsInfo = { changed: false, count: 0 };
         try {
-            alertsInfo = await fetchAlerts();
+            alertsInfo = await fetchAlerts(allPrograms);
         } catch (e) {
             console.warn(`   ⚠️ alerts fetch failed: ${e.message} — keeping previous alerts.json`);
         }

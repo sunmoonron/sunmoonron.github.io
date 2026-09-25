@@ -178,6 +178,7 @@ body.dark-mode {
 .cal-type-leisure, .legend-dot.leisure, .c2-kind.leisure { --ct: #3aa07f; }
 .cal-type-adapted, .legend-dot.adapted, .c2-kind.adapted { --ct: #8855bb; }
 .cal-type-ringette, .legend-dot.ringette, .c2-kind.ringette { --ct: #bb4499; }
+.cal-type-other,    .legend-dot.other,    .c2-kind.other    { --ct: #c9862b; }
 
 .cal-block { position: relative; overflow: hidden; }
 .cal-block[class*="cal-type-"] {
@@ -399,6 +400,8 @@ body.dark-mode .tag.speed    { background: #39301f; color: #ebcb8b; }
 body.dark-mode .tag.leisure  { background: #1c3630; color: #85dfb6; }
 body.dark-mode .tag.adapted  { background: #2f2647; color: #cdb2ff; }
 body.dark-mode .tag.ringette { background: #3c2440; color: #ffa2e2; }
+body.dark-mode .tag.other    { background: #3d2f1a; color: #ffd08a; }
+.tag.other { background: #fff1dc; color: #9a5d12; }
 
 /* age badges: calm slate chips */
 body.dark-mode .age-badge { background: #303a5e; color: #cad4ff; }
@@ -1440,3 +1443,25 @@ body.dark-mode .c2-line-main { background: #141c25; border-color: #38485a; }
 body.dark-mode .c2-line-main[class*="cal-type-"] { border-left-color: var(--ct); }
 body.dark-mode .c2-ended-fold { background: #141c25; border-color: #38485a; }
 body.dark-mode .c2-kind { color: color-mix(in srgb, var(--ct, var(--text)) 60%, #fff); }
+
+/* ============================================================
+   v3.6 — Other group, visible age, official-page chip, install card, clear location
+   ============================================================ */
+.program-where .where-info { gap: 4px; padding: 1px 7px 1px 5px; border: 1px dashed var(--border-dark); border-radius: 10px; font-size: 11px; font-weight: 600; line-height: 1.5; color: var(--text-muted); text-decoration: none; }
+.program-where .where-info .where-info-site { order: 1; }
+.program-where .where-info:hover { color: var(--acc-programs); border-color: var(--acc-programs); }
+.fcat.group .fcheck-label { font-weight: 600; }
+.fage-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.fage { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
+.fage input { width: 74px; height: 38px; padding: 0 10px; font-size: 15px; text-align: center; }
+.install-card { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 8px; padding: 10px 12px; background: color-mix(in srgb, var(--acc-programs) 8%, var(--bg-white)); border: 1px dashed color-mix(in srgb, var(--acc-programs) 55%, var(--border)); border-radius: var(--radius); font-size: 13px; line-height: 1.4; }
+.install-text { flex: 1 1 220px; min-width: 0; }
+.install-btns { display: flex; gap: 8px; }
+.install-btns button { padding: 7px 12px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg-white); font-size: 12.5px; font-weight: 600; color: var(--text); }
+.install-btns .btn-primary { border-color: transparent; color: #fff; }
+.install-steps { margin: 0 0 12px 20px; padding: 0; font-size: 14px; line-height: 1.6; }
+.rinks-locate #btn-clear-location { padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-white); font-size: 12.5px; color: var(--text-muted); }
+.rinks-locate #btn-clear-location:hover { color: var(--text); border-color: var(--border-dark); }
+body.dark-mode .install-card { background: color-mix(in srgb, var(--acc-programs) 14%, #1b2530); }
+body.dark-mode .install-btns button, body.dark-mode .rinks-locate #btn-clear-location { background: #1b2530; border-color: #38485a; color: var(--text); }
+body.dark-mode .install-btns .btn-primary { color: #fff; border-color: transparent; }

@@ -17,7 +17,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=11">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=4">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=28">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=29">
 </head>
 <body>
     <div class="app" id="app">
@@ -25,7 +25,7 @@
         <div class="top-bar">
             <h1>Toronto Skating</h1>
             <div class="top-bar-actions">
-                <button class="top-toggle" id="btn-paid" title="Show or hide paid venues. Off = free sessions only." aria-pressed="false"><span class="top-toggle-dot" aria-hidden="true"></span>Paid</button>
+                <button class="top-toggle" id="btn-paid" title="Show or hide paid venues. Off = free sessions only." aria-pressed="false"><span class="top-toggle-dot" aria-hidden="true"></span>Show paid</button>
                 <button class="btn-icon btn-refresh" id="btn-refresh" title="Refresh the schedule, rink alerts and live spots" aria-label="Refresh">↻</button>
                 <button class="btn-icon btn-settings" id="btn-settings" title="Settings" aria-label="Settings">⚙️<span class="new-dot hidden" id="settings-dot"></span></button>
             </div>
@@ -68,6 +68,7 @@
                 </div>
 
                 <!-- Next saved session countdown (only when something is saved & upcoming) -->
+                <div id="install-hint" class="hidden"></div>
                 <div class="saved-next hidden" id="saved-next"></div>
 
                 <!-- Data-health warnings (stale schedule / failed source feeds) -->
@@ -189,6 +190,16 @@
     </div>
 
     <!-- What's new (version changelog) -->
+    <div class="modal-overlay hidden" id="install-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Add to Home Screen</h3>
+                <button class="btn-icon" id="btn-install-close" aria-label="Close">✕</button>
+            </div>
+            <div id="install-body"></div>
+        </div>
+    </div>
+
     <div class="modal-overlay hidden" id="whatsnew-modal">
         <div class="modal">
             <div class="modal-header">
@@ -230,6 +241,7 @@
                     <button id="btn-start-tour">Quick tour</button>
                     <button id="btn-whatsnew">What's new</button>
                     <button id="btn-show-qr">QR code</button>
+                    <button id="btn-install">Add to Home Screen</button>
                     <button id="btn-copy-site">Copy site link</button>
                 </div>
             </section>
@@ -306,6 +318,7 @@
                 <button id="btn-share-location" title="Distances from where you are right now">Use my location</button>
                 <input type="text" id="locator-input" placeholder="Address or postal code" autocomplete="off" aria-label="Address or postal code">
                 <button id="btn-locator-search" class="btn-primary">Go</button>
+                <button id="btn-clear-location" class="hidden" title="Forget my saved location">Clear</button>
             </div>
             <p class="settings-hint locator-status" id="locator-status"></p>
             <div class="rinks-split">
@@ -390,7 +403,7 @@
     <script src="../assets/js/nostr.bundle.js"></script>
     <!-- profanity-list.js is injected lazily by app.js bootCommunity() —
          schedule-only visits (community sections hidden) never download it -->
-    <script src="projects/js/config.js?v=29"></script>
+    <script src="projects/js/config.js?v=30"></script>
     <script src="projects/js/settings.js?v=8"></script>
     <script src="projects/js/moderation.js?v=5"></script>
     <script src="projects/js/nostr-core.js?v=3"></script>
@@ -407,7 +420,7 @@
     <script src="projects/js/calendar2.js?v=4"></script>
     <script src="projects/js/map.js?v=3"></script>
     <script src="projects/js/tour.js?v=5"></script>
-    <script src="projects/js/app.js?v=30"></script>
+    <script src="projects/js/app.js?v=31"></script>
     <script src="projects/js/refresh.js?v=4"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)

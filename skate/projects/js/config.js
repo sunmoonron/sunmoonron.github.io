@@ -26,8 +26,16 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.5',
+    version: '3.6',
     changelog: [
+        {
+            v: '3.6', date: '2026-09-25', items: [
+                'Filters: an Other group (Ice Breakdancing, Adaptive, Ringette, Speed) sits with Leisure, Figure and Hockey, and first-time visitors start with Toronto, Leisure, Figure and Other. Adaptive programs are caught properly now ("Adapted Leisure Skate", "Sensory Skate", "Sledge Shinny" used to land under Leisure or Hockey).',
+                'Your age is its own filter section, no longer folded away, and the pill reads "19 years old" (the sessions a 19-year-old can join) so it cannot be mistaken for an age group.',
+                'The top-bar switch says Show paid. The status line says "checked 8:11 AM" so nobody reads it as the clock. The official-page link on every card is a visible toronto.ca (or venue) chip.',
+                'Rinks and map: a Clear button forgets your saved location. On phones a one-time card explains how to add the app to your Home Screen; it also lives in Settings next to the QR code. If an already-installed copy shows a blurred top edge on iOS 26, remove the icon and add it again (iOS reads the setting only when the icon is created).'
+            ]
+        },
         {
             v: '3.5', date: '2026-09-15', items: [
                 'Calendar: a tap-to-jump day strip with counts (and a visible way to swipe on phones) and week arrows that say Week. Every session is its own block.',
@@ -267,7 +275,7 @@ window.SkateConfig = {
         { sel: '#active-filters',        title: 'Your active filters',   text: 'Each pill is one filter. Tap the x to remove it. Tap the city pill to pick other cities.', sec: 5 },
         { sel: '#btn-rinks',             title: 'Rinks and map',         text: 'Every rink on a map, with distances from your location or an address you type. Star the rinks that are yours.', sec: 6 },
         { sel: '#view-seg',              title: 'List or calendar',      text: 'The same sessions as a list or a week grid. In the grid, tap a day chip to jump to that day and any block for details.', sec: 5 },
-        { sel: '#btn-paid',              title: 'Paid venues',           text: 'Paid rinks are hidden until you switch this on. Prices then show on each session.', sec: 4 },
+        { sel: '#btn-paid',              title: 'Show paid',             text: 'Paid rinks are hidden until you switch this on. Prices then show on each session.', sec: 4 },
         { sel: '#btn-refresh',           title: 'Refresh',               text: 'Reloads the schedule, rink alerts and live spots. The status line under the buttons says when things were last checked.', sec: 5 },
         { sel: '#program-list .program-item', title: 'A session',        text: 'Time, rink, ages and price. Tap the rink name for directions; the small globe beside it opens the official rink page, the one the staff go by. The heart saves the session.', sec: 7 },
         { sel: '#program-list .btn-copy', title: 'More',                 text: 'Copy the details, add the session to your calendar, share it into a chat, or add this rink to your rinks.', sec: 5 },
@@ -304,20 +312,24 @@ window.SkateConfig = {
         { id: 'hockey',    label: 'Hockey',    keywords: ['shinny', 'hockey', 'stick'] },
         { id: 'figure',    label: 'Figure',    keywords: ['figure', 'ticket ice'] },
         { id: 'speed',     label: 'Speed',     keywords: ['speed'] },
-        { id: 'adapted',   label: 'Adaptive',  keywords: ['adapted', 'adaptive'] },
+        { id: 'adapted',   label: 'Adaptive',  keywords: ['adapted', 'adaptive', 'sensory', 'sledge'] },
         { id: 'ringette',  label: 'Ringette',  keywords: ['ringette'] },
         { id: 'other',     label: 'Ice Breakdancing', keywords: [] }   // everything that is none of the above
     ],
 
     // Activity → badge tag. First keyword hit wins (order matters).
     // `emoji` shows on the row badge only (the legend and pills stay plain).
+    // Order matters: the first keyword hit wins, so the adaptive programs
+    // ("Adapted Leisure Skate with Family", "Sensory Skate", "Sledge Shinny")
+    // are tested before leisure and hockey would claim them.
     activityTags: [
+        { keywords: ['adapted', 'adaptive', 'sensory', 'sledge'], cls: 'adapted', label: 'Adaptive', emoji: '♿' },
+        { keywords: ['ringette'],                cls: 'ringette', label: 'Ringette', emoji: '🥏' },
         { keywords: ['shinny', 'hockey', 'stick'], cls: 'hockey',  label: 'Hockey',   emoji: '🏒' },
         { keywords: ['figure', 'ticket ice'],    cls: 'figure',   label: 'Figure',   emoji: '⛸️' },
         { keywords: ['speed'],                   cls: 'speed',    label: 'Speed',    emoji: '⛸️' },
         { keywords: LEISURE_WORDS,               cls: 'leisure',  label: 'Leisure',  emoji: '⛸️' },
-        { keywords: ['adapted', 'adaptive'],     cls: 'adapted',  label: 'Adaptive', emoji: '♿' },
-        { keywords: ['ringette'],                cls: 'ringette', label: 'Ringette', emoji: '🥏' }
+        { keywords: ['breakdanc', 'break danc'], cls: 'other',    label: 'Breakdancing', emoji: '🕺' }
     ],
 
     days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
