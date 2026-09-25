@@ -293,8 +293,9 @@
                 </div>
                 <div class="settings-field">
                     <span>Identity key</span>
-                    <div class="sbtns"><button id="btn-import-key">Import identity key</button></div>
-                    <p class="settings-hint">For the site owner: run this device as the owner key to read the dev inbox. Everyone else can ignore this.</p>
+                    <p class="settings-hint" id="identity-line"></p>
+                    <div class="sbtns"><button id="btn-import-key">Import identity key</button><button id="btn-reset-key">Reset identity</button></div>
+                    <p class="settings-hint">Import: for the site owner, so this device reads the dev inbox. Reset: a fresh key for this device; saved sessions, filters and settings stay.</p>
                 </div>
             </section>
 
@@ -443,7 +444,7 @@
     <script src="projects/js/live.js?v=2"></script>
     <script src="projects/js/weather.js?v=2"></script>
     <script src="projects/js/alerts.js?v=5"></script>
-    <script src="projects/js/chat-v2.js?v=12"></script>
+    <script src="projects/js/chat-v2.js?v=13"></script>
     <script src="projects/js/devchat.js?v=4"></script>
     <script src="projects/js/guides.js?v=4"></script>
     <script src="projects/js/ui.js?v=2"></script>
@@ -451,7 +452,7 @@
     <script src="projects/js/calendar2.js?v=4"></script>
     <script src="projects/js/map.js?v=3"></script>
     <script src="projects/js/tour.js?v=5"></script>
-    <script src="projects/js/app.js?v=35"></script>
+    <script src="projects/js/app.js?v=36"></script>
     <script src="projects/js/refresh.js?v=4"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)

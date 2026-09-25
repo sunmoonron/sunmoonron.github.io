@@ -2544,6 +2544,7 @@ window.SkateApp = (() => {
         $('settings-name').value = SkateChat.getState().myName || '';
         $('btn-play-guide').textContent = `Watch the ${SkateTour.duration()}-second guide`;
         Render.settings();
+        Render.identityLine();
         Modal.open('settings-modal');
     };
 
@@ -2624,6 +2625,18 @@ window.SkateApp = (() => {
     if (systemDark?.addEventListener) {
         systemDark.addEventListener('change', () => { if (themeSetting() === 'system') Actions.applyTheme(); });
     }
+
+    /** Settings → Identity key: which key this device holds, and whether it is the dev inbox key. */
+    Render.identityLine = function () {
+        const line = $('identity-line');
+        if (!line) return;
+        const pk = SkateChat.getIdentity().pk || (() => { try { return JSON.parse(localStorage.getItem('skate_identity_v1') || '{}').pk; } catch { return null; } })();
+        if (!pk) { line.textContent = 'This device has no chat key yet; one is created the first time a community feature or the feedback sheet opens.'; return; }
+        const dev = pk === (CFG.devPubkey || CFG.ownerPubkey);
+        let npub = pk;
+        try { npub = NostrTools.nip19.npubEncode(pk); } catch {}
+        line.textContent = `This device: ${npub.slice(0, 12)}…${npub.slice(-6)} · dev inbox ${dev ? 'on' : 'off'}`;
+    };
 
     /** Silent full data reload (programs + alerts + spots) — shared by the
      *  Refresh button and the resume-from-background path. */
@@ -2758,13 +2771,22 @@ window.SkateApp = (() => {
         $('btn-devchat').onclick = () => window.SkateDev && SkateDev.open();
         $('btn-feedback').onclick = () => window.SkateDev && SkateDev.open();
         $('devchat-link').onclick = () => window.SkateDev && SkateDev.open();
-        $('btn-import-key').onclick = async () => {
-            const v = prompt('Paste the owner key (nsec or 64-character hex). This device then reads the dev inbox.');
+        $('btn-import-key').onclick = () => {
+            const v = prompt('Paste the dev key (nsec or 64-character hex). This device then reads the dev inbox.');
             if (!v) return;
-            await Actions.bootCommunity();
-            const pk = SkateChat.importIdentity(v);
-            SkateChat.Notify.toast(pk ? `Identity set: ${pk.slice(0, 8)}…` : 'That is not a valid key.', pk ? 'success' : 'error', 3500);
-            if (pk) Render.chatUI(SkateChat.getState());
+            const pk = SkateChat.importIdentity(v);   // works before the chat stack boots: the key is saved, init picks it up
+            if (!pk) { SkateChat.Notify.toast('That is not a valid key. It should start with nsec1 or be 64 hex characters.', 'error', 5000); return; }
+            Render.identityLine();
+            const dev = pk === (CFG.devPubkey || CFG.ownerPubkey);
+            SkateChat.Notify.toast(dev ? 'Dev inbox is on for this device.' : `Identity set (${pk.slice(0, 8)}…), but that is not the dev inbox key.`, dev ? 'success' : 'info', 5000);
+            Actions.bootCommunity().then(() => { if (chatBooted) Render.chatUI(SkateChat.getState()); }).catch(() => {});
+        };
+        $('btn-reset-key').onclick = () => {
+            if (!confirm('Start a fresh chat identity on this device? Saved sessions, filters and settings stay. Chat names and private threads start over.')) return;
+            const pk = SkateChat.resetIdentity();
+            Render.identityLine();
+            SkateChat.Notify.toast(`New identity: ${pk.slice(0, 8)}…`, 'success', 3500);
+            if (chatBooted) Render.chatUI(SkateChat.getState());
         };
         if (window.SkateDev) SkateDev.bind();
         $('btn-install-close').onclick = () => Modal.close('install-modal');

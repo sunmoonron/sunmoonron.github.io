@@ -738,12 +738,26 @@ const SkateChat = (() => {
 
     /** Owner side: run this device as a given key (hex or nsec) so the dev inbox is readable. */
     function importIdentity(str) {
-        let hex = String(str || '').trim();
+        // phones capitalise or pad pasted text: bech32 is case-insensitive as a whole, so lowercase it all
+        let hex = String(str || '').trim().replace(/\s+/g, '').toLowerCase();
         try {
-            if (/^nsec1/i.test(hex)) { const d = NostrTools.nip19.decode(hex); hex = Crypto.bytesToHex ? Crypto.bytesToHex(d.data) : Array.from(d.data, b => b.toString(16).padStart(2, '0')).join(''); }
+            if (hex.startsWith('nsec1')) {
+                const d = NostrTools.nip19.decode(hex);
+                hex = typeof d.data === 'string' ? d.data : Array.from(d.data, b => b.toString(16).padStart(2, '0')).join('');
+            }
         } catch { return false; }
-        if (!/^[0-9a-f]{64}$/i.test(hex)) return false;
-        state.mySecretKey = Crypto.hexToBytes(hex.toLowerCase());
+        if (!/^[0-9a-f]{64}$/.test(hex)) return false;
+        state.mySecretKey = Crypto.hexToBytes(hex);
+        state.myPublicKey = NostrTools.getPublicKey(state.mySecretKey);
+        saveIdentity();
+        try { resubscribe(); } catch {}
+        notifyUpdate();
+        return state.myPublicKey;
+    }
+
+    /** A fresh random key for this device. Saved sessions, settings and local chat history stay. */
+    function resetIdentity() {
+        state.mySecretKey = NostrTools.generateSecretKey();
         state.myPublicKey = NostrTools.getPublicKey(state.mySecretKey);
         saveIdentity();
         try { resubscribe(); } catch {}
@@ -1294,7 +1308,7 @@ const SkateChat = (() => {
         init, createGroup, joinPublicRoom, leaveGroup, renameGroup,
         parseInviteHash, acceptInvite, getInviteInfo,
         sendMessage, shareProgram, shareGuide, retryMessage,
-        startDm, sendDm, sendDmTo, sendDmImage, importIdentity, closeDm, openConversation, deleteDmThread, clearHistory,
+        startDm, sendDm, sendDmTo, sendDmImage, importIdentity, resetIdentity, closeDm, openConversation, deleteDmThread, clearHistory,
         getConversations, getRoster,
         setDisplayName, getIdentity,
         onUpdate, getState, getConnectionStatus, getPublicRooms,
