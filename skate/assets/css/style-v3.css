@@ -1550,3 +1550,12 @@ body.dark-mode .devchat-drop { background: color-mix(in srgb, var(--acc-programs
 .top-feedback:hover { background: color-mix(in srgb, var(--acc-programs) 24%, var(--bg-white)); border-color: var(--acc-programs); color: var(--text); }
 body.dark-mode .top-feedback { background: color-mix(in srgb, var(--acc-programs) 22%, #1b2530); border-color: color-mix(in srgb, var(--acc-programs) 60%, #38485a); color: color-mix(in srgb, var(--acc-programs) 75%, #fff); }
 body.dark-mode .top-feedback:hover { background: color-mix(in srgb, var(--acc-programs) 34%, #1b2530); color: #fff; }
+
+/* ---- no focus-zoom on phones: iOS zooms the page into any field under 16 px.
+   The base rule above sets 16 px on small screens; these classed fields set
+   their own size later in the cascade, so they are pinned here. ---- */
+@media (max-width: 767px), (pointer: coarse) {
+    .rinks-locate input, .fage input, .devchat-compose textarea, #settings-name, #locator-input,
+    .search-row .search-box input, .chat-input-bar input, .chat-input-bar textarea { font-size: 16px; }
+    .fage input { width: 80px; }
+}
