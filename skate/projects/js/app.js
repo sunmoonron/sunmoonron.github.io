@@ -3045,8 +3045,11 @@ window.SkateApp = (() => {
     async function init() {
         Render.bootstrap();
         Actions.applyTheme();
-        // installed iOS copies: the bar's content starts below iOS 26's status-bar band (see the CSS)
-        document.documentElement.classList.toggle('ios-standalone', isIOS() && isStandalone());
+        // installed iPhone/iPad copies only: the bar's content starts below iOS 26's
+        // status-bar band (see the CSS). A Mac web app also reports standalone, and an
+        // iPad reports itself as a Mac, so touch capability is the tie-breaker.
+        const touchApple = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1 && 'ontouchend' in document);
+        document.documentElement.classList.toggle('ios-standalone', touchApple && isStandalone());
         bind();
 
         // Everyone lands on the schedule (the first tab), on every device.
