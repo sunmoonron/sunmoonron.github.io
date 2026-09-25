@@ -1191,6 +1191,8 @@ window.SkateApp = (() => {
             const offUrl = httpOnly(m.data.official);
             if (offUrl) content += `<br><a class="share-official" href="${escapeHtml(offUrl)}" target="_blank" rel="noopener">Verify on ${escapeHtml(String(m.data.site || 'official site').slice(0, 30))} ↗</a>`;
             if (m.data.programId) content += `<br><span class="share-open" data-open-program="${escapeHtml(m.data.programId)}">Open in Programs →</span>`;
+        } else if (m.type === 'image' && m.data && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(m.data.src || '')) {
+            content = `<img class="msg-img" src="${m.data.src}" alt="photo" loading="lazy">`;
         } else if (m.type === 'guide' && m.data) {
             const cat = SkateGuides.CATEGORIES[m.data.category];
             content = `<strong>${escapeHtml(m.data.title)}</strong>` +
@@ -2167,6 +2169,7 @@ window.SkateApp = (() => {
             await SkateChat.init();
             chatBooted = true;
             SkateChat.onUpdate(Render.chatUI);
+            if (window.SkateDev) SkateDev.attach();
             SkateGuides.load();
             SkateGuides.onUpdate(scheduleGuidesRender);
             Render.chatUI(SkateChat.getState());
@@ -2752,6 +2755,17 @@ window.SkateApp = (() => {
         $('btn-share-location').onclick = Actions.useMyLocation;
         $('btn-clear-location').onclick = Actions.clearLocation;
         $('btn-install').onclick = Actions.openInstall;
+        $('btn-devchat').onclick = () => window.SkateDev && SkateDev.open();
+        $('devchat-link').onclick = () => window.SkateDev && SkateDev.open();
+        $('btn-import-key').onclick = async () => {
+            const v = prompt('Paste the owner key (nsec or 64-character hex). This device then reads the dev inbox.');
+            if (!v) return;
+            await Actions.bootCommunity();
+            const pk = SkateChat.importIdentity(v);
+            SkateChat.Notify.toast(pk ? `Identity set: ${pk.slice(0, 8)}…` : 'That is not a valid key.', pk ? 'success' : 'error', 3500);
+            if (pk) Render.chatUI(SkateChat.getState());
+        };
+        if (window.SkateDev) SkateDev.bind();
         $('btn-install-close').onclick = () => Modal.close('install-modal');
         delegate($('install-hint'), [
             ['[data-install="how"]', Actions.openInstall],

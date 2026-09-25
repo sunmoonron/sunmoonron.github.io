@@ -69,9 +69,12 @@ window.SkateGeo = (() => {
             const r = byLocation[String(locId)];
             if (r.lat != null) return { lat: r.lat, lng: r.lng };
         }
+        // Name fallback only within the same source: Toronto's Central Arena
+        // and Burlington's Central Arena share a name 50 km apart.
         const name = normName(p.LocationName || p['Location Name']);
-        if (name && byName[name] && byName[name].lat != null) {
-            return { lat: byName[name].lat, lng: byName[name].lng };
+        const r2 = name ? byName[name] : null;
+        if (r2 && r2.lat != null && (r2.source || 'city') === (p.Source && p.Source !== 'city' ? 'external' : 'city')) {
+            return { lat: r2.lat, lng: r2.lng };
         }
         return null;
     }

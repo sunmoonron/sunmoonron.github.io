@@ -547,13 +547,39 @@ const SkateChat = (() => {
         if (thread.messages.some(m => m.id === event.id)) return;
 
         const ts = event.created_at * 1000;
+
+        // A photo arrives as numbered parts (the relay caps an event at 64 KB);
+        // it becomes one image message once every part is here.
+        if (c.type === 'attach') {
+            if (typeof c.id !== 'string' || !/^[0-9a-f]{6,32}$/.test(c.id) || !(c.of >= 1 && c.of <= 12) || !(c.part >= 0 && c.part < c.of)) return;
+            if (typeof c.data !== 'string' || c.data.length > 60000 || !/^image\/(jpeg|png|webp)$/.test(c.mime || '')) return;
+            const box = (state.dmAttach ||= {});
+            const key = `${otherPubkey}|${c.id}`;
+            const a = (box[key] ||= { parts: {}, of: c.of, mime: c.mime, ts, mine: isFromMe });
+            a.parts[c.part] = c.data;
+            if (Object.keys(a.parts).length < a.of) return;
+            const b64 = Array.from({ length: a.of }, (_, i) => a.parts[i]).join('');
+            delete box[key];
+            if (isFromMe && thread.messages.some(m => m.localId && m.type === 'image' && m.attachId === c.id)) {
+                const mine = thread.messages.find(m => m.localId && m.type === 'image' && m.attachId === c.id);
+                mine.status = 'sent'; mine.id = event.id; delete mine.localId;
+            } else if (!thread.messages.some(m => m.attachId === c.id)) {
+                thread.messages.push({ id: event.id, attachId: c.id, type: 'image', text: '', from: isFromMe ? state.myName : thread.name, mine: isFromMe, ts, data: { src: `data:${a.mime};base64,${b64}` }, status: 'sent' });
+                thread.messages.sort((x, y) => x.ts - y.ts);
+            }
+            if (thread.messages.length > 100) thread.messages = thread.messages.slice(-100);
+            saveState();
+            notifyUpdate();
+            return;
+        }
+
         const localIdx = isFromMe ? thread.messages.findIndex(m => m.localId && m.text === c.text && Math.abs(m.ts - ts) < 15000) : -1;
         const msg = {
             id: event.id,
             type: c.type === 'share' ? 'share' : (c.type === 'guide' ? 'guide' : 'chat'),
             text: SkateMod.clean(c.text || ''),
             from: isFromMe ? state.myName : thread.name,
-            mine: isFromMe, ts, data: c.data, replyTo: sanitizeReplyRef(c.replyTo), status: 'sent'
+            mine: isFromMe, ts, data: c.ctx ? { ...(c.data || {}), ctx: String(c.ctx).slice(0, 200) } : c.data, replyTo: sanitizeReplyRef(c.replyTo), status: 'sent'
         };
         if (localIdx > -1) thread.messages[localIdx] = msg;
         else { thread.messages.push(msg); thread.messages.sort((a, b) => a.ts - b.ts); }
@@ -661,6 +687,68 @@ const SkateChat = (() => {
         saveState();
         notifyUpdate();
         return ok;
+    }
+
+    /**
+     * The dev chat's send: to any pubkey, up to 2000 characters, no cloud
+     * moderation (it is a private message to the site owner), optimistic
+     * echo like sendDm. `payload` may carry ctx (bug context) or data.
+     */
+    async function sendDmTo(toPubkey, payload, echoText = '') {
+        if (!/^[0-9a-f]{64}$/i.test(toPubkey || '') || !state.mySecretKey) return false;
+        if (!state.dmThreads[toPubkey]) state.dmThreads[toPubkey] = { name: payload.toName || lookupName(toPubkey) || 'Skater', messages: [], lastReadTs: 0 };
+        const thread = state.dmThreads[toPubkey];
+        const text = String(payload.text || echoText || '').slice(0, 2000);
+        const body = { ...payload, text };
+        const localId = 'local_' + Crypto.randomHex(6);
+        thread.messages.push({ id: localId, localId, type: 'chat', text, from: state.myName, mine: true, ts: Date.now(), status: 'pending', payload: body, data: body.ctx ? { ctx: body.ctx } : undefined });
+        notifyUpdate();
+        const { ok } = await publishDm(toPubkey, body);
+        const m = thread.messages.find(x => x.id === localId);
+        if (m) m.status = ok ? 'sent' : 'failed';
+        saveState();
+        notifyUpdate();
+        return ok;
+    }
+
+    /** A photo as chunked DMs (≤ 40 KB of base64 each). Echoes locally at once. */
+    async function sendDmImage(toPubkey, dataUrl, meta = {}) {
+        const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl || '');
+        if (!m || !/^[0-9a-f]{64}$/i.test(toPubkey || '')) return false;
+        const [, mime, b64] = m;
+        const CH = 40000, of = Math.ceil(b64.length / CH);
+        if (of > 12) return false;
+        if (!state.dmThreads[toPubkey]) state.dmThreads[toPubkey] = { name: meta.toName || lookupName(toPubkey) || 'Skater', messages: [], lastReadTs: 0 };
+        const thread = state.dmThreads[toPubkey];
+        const id = Crypto.randomHex(8);
+        const localId = 'local_' + id;
+        thread.messages.push({ id: localId, localId, attachId: id, type: 'image', text: '', from: state.myName, mine: true, ts: Date.now(), status: 'pending', data: { src: dataUrl } });
+        notifyUpdate();
+        let ok = true;
+        for (let part = 0; part < of; part++) {
+            const r = await publishDm(toPubkey, { type: 'attach', id, part, of, mime, data: b64.slice(part * CH, (part + 1) * CH), fromName: meta.fromName || state.myName });
+            ok = ok && r.ok;
+        }
+        const mm = thread.messages.find(x => x.id === localId);
+        if (mm) mm.status = ok ? 'sent' : 'failed';
+        saveState();
+        notifyUpdate();
+        return ok;
+    }
+
+    /** Owner side: run this device as a given key (hex or nsec) so the dev inbox is readable. */
+    function importIdentity(str) {
+        let hex = String(str || '').trim();
+        try {
+            if (/^nsec1/i.test(hex)) { const d = NostrTools.nip19.decode(hex); hex = Crypto.bytesToHex ? Crypto.bytesToHex(d.data) : Array.from(d.data, b => b.toString(16).padStart(2, '0')).join(''); }
+        } catch { return false; }
+        if (!/^[0-9a-f]{64}$/i.test(hex)) return false;
+        state.mySecretKey = Crypto.hexToBytes(hex.toLowerCase());
+        state.myPublicKey = NostrTools.getPublicKey(state.mySecretKey);
+        saveIdentity();
+        try { resubscribe(); } catch {}
+        notifyUpdate();
+        return state.myPublicKey;
     }
 
     /** Retry a failed optimistic message (group or DM). */
@@ -1206,7 +1294,7 @@ const SkateChat = (() => {
         init, createGroup, joinPublicRoom, leaveGroup, renameGroup,
         parseInviteHash, acceptInvite, getInviteInfo,
         sendMessage, shareProgram, shareGuide, retryMessage,
-        startDm, sendDm, closeDm, openConversation, deleteDmThread, clearHistory,
+        startDm, sendDm, sendDmTo, sendDmImage, importIdentity, closeDm, openConversation, deleteDmThread, clearHistory,
         getConversations, getRoster,
         setDisplayName, getIdentity,
         onUpdate, getState, getConnectionStatus, getPublicRooms,

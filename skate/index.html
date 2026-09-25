@@ -17,7 +17,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=11">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=4">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=29">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=30">
 </head>
 <body>
     <div class="app" id="app">
@@ -89,6 +89,7 @@
 
                 <ul class="program-list" id="program-list"><li class="loading">Loading...</li></ul>
                 <div class="show-more" id="show-more"></div>
+                <p class="list-foot"><button class="flink" id="devchat-link">Something wrong or missing? Message the dev</button></p>
             </div>
 
             <!-- Guides Panel -->
@@ -190,6 +191,25 @@
     </div>
 
     <!-- What's new (version changelog) -->
+    <div class="modal-overlay hidden sheet-overlay" id="devchat-modal">
+        <div class="modal sheet devchat">
+            <div class="modal-header">
+                <div><h3 id="devchat-title">Message the dev</h3><p class="settings-hint" id="devchat-sub"></p></div>
+                <button class="btn-icon" id="devchat-close" aria-label="Close">✕</button>
+            </div>
+            <div class="devchat-threads hidden" id="devchat-threads"></div>
+            <div class="devchat-messages" id="devchat-messages"></div>
+            <div class="devchat-preview hidden" id="devchat-preview"></div>
+            <div class="devchat-compose">
+                <button class="btn-icon" id="devchat-attach" title="Attach a photo" aria-label="Attach a photo">📎</button>
+                <input type="file" id="devchat-file" accept="image/*" class="hidden">
+                <textarea id="devchat-input" rows="2" maxlength="2000" placeholder="What happened, and where? (Cmd/Ctrl+Enter sends)"></textarea>
+                <button class="btn-primary" id="devchat-send">Send</button>
+            </div>
+            <p class="settings-hint devchat-foot">Private to you and the dev, over the site's own relay. Photos are shrunk; videos as a link. Kept 90 days.</p>
+        </div>
+    </div>
+
     <div class="modal-overlay hidden" id="install-modal">
         <div class="modal">
             <div class="modal-header">
@@ -242,6 +262,7 @@
                     <button id="btn-whatsnew">What's new</button>
                     <button id="btn-show-qr">QR code</button>
                     <button id="btn-install">Add to Home Screen</button>
+                    <button id="btn-devchat">Message the dev</button>
                     <button id="btn-copy-site">Copy site link</button>
                 </div>
             </section>
@@ -265,6 +286,11 @@
                         <button id="btn-save-name">Save</button>
                     </div>
                     <p class="settings-hint">Your identity is a keypair in this browser: no account, no email. Clearing site data resets it. Muted people are unmuted from their name in any chat.</p>
+                </div>
+                <div class="settings-field">
+                    <span>Identity key</span>
+                    <div class="sbtns"><button id="btn-import-key">Import identity key</button></div>
+                    <p class="settings-hint">For the site owner: run this device as the owner key to read the dev inbox. Everyone else can ignore this.</p>
                 </div>
             </section>
 
@@ -403,24 +429,25 @@
     <script src="../assets/js/nostr.bundle.js"></script>
     <!-- profanity-list.js is injected lazily by app.js bootCommunity() —
          schedule-only visits (community sections hidden) never download it -->
-    <script src="projects/js/config.js?v=30"></script>
+    <script src="projects/js/config.js?v=32"></script>
     <script src="projects/js/settings.js?v=8"></script>
     <script src="projects/js/moderation.js?v=5"></script>
     <script src="projects/js/nostr-core.js?v=3"></script>
     <script src="projects/js/api.js?v=16"></script>
     <script src="projects/js/time.js?v=2"></script>
-    <script src="projects/js/geo.js?v=4"></script>
+    <script src="projects/js/geo.js?v=5"></script>
     <script src="projects/js/live.js?v=2"></script>
     <script src="projects/js/weather.js?v=2"></script>
     <script src="projects/js/alerts.js?v=5"></script>
-    <script src="projects/js/chat-v2.js?v=11"></script>
+    <script src="projects/js/chat-v2.js?v=12"></script>
+    <script src="projects/js/devchat.js?v=3"></script>
     <script src="projects/js/guides.js?v=4"></script>
     <script src="projects/js/ui.js?v=2"></script>
     <script src="projects/js/calendar.js?v=11"></script>
     <script src="projects/js/calendar2.js?v=4"></script>
     <script src="projects/js/map.js?v=3"></script>
     <script src="projects/js/tour.js?v=5"></script>
-    <script src="projects/js/app.js?v=31"></script>
+    <script src="projects/js/app.js?v=33"></script>
     <script src="projects/js/refresh.js?v=4"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)

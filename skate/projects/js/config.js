@@ -27,13 +27,17 @@ window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
     version: '3.6',
+    // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
+    ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     changelog: [
         {
             v: '3.6', date: '2026-09-25', items: [
                 'Filters: an Other group (Ice Breakdancing, Adaptive, Ringette, Speed) sits with Leisure, Figure and Hockey, and first-time visitors start with Toronto, Leisure, Figure and Other. Adaptive programs are caught properly now ("Adapted Leisure Skate", "Sensory Skate", "Sledge Shinny" used to land under Leisure or Hockey).',
                 'Your age is its own filter section, no longer folded away, and the pill reads "19 years old" (the sessions a 19-year-old can join) so it cannot be mistaken for an age group.',
                 'The top-bar switch says Show paid. The status line says "checked 8:11 AM" so nobody reads it as the clock. The official-page link on every card is a visible toronto.ca (or venue) chip.',
-                'Rinks and map: a Clear button forgets your saved location. On phones a one-time card explains how to add the app to your Home Screen; it also lives in Settings next to the QR code. If an already-installed copy shows a blurred top edge on iOS 26, remove the icon and add it again (iOS reads the setting only when the icon is created).'
+                'Rinks and map: a Clear button forgets your saved location. On phones a one-time card explains how to add the app to your Home Screen; it also lives in Settings next to the QR code. If an already-installed copy shows a blurred top edge on iOS 26, remove the icon and add it again (iOS reads the setting only when the icon is created).',
+                'Message the dev (Settings, and the link under the list): a private chat with the site owner over the site\'s own relay, for bugs, wrong times and ideas. Photos go through too (shrunk in the browser); videos as a link. Messages are kept 90 days.',
+                'A rink alert that names one pad and a building notice that names the same pad no longer add up to "likely cancelled": the session runs on the other pad. Building-wide closures do cancel. Stale "cancelled today" notices only count on the day they were posted.'
             ]
         },
         {
