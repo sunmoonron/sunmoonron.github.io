@@ -445,6 +445,15 @@ line (time, rink, kind · ages · price) with a heart. "By rink" groups the
 lines under each rink, starred first and nearest next; today's ended
 sessions fold away. Tap a line for the usual popover.
 
+**One row per visible session.** Sources emit the same session under
+several opaque ids (the City: one course number per pad at a two-pad
+arena). `dedupePrograms()` in the pipeline collapses copies whose
+source, location, date, start, end, title, ages and price match, keeps the
+first row with `Copies`, and reports `counts.duplicatesRemoved` in
+meta.json (shown in the status popover). `SkateAPI.dedupe()` applies the
+same rule to whatever copy the browser loads, and a card at a multi-pad
+arena with merged copies says "2 pads".
+
 **toronto.ca is the ground truth.** City sessions the live cross-check
 flags as missing or cancelled are hidden (`computeFiltered`,
 `S.showDropped`, also excluded from the Filters counts), and live-only

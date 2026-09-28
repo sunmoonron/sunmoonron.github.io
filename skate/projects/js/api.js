@@ -128,7 +128,10 @@ const SkateAPI = {
             const data = await this.fetchData('skating-programs.json', force);
 
             this._metadata = data.metadata;
-            this._skatingPrograms = data.programs || [];
+            // Safety net: one row per visible session, whatever copy this is (home
+            // server, GitHub fallback, an older pipeline). Same identity rule as the
+            // pipeline's dedupePrograms; copies fold into the first row's Copies.
+            this._skatingPrograms = SkateAPI.dedupe(data.programs || []);
 
             console.log(`[SkateAPI] Loaded ${this._skatingPrograms.length} skating programs`);
             console.log(`[SkateAPI] Data last updated: ${this._metadata?.lastUpdated}`);
@@ -149,6 +152,21 @@ const SkateAPI = {
     /**
      * Get metadata about the data
      */
+    dedupe(list) {
+        const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+        const seen = new Map(), out = [];
+        for (const p of list) {
+            const loc = p.ExtLocationKey || (p['Location ID'] != null ? String(p['Location ID']) : `name:${norm(p.LocationName)}`);
+            const k = [p.Source || 'city', loc, String(p['Start Date'] || p['Start Date Time'] || '').slice(0, 10), p['Start Time'] || '', p['End Time'] || '',
+                norm(p.Activity || p['Course Title']), p['Age Min'] ?? '', p['Age Max'] ?? '', p.Paid ? 1 : 0, p.Price ?? ''].join('|');
+            const first = seen.get(k);
+            if (first) { first.Copies = Math.max(first.Copies || 1, 1) + 1; continue; }
+            seen.set(k, p);
+            out.push(p);
+        }
+        return out;
+    },
+
     getMetadata() {
         if (this._metadata) return this._metadata;
         try { return JSON.parse(localStorage.getItem('skate_meta_v1')); } catch { return null; }

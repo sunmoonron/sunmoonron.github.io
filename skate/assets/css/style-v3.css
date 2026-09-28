@@ -1559,3 +1559,7 @@ body.dark-mode .top-feedback:hover { background: color-mix(in srgb, var(--acc-pr
     .search-row .search-box input, .chat-input-bar input, .chat-input-bar textarea { font-size: 16px; }
     .fage input { width: 80px; }
 }
+
+/* ---- "2 pads": the same session listed once per pad by the venue, merged into one card ---- */
+.pads-badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap; background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
+body.dark-mode .pads-badge { background: #1b2530; border-color: #38485a; }

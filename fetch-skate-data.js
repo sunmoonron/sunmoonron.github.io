@@ -2286,6 +2286,37 @@ async function fetchExternalSources() {
 
 /* ================= Main ================= */
 
+/**
+ * One row per session the reader can tell apart. The City's export lists a
+ * session once per course number — and a two-pad arena running the same
+ * program on both pads yields two courses that differ only in Course_ID
+ * (Centennial Park Arena, 2026-09-28: 181104 and 181109). Any source can
+ * do the same with its own opaque ids, so the rule is general: identity =
+ * source + location + date + start + end + title + ages + price, and the
+ * copies collapse into the first row, which remembers how many there were
+ * (`Copies`) so the app can say "on 2 pads" where that is what it means.
+ */
+const identityNorm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+function sessionIdentity(p) {
+    const loc = p.ExtLocationKey || (p['Location ID'] != null ? String(p['Location ID']) : `name:${identityNorm(p.LocationName)}`);
+    return [p.Source || 'city', loc, String(p['Start Date'] || p['Start Date Time'] || '').slice(0, 10), p['Start Time'] || '', p['End Time'] || '',
+        identityNorm(p.Activity || p['Course Title']), p['Age Min'] ?? '', p['Age Max'] ?? '', p.Paid ? 1 : 0, p.Price ?? ''].join('|');
+}
+function dedupePrograms(list) {
+    const seen = new Map();
+    const out = [];
+    for (const p of list) {
+        const k = sessionIdentity(p);
+        const first = seen.get(k);
+        if (first) { first.Copies = (first.Copies || 1) + 1; continue; }
+        seen.set(k, p);
+        out.push(p);
+    }
+    const removed = list.length - out.length;
+    if (removed) console.log(`   🧹 ${removed} duplicate row${removed === 1 ? '' : 's'} merged (same session under another course id)`);
+    return out;
+}
+
 async function main() {
     console.log('🛼 Toronto Skating Data Fetcher');
     console.log('================================\n');
@@ -2428,7 +2459,9 @@ async function main() {
         // Step 3b: External sources (Canlan York, Moss Park, …)
         const external = await fetchExternalSources();
         const externalPrograms = Object.values(external).flatMap(s => s.records);
-        const allPrograms = enrichedPrograms.concat(externalPrograms);
+        const merged = enrichedPrograms.concat(externalPrograms);
+        const allPrograms = dedupePrograms(merged);
+        const duplicatesRemoved = merged.length - allPrograms.length;
 
         // Step 3c: Rink inventory (indoor + outdoor pads, coordinates)
         console.log('\n🏟️ Building rink inventory...');
@@ -2459,6 +2492,7 @@ async function main() {
             packageId: PACKAGE_ID,
             counts: {
                 skatingPrograms: allPrograms.length,
+                duplicatesRemoved,
                 cityPrograms: enrichedPrograms.length,
                 locations: datasets.locations?.length || 0,
                 rinks: rinks.length,
@@ -2525,5 +2559,5 @@ async function main() {
 }
 
 if (require.main === module) main();
-module.exports = { llmParseSchedule, parseScheduleText, fetchLiveCheck, EXTERNAL_SOURCES, parseTimeRange, parseSeasonRange, parseDateList, parseWeekdayGridText, parseWeekdayLinesText, favouriteId, writeIcsFiles };
+module.exports = { llmParseSchedule, parseScheduleText, fetchLiveCheck, EXTERNAL_SOURCES, parseTimeRange, parseSeasonRange, parseDateList, parseWeekdayGridText, parseWeekdayLinesText, favouriteId, writeIcsFiles, dedupePrograms, sessionIdentity };
 

@@ -1008,6 +1008,10 @@ window.SkateApp = (() => {
         const price = p.Paid
             ? `<span class="price-badge paid" title="${escapeHtml(srcInfo?.note || 'Paid venue')}">$${fmtPrice(p.Price)}</span>`
             : '<span class="price-badge free">Free</span>';
+        // the City lists a session once per pad; merged copies at a multi-pad arena = both pads
+        const rinkRec = SkateGeo.rinkByLocation(P.locKey(p));
+        const padsBadge = (p.Copies > 1 && rinkRec && rinkRec.pads > 1)
+            ? `<span class="pads-badge" title="Listed ${p.Copies} times by the venue: the session runs on ${Math.min(p.Copies, rinkRec.pads)} pads at once">${Math.min(p.Copies, rinkRec.pads)} pads</span>` : '';
         const noteBadge = p.PriceNote ? `<span class="note-badge">${escapeHtml(p.PriceNote)}</span>` : '';
         // Venues without online booking (PDF/HTML towns) link their schedule page instead.
         const registerLink = (p.Paid && p.RegistrationUrl)
@@ -1080,7 +1084,7 @@ window.SkateApp = (() => {
                 </div>
                 ${alertHtml}${unverifiedHtml}
                 <div class="program-footer">
-                    <div class="program-badges">${P.tagFor(p)}${P.ageBadge(p)}${price}${spotsBadge}</div>
+                    <div class="program-badges">${P.tagFor(p)}${P.ageBadge(p)}${price}${padsBadge}${spotsBadge}</div>
                     <div class="program-actions">${actionHtml}</div>
                     <div class="program-links">${registerLink}</div>
                     ${noteBadge ? `<div class="program-note">${noteBadge}</div>` : ''}
@@ -1710,7 +1714,7 @@ window.SkateApp = (() => {
             const fmt = x => x ? new Date(x).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'never';
             const st = SkateAlerts.liveStats;
             const items = [
-                { label: `Schedule data: ${fmt(meta?.lastUpdated)}`, onClick: () => {} },
+                { label: `Schedule data: ${fmt(meta?.lastUpdated)}${meta?.counts?.duplicatesRemoved ? ` · ${meta.counts.duplicatesRemoved} duplicate row${meta.counts.duplicatesRemoved === 1 ? '' : 's'} merged` : ''}`, onClick: () => {} },
                 { label: `Rink alerts checked: ${fmt(SkateAlerts.checkedAt)}`, onClick: () => {} },
                 { label: `toronto.ca cross-check: ${fmt(SkateAlerts.liveCheckedAt)}${st ? ` (${st.missing} hidden as no longer listed, ${st.extra} added)` : ''}`, onClick: () => {} }
             ];
