@@ -572,7 +572,8 @@ window.SkateApp = (() => {
             const sel = S.types[cat.id];
             const subsPresent = CFG.subTypes.filter(x => facet.subs[x.id]);
             const hasSubs = subsPresent.length > 1;
-            const open = hasSubs && (!!S.expandedCats[cat.id] || (!!sel && sel !== 'all'));
+            const pick = S.expandedCats[cat.id];   // undefined = auto, true/false = the reader's last tap
+            const open = hasSubs && (pick === true || (pick !== false && !!sel && sel !== 'all'));
             const row = el('div', { class: `fcat type-${cat.id}` + (sel ? ' on' : '') });
             row.appendChild(check(cat.label, !!sel, { type: cat.id }, ' cat'));
             row.appendChild(count(facet.n));
@@ -598,7 +599,8 @@ window.SkateApp = (() => {
         if (members.length) {
             const onMembers = members.filter(c => S.types[c.id]);
             const anyOn = onMembers.length > 0, allOn = onMembers.length === members.length;
-            const open = !!S.expandedCats[OTHER_KEY] || (anyOn && !allOn);
+            const pickO = S.expandedCats[OTHER_KEY];
+            const open = pickO === true || (pickO !== false && anyOn && !allOn);
             const row = el('div', { class: `fcat type-other group` + (anyOn ? ' on' : '') });
             const box = check('Other', anyOn, { type: OTHER_KEY }, ' cat');
             box.querySelector('input').indeterminate = anyOn && !allOn;
@@ -2722,7 +2724,7 @@ window.SkateApp = (() => {
             ['.fexpand, .ftoggle', (b) => {
                 const k = b.dataset.expand;
                 if (k === '__filters') S.moreFilters = !S.moreFilters;
-                else S.expandedCats[k] = !S.expandedCats[k];
+                else S.expandedCats[k] = b.getAttribute('aria-expanded') !== 'true';   // explicit: closes even with a partial pick
                 Render.filters();
             }],
             ['.fchip[data-day]', (b) => Actions.setDay(b.dataset.day)],

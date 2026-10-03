@@ -812,7 +812,10 @@ body.hide-guides.hide-chats .view-tabs { display: none; }
 /* ---- list: day headers + lighter rows + show more ---- */
 .day-head {
     list-style: none;
-    position: sticky; top: -1px; z-index: 3;
+    /* -11px, not -1px: the panel scrolls with 10px of padding and browsers
+       measure a sticky offset from inside that padding, so -1px left a 9px
+       strip of the previous card showing above the stuck header. */
+    position: sticky; top: -11px; z-index: 3;
     background: var(--bg);
     padding: 10px 2px 5px; margin: 2px 0 8px;
     font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
