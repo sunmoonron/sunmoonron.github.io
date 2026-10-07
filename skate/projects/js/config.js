@@ -43,6 +43,7 @@ window.SkateConfig = {
                 'Installed iOS app: iOS 26 paints a frosted band under the status bar that no setting turns off, so the top bar now starts below it and the band blurs a flat colour instead of the title.',
                 'Private threads follow the key: importing or resetting the identity archives the old key\'s threads and starts the new key clean (the relay replays its last 30 days). Settings shows which key the device holds and whether the dev inbox is on; Reset identity keeps saved sessions and settings.',
                 'The dev inbox receives even when Allow DMs is off in Privacy (importing the dev key switches it on and says so).',
+                'Paid sessions now show by default with their price; the top-bar switch is a green Free only. The Filters sheet has the same switch.',
                 'A rink alert that names one pad and a building notice that names the same pad no longer add up to "likely cancelled": the session runs on the other pad. Building-wide closures do cancel. Stale "cancelled today" notices only count on the day they were posted.'
             ]
         },
@@ -285,7 +286,7 @@ window.SkateConfig = {
         { sel: '#active-filters',        title: 'Your active filters',   text: 'Each pill is one filter. Tap the x to remove it. Tap the city pill to pick other cities.', sec: 5 },
         { sel: '#btn-rinks',             title: 'Rinks and map',         text: 'Every rink on a map, with distances from your location or an address you type. Star the rinks that are yours.', sec: 6 },
         { sel: '#view-seg',              title: 'List or calendar',      text: 'The same sessions as a list or a week grid. In the grid, tap a day chip to jump to that day and any block for details.', sec: 5 },
-        { sel: '#btn-paid',              title: 'Show paid',             text: 'Paid rinks are hidden until you switch this on. Prices then show on each session.', sec: 4 },
+        { sel: '#btn-free',              title: 'Free only',             text: 'Everything shows with its price. Switch this on to keep only the free sessions.', sec: 4 },
         { sel: '#btn-refresh',           title: 'Refresh',               text: 'Reloads the schedule, rink alerts and live spots. The status line under the buttons says when things were last checked.', sec: 5 },
         { sel: '#program-list .program-item', title: 'A session',        text: 'Time, rink, ages and price. Tap the rink name for directions; the small globe beside it opens the official rink page, the one the staff go by. The heart saves the session.', sec: 7 },
         { sel: '#program-list .btn-copy', title: 'More',                 text: 'Copy the details, add the session to your calendar, share it into a chat, or add this rink to your rinks.', sec: 5 },

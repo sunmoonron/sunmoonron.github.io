@@ -1566,3 +1566,9 @@ body.dark-mode .top-feedback:hover { background: color-mix(in srgb, var(--acc-pr
 /* ---- "2 pads": the same session listed once per pad by the venue, merged into one card ---- */
 .pads-badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap; background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
 body.dark-mode .pads-badge { background: #1b2530; border-color: #38485a; }
+
+/* ---- Free only: the green switch that replaced Show paid ---- */
+.top-toggle.free:hover { border-color: var(--live); }
+.top-toggle.free.active { background: color-mix(in srgb, var(--live) 16%, var(--bg-white)); border-color: var(--live); color: var(--text); }
+.top-toggle.free.active .top-toggle-dot { background: var(--live); box-shadow: 0 0 0 3px color-mix(in srgb, var(--live) 25%, transparent); }
+body.dark-mode .top-toggle.free.active { background: color-mix(in srgb, var(--live) 22%, #1b2530); border-color: var(--live); color: var(--text); }

@@ -49,7 +49,7 @@ window.SkateApp = (() => {
         cal2Day: null,                 // Calendar 2.0's selected day (today until tapped)
         cal2By: SkateSettings.get('cal2By') || 'time',   // Calendar 2.0 grouping: time of day | rink
         cal2ShowEnded: false,          // Calendar 2.0: today's ended sessions unfolded
-        paidVisible: !!SkateSettings.get('paidVisible'),
+        paidVisible: !SkateSettings.get('freeOnly'),   // everything shows with its price unless Free only is on
         rinkScope: SkateSettings.get('rinkScope') || 'all',
         sort: SkateSettings.get('sort') || 'time',
         calMode: !!SkateSettings.get('calMode'),
@@ -512,9 +512,9 @@ window.SkateApp = (() => {
         $('btn-list').setAttribute('aria-pressed', S.calMode ? 'false' : 'true');
         $('btn-cal').classList.toggle('active', S.calMode);
         $('btn-cal').setAttribute('aria-pressed', S.calMode ? 'true' : 'false');
-        $('btn-paid').classList.toggle('active', S.paidVisible);
-        $('btn-paid').setAttribute('aria-pressed', S.paidVisible ? 'true' : 'false');
-        $('btn-paid').title = S.paidVisible ? 'Paid venues are shown. Tap to hide them.' : 'Paid venues are hidden. Tap to show them with prices.';
+        $('btn-free').classList.toggle('active', !S.paidVisible);
+        $('btn-free').setAttribute('aria-pressed', S.paidVisible ? 'false' : 'true');
+        $('btn-free').title = S.paidVisible ? 'Showing everything with prices. Tap for free sessions only.' : 'Showing free sessions only. Tap to show paid ones too.';
     };
 
     /* ---------- Filters sheet ---------- */
@@ -641,7 +641,7 @@ window.SkateApp = (() => {
         const mineRow = check(`My rinks only${mine ? ` (${mine})` : ''}`, S.rinkScope === 'mine', { flag: 'mine' });
         mineRow.appendChild(el('button', { class: 'flink', dataset: { open: 'rinks' } }, [mine ? 'Edit' : 'Pick rinks']));
         where.appendChild(mineRow);
-        where.appendChild(check(`Include paid venues (${f.paid})`, S.paidVisible, { flag: 'paid' }));
+        where.appendChild(check(`Free sessions only${f.paid ? ` (hides ${f.paid} paid)` : ''}`, !S.paidVisible, { flag: 'free' }));
 
         // MORE: ended, saved-only, dropped, order (folded unless something in it is set)
         const inUse = S.showPast || S.savedOnly || S.showDropped || S.sort !== 'time';
@@ -845,7 +845,7 @@ window.SkateApp = (() => {
         if (!filtered.length) {
             const paidOnly = !S.paidVisible && S.paidMatching > 0;
             const empty = S.savedOnly ? 'Nothing saved yet. Tap ♡ on any session to keep it here.'
-                : paidOnly ? `All ${S.paidMatching} matching session${S.paidMatching === 1 ? ' is' : 's are'} at paid venues. Tap Paid in the top bar to show them.`
+                : paidOnly ? `All ${S.paidMatching} matching session${S.paidMatching === 1 ? ' is' : 's are'} at paid venues. Switch Free only off in the top bar to show them.`
                 : S.rinkScope === 'mine' ? 'Nothing at your rinks with these filters. Tap the My rinks pill to see every rink.'
                 : 'No sessions match. Try fewer filters, or tap the city pill to add cities.';
             list.innerHTML = `<li class="loading">${empty}</li>`;
@@ -1723,7 +1723,7 @@ window.SkateApp = (() => {
             if (st?.missing) items.push({ label: S.showDropped ? 'Hide the sessions toronto.ca no longer lists' : `Show the ${st.missing} session${st.missing === 1 ? '' : 's'} toronto.ca no longer lists`, onClick: () => Actions.setFlag('dropped', !S.showDropped) });
             items.push({ label: 'Refresh now', onClick: () => Actions.refreshPrograms() });
             items.push({ label: 'Ask for a fresh pull from the City', onClick: () => Actions.requestCityRefresh() });
-            if (!S.paidVisible && S.paidMatching) items.push({ label: `Show ${S.paidMatching} paid sessions`, onClick: () => Actions.setFlag('paid', true) });
+            if (!S.paidVisible && S.paidMatching) items.push({ label: `Show ${S.paidMatching} paid sessions`, onClick: () => Actions.setFlag('free', false) });
             return items;
         },
 
@@ -1876,7 +1876,7 @@ window.SkateApp = (() => {
     function persistFilters() {
         SkateSettings.set('typeSel', S.types);
         SkateSettings.set('cities', S.cities);
-        SkateSettings.set('paidVisible', S.paidVisible);
+        SkateSettings.set('freeOnly', !S.paidVisible);
         SkateSettings.set('rinkScope', S.rinkScope);
         SkateSettings.set('sort', S.sort);
     }
@@ -1930,6 +1930,7 @@ window.SkateApp = (() => {
         if (flag === 'saved') S.savedOnly = !!on;
         else if (flag === 'past') S.showPast = !!on;
         else if (flag === 'paid') S.paidVisible = !!on;
+        else if (flag === 'free') S.paidVisible = !on;
         else if (flag === 'dropped') S.showDropped = !!on;
         else if (flag === 'mine') {
             const keys = SkateSettings.get('myRinks') || [];
@@ -1945,7 +1946,7 @@ window.SkateApp = (() => {
     };
     Actions.resetFilters = function () {
         S.types = {}; S.cities = []; S.day = ''; S.age = null; S.savedOnly = false;
-        S.showPast = false; S.nearRink = null; S.rinkScope = 'all'; S.sort = 'time'; S.paidVisible = false;
+        S.showPast = false; S.nearRink = null; S.rinkScope = 'all'; S.sort = 'time'; S.paidVisible = true;
         S.showDropped = false; S.moreFilters = false; S.expandedCats = {};
         filtersChanged();
     };
@@ -1959,7 +1960,7 @@ window.SkateApp = (() => {
         else if (key === 'age') S.age = null;
         else if (key === 'saved') S.savedOnly = false;
         else if (key === 'near') S.nearRink = null;
-        else if (key === 'paid') S.paidVisible = false;
+        else if (key === 'paid') S.paidVisible = true;
         else if (key === 'past') S.showPast = false;
         else if (key === 'dropped') S.showDropped = false;
         else if (key === 'cities') S.cities = [];
@@ -2029,7 +2030,7 @@ window.SkateApp = (() => {
         const sp = upcomingSplit(key);
         if (sp.free === 0 && sp.paid > 0) {
             S.paidVisible = true;
-            SkateSettings.set('paidVisible', true);
+            SkateSettings.set('freeOnly', false);
             SkateChat.Notify.toast(`${what || 'That rink'} only has paid sessions. Paid is now on so they show.`, 'info', 4000);
         }
     }
@@ -2143,7 +2144,7 @@ window.SkateApp = (() => {
         // widen anything that would hide this rink's sessions
         if (S.rinkScope === 'mine' && !(SkateSettings.get('myRinks') || []).includes(key)) S.rinkScope = 'all';
         const rink = SkateGeo.rinkByLocation(key);
-        if (rink && rink.paid) { S.paidVisible = true; SkateSettings.set('paidVisible', true); }
+        if (rink && rink.paid) { S.paidVisible = true; SkateSettings.set('freeOnly', false); }
         ensurePaidVisibleFor(key, name);
         SkateMap.close();
         Actions.applyFilters();
@@ -2693,7 +2694,7 @@ window.SkateApp = (() => {
         $('btn-list').onclick = () => Actions.setCalMode(false);
         $('btn-cal').onclick = () => Actions.setCalMode(true);
         $('btn-refresh').onclick = () => Actions.refreshPrograms();
-        $('btn-paid').onclick = () => Actions.setFlag('paid', !S.paidVisible);
+        $('btn-free').onclick = () => Actions.setFlag('free', S.paidVisible);
 
         // ---- Pills (the city pill opens a picker; its x clears to every city) ----
         delegate($('active-filters'), [
