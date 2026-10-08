@@ -2524,7 +2524,8 @@ async function refreshLiveSpots() {
             games.forEach(g => { if (cfg.activities[(g.sport && g.sport.slug) || '']) noteLiveSpots(g); });
             console.log(`   🎟️  ${key}: ${games.length} games re-read for live counts`);
         } catch (e) {
-            console.warn(`   ⚠️ ${key} live counts: ${e.message}`);
+            console.warn(`   ⚠️ ${key} live counts: ${(e && (e.message || e.code)) || String(e)}`);
+            if (e && !e.message && e.stack) console.warn(`      ${e.stack.split('\n').slice(0, 2).join(' | ')}`);
         }
     }
     writeLiveSpots();
