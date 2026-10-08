@@ -1581,9 +1581,11 @@ body.dark-mode .facts-badge { background: #1b2530; border-color: #38485a; }
 body.dark-mode .facts-badge.yes { border-color: var(--live, #4cc27a); }
 
 /* ---------- v3.7b: map interactivity (rink names fly to pins; a visible You marker) ---------- */
-.rink-name { all: unset; cursor: pointer; font: inherit; font-weight: 700; color: inherit; border-radius: 4px; }
-.rink-name:hover, .rink-name:focus-visible { color: var(--acc-programs); text-decoration: underline; }
+.rink-row[data-map-focus] { cursor: pointer; transition: border-color .15s ease; -webkit-tap-highlight-color: transparent; }
 .rink-row.focused { border-color: var(--acc-programs); }
+@media (hover: hover) { .rink-row[data-map-focus]:hover { border-color: var(--acc-programs); } }   /* no sticky highlight after a tap on phones */
+.rink-row[data-map-focus]:focus-visible { outline: 2px solid var(--acc-programs); outline-offset: 2px; }
+.rink-row .btn-small { cursor: pointer; }
 .you-pin-wrap { background: transparent; border: 0; }
 .you-pin { position: relative; width: 0; height: 0; }
 .you-dot { position: absolute; left: 0; top: 0; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: #1673c4; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, .45); }

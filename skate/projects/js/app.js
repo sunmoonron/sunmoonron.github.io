@@ -1507,10 +1507,17 @@ window.SkateApp = (() => {
                 ...(factsFor(key) ? factsBits(factsFor(key)) : [])   // v3.7: rentals / admission / helmets from the rink's site
             ].filter(Boolean).join(' · ');
             const label = sessions ? `${sessions} session${sessions === 1 ? '' : 's'}` : (sp.paid ? `${sp.paid} paid` : 'No sessions');
-            const node = el('div', { class: 'rink-row' + (starred ? ' starred' : '') + (alerts.length ? ' has-alert' : '') });
+            // The whole row shows the rink on the map (the delegate lets the
+            // sessions and star buttons win first); Enter/Space does the same.
+            const node = el('div', { class: 'rink-row' + (starred ? ' starred' : '') + (alerts.length ? ' has-alert' : ''), dataset: { mapFocus: key }, role: 'button', tabindex: '0', title: 'Show on the map' });
+            node.onkeydown = (e) => {
+                if (e.target !== node || (e.key !== 'Enter' && e.key !== ' ')) return;
+                e.preventDefault();
+                SkateMap.focusRink(key);
+                node.classList.add('focused'); setTimeout(() => node.classList.remove('focused'), 1600);
+            };
             node.appendChild(el('div', { class: 'rink-info' }, [
-                el('strong', {}, [
-                    el('button', { class: 'rink-name', type: 'button', dataset: { mapFocus: key }, title: 'Show on the map' }, [r.name]),
+                el('strong', {}, [r.name,
                     ...(alerts.length ? [el('span', { class: 'rink-alert', title: 'Service alert: ' + alerts.map(a => a.Reason).join(', ') }, ['alert'])] : [])]),
                 el('span', { class: 'rink-meta' }, [meta])
             ]));
@@ -2854,7 +2861,7 @@ window.SkateApp = (() => {
         delegate($('rinks-list'), [
             ['[data-loc-filter]', (b) => Actions.filterToRink(b.dataset.locFilter, b.dataset.locName)],
             ['[data-loc-star]', (b) => Actions.toggleMyRink(b.dataset.locStar)],
-            // v3.7b: the rink's name flies the map to its pin and opens it
+            // v3.7b: anywhere on the row flies the map to the rink's pin and opens it
             ['[data-map-focus]', (b) => {
                 SkateMap.focusRink(b.dataset.mapFocus);
                 const row = b.closest('.rink-row');

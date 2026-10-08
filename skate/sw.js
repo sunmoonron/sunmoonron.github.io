@@ -14,7 +14,7 @@
  * Bump CACHE on releases that must evict old assets immediately;
  * otherwise network-first keeps everything current anyway.
  */
-const CACHE = 'skate-v3.7b';
+const CACHE = 'skate-v3.7c';
 
 self.addEventListener('install', (e) => {
     e.waitUntil(

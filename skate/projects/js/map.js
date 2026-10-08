@@ -120,8 +120,15 @@ window.SkateMap = (() => {
         const canvas = document.getElementById('map-canvas');
         if (canvas && canvas.scrollIntoView) canvas.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         map.invalidateSize();
-        map.flyTo(target, Math.max(map.getZoom(), 14), { duration: 0.8 });
-        if (m) setTimeout(() => { if (map) m.openPopup(); }, 850);
+        const zoom = Math.max(map.getZoom(), 14);
+        // Park the pin a little below centre so the popup (which opens above it)
+        // fits even on a phone's short map; open it once the fly-in has settled.
+        const centre = map.unproject(map.project(target, zoom).subtract([0, Math.round(map.getSize().y * 0.15)]), zoom);
+        let opened = false;
+        const openIt = () => { if (opened || !map || !m) return; opened = true; m.openPopup(); };
+        map.once('moveend', openIt);
+        map.flyTo(centre, zoom, { duration: 0.8 });
+        setTimeout(openIt, 1200);   // no move happened (already there) → still open it
         return true;
     }
 
