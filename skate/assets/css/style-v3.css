@@ -1579,3 +1579,15 @@ body.dark-mode .top-toggle.free.active { background: color-mix(in srgb, var(--li
 a.facts-badge:hover, a.facts-badge:focus-visible { text-decoration: underline; }
 body.dark-mode .facts-badge { background: #1b2530; border-color: #38485a; }
 body.dark-mode .facts-badge.yes { border-color: var(--live, #4cc27a); }
+
+/* ---------- v3.7b: map interactivity (rink names fly to pins; a visible You marker) ---------- */
+.rink-name { all: unset; cursor: pointer; font: inherit; font-weight: 700; color: inherit; border-radius: 4px; }
+.rink-name:hover, .rink-name:focus-visible { color: var(--acc-programs); text-decoration: underline; }
+.rink-row.focused { border-color: var(--acc-programs); }
+.you-pin-wrap { background: transparent; border: 0; }
+.you-pin { position: relative; width: 0; height: 0; }
+.you-dot { position: absolute; left: 0; top: 0; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: #1673c4; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, .45); }
+.you-ring { position: absolute; left: 0; top: 0; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; border: 3px solid #2f9fc4; opacity: .9; animation: you-pulse 2s ease-out infinite; }
+@keyframes you-pulse { 0% { transform: scale(.35); opacity: .9; } 100% { transform: scale(1.3); opacity: 0; } }
+.you-label { position: absolute; left: 0; top: 12px; transform: translateX(-50%); background: #1673c4; color: #fff; font: 700 11px/1 system-ui, -apple-system, sans-serif; padding: 4px 8px; border-radius: 10px; white-space: nowrap; box-shadow: 0 2px 6px rgba(0, 0, 0, .35); }
+@media (prefers-reduced-motion: reduce) { .you-ring { animation: none; transform: scale(.6); } }

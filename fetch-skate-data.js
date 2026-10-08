@@ -823,9 +823,21 @@ function cleanAge(v) {
 
 /* ================= Rink inventory → rinks.json ================= */
 
+/**
+ * "McGREGOR PARK COMMUNITY CENTRE" → "McGregor Park Community Centre".
+ * Shouty = four letters in five are capitals (the City's asset names keep a
+ * lowercase c in "McGREGOR", so an all-caps test let it through); Mc names
+ * and O'Names keep their inner capital, small words stay small.
+ */
 function titleCaseIfShouty(s) {
-    if (!s || s !== s.toUpperCase()) return s || '';
-    return s.toLowerCase().replace(/(^|[\s\-\/('.])([a-z])/g, (m, pre, ch) => pre + ch.toUpperCase());
+    if (!s) return '';
+    const letters = s.replace(/[^A-Za-z]/g, '');
+    if (letters.length < 4 || letters.replace(/[^A-Z]/g, '').length < letters.length * 0.8) return s;
+    const SMALL = new Set(['of', 'and', 'the', 'at', 'on', 'in', 'de', 'du', 'des', 'la', 'le']);
+    return s.toLowerCase()
+        .replace(/(^|[\s\-\/('.])([a-z])/g, (m, pre, ch) => pre + ch.toUpperCase())
+        .replace(/\bMc([a-z])/g, (m, ch) => 'Mc' + ch.toUpperCase())
+        .replace(/\s([A-Z][a-z]+)\b/g, (m, w) => SMALL.has(w.toLowerCase()) ? ' ' + w.toLowerCase() : m);
 }
 
 /**
@@ -3134,5 +3146,5 @@ async function main() {
 }
 
 if (require.main === module) main();
-module.exports = { llmParseSchedule, parseScheduleText, fetchLiveCheck, EXTERNAL_SOURCES, parseTimeRange, parseSeasonRange, parseDateList, parseWeekdayGridText, parseWeekdayLinesText, favouriteId, writeIcsFiles, dedupePrograms, sessionIdentity };
+module.exports = { llmParseSchedule, parseScheduleText, fetchLiveCheck, EXTERNAL_SOURCES, parseTimeRange, parseSeasonRange, parseDateList, parseWeekdayGridText, parseWeekdayLinesText, favouriteId, writeIcsFiles, dedupePrograms, sessionIdentity, titleCaseIfShouty };
 

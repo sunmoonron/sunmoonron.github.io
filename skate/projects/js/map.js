@@ -25,6 +25,8 @@ window.SkateMap = (() => {
     let map = null;
     let pinLayer = null;
     let userMarker = null;
+    let markersByKey = {};     // String(locationid) → marker, for focusRink()
+    let lastUserKey = null;    // "lat,lng" of the user point last drawn (a change flies the map there)
     let filter = 'all';        // 'all' | 'indoor' | 'outdoor'
     let hooks = {};            // { popupHtml(rink), onOpen(), userPoint(), rinkFilter(rink) }
 
@@ -68,25 +70,59 @@ window.SkateMap = (() => {
         return (r.kinds || []).includes(filter);
     }
 
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
     function renderPins() {
         if (!map) return;
         pinLayer.clearLayers();
+        markersByKey = {};
         const rinks = (window.SkateGeo?.rinks || []).filter(r => r.lat != null && rinkMatchesFilter(r) && (!hooks.rinkFilter || hooks.rinkFilter(r)));
         rinks.forEach(r => {
             const marker = L.marker([r.lat, r.lng], { title: r.name });
             marker.bindPopup(() => (hooks.popupHtml ? hooks.popupHtml(r) : r.name), { maxWidth: 260 });
             pinLayer.addLayer(marker);
+            markersByKey[String(r.locationid)] = marker;
         });
 
-        // user's saved 📍 point as a blue dot
+        // The saved 📍 point: a pulsing ring, a dot and a "You" pill (the old
+        // 8 px circle vanished among the pins). A changed point flies the map there.
         const u = hooks.userPoint ? hooks.userPoint() : null;
         if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
         if (u && typeof u.lat === 'number') {
-            userMarker = L.circleMarker([u.lat, u.lng], {
-                radius: 8, color: '#1673c4', weight: 2, fillColor: '#2f9fc4', fillOpacity: 0.85
-            }).addTo(map).bindPopup(`${u.label || 'Your location'}`);
+            const icon = L.divIcon({
+                className: 'you-pin-wrap',
+                html: `<div class="you-pin" aria-label="${esc(u.label || 'Your location')}"><span class="you-ring"></span><span class="you-dot"></span><span class="you-label">You</span></div>`,
+                iconSize: [0, 0], iconAnchor: [0, 0]
+            });
+            userMarker = L.marker([u.lat, u.lng], { icon, zIndexOffset: 1000, title: u.label || 'Your location' })
+                .addTo(map).bindPopup(esc(u.label || 'Your location'));
+            const key = `${u.lat},${u.lng}`;
+            if (lastUserKey !== null && key !== lastUserKey) map.flyTo([u.lat, u.lng], Math.max(map.getZoom(), 12), { duration: 0.8 });
+            lastUserKey = key;
+        } else {
+            lastUserKey = null;
         }
         return rinks.length;
+    }
+
+    /**
+     * Fly to a rink's pin and open it (the list's rink names call this).
+     * A rink hidden by the indoor/outdoor filter shows everything first.
+     */
+    function focusRink(key) {
+        if (!map) return false;
+        key = String(key);
+        if (!markersByKey[key] && filter !== 'all') setFilter('all');
+        const m = markersByKey[key];
+        const r = (window.SkateGeo?.rinks || []).find(x => String(x.locationid) === key);
+        const target = m ? m.getLatLng() : (r && r.lat != null ? L.latLng(r.lat, r.lng) : null);
+        if (!target) return false;
+        const canvas = document.getElementById('map-canvas');
+        if (canvas && canvas.scrollIntoView) canvas.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        map.invalidateSize();
+        map.flyTo(target, Math.max(map.getZoom(), 14), { duration: 0.8 });
+        if (m) setTimeout(() => { if (map) m.openPopup(); }, 850);
+        return true;
     }
 
     function setFilter(f) {
@@ -111,8 +147,12 @@ window.SkateMap = (() => {
             throw e;
         }
         initMap();
-        setFilter(opts.filter || filter || 'all');
+        // With a saved location the map opens around it (rinks near you), else Toronto-wide.
+        const u = hooks.userPoint ? hooks.userPoint() : null;
         if (opts.center) map.setView(opts.center, opts.zoom || 13);
+        else if (u && typeof u.lat === 'number') map.setView([u.lat, u.lng], 12);
+        lastUserKey = (u && typeof u.lat === 'number') ? `${u.lat},${u.lng}` : null;   // the view was just set: no fly on this render
+        setFilter(opts.filter || filter || 'all');
         // modal was display:none during init → recalc dimensions
         requestAnimationFrame(() => map.invalidateSize());
         setTimeout(() => map && map.invalidateSize(), 250);   // rAF can be throttled in bg tabs
@@ -126,7 +166,7 @@ window.SkateMap = (() => {
     /** Re-render pins in place (e.g. after starring a rink from a popup). */
     function refresh() { if (map) renderPins(); }
 
-    return { configure, open, close, setFilter, refresh, get isOpen() { return !document.getElementById('rinks-modal').classList.contains('hidden'); } };
+    return { configure, open, close, setFilter, refresh, focusRink, get isOpen() { return !document.getElementById('rinks-modal').classList.contains('hidden'); } };
 })();
 
 if (typeof module !== 'undefined') module.exports = window.SkateMap;

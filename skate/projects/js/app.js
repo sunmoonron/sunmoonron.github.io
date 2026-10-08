@@ -1509,7 +1509,9 @@ window.SkateApp = (() => {
             const label = sessions ? `${sessions} session${sessions === 1 ? '' : 's'}` : (sp.paid ? `${sp.paid} paid` : 'No sessions');
             const node = el('div', { class: 'rink-row' + (starred ? ' starred' : '') + (alerts.length ? ' has-alert' : '') });
             node.appendChild(el('div', { class: 'rink-info' }, [
-                el('strong', {}, [r.name, ...(alerts.length ? [el('span', { class: 'rink-alert', title: 'Service alert: ' + alerts.map(a => a.Reason).join(', ') }, ['alert'])] : [])]),
+                el('strong', {}, [
+                    el('button', { class: 'rink-name', type: 'button', dataset: { mapFocus: key }, title: 'Show on the map' }, [r.name]),
+                    ...(alerts.length ? [el('span', { class: 'rink-alert', title: 'Service alert: ' + alerts.map(a => a.Reason).join(', ') }, ['alert'])] : [])]),
                 el('span', { class: 'rink-meta' }, [meta])
             ]));
             const sessionsBtn = el('button', {
@@ -2851,7 +2853,13 @@ window.SkateApp = (() => {
         $('rinks-search').oninput = () => Render.rinks();
         delegate($('rinks-list'), [
             ['[data-loc-filter]', (b) => Actions.filterToRink(b.dataset.locFilter, b.dataset.locName)],
-            ['[data-loc-star]', (b) => Actions.toggleMyRink(b.dataset.locStar)]
+            ['[data-loc-star]', (b) => Actions.toggleMyRink(b.dataset.locStar)],
+            // v3.7b: the rink's name flies the map to its pin and opens it
+            ['[data-map-focus]', (b) => {
+                SkateMap.focusRink(b.dataset.mapFocus);
+                const row = b.closest('.rink-row');
+                if (row) { row.classList.add('focused'); setTimeout(() => row.classList.remove('focused'), 1600); }
+            }]
         ]);
         delegate($('rinks-scope'), [
             ['[data-rinks-scope]', (b) => { S.rinksAllCities = b.dataset.rinksScope === 'all'; Render.rinks(); SkateMap.refresh(); }]

@@ -40,6 +40,7 @@ window.SkateConfig = {
                 'Three more Toronto arenas: Larry Grossman Forest Hill Memorial Arena ($3 pleasure skate, October to April), Leaside Memorial Community Gardens (free adults-only and all-ages skates, figure ticket ice) and William H. Bolton Arena (free public, adults-only and parent-and-tot skates). These are board-run City arenas with no live feed, so their schedules are read from their own websites, like Moss Park.',
                 'Skate rentals: a ⛸ Rentals chip on sessions at rinks whose own website says they rent skates (with the price when posted), and No rentals where the site says so. Rinks & map lists rentals, admission and helmet rules per rink. Every fact is a sentence quoted from the venue site (hover or tap the chip to read it), re-checked monthly; anything a site does not say stays blank.',
                 'Leaside\'s figure skating ticket ice and adult shinny now come from PickupHub, the arena\'s registration system: exact dates and pads, spots left (say 20/22), Full, and when registration opens, refreshed every ten minutes.',
+                'Rinks & map: tap a rink\'s name in the list and the map flies to its pin and opens it. Your saved location is a pulsing You marker, and the map opens centred on it.',
             ]
         },
         {
