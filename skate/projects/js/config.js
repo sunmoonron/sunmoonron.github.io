@@ -20,19 +20,27 @@ const LEISURE_WORDS = [
     'senior skate', 'older adult skate', 'adult skate fit', 'sensory skate',
     'parent & tot skate', 'parent and tot skate', 'skate 19+', 'family skate', 'daytime skate',
     // Stouffville "Adult/Senior Free Skate", Ajax/Oshawa "Adult Skate" / "Parent & Tot", Pickering "Parent & Child Skate"
-    'free skate', 'adult skate', 'parent & tot', 'parent and tot', 'parent & child skate'
+    'free skate', 'adult skate', 'parent & tot', 'parent and tot', 'parent & child skate',
+    // Toronto's board-run arenas (v3.7): Grossman "Pleasure Skate", Leaside "Community Skate", Bolton "Adults Only Skate"
+    'pleasure skat', 'community skat', 'adults only skat'
 ];
 
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.6',
+    version: '3.7',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
     // (npub1p07dm5lcx2gn6qq8t7fyduh5tsmz64r823h9j0kgutcas757tg7s096ykw).
     devPubkey: '0bfcddd3f832913d00075f9246f2f45c362d5467546e593ec8e2f1d87a9e5a3d',
     changelog: [
+        {
+            v: '3.7', date: '2026-10-07', items: [
+                'Three more Toronto arenas: Larry Grossman Forest Hill Memorial Arena ($3 pleasure skate, October to April), Leaside Memorial Community Gardens (free adults-only and all-ages skates, figure ticket ice) and William H. Bolton Arena (free public, adults-only and parent-and-tot skates). These are board-run City arenas with no live feed, so their schedules are read from their own websites, like Moss Park.',
+                'Skate rentals: a ⛸ Rentals chip on sessions at rinks whose own website says they rent skates (with the price when posted), and No rentals where the site says so. Rinks & map lists rentals, admission and helmet rules per rink. Every fact is a sentence quoted from the venue site (hover or tap the chip to read it), re-checked monthly; anything a site does not say stays blank.',
+            ]
+        },
         {
             v: '3.6', date: '2026-09-25', items: [
                 'Filters: an Other group (Ice Breakdancing, Adaptive, Ringette, Speed) sits with Leisure, Figure and Hockey, and first-time visitors start with Toronto, Leisure, Figure and Other. Adaptive programs are caught properly now ("Adapted Leisure Skate", "Sensory Skate", "Sledge Shinny" used to land under Leisure or Hockey).',
@@ -397,6 +405,21 @@ window.SkateConfig = {
                          note: 'Official Mississauga drop-in calendar. Adult $5.21, child, youth and 55 plus $4.17 including tax (by-law rates, tickets at the door 30 minutes before); residents 65 and over and kids 3 and under free.' },
         'mosspark':    { city: 'Toronto', label: 'mossparkarena.com', verified: false, site: 'mossparkarena.com',
                          note: 'Schedule read from their website. There is no live feed for this arena.' },
+        // v3.7: the other board-run City arenas, each read from its own site (no live feed)
+        'grossman':    { city: 'Toronto', label: 'Larry Grossman Forest Hill Memorial Arena', verified: false, site: 'larrygrossmanforesthillarena.com',
+                         note: 'Schedule read from the arena board\'s website, no live feed. $3 per person at the door; skate rentals $6 per pair; helmets mandatory under 6.' },
+        'leaside-public':    { city: 'Toronto', label: 'Leaside Memorial Community Gardens', verified: false, site: 'leasidegardens.com',
+                         note: 'Schedule read from the arena\'s website, no live feed. Free drop-in, adults 18+ (Rink A).' },
+        'leaside-community': { city: 'Toronto', label: 'Leaside Memorial Community Gardens', verified: false, site: 'leasidegardens.com',
+                         note: 'Schedule read from the arena\'s website, no live feed. Free all-ages skate (Rink B); helmets mandatory for 12 and under.' },
+        'leaside-figure':    { city: 'Toronto', label: 'Leaside Memorial Community Gardens', verified: false, site: 'leasidegardens.com',
+                         note: 'Figure skating ticket ice for adult skaters, $11.50 per skater (HST included). Register on their site; sessions can fill up.' },
+        'bolton-public': { city: 'Toronto', label: 'William H. Bolton Arena', verified: false, site: 'billboltonarena.ca',
+                         note: 'Schedule read from the arena\'s website, no live feed. Free leisure skating; no skate or helmet rentals.' },
+        'bolton-adult':  { city: 'Toronto', label: 'William H. Bolton Arena', verified: false, site: 'billboltonarena.ca',
+                         note: 'Schedule read from the arena\'s website, no live feed. Free adults-only (18+) skate; no skate or helmet rentals.' },
+        'bolton-tots':   { city: 'Toronto', label: 'William H. Bolton Arena', verified: false, site: 'billboltonarena.ca',
+                         note: 'Schedule read from the arena\'s website, no live feed. Free parent and tots skate (4 and under); no skate or helmet rentals.' },
         'stouffville': { city: 'Stouffville', label: 'Whitchurch-Stouffville', verified: false, site: 'townofws.ca',
                          note: 'Weekly schedule read from the Town\'s drop-in PDF, no live feed. Adult $5.50 skate, $7.50 shinny and stick and puck, youth and 60 plus less; cash, debit or credit at the door.' },
         'ajax':        { city: 'Ajax', label: 'Town of Ajax', verified: false, site: 'ajax.ca',

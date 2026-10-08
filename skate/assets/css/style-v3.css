@@ -1572,3 +1572,10 @@ body.dark-mode .pads-badge { background: #1b2530; border-color: #38485a; }
 .top-toggle.free.active { background: color-mix(in srgb, var(--live) 16%, var(--bg-white)); border-color: var(--live); color: var(--text); }
 .top-toggle.free.active .top-toggle-dot { background: var(--live); box-shadow: 0 0 0 3px color-mix(in srgb, var(--live) 25%, transparent); }
 body.dark-mode .top-toggle.free.active { background: color-mix(in srgb, var(--live) 22%, #1b2530); border-color: var(--live); color: var(--text); }
+
+/* ---------- v3.7: venue facts (skate rentals, from the rink's own site) ---------- */
+.facts-badge { display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap; text-decoration: none; background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
+.facts-badge.yes { color: var(--live, #2e9e5b); border-color: var(--live, #2e9e5b); }
+a.facts-badge:hover, a.facts-badge:focus-visible { text-decoration: underline; }
+body.dark-mode .facts-badge { background: #1b2530; border-color: #38485a; }
+body.dark-mode .facts-badge.yes { border-color: var(--live, #4cc27a); }

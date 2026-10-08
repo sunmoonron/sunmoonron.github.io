@@ -371,6 +371,106 @@ const EXTERNAL_SOURCES = {
         unverified: true,     // schedule comes from their website, no live feed → tell users to double-check
         infoUrl: 'https://mossparkarena.com/home/skating/public-skating/'
     },
+    /* ---- Toronto's board-run arenas: City-owned, own websites, never in the City export ---- */
+    'grossman': {
+        kind: 'scrape',
+        url: 'https://larrygrossmanforesthillarena.com/recreational-skating-hours/',
+        daysAhead: 28,
+        activity: 'Pleasure Skate',
+        locationName: 'Larry Grossman Forest Hill Memorial Arena',
+        locationId: 3489,
+        address: '340 Chaplin Cres', district: 'Toronto and East York', postalCode: 'M5P 1A9',
+        lat: 43.7042503753, lng: -79.4201852796,
+        season: { from: '10-01', to: '04-30' },
+        paid: true, price: 3, priceNote: '$3 per person, pay at the door',
+        unverified: true,
+        infoUrl: 'https://larrygrossmanforesthillarena.com/recreational-skating-hours/'
+    },
+    'leaside-public': {
+        kind: 'scrape',
+        url: 'https://leasidegardens.com/arenas/public-skate-times/',
+        section: { from: /Public Skating Drop-In/i, to: /Adult Shinny/i },
+        only: /ADULTS ONLY/i,
+        daysAhead: 28,
+        activity: 'Public Skating: Adults 18+',
+        ageMin: 18,
+        locationName: 'Leaside Memorial Community Gardens',
+        locationId: 789,
+        address: '1073 Millwood Rd', district: 'Toronto and East York', postalCode: 'M4G 1X6',
+        lat: 43.7016796841, lng: -79.3612191537,
+        paid: false, unverified: true,
+        infoUrl: 'https://leasidegardens.com/arenas/public-skate-times/'
+    },
+    'leaside-community': {
+        kind: 'scrape',
+        url: 'https://leasidegardens.com/arenas/public-skate-times/',
+        section: { from: /Public Skating Drop-In/i, to: /Adult Shinny/i },
+        only: /Community Skate/i,
+        daysAhead: 28,
+        activity: 'Community Skate: All Ages',
+        locationName: 'Leaside Memorial Community Gardens',
+        locationId: 789,
+        address: '1073 Millwood Rd', district: 'Toronto and East York', postalCode: 'M4G 1X6',
+        lat: 43.7016796841, lng: -79.3612191537,
+        paid: false, unverified: true,
+        infoUrl: 'https://leasidegardens.com/arenas/public-skate-times/'
+    },
+    'leaside-figure': {
+        kind: 'scrape',
+        url: 'https://leasidegardens.com/arenas/public-skate-times/',
+        section: { from: /drop-in Figure Skating/i, to: null },
+        daysAhead: 28,
+        activity: 'Figure Skating Ticket Ice (Adults)',
+        ageMin: 18,
+        locationName: 'Leaside Memorial Community Gardens',
+        locationId: 789,
+        address: '1073 Millwood Rd', district: 'Toronto and East York', postalCode: 'M4G 1X6',
+        lat: 43.7016796841, lng: -79.3612191537,
+        paid: true, price: 11.5, priceNote: '$11.50 per skater · adult skaters of all levels · register on their site',
+        unverified: true,
+        infoUrl: 'https://leasidegardens.com/arenas/public-skate-times/'
+    },
+    'bolton-public': {
+        kind: 'scrape',
+        url: 'https://www.billboltonarena.ca/public-skating',
+        section: { from: /General Public/i, to: /Adults Only/i },
+        daysAhead: 28,
+        activity: 'Public Skating (Free)',
+        locationName: 'William H. Bolton Arena',
+        locationId: 3495,
+        address: '40 Rossmore Rd', district: 'Toronto and East York', postalCode: 'M6G 4C7',
+        lat: 43.6711959361, lng: -79.4152061268,
+        paid: false, unverified: true,
+        infoUrl: 'https://www.billboltonarena.ca/public-skating'
+    },
+    'bolton-adult': {
+        kind: 'scrape',
+        url: 'https://www.billboltonarena.ca/public-skating',
+        section: { from: /Adults Only/i, to: /Parent/i },
+        daysAhead: 28,
+        activity: 'Adults Only Skate (18+)',
+        ageMin: 18,
+        locationName: 'William H. Bolton Arena',
+        locationId: 3495,
+        address: '40 Rossmore Rd', district: 'Toronto and East York', postalCode: 'M6G 4C7',
+        lat: 43.6711959361, lng: -79.4152061268,
+        paid: false, unverified: true,
+        infoUrl: 'https://www.billboltonarena.ca/public-skating'
+    },
+    'bolton-tots': {
+        kind: 'scrape',
+        url: 'https://www.billboltonarena.ca/public-skating',
+        section: { from: /Parent\s*&\s*Tots?/i, to: /rental/i },
+        daysAhead: 28,
+        activity: 'Parent & Tots Skate (4 and under)',
+        ageMax: 4,
+        locationName: 'William H. Bolton Arena',
+        locationId: 3495,
+        address: '40 Rossmore Rd', district: 'Toronto and East York', postalCode: 'M6G 4C7',
+        lat: 43.6711959361, lng: -79.4152061268,
+        paid: false, unverified: true,
+        infoUrl: 'https://www.billboltonarena.ca/public-skating'
+    },
     /* ---- York & Durham cities without an API (see skate/docs/data-sources/york-durham.md) ---- */
     'stouffville': {
         kind: 'pdf',
@@ -1583,7 +1683,13 @@ function parseScheduleText(text) {
         const weekday = WEEKDAYS.find(w => w.toLowerCase().startsWith(dayToken.slice(0, 3)));
         if (!weekday) return;
 
-        const rule = { weekday, start, end };
+        const rule = { weekday, start, end, text: segment.slice(0, 240) };
+        // "Starts October 2nd, 2026" → nothing before that date
+        const st = segment.match(/\b(?:starts|starting|begins|beginning|resumes?)\s+(?:on\s+)?(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s*(\d{4})?/i);
+        if (st) {
+            const y = st[3] ? parseInt(st[3], 10) : new Date().getFullYear();
+            rule.from = `${y}-${String(MONTHS[st[1].toLowerCase()]).padStart(2, '0')}-${String(parseInt(st[2], 10)).padStart(2, '0')}`;
+        }
         const dr = segment.match(dateRangeRe);
         if (dr) {
             const y2 = parseInt(dr[6], 10);
@@ -1614,7 +1720,17 @@ function parseScheduleText(text) {
  * Any failure at any step falls through — the pipeline never depends on a
  * model being reachable.
  */
-const SCHEDULE_PROMPT = (text) => `Extract the public skating schedule from this arena webpage text. Reply with ONLY a JSON array, no prose. Each item: {"weekday":"Monday".."Sunday","start":"HH:MM","end":"HH:MM"(24h),"from":"YYYY-MM-DD"(optional, only if that line is limited to a date range),"to":"YYYY-MM-DD"(optional)}. Times like "12 – 1 pm" are 12:00-13:00. If a line says a special range like "Saturdays June 27 to July 18 2026 from 12noon to 2pm", include from/to.\n\nPAGE TEXT:\n${text.slice(0, 4000)}`;
+const SCHEDULE_PROMPT = (text) => `Extract the public skating schedule from this arena webpage text. Reply with JSON: {"rules":[{"weekday":"Monday".."Sunday","start":"HH:MM","end":"HH:MM"(24h),"from":"YYYY-MM-DD"(optional, only if that line is limited to a date range),"to":"YYYY-MM-DD"(optional),"label":"the exact line of the page this rule comes from, copied word for word"}]}. Times like "12 – 1 pm" are 12:00-13:00. If a line says a special range like "Saturdays June 27 to July 18 2026 from 12noon to 2pm", include from/to. Only sessions that are actually listed; never invent any.\n\nPAGE TEXT:\n${text.slice(0, 4000)}`;
+const SCHEDULE_SCHEMA = {
+    type: 'object',
+    properties: { rules: { type: 'array', items: { type: 'object', properties: {
+        weekday: { type: 'string', enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] },
+        start: { type: 'string' }, end: { type: 'string' },
+        from: { type: ['string', 'null'] }, to: { type: ['string', 'null'] },
+        label: { type: 'string' }
+    }, required: ['weekday', 'start', 'end', 'label'] } } },
+    required: ['rules']
+};
 
 /** Raw HTTP(S) POST → response text (small helper shared by both model calls). */
 function postText(url, body, headers, timeoutMs = 60000) {
@@ -1634,12 +1750,19 @@ function postText(url, body, headers, timeoutMs = 60000) {
 }
 
 /** Model reply text → validated schedule rules (or null). */
-function rulesFromModelText(textOut, label) {
-    const jsonMatch = String(textOut || '').match(/\[[\s\S]*\]/);
-    const rules = JSON.parse(jsonMatch ? jsonMatch[0] : textOut);
+function rulesFromModelText(textOut, label, pageText) {
+    const raw = String(textOut || '').replace(/^```json\s*|```$/g, '').trim();
+    let rules;
+    try { const obj = JSON.parse(raw); rules = Array.isArray(obj) ? obj : obj && obj.rules; }
+    catch { const m = raw.match(/\[[\s\S]*\]/); rules = m ? JSON.parse(m[0]) : null; }
     if (!Array.isArray(rules)) return null;
-    const ok = rules.filter(r => WEEKDAYS.includes(r.weekday) && /^\d{2}:\d{2}$/.test(r.start || '') && /^\d{2}:\d{2}$/.test(r.end || ''));
-    console.log(`   🤖 ${label} parsed ${ok.length} schedule rules`);
+    // A rule the model cannot back with a line of the page is a guess: dropped.
+    const corpus = pageText ? normQuote(pageText) : null;
+    const ok = rules
+        .filter(r => WEEKDAYS.includes(r.weekday) && /^\d{2}:\d{2}$/.test(r.start || '') && /^\d{2}:\d{2}$/.test(r.end || '')
+            && (!corpus || (r.label && corpus.includes(normQuote(r.label)))))
+        .map(r => ({ weekday: r.weekday, start: r.start, end: r.end, ...(r.from ? { from: r.from } : {}), ...(r.to ? { to: r.to } : {}), text: r.label || '' }));
+    console.log(`   🤖 ${label} parsed ${ok.length} schedule rules${rules.length !== ok.length ? ` (${rules.length - ok.length} rejected: no verbatim line of the page)` : ''}`);
     return ok.length ? ok : null;
 }
 
@@ -1649,13 +1772,13 @@ async function llmParseSchedule(text) {
         try {
             const model = process.env.OLLAMA_MODEL || 'llama3.1';
             const res = await postText(`${ollama}/api/chat`, JSON.stringify({
-                model, stream: false, format: 'json',
-                options: { temperature: 0 },
+                model, stream: false, think: false, format: SCHEDULE_SCHEMA,   // think:false: a reasoning model otherwise thinks for minutes
+                options: { temperature: 0, num_ctx: 8192 },
                 messages: [{ role: 'user', content: SCHEDULE_PROMPT(text) }]
             }), {}, 120000);
             const parsed = JSON.parse(res);
             const out = parsed.message?.content ?? parsed.response ?? '';
-            const rules = rulesFromModelText(out, `Ollama (${model})`);
+            const rules = rulesFromModelText(out, `Ollama (${model})`, text);
             if (rules) return rules;
         } catch (e) {
             console.warn(`   🤖 Ollama parse skipped (${e.message})`);
@@ -1670,7 +1793,7 @@ async function llmParseSchedule(text) {
             messages: [{ role: 'user', content: SCHEDULE_PROMPT(text) }]
         }), { 'x-api-key': key, 'anthropic-version': '2023-06-01' }, 30000);
         const parsed = JSON.parse(res);
-        return rulesFromModelText(parsed.content?.[0]?.text || '', 'Claude');
+        return rulesFromModelText(parsed.content?.[0]?.text || '', 'Claude', text);
     } catch (e) {
         console.warn(`   🤖 LLM parse skipped (${e.message}) — using regex parser`);
         return null;
@@ -1682,24 +1805,47 @@ async function fetchScraped(sourceKey, cfg) {
     const html = await httpGetText(cfg.url);
     // Prefer the page's main content region; fall back to whole page text
     const contentMatch = html.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)(?:<\/article>|<footer|<aside)/i);
-    const text = stripHtml(contentMatch ? contentMatch[1] : html);
+    let text = stripHtml(contentMatch ? contentMatch[1] : html);
+    // One page, several programs (Leaside: adults-only, family skate, ticket ice):
+    // each source reads only its own section of the text.
+    if (cfg.section) {
+        const a = text.search(cfg.section.from);
+        if (a >= 0) {
+            const rest = text.slice(a);
+            const b = cfg.section.to ? rest.slice(1).search(cfg.section.to) : -1;
+            text = b >= 0 ? rest.slice(0, b + 1) : rest;
+        }
+    }
     console.log(`   📄 ${sourceKey} page text: "${text.slice(0, 160)}…"`);
 
-    const rules = (await llmParseSchedule(text)) || parseScheduleText(text);
+    // The deterministic parser first; the local model only reads pages the
+    // regex cannot, and every model rule must quote a line of the page.
+    let rules = process.env.SCHEDULE_PREFER_LLM ? [] : parseScheduleText(text);   // SCHEDULE_PREFER_LLM=1: exercise the model path
+    if (!rules.length) rules = (await llmParseSchedule(text)) || parseScheduleText(text);
+    // One page, several programs on the same lines (Leaside lists adults-only
+    // and all-ages skates under one heading): keep the lines this source owns.
+    if (cfg.only) rules = rules.filter(r => cfg.only.test(r.text || ''));
+    if (cfg.skip) rules = rules.filter(r => !cfg.skip.test(r.text || ''));
     if (!rules.length) throw new Error('no schedule rules parsed from page');
-    console.log(`   📋 rules: ${rules.map(r => `${r.weekday} ${r.start}-${r.end}${r.from ? ` (${r.from}→${r.to})` : ''}`).join(', ')}`);
+    console.log(`   📋 rules: ${rules.map(r => `${r.weekday} ${r.start}-${r.end}${r.from || r.to ? ` (${r.from ? `from ${r.from}` : ''}${r.to ? ` to ${r.to}` : ''})` : ''}`).join(', ')}`);
 
     const today = torontoDateStr();
     const records = [];
     for (let i = 0; i < cfg.daysAhead; i++) {
         const date = addDays(today, i);
         const weekday = weekdayOf(date);
+        // season window ("October 1 – April 30"): month-day bounds that wrap the new year
+        if (cfg.season) {
+            const md = date.slice(5);
+            const inSeason = cfg.season.from <= cfg.season.to ? (md >= cfg.season.from && md <= cfg.season.to) : (md >= cfg.season.from || md <= cfg.season.to);
+            if (!inSeason) continue;
+        }
         rules.forEach(r => {
             if (r.weekday !== weekday) return;
             if (r.from && date < r.from) return;
             if (r.to && date > r.to) return;
             records.push(externalRecord(cfg, sourceKey, {
-                activity: cfg.activity, date, startTime: r.start, endTime: r.end
+                activity: cfg.activity, date, startTime: r.start, endTime: r.end, ageMin: cfg.ageMin, ageMax: cfg.ageMax, price: cfg.price
             }));
         });
     }
@@ -2317,6 +2463,296 @@ function dedupePrograms(list) {
     return out;
 }
 
+/* ================= Venue facts (rentals, admission, helmets) =================
+ *
+ * The one thing no feed gives us: does this rink rent skates, what does a
+ * drop-in cost, is a helmet required. Each venue's own pages say so, in
+ * prose. This stage reads them with a local model and keeps only what it
+ * can prove:
+ *   - crawl: the venue page we already hold plus same-host links that look
+ *     like skating/fees/rentals pages (depth 1, ≤ 5 pages);
+ *   - narrow: sentences mentioning rentals, admission, fees, prices, helmets;
+ *   - extract: Ollama with a JSON schema (structured outputs), temperature 0;
+ *   - verify: every field must carry a verbatim quote from the page, every
+ *     number in the field must appear in that quote; otherwise the field
+ *     becomes unknown. "Per hour" is an ice rental, never an admission.
+ * Nothing unverified reaches the app. Self-scheduling: a venue is due when
+ * its facts are older than 30 days (3 days after a failure); each full run
+ * refreshes a small batch, so the whole set rolls over without a timer.
+ * Needs OLLAMA_URL; without it the stage is skipped and old facts stand.
+ */
+const FACTS_FILE = 'venue-facts.json';
+const FACTS_TTL_DAYS = 30, FACTS_RETRY_DAYS = 3, FACTS_BATCH = Number(process.env.FACTS_BATCH || 4);
+const FACTS_DEBUG = !!process.env.FACTS_DEBUG;
+const FACTS_MODEL = () => process.env.OLLAMA_FACTS_MODEL || 'qwen3.5:4b';
+// City-owned arenas run by their own boards: not in any City feed, each with a site.
+const ARENA_SITES = {
+    '3489': 'https://larrygrossmanforesthillarena.com/recreational-skating-hours/',
+    '789':  'https://leasidegardens.com/arenas/public-skate-times/',
+    '3495': 'https://www.billboltonarena.ca/public-skating',
+    '3492': 'https://www.ntarena.ca/',
+    '3488': 'https://georgebellarena.com/public-skating',
+    '3490': 'https://www.mccormickarena.com/',
+    '3494': 'https://tedreevearena.com/',
+    '1089': 'https://www.toronto.ca/explore-enjoy/parks-recreation/program-activities/ice-snow-activities/public-leisure-skating/'
+};
+const FACT_WORDS = /rental|rent\b|rented|admission|\bfee|price|cost|\$\s?\d|helmet|free of charge|no charge|free skat|free admission|free public|free drop|per person|per pair|per skater|drop-in|public skat|pleasure skat|leisure skat|recreational skat/i;
+const LINK_WORDS = /skat|rental|rent|admission|fee|price|rate|drop-?in|public|hours|schedule|visit|faq/i;
+
+const FACTS_SCHEMA = {
+    type: 'object',
+    properties: {
+        rentals: { type: 'object', properties: {
+            available: { type: 'string', enum: ['yes', 'no', 'unknown'] },
+            price: { type: ['number', 'null'] },
+            unit: { type: 'string', enum: ['per pair', 'per person', 'per 2 hours', 'per session', 'per hour', 'unknown'] },
+            quote: { type: 'string' } }, required: ['available', 'price', 'unit', 'quote'] },
+        admission: { type: 'object', properties: {
+            price: { type: ['number', 'null'] },
+            unit: { type: 'string', enum: ['per person', 'per session', 'per 2 hours', 'per hour', 'free', 'unknown'] },
+            quote: { type: 'string' } }, required: ['price', 'unit', 'quote'] },
+        helmets: { type: 'object', properties: {
+            rule: { type: 'string', enum: ['required', 'required under age', 'recommended', 'unknown'] },
+            age: { type: ['number', 'null'] },
+            quote: { type: 'string' } }, required: ['rule', 'age', 'quote'] }
+    },
+    required: ['rentals', 'admission', 'helmets']
+};
+const FACTS_PROMPT = (venue, text) => `You read a skating venue's web pages and report three facts about PUBLIC / LEISURE / RECREATIONAL skating (drop-in skating by the public), nothing else.
+Rules:
+- Use only the TEXT below. If the text does not say, answer "unknown" (or null) — never guess.
+- Every "quote" must be copied word for word from the TEXT, one sentence or line that contains the fact. Empty quote = unknown.
+- rentals = renting SKATES to skaters. Ice rentals (renting the rink by the hour), helmet rentals and skate sharpening are NOT skate rentals.
+- admission = what one skater pays to join a public skating session. A price "per hour" is an ice rental, not admission: report unit "per hour" only if the text truly charges skaters per hour. If sessions are free, unit is "free" and price 0.
+- helmets: "required" (everyone), "required under age" (give the age), "recommended", or "unknown".
+- Ignore prices for shinny, hockey, ticket ice, lessons, camps, parties and ice rentals: they are not public skating admission.
+- Write each quote without surrounding quotation marks.
+Venue: ${venue}
+TEXT:
+${text}`;
+
+// Comparison form of a quote: case, curly quotes, dash variants and spacing
+// never decide a match, and a model's habit of wrapping the quote in quotation
+// marks is forgiven.
+const normQuote = (s) => String(s || '').toLowerCase().replace(/[’‘]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim().replace(/^["']+|["']+$/g, '').trim();
+const cleanQuote = (s) => String(s || '').trim().replace(/^["“”']+|["“”']+$/g, '').trim();
+// Guards the model cannot talk its way past: wording that marks a sentence as
+// about something other than skating admission or skate rentals.
+const NOT_ADMISSION_RE = /shinny|hockey|player|stick|puck|goalie|ticket ice|lesson|camp|birthday|party|league|tournament|per hour|\bpass(?:es)?\b|membership|\bmembers?\b|monthly|annual|per month|per year|punch|\bvisits?\b/i;
+// ...and it must actually be about skating admission, not a bare price tier ("Older Adult: $34.86")
+const ADMISSION_CONTEXT_RE = /skat|admission|drop-in|per person|per skater|per visit/i;
+const NOT_SKATE_RENTAL_RE = /ice rental|rent the ice|arena rental|facility rental|room rental|hall rental|per hour|hourly/i;
+const NO_RENTALS_RE = /\b(?:do not|don'?t|does not|doesn'?t|cannot|can'?t|no longer|not)\b[^.]{0,40}\b(?:offer|provide|have|rent)\b[^.]{0,40}\brental|\brentals?\b[^.]{0,20}\b(?:not|no longer) (?:available|offered)|\bno (?:skate |skates? )?rentals?\b/i;
+const YES_RENTALS_RE = /\b(?:offer|provide|have|available)\b[^.]{0,40}\b(?:skate )?rentals?\b|\brentals?\b[^.]{0,20}\b(?:are |is )?available|\$\s?\d+(?:\.\d+)?[^.]{0,20}\bper pair\b|rent(?:al)? skates?\b/i;
+// A helmet sentence counts only when it is plainly about skating sessions
+// (all skaters / patrons / "children 12 and under"), not a lesson, camp or
+// shinny rule that a city's page lists a paragraph away.
+const HELMET_CONTEXT_RE = /\b(?:all skaters|every skater|all patrons|patrons|public skat|leisure skat|pleasure skat|recreational skat|family skat|community skat|drop-in|children (?:\d+|under|aged|age)|kids (?:\d+|under)|under (?:the age of )?\d+|\d+ (?:and|or|&) (?:under|younger)|everyone|all ages)\b/i;
+const NOT_HELMET_RE = /lesson|learn[- ]to|\bclass(?:es)?\b|camp|clinic|shinny|hockey (?:program|league|skills)|stick|puck|goalie|birthday|party/i;
+/** "12 and under" → 12, "under the age of 6" → 5, "ages up to 10" → 10; null when the quote gives no age. */
+function helmetMaxAge(quote) {
+    const q = String(quote || '').toLowerCase();
+    let m;
+    if ((m = q.match(/(\d{1,2})\s*(?:years?(?: of age| old)?)?\s*(?:and|or|&)\s*(?:under|younger|below)/))) return +m[1];
+    if ((m = q.match(/(?:aged?|ages?)\s*(?:up to|to)\s*(\d{1,2})/))) return +m[1];
+    if ((m = q.match(/(?:under|below|younger than|less than)\s*(?:the age of\s*)?(\d{1,2})/))) return +m[1] - 1;
+    return null;
+}
+function quoteVerified(quote, corpus) {
+    const q = normQuote(quote);
+    return q.length >= 12 && corpus.includes(q);
+}
+function numbersIn(s) { return (String(s || '').match(/\d+(?:\.\d+)?/g) || []).map(Number); }
+function verifyField(obj, corpus, numericKeys) {
+    if (!obj || typeof obj !== 'object') return null;
+    if (!quoteVerified(obj.quote, corpus)) return null;
+    const nums = numbersIn(obj.quote);
+    for (const k of numericKeys) {
+        if (obj[k] && !nums.some(n => Math.abs(n - obj[k]) < 0.005)) return null;   // a number the page never said (0 = free, nothing to find)
+    }
+    return obj;
+}
+
+/** "Skate rentals at Chic Murray Arena & Paul Coffey Arena" → ['Chic Murray Arena', 'Paul Coffey Arena']; [] when no place is named. */
+function namedPlaces(quote) {
+    const re = /([A-Z][\w'&.-]+(?:\s+(?:[A-Z][\w'&.-]+|of|the|and|&)){0,5})\s+(Arenas?|Centre|Center|Rinks?|Park|Square|Gardens|Complex|Pavilion)\b/g;
+    const out = []; let m;
+    while ((m = re.exec(String(quote || '')))) out.push(`${m[1]} ${m[2]}`);
+    return out;
+}
+const PLACE_STOP = new Set(['arena', 'arenas', 'centre', 'center', 'community', 'memorial', 'recreation', 'park', 'rink', 'rinks', 'complex', 'gardens', 'sports', 'pavilion', 'the', 'and']);
+/** A sentence that names specific rinks applies only to the rinks it names (a city's page serves every rink in that city). */
+function appliesToVenue(field, venueName) {
+    const places = namedPlaces(field.quote);
+    if (!places.length) return true;
+    const words = (x) => String(x).toLowerCase().replace(/[^a-z0-9]+/g, ' ').split(' ').filter(w => w.length >= 4 && !PLACE_STOP.has(w));
+    const mine = new Set(words(venueName));
+    return places.some(pl => words(pl).some(w => mine.has(w)));
+}
+
+/** Same-host links on a page that look like they lead to skating, fees or rentals. */
+function candidateLinks(html, baseUrl) {
+    const out = new Map();
+    const re = /<a\b[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+    let m;
+    while ((m = re.exec(html)) && out.size < 40) {
+        let href;
+        try { href = new URL(m[1], baseUrl); } catch { continue; }
+        if (href.hostname !== new URL(baseUrl).hostname) continue;
+        if (/\.(pdf|jpe?g|png|gif|svg|mp4|zip)(\?|$)/i.test(href.pathname)) continue;
+        const label = stripHtml(m[2] || '').slice(0, 80);
+        if (LINK_WORDS.test(label) || LINK_WORDS.test(href.pathname)) out.set(href.href.replace(/\/$/, ''), label);
+    }
+    return [...out.keys()];
+}
+
+/** Page text with one line per block element (headings and list items stay separate sentences). */
+function pageLines(html) {
+    return stripHtml(html.replace(/<(?:br|\/p|\/div|\/li|\/h[1-6]|\/tr|\/td|\/th|\/section|\/article|\/dd|\/dt)\b[^>]*>/gi, ' ¶ '))
+        .split('¶').map(l => l.trim()).filter(Boolean).join('\n');
+}
+
+/** Sentences that talk about rentals, fees, admission or helmets, from one or more pages. */
+function factWindows(pages) {
+    const seen = new Set(), out = [];
+    const push = (url, t) => {
+        t = t.trim();
+        if (t.length < 15 || !FACT_WORDS.test(t)) return;
+        const k = normQuote(t);
+        if (seen.has(k)) return;
+        seen.add(k); out.push({ url, t });
+    };
+    pages.forEach(({ url, text }) => {
+        text.split('\n').forEach(line => {
+            line.split(/(?<=[.!?])\s+(?=[A-Z])/).forEach(sentence => {
+                if (sentence.length <= 500) return push(url, sentence);
+                // a long run without punctuation (schedule blocks): a window around each mention
+                const re = new RegExp(FACT_WORDS.source, 'gi');
+                let m;
+                while ((m = re.exec(sentence))) push(url, sentence.slice(Math.max(0, m.index - 160), m.index + 200));
+            });
+        });
+    });
+    return out.slice(0, 60);
+}
+
+/** A field whose quote names exactly one dollar amount, but the model left price empty: use that amount. */
+function fillPrice(field) {
+    if (!field || field.price != null) return field;
+    const amounts = (field.quote.match(/\$\s?(\d+(?:\.\d{1,2})?)/g) || []).map(a => Number(a.replace(/[^\d.]/g, '')));
+    if (amounts.length === 1) field.price = amounts[0];
+    return field;
+}
+
+async function readVenuePages(startUrl) {
+    const pages = [];
+    const html = await httpGetText(startUrl);
+    pages.push({ url: startUrl, text: pageLines(html) });
+    const links = candidateLinks(html, startUrl).filter(u => u !== startUrl.replace(/\/$/, '')).slice(0, 5);
+    for (const u of links) {
+        try { pages.push({ url: u, text: pageLines(await httpGetText(u)) }); } catch {}
+    }
+    return pages;
+}
+
+async function extractFacts(venueName, windows) {
+    const ollama = (process.env.OLLAMA_URL || '').replace(/\/+$/, '');
+    const text = windows.map(w => w.t).join('\n').slice(0, 7000);
+    const res = await postText(`${ollama}/api/chat`, JSON.stringify({
+        model: FACTS_MODEL(), stream: false, think: false, format: FACTS_SCHEMA,
+        options: { temperature: 0, num_ctx: 8192 },
+        messages: [{ role: 'user', content: FACTS_PROMPT(venueName, text) }]
+    }), {}, 180000);
+    const parsed = JSON.parse(res);
+    if (parsed.error) throw new Error(`Ollama: ${parsed.error}`);
+    const content = parsed.message?.content ?? parsed.response ?? '';
+    if (FACTS_DEBUG) console.log(`   🔍 ${venueName}: ${windows.length} windows, ${text.length} chars → ${String(content).replace(/\s+/g, ' ').slice(0, 600)}`);
+    return JSON.parse(String(content).replace(/^```json\s*|```$/g, ''));
+}
+
+function factsDue(rec, now) {
+    if (!rec || !rec.checkedAt) return true;
+    const age = (now - new Date(rec.checkedAt).getTime()) / 86400000;
+    return age > (rec.error ? FACTS_RETRY_DAYS : FACTS_TTL_DAYS);
+}
+
+/**
+ * Refresh the facts for every due venue (or the first FACTS_BATCH of them).
+ * `rinks` = this run's rink inventory; venues with a website qualify.
+ */
+async function fetchVenueFacts(rinks, { all = false } = {}) {
+    if (!process.env.OLLAMA_URL) { console.log('\n🏷️  Venue facts: no OLLAMA_URL, keeping the previous file'); return null; }
+    const file = path.join(OUTPUT_DIR, FACTS_FILE);
+    let store = { venues: {} };
+    try { store = JSON.parse(fs.readFileSync(file, 'utf8')); store.venues ||= {}; } catch {}
+    const now = Date.now();
+    // one extraction per page: a city's skating page serves every rink of that city
+    const groups = new Map();
+    rinks.filter(r => r.website).forEach(r => {
+        const url = String(r.website).trim();
+        if (!groups.has(url)) groups.set(url, []);
+        groups.get(url).push({ key: String(r.locationid), name: r.name, kinds: r.kinds || [] });
+    });
+    const targets = [...groups].map(([url, venues]) => ({ url, venues, name: venues.length === 1 ? venues[0].name : `${venues.length} rinks on ${new URL(url).hostname}` }));
+    const due = targets.filter(t => t.venues.some(v => factsDue(store.venues[v.key], now)));
+    const batch = all ? targets : due.slice(0, FACTS_BATCH);
+    console.log(`\n🏷️  Venue facts: ${rinks.filter(r => r.website).length} venues on ${targets.length} sites, ${due.length} sites due, refreshing ${batch.length} (model ${FACTS_MODEL()})`);
+    let refreshed = 0;
+    for (const t of batch) {
+        const rec = { url: t.url, checkedAt: new Date().toISOString(), model: FACTS_MODEL() };
+        const save = () => {
+            t.venues.forEach(v => {
+                const mine = { name: v.name, ...rec };
+                if (mine.rentals && !appliesToVenue(mine.rentals, v.name)) delete mine.rentals;
+                if (mine.admission && !appliesToVenue(mine.admission, v.name)) delete mine.admission;
+                // "free skating on our outdoor rinks" says nothing about an arena
+                const outdoorOnly = (f) => f && /outdoor/i.test(f.quote) && !v.kinds.includes('outdoor');
+                if (outdoorOnly(mine.rentals)) delete mine.rentals;
+                if (outdoorOnly(mine.admission)) delete mine.admission;
+                if ('verified' in rec) mine.verified = !!(mine.rentals || mine.admission || mine.helmets);
+                store.venues[v.key] = mine;
+            });
+            store.generatedAt = new Date().toISOString();
+            fs.writeFileSync(file, JSON.stringify(store));   // progress-safe: a crash keeps what was done
+        };
+        try {
+            const pages = await readVenuePages(t.url);
+            const windows = factWindows(pages);
+            rec.pages = pages.map(p => p.url);
+            if (!windows.length) { rec.none = true; save(); console.log(`   · ${t.name}: nothing about fees or rentals on ${pages.length} page(s)`); continue; }
+            const corpus = normQuote(windows.map(w => w.t).join('\n'));
+            const urlFor = (quote) => (windows.find(w => normQuote(w.t).includes(normQuote(quote))) || {}).url || t.url;
+            const raw = await extractFacts(t.name, windows);
+            let rentals = fillPrice(verifyField(raw.rentals, corpus, ['price']));
+            let admission = fillPrice(verifyField(raw.admission, corpus, ['price']));
+            let helmets = verifyField(raw.helmets, corpus, ['age']);
+            if (helmets && (NOT_HELMET_RE.test(helmets.quote) || !HELMET_CONTEXT_RE.test(helmets.quote))) helmets = null;   // a lesson/camp rule, or no skating context
+            if (rentals && NOT_SKATE_RENTAL_RE.test(rentals.quote)) rentals = null;          // the ice, not skates
+            if (admission && (NOT_ADMISSION_RE.test(admission.quote) || !ADMISSION_CONTEXT_RE.test(admission.quote))) admission = null;   // shinny / passes / lessons, or no skating context
+            if (rentals) {
+                // the quote outranks the model's yes/no: a plain "we do not offer skate rentals" is a no
+                if (NO_RENTALS_RE.test(rentals.quote)) { rentals.available = 'no'; rentals.price = null; rentals.unit = 'unknown'; }
+                else if (rentals.available === 'unknown' && YES_RENTALS_RE.test(rentals.quote)) rentals.available = 'yes';
+            }
+            // sanity: a per-hour or $40+ 'rental' is the ice, not a pair of skates
+            if (rentals && rentals.available !== 'unknown' && rentals.unit !== 'per hour' && !(rentals.price > 20)) rec.rentals = { available: rentals.available, price: rentals.price, unit: rentals.unit, quote: cleanQuote(rentals.quote), url: urlFor(rentals.quote) };
+            if (admission && admission.unit !== 'unknown' && admission.unit !== 'per hour' && !(admission.price > 15)) rec.admission = { price: admission.unit === 'free' ? 0 : admission.price, unit: admission.unit, quote: cleanQuote(admission.quote), url: urlFor(admission.quote) };
+            // the age limit is re-read from the quote itself ("12 and under" ≠ "under 12"); none found → stated without a number
+            if (helmets && helmets.rule !== 'unknown') rec.helmets = { rule: helmets.rule, maxAge: helmets.rule === 'required under age' ? helmetMaxAge(helmets.quote) : null, quote: cleanQuote(helmets.quote), url: urlFor(helmets.quote) };
+            rec.verified = !!(rec.rentals || rec.admission || rec.helmets);
+            console.log(`   ✓ ${t.name}: ${rec.rentals ? `rentals ${rec.rentals.available}${rec.rentals.price != null ? ` $${rec.rentals.price} ${rec.rentals.unit}` : ''}` : 'rentals ?'} · ${rec.admission ? `admission ${rec.admission.unit === 'free' ? 'free' : `$${rec.admission.price} ${rec.admission.unit}`}` : 'admission ?'} · ${rec.helmets ? `helmets ${rec.helmets.rule}${rec.helmets.maxAge != null ? ` ≤${rec.helmets.maxAge}` : ''}` : 'helmets ?'}`);
+            refreshed++;
+        } catch (e) {
+            rec.error = e.message.slice(0, 160);
+            console.warn(`   ⚠️ ${t.name}: ${rec.error}`);
+        }
+        save();
+    }
+    const verified = Object.values(store.venues).filter(v => v.verified).length;
+    console.log(`   ✅ ${FACTS_FILE}: ${Object.keys(store.venues).length} venues on file, ${verified} with verified facts, ${refreshed} refreshed now`);
+    return { venues: Object.keys(store.venues).length, verified, refreshed, due: due.length };
+}
+
 async function main() {
     console.log('🛼 Toronto Skating Data Fetcher');
     console.log('================================\n');
@@ -2336,6 +2772,14 @@ async function main() {
                     console.warn(`   ⚠️ ${key} failed: ${e.message}`);
                 }
             }
+            return;
+        }
+        if (process.argv.includes('--facts-only')) {
+            let prevRinks = [];
+            try { prevRinks = JSON.parse(fs.readFileSync(path.join(OUTPUT_DIR, 'rinks.json'), 'utf8')).rinks || []; } catch {}
+            prevRinks.forEach(r => { if (!r.website && ARENA_SITES[String(r.locationid)]) r.website = ARENA_SITES[String(r.locationid)]; });
+            const only = (process.env.FACTS_ONLY || '').split(',').filter(Boolean);
+            await fetchVenueFacts(only.length ? prevRinks.filter(r => only.includes(String(r.locationid))) : prevRinks, { all: true });
             return;
         }
         if (ALERTS_ONLY) {
@@ -2469,6 +2913,7 @@ async function main() {
         let rinksOk = true;
         try {
             rinks = await fetchRinkInventory(allPrograms);
+            rinks.forEach(r => { if (!r.website && ARENA_SITES[String(r.locationid)]) r.website = ARENA_SITES[String(r.locationid)]; });
             console.log(`   ✅ ${rinks.length} rink locations`);
         } catch (e) {
             rinksOk = false;
@@ -2539,6 +2984,13 @@ async function main() {
             await fetchLiveCheck(allPrograms);
         } catch (e) {
             console.warn(`   ⚠️ live check failed: ${e.message} — keeping previous live-check.json`);
+        }
+
+        // Step 6: venue facts (rentals, admission, helmets) for a few due venues per run
+        try {
+            await fetchVenueFacts(rinks);
+        } catch (e) {
+            console.warn(`   ⚠️ venue facts failed: ${e.message} — keeping previous ${FACTS_FILE}`);
         }
 
         // (locations.json / facilities.json are no longer written — the UI

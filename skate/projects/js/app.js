@@ -37,6 +37,7 @@ window.SkateApp = (() => {
 
     const S = {
         programs: [], filtered: [], limit: 30, paidMatching: 0,
+        facts: null,   // v3.7 venue-facts.json (rentals / admission / helmets per rink key)
         search: '', showPast: false, age: null, savedOnly: false,
         // v3.2 filters. Persisted: types {cat: 'all' | [subtype…]} ({} = every
         // type), cities ([] = everywhere), paidVisible, rinkScope, sort.
@@ -174,6 +175,33 @@ window.SkateApp = (() => {
         return httpOnly(p.InfoUrl);
     }
     function officialSite(p) { return CFG.sourceInfo[p?.Source || 'city']?.site || 'venue site'; }
+
+    /* ---------- Venue facts (v3.7) ----------
+     * What a rink's own website says about skate rentals, admission and
+     * helmets, read and verified by the pipeline (every fact carries the
+     * sentence it came from). Keyed like rinks.json. Unknown = shown as nothing. */
+    function factsFor(key) { return (S.facts && S.facts.venues && S.facts.venues[key]) || null; }
+    function factsBits(f) {
+        const bits = [];
+        const unit = (u) => (u && u !== 'unknown') ? ` ${u}` : '';
+        if (f.rentals) {
+            if (f.rentals.available === 'yes') bits.push(`Skate rentals${f.rentals.price != null ? ` $${fmtPrice(f.rentals.price)}${unit(f.rentals.unit)}` : ''}`);
+            else if (f.rentals.available === 'no') bits.push('No skate rentals');
+        }
+        if (f.admission) bits.push(f.admission.unit === 'free' ? 'Free skating' : `Skating $${fmtPrice(f.admission.price)}${unit(f.admission.unit)}`);
+        if (f.helmets) {
+            if (f.helmets.rule === 'required') bits.push('Helmets required');
+            else if (f.helmets.rule === 'required under age') bits.push(f.helmets.maxAge != null ? `Helmets required for ages ${f.helmets.maxAge} and under` : 'Helmets required for children');
+            else if (f.helmets.rule === 'recommended') bits.push('Helmets recommended');
+        }
+        return bits;
+    }
+    function factsTitle(f, field) {
+        let host = ''; try { host = new URL(f.url).hostname.replace(/^www\./, ''); } catch { /* no url */ }
+        const when = f.checkedAt ? new Date(f.checkedAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) : '';
+        const q = f[field] && f[field].quote ? `\n“${f[field].quote}”` : '';
+        return `${factsBits(f).join(' · ')}\nFrom ${host || 'the venue site'}${when ? `, checked ${when}` : ''}.${q}`;
+    }
     /** Same, for a rinks.json entry (map popups / locator). */
     function officialUrlForRink(r) {
         if (!r) return null;
@@ -1015,6 +1043,13 @@ window.SkateApp = (() => {
         const padsBadge = (p.Copies > 1 && rinkRec && rinkRec.pads > 1)
             ? `<span class="pads-badge" title="Listed ${p.Copies} times by the venue: the session runs on ${Math.min(p.Copies, rinkRec.pads)} pads at once">${Math.min(p.Copies, rinkRec.pads)} pads</span>` : '';
         const noteBadge = p.PriceNote ? `<span class="note-badge">${escapeHtml(p.PriceNote)}</span>` : '';
+        // v3.7: skate rentals, as the rink's own site states them (the sentence is the tooltip; tap opens the page)
+        const facts = factsFor(P.locKey(p));
+        const factsBadge = (facts && facts.rentals && facts.rentals.available === 'yes')
+            ? `<a class="facts-badge yes" href="${escapeHtml(facts.rentals.url || facts.url || '#')}" target="_blank" rel="noopener" title="${escapeHtml(factsTitle(facts, 'rentals'))}">⛸ Rentals${facts.rentals.price != null ? ` $${fmtPrice(facts.rentals.price)}` : ''}</a>`
+            : (facts && facts.rentals && facts.rentals.available === 'no')
+                ? `<span class="facts-badge no" title="${escapeHtml(factsTitle(facts, 'rentals'))}">No rentals</span>`
+                : '';
         // Venues without online booking (PDF/HTML towns) link their schedule page instead.
         const registerLink = (p.Paid && p.RegistrationUrl)
             ? (p.RegistrationUrl === p.InfoUrl
@@ -1086,7 +1121,7 @@ window.SkateApp = (() => {
                 </div>
                 ${alertHtml}${unverifiedHtml}
                 <div class="program-footer">
-                    <div class="program-badges">${P.tagFor(p)}${P.ageBadge(p)}${price}${padsBadge}${spotsBadge}</div>
+                    <div class="program-badges">${P.tagFor(p)}${P.ageBadge(p)}${price}${padsBadge}${factsBadge}${spotsBadge}</div>
                     <div class="program-actions">${actionHtml}</div>
                     <div class="program-links">${registerLink}</div>
                     ${noteBadge ? `<div class="program-note">${noteBadge}</div>` : ''}
@@ -1462,7 +1497,8 @@ window.SkateApp = (() => {
                 r.km != null ? SkateGeo.fmtKm(r.km) : null,
                 r.address || null,
                 (r.kinds || []).map(k => k === 'indoor' ? 'indoor' : 'outdoor').join(' + ') || null,
-                r.paid ? 'paid' : null
+                r.paid ? 'paid' : null,
+                ...(factsFor(key) ? factsBits(factsFor(key)) : [])   // v3.7: rentals / admission / helmets from the rink's site
             ].filter(Boolean).join(' · ');
             const label = sessions ? `${sessions} session${sessions === 1 ? '' : 's'}` : (sp.paid ? `${sp.paid} paid` : 'No sessions');
             const node = el('div', { class: 'rink-row' + (starred ? ' starred' : '') + (alerts.length ? ' has-alert' : '') });
@@ -2653,6 +2689,7 @@ window.SkateApp = (() => {
         mergedExtraSig = null; mergeLiveExtras();
         SkateAlerts.load(true);             // force (still ≥60s-gapped internally)
         SkateLive.load(S.programs, true);
+        S.facts = await SkateAPI.getVenueFacts(true);
         Actions.applyFilters(true);
     };
 
@@ -3119,6 +3156,8 @@ window.SkateApp = (() => {
             mergeLiveExtras();
             Actions.applyFilters();
             SkateLive.load(S.programs);   // live venue spots (TTL-throttled)
+            // v3.7: rentals / helmets per rink; never delays the schedule
+            SkateAPI.getVenueFacts().then(f => { S.facts = f; if (S.programs.length) Render.programs(); });
             if (S.pendingProgramFocus) { Actions.focusProgram(S.pendingProgramFocus); S.pendingProgramFocus = null; }
             // Brand-new visitor: the spotlight tour, Skip front and centre.
             if (freshInstall && !SkateSettings.get('tourDone')) setTimeout(() => SkateTour.play(), 700);

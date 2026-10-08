@@ -167,6 +167,29 @@ const SkateAPI = {
         return out;
     },
 
+    /**
+     * v3.7: venue facts (skate rentals, admission, helmet rules) the pipeline
+     * read and verified from each rink's own website. Small, optional, and
+     * never a reason to demote the data origin: a missing file on one origin
+     * just means trying the other, then an empty set. Never throws.
+     */
+    _venueFacts: null,
+    async getVenueFacts(force = false) {
+        if (this._venueFacts && !force) return this._venueFacts;
+        const bust = force ? Date.now() : Math.floor(Date.now() / 600000);
+        const tries = [this.dataUrl('venue-facts.json', bust), `${this.LOCAL_DATA_PATH}/venue-facts.json?t=${bust}`];
+        for (const url of [...new Set(tries)]) {
+            try {
+                const r = await fetch(url);
+                if (!r.ok) continue;
+                const j = await r.json();
+                if (j && j.venues) { this._venueFacts = j; return j; }
+            } catch { /* next origin */ }
+        }
+        this._venueFacts = this._venueFacts || { venues: {} };
+        return this._venueFacts;
+    },
+
     getMetadata() {
         if (this._metadata) return this._metadata;
         try { return JSON.parse(localStorage.getItem('skate_meta_v1')); } catch { return null; }
