@@ -1063,16 +1063,22 @@ window.SkateApp = (() => {
         const live = p.Paid ? SkateLive.forProgram(p) : null;
         let spotsBadge = '';
         if (live && st.phase !== 'ended') {
+            // counts read by the home server (PickupHub) carry their snapshot time; DaySmart's are fetched live here
+            const src = live.snapshotAt
+                ? `From the venue's registration system, as of ${SkateSettings.formatTime(new Date(live.snapshotAt).getTime())}`
+                : 'Live from the venue\'s registration system';
+            const opens = live.opensAt ? new Date(live.opensAt) : null;
+            const opensTxt = opens && !isNaN(opens) ? opens.toLocaleString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).replace(/\.m\./g, 'm').replace(' a m', ' am').replace(' p m', ' pm') : '';
             if (live.status === 'full') {
-                spotsBadge = '<span class="spots-badge full" title="The venue reports this session as full">Full</span>';
+                spotsBadge = `<span class="spots-badge full" title="${escapeHtml(src)}. The venue reports this session as full${p.RegistrationUrl ? ', a waitlist may be open on their site' : ''}.">Full</span>`;
             } else if (live.status === 'closed') {
-                spotsBadge = '<span class="spots-badge closed-reg" title="The venue\'s online registration for this session is closed">Registration closed</span>';
+                spotsBadge = `<span class="spots-badge closed-reg" title="${escapeHtml(src)}. Online registration for this session is closed.">Registration closed</span>`;
             } else if (live.status === 'upcoming') {
-                spotsBadge = '<span class="spots-badge closed-reg" title="The venue has not opened online registration for this session yet">Registration opens later</span>';
+                spotsBadge = `<span class="spots-badge closed-reg" title="${escapeHtml(src)}. Online registration has not opened yet.">Registration opens ${opensTxt ? escapeHtml(opensTxt) : 'later'}</span>`;
             } else if (live.open != null) {
-                spotsBadge = `<span class="spots-badge${live.open <= 20 ? ' low' : ''}" title="Live from the venue's registration system">${live.open}${live.capacity ? '/' + live.capacity : ''} spots left</span>`;
+                spotsBadge = `<span class="spots-badge${live.open <= 20 ? ' low' : ''}" title="${escapeHtml(src)}">${live.open}${live.capacity ? '/' + live.capacity : ''} spots left</span>`;
             } else if (live.unlimited && live.status === 'open') {
-                spotsBadge = '<span class="spots-badge" title="No capacity limit set by the venue">Registration open</span>';
+                spotsBadge = `<span class="spots-badge" title="${escapeHtml(src)}. No capacity limit set by the venue.">Registration open</span>`;
             }
         }
 

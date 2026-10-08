@@ -415,20 +415,19 @@ const EXTERNAL_SOURCES = {
         paid: false, unverified: true,
         infoUrl: 'https://leasidegardens.com/arenas/public-skate-times/'
     },
-    'leaside-figure': {
-        kind: 'scrape',
-        url: 'https://leasidegardens.com/arenas/public-skate-times/',
-        section: { from: /drop-in Figure Skating/i, to: null },
-        daysAhead: 28,
-        activity: 'Figure Skating Ticket Ice (Adults)',
+    'leaside-pickuphub': {
+        kind: 'pickuphub',
+        slug: 'leaside-gardens',          // https://pickuphub.net/leaside-gardens
+        daysAhead: 35,
+        // PickupHub sport slug → how the app names the session (a pad name is appended)
+        activities: { 'figure-skating': 'Figure Skating Ticket Ice', 'ice-hockey': 'Adult Shinny' },
         ageMin: 18,
         locationName: 'Leaside Memorial Community Gardens',
         locationId: 789,
         address: '1073 Millwood Rd', district: 'Toronto and East York', postalCode: 'M4G 1X6',
         lat: 43.7016796841, lng: -79.3612191537,
-        paid: true, price: 11.5, priceNote: '$11.50 per skater · adult skaters of all levels · register on their site',
-        unverified: true,
-        infoUrl: 'https://leasidegardens.com/arenas/public-skate-times/'
+        paid: true, priceNote: 'HST included · register on PickupHub, sessions fill up',
+        infoUrl: 'https://pickuphub.net/leaside-gardens'
     },
     'bolton-public': {
         kind: 'scrape',
@@ -2412,7 +2411,126 @@ function salvageExisting(sourceKey) {
 }
 
 /** Source kind → fetcher. */
-const FETCHERS = { daysmart: fetchDaySmart, perfectmind: fetchPerfectMind, activenet: fetchActiveNet, scrape: fetchScraped, pdf: fetchPdfSchedule, intelligenz: fetchIntelligenz, 'html-grid': fetchHtmlGrid };
+/* ================= PickupHub (Leaside Gardens' ticket ice + adult shinny) =================
+ *
+ * pickuphub.net is a Laravel/Inertia app: a provider page embeds its data
+ * as JSON in <script data-page="app" type="application/json">, eight games
+ * per cursor page, each with exact start/end, pad, price before tax,
+ * capacity, registered count and the moment registration unlocks. The site
+ * sends no CORS headers, so the browser cannot read it: the pipeline does,
+ * and the light pass (every 10 min on the home server) re-reads the counts
+ * into live-spots.json, which the app's SkateLive merges like DaySmart's
+ * live feed.
+ */
+const LIVE_SPOTS_FILE = 'live-spots.json';
+const LIVE_SPOTS = {};   // ExternalId → { open, capacity, status, opensAt, at }, filled by every pickuphub read this run
+const HST = 1.13;
+const PICKUPHUB_UA = { 'User-Agent': 'Mozilla/5.0 (compatible; toronto-skating-site-data-fetcher)' };
+
+function inertiaProps(html) {
+    const m = html.match(/<script[^>]*data-page="app"[^>]*>([\s\S]*?)<\/script>/i);
+    if (!m) throw new Error('no Inertia page data on the page');
+    return JSON.parse(m[1]).props || {};
+}
+
+/** Wall-clock date + HH:MM of an ISO stamp that already carries the venue's offset ("2026-10-08T11:15:00-04:00"). */
+function localParts(iso) {
+    const m = String(iso || '').match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+    return m ? { date: m[1], time: m[2] } : null;
+}
+
+function noteLiveSpots(game) {
+    const cap = game.capacity || {};
+    const max = typeof cap.max_players === 'number' ? cap.max_players : null;
+    const n = typeof cap.players_count === 'number' ? cap.players_count : null;
+    LIVE_SPOTS[String(game.id)] = {
+        open: (max != null && n != null) ? Math.max(0, max - n) : null,
+        capacity: max,
+        status: game.is_locked ? 'upcoming' : (cap.is_full || cap.players_full ? 'full' : 'open'),
+        ...(game.is_locked && game.unlock_at ? { opensAt: game.unlock_at } : {}),
+        endsAt: game.end_at || null,
+        at: new Date().toISOString()
+    };
+}
+
+/** The provider's upcoming games, cursor page by cursor page, until the horizon. */
+async function pickupHubGames(cfg, { maxPages = 10, horizonDays = cfg.daysAhead || 35 } = {}) {
+    const games = [];
+    const last = addDays(torontoDateStr(), horizonDays);
+    let url = `https://pickuphub.net/${cfg.slug}`;
+    for (let i = 0; url && i < maxPages; i++) {
+        const page = inertiaProps(await httpGetText(url, PICKUPHUB_UA)).games || {};
+        const data = page.data || [];
+        games.push(...data);
+        const tail = data.length ? localParts(data[data.length - 1].start_at) : null;
+        if (!data.length || (tail && tail.date > last)) break;
+        url = page.links && page.links.next;
+    }
+    return games;
+}
+
+async function fetchPickupHub(sourceKey, cfg) {
+    const games = await pickupHubGames(cfg);
+    const today = torontoDateStr(), last = addDays(today, cfg.daysAhead || 35);
+    const records = [];
+    games.forEach(g => {
+        const s = localParts(g.start_at), e = localParts(g.end_at);
+        if (!s || !e || s.date < today || s.date > last) return;
+        const label = cfg.activities[(g.sport && g.sport.slug) || ''];
+        if (!label) return;                                   // a sport the app does not list
+        noteLiveSpots(g);
+        const padName = (g.location && g.location.name) || '';
+        const pad = (padName.match(/^(?:Rink|Pad)\s+\w+/i) || [padName])[0];
+        const age = (g.age_label || '').match(/(\d+)\s*\+/);
+        const cost = (g.pricing && typeof g.pricing.player_cost === 'number') ? Math.round(g.pricing.player_cost * HST * 100) / 100 : undefined;
+        records.push(externalRecord(cfg, sourceKey, {
+            activity: pad ? `${label} · ${pad}` : label,
+            date: s.date, startTime: s.time, endTime: e.time,
+            price: cost, externalId: g.id, registrationUrl: g.url,
+            ageMin: age ? parseInt(age[1], 10) : cfg.ageMin
+        }));
+    });
+    console.log(`   ✅ ${sourceKey}: ${records.length} sessions from ${games.length} listed games`);
+    return records;
+}
+
+/**
+ * live-spots.json: the counts noted this run merged over the previous file
+ * (the light pass only re-reads the next two weeks; a full run's later
+ * entries stay until their session ends). Nothing fetched → file untouched.
+ */
+function writeLiveSpots() {
+    const ids = Object.keys(LIVE_SPOTS);
+    if (!ids.length) { console.log(`   · ${LIVE_SPOTS_FILE}: no counts read this run, keeping the previous file`); return; }
+    const file = path.join(OUTPUT_DIR, LIVE_SPOTS_FILE);
+    let prev = {};
+    try { prev = JSON.parse(fs.readFileSync(file, 'utf8')).byId || {}; } catch {}
+    const now = Date.now();
+    const byId = {};
+    Object.entries({ ...prev, ...LIVE_SPOTS }).forEach(([id, v]) => {
+        const ended = v.endsAt ? new Date(v.endsAt).getTime() < now : (now - new Date(v.at || 0).getTime()) > 2 * 86400000;
+        if (!ended) byId[id] = v;
+    });
+    fs.writeFileSync(file, JSON.stringify({ checkedAt: new Date().toISOString(), byId }));
+    console.log(`   ✅ ${LIVE_SPOTS_FILE}: ${ids.length} sessions re-read, ${Object.keys(byId).length} on file`);
+}
+
+/** Light pass: re-read the next two weeks of counts (two or three small pages per venue). */
+async function refreshLiveSpots() {
+    for (const [key, cfg] of Object.entries(EXTERNAL_SOURCES)) {
+        if (cfg.kind !== 'pickuphub') continue;
+        try {
+            const games = await pickupHubGames(cfg, { maxPages: 3, horizonDays: 14 });
+            games.forEach(g => { if (cfg.activities[(g.sport && g.sport.slug) || '']) noteLiveSpots(g); });
+            console.log(`   🎟️  ${key}: ${games.length} games re-read for live counts`);
+        } catch (e) {
+            console.warn(`   ⚠️ ${key} live counts: ${e.message}`);
+        }
+    }
+    writeLiveSpots();
+}
+
+const FETCHERS = { daysmart: fetchDaySmart, perfectmind: fetchPerfectMind, activenet: fetchActiveNet, scrape: fetchScraped, pdf: fetchPdfSchedule, intelligenz: fetchIntelligenz, 'html-grid': fetchHtmlGrid, pickuphub: fetchPickupHub };
 
 async function fetchExternalSources() {
     const bySource = {};
@@ -2791,7 +2909,8 @@ async function main() {
             } catch (e) {
                 console.warn(`   ⚠️ live check skipped: ${e.message}`);
             }
-            console.log('\n✨ Light pass (alerts + live check) complete.');
+            await refreshLiveSpots();   // PickupHub counts (fail-soft per venue)
+            console.log('\n✨ Light pass (alerts + live check + live counts) complete.');
             return;
         }
 
@@ -2985,6 +3104,9 @@ async function main() {
         } catch (e) {
             console.warn(`   ⚠️ live check failed: ${e.message} — keeping previous live-check.json`);
         }
+
+        // Step 5b: live counts noted while reading PickupHub (the light pass refreshes them)
+        writeLiveSpots();
 
         // Step 6: venue facts (rentals, admission, helmets) for a few due venues per run
         try {

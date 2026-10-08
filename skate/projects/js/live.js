@@ -27,6 +27,12 @@ window.SkateLive = (() => {
         'canlan-oshawa':      { company: 'canlan' }
     };
 
+    // Sources whose registration site sends no CORS headers (PickupHub): the
+    // pipeline reads their counts and the home server's light pass republishes
+    // them every 10 min as live-spots.json on the data origin. Same record
+    // shape, plus `snapshotAt` so the badge can say how fresh it is.
+    const SNAPSHOT_SOURCES = new Set(['leaside-pickuphub']);
+
     const TTL_MS = 5 * 60000;
 
     let byId = {};          // ExternalId(string) → { open, capacity, status }
@@ -35,6 +41,16 @@ window.SkateLive = (() => {
     const listeners = [];
 
     function onUpdate(cb) { listeners.push(cb); }
+
+    async function loadSnapshot(force) {
+        const bust = force ? Date.now() : Math.floor(Date.now() / TTL_MS);
+        const res = await fetch(window.SkateAPI.dataUrl('live-spots.json', bust));
+        if (!res.ok) throw new Error(`live-spots HTTP ${res.status}`);
+        const json = await res.json();
+        Object.entries(json.byId || {}).forEach(([id, v]) => {
+            byId[String(id)] = { ...v, snapshotAt: json.checkedAt || v.at || null };
+        });
+    }
 
     /**
      * Refresh live data for the given programs (TTL-throttled unless
@@ -46,13 +62,16 @@ window.SkateLive = (() => {
         if (!force && now - fetchedAt < TTL_MS) return Promise.resolve();
 
         const bySource = {};
+        let wantSnapshot = false;
         (programs || []).forEach(p => {
-            if (!p.ExternalId || !SOURCES[p.Source]) return;
+            if (!p.ExternalId) return;
             const st = window.SkateTime ? window.SkateTime.status(p, now) : { phase: 'upcoming' };
             if (st.phase === 'ended') return;
+            if (SNAPSHOT_SOURCES.has(p.Source)) { wantSnapshot = true; return; }
+            if (!SOURCES[p.Source]) return;
             (bySource[p.Source] ||= []).push(String(p.ExternalId));
         });
-        if (!Object.keys(bySource).length) return Promise.resolve();
+        if (!Object.keys(bySource).length && !wantSnapshot) return Promise.resolve();
 
         inFlight = (async () => {
             const jobs = Object.entries(bySource).map(async ([key, ids]) => {
@@ -80,6 +99,7 @@ window.SkateLive = (() => {
                     };
                 });
             });
+            if (wantSnapshot) jobs.push(loadSnapshot(force));
             try {
                 await Promise.all(jobs);
                 fetchedAt = Date.now();

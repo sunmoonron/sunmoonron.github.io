@@ -39,6 +39,7 @@ window.SkateConfig = {
             v: '3.7', date: '2026-10-07', items: [
                 'Three more Toronto arenas: Larry Grossman Forest Hill Memorial Arena ($3 pleasure skate, October to April), Leaside Memorial Community Gardens (free adults-only and all-ages skates, figure ticket ice) and William H. Bolton Arena (free public, adults-only and parent-and-tot skates). These are board-run City arenas with no live feed, so their schedules are read from their own websites, like Moss Park.',
                 'Skate rentals: a ⛸ Rentals chip on sessions at rinks whose own website says they rent skates (with the price when posted), and No rentals where the site says so. Rinks & map lists rentals, admission and helmet rules per rink. Every fact is a sentence quoted from the venue site (hover or tap the chip to read it), re-checked monthly; anything a site does not say stays blank.',
+                'Leaside\'s figure skating ticket ice and adult shinny now come from PickupHub, the arena\'s registration system: exact dates and pads, spots left (say 20/22), Full, and when registration opens, refreshed every ten minutes.',
             ]
         },
         {
@@ -412,8 +413,8 @@ window.SkateConfig = {
                          note: 'Schedule read from the arena\'s website, no live feed. Free drop-in, adults 18+ (Rink A).' },
         'leaside-community': { city: 'Toronto', label: 'Leaside Memorial Community Gardens', verified: false, site: 'leasidegardens.com',
                          note: 'Schedule read from the arena\'s website, no live feed. Free all-ages skate (Rink B); helmets mandatory for 12 and under.' },
-        'leaside-figure':    { city: 'Toronto', label: 'Leaside Memorial Community Gardens', verified: false, site: 'leasidegardens.com',
-                         note: 'Figure skating ticket ice for adult skaters, $11.50 per skater (HST included). Register on their site; sessions can fill up.' },
+        'leaside-pickuphub': { city: 'Toronto', label: 'PickupHub (Leaside Gardens)', verified: true, site: 'pickuphub.net',
+                         note: 'Leaside\'s registration system. $11.50 per skater, HST included; sessions fill up and a waitlist opens on PickupHub.' },
         'bolton-public': { city: 'Toronto', label: 'William H. Bolton Arena', verified: false, site: 'billboltonarena.ca',
                          note: 'Schedule read from the arena\'s website, no live feed. Free leisure skating; no skate or helmet rentals.' },
         'bolton-adult':  { city: 'Toronto', label: 'William H. Bolton Arena', verified: false, site: 'billboltonarena.ca',
