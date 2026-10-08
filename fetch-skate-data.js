@@ -831,12 +831,13 @@ function cleanAge(v) {
  */
 function titleCaseIfShouty(s) {
     if (!s) return '';
+    // "Mccowan" → "McCowan" whatever the rest looks like (the City writes it both ways)
+    const mc = (x) => x.replace(/\bMc([a-z])/g, (m, ch) => 'Mc' + ch.toUpperCase());
     const letters = s.replace(/[^A-Za-z]/g, '');
-    if (letters.length < 4 || letters.replace(/[^A-Z]/g, '').length < letters.length * 0.8) return s;
+    if (letters.length < 4 || letters.replace(/[^A-Z]/g, '').length < letters.length * 0.8) return mc(s);
     const SMALL = new Set(['of', 'and', 'the', 'at', 'on', 'in', 'de', 'du', 'des', 'la', 'le']);
-    return s.toLowerCase()
-        .replace(/(^|[\s\-\/('.])([a-z])/g, (m, pre, ch) => pre + ch.toUpperCase())
-        .replace(/\bMc([a-z])/g, (m, ch) => 'Mc' + ch.toUpperCase())
+    return mc(s.toLowerCase()
+        .replace(/(^|[\s\-\/('.])([a-z])/g, (m, pre, ch) => pre + ch.toUpperCase()))
         .replace(/\s([A-Z][a-z]+)\b/g, (m, w) => SMALL.has(w.toLowerCase()) ? ' ' + w.toLowerCase() : m);
 }
 
