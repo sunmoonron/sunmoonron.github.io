@@ -163,7 +163,7 @@ window.SkateDev = (() => {
                 ok = await SkateChat.sendDmImage(target, img.dataUrl, { fromName: SkateChat.getIdentity().name }) && ok;
             }
         } finally { render(); }
-        if (!isOwner()) SkateChat.Notify.toast(ok ? 'Sent to the dev. Replies land in this sheet.' : 'Could not reach the relay. Your message is kept here, tap Send again later.', ok ? 'success' : 'error', 4000);
+        if (!isOwner()) SkateUI.toast(ok ? 'Sent to the dev. Replies land in this sheet.' : 'Could not reach the relay. Your message is kept here, tap Send again later.', ok ? 'success' : 'error', 4000);
     }
 
     /** Shrink a picked image to ≤ 1024 px JPEG; tighter if it is still too big for the relay. */
@@ -191,9 +191,9 @@ window.SkateDev = (() => {
 
     async function pick(file) {
         if (!file) return;
-        if (!/^image\//.test(file.type)) { SkateChat.Notify.toast('Images only here. For a video, paste a link in the message.', 'info', 4000); return; }
+        if (!/^image\//.test(file.type)) { SkateUI.toast('Images only here. For a video, paste a link in the message.', 'info', 4000); return; }
         try { pendingImage = { dataUrl: await shrink(file) }; render(); }
-        catch (e) { SkateChat.Notify.toast(e.message, 'error', 4000); }
+        catch (e) { SkateUI.toast(e.message, 'error', 4000); }
     }
 
     /* ---------- wiring ---------- */
@@ -235,7 +235,7 @@ window.SkateDev = (() => {
         if (isOwner()) return;
         const t = threadFor(DEV());
         if (!t) return;
-        if (t.messages.some(m => !m.mine && m.ts > (t.lastReadTs || 0))) SkateChat.Notify.toast('The dev replied. Tap Report bug or feedback in the top bar.', 'success', 6000);
+        if (t.messages.some(m => !m.mine && m.ts > (t.lastReadTs || 0))) SkateUI.toast('The dev replied. Tap Report bug or feedback in the top bar.', 'success', 6000);
     }
     /** The chat stack may boot after us: hook its update feed once it exists. */
     function attach() { if (!hooked && window.SkateChat) { hooked = true; SkateChat.onUpdate(onChatUpdate); } }

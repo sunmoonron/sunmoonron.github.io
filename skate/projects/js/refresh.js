@@ -10,7 +10,7 @@
  * browser can talk to relays freely. No secrets live in this file — the note
  * is just a doorbell, the actual data always comes from the city via CI.
  *
- * Requires: nostr.bundle.js (already loaded for chat) exposing NostrTools.
+ * Requires: NostrTools (app.js loads the bundle on demand before calling in).
  */
 const SkateRefresh = (() => {
     'use strict';
@@ -58,7 +58,7 @@ const SkateRefresh = (() => {
     }
 
     function toast(msg, type) {
-        if (window.SkateChat?.Notify?.toast) SkateChat.Notify.toast(msg, type, 4000);
+        if (window.SkateUI) SkateUI.toast(msg, type, 4000);
         else alert(msg);
     }
 

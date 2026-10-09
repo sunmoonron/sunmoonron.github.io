@@ -1593,3 +1593,35 @@ body.dark-mode .facts-badge.yes { border-color: var(--live, #4cc27a); }
 @keyframes you-pulse { 0% { transform: scale(.35); opacity: .9; } 100% { transform: scale(1.3); opacity: 0; } }
 .you-label { position: absolute; left: 0; top: 12px; transform: translateX(-50%); background: #1673c4; color: #fff; font: 700 11px/1 system-ui, -apple-system, sans-serif; padding: 4px 8px; border-radius: 10px; white-space: nowrap; box-shadow: 0 2px 6px rgba(0, 0, 0, .35); }
 @media (prefers-reduced-motion: reduce) { .you-ring { animation: none; transform: scale(.6); } }
+
+/* ---------- v3.8: chat (day separators, grouping, reactions, unsend, paging, offline, mentions) ---------- */
+.chat-day { display: flex; align-items: center; gap: 10px; margin: 10px 0 8px; color: var(--text-muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.chat-day::before, .chat-day::after { content: ''; flex: 1; border-top: 1px solid var(--border); }
+.chat-msg.cont { margin-top: -4px; }
+.chat-msg.deleted .bubble { font-style: italic; color: var(--text-muted); background: transparent; border-style: dashed; }
+.chat-msg.mentions-me .bubble { box-shadow: inset 3px 0 0 var(--acc-chats); }
+.mention { color: var(--acc-chats); font-weight: 600; }
+mark.mention.me { background: color-mix(in srgb, var(--acc-chats) 24%, transparent); color: inherit; border-radius: 4px; padding: 0 2px; }
+.reacts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.chat-msg.mine .reacts { justify-content: flex-end; }
+.react-chip { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 10px; font-size: 12px; line-height: 1.3; background: var(--bg); border: 1px solid var(--border); color: var(--text); cursor: pointer; }
+.react-chip.mine { border-color: var(--acc-chats); background: color-mix(in srgb, var(--acc-chats) 14%, var(--bg)); }
+.popover-reacts { display: flex; gap: 2px; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.react-pick { font-size: 20px; line-height: 1; padding: 4px 6px; border-radius: 8px; background: transparent; border: 1px solid transparent; cursor: pointer; }
+.react-pick:hover, .react-pick.active { background: var(--bg); border-color: var(--border); }
+.react-pick.active { border-color: var(--acc-chats); }
+.load-earlier-wrap { text-align: center; margin: 2px 0 10px; }
+.load-earlier { font-size: 12px; padding: 5px 12px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer; }
+.load-earlier:hover:not([disabled]) { color: var(--acc-chats); border-color: var(--acc-chats); }
+.load-earlier[disabled] { opacity: .6; cursor: default; }
+.chat-netbar { padding: 6px 12px; font-size: 12px; background: color-mix(in srgb, var(--alert-amber, #d98a00) 18%, var(--bg)); color: var(--text); border-bottom: 1px solid var(--border); }
+.chat-input-bar textarea { flex: 1; resize: none; border-radius: 20px; padding: 10px 16px; max-height: 120px; line-height: 1.35; font: inherit; font-size: 16px; }
+.dm-unread-badge.mention { background: var(--acc-chats); }
+.community-loading p { margin: 0 0 8px; }
+body.dark-mode .react-chip, body.dark-mode .load-earlier { background: #1b2530; border-color: #38485a; }
+body.dark-mode .react-chip.mine { border-color: var(--acc-chats); }
+/* Tablets and small desktops (768–1099px): the chat used to sit in a 380px column (a relic of the
+   old three-pane flex layout) with the rest of the window empty; it now fills the panel like the others. */
+@media (min-width: 768px) and (max-width: 1099px) {
+    .main-content .view-panel.panel-chats.chat-panel-view { max-width: none; flex: none; width: auto; }
+}

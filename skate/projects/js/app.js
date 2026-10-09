@@ -83,7 +83,7 @@ window.SkateApp = (() => {
         dateStr:  p => p['Start Date Time'] || p['Start Date'] || '',
         time:     p => p['Start Time'] || '',
         endTime:  p => p['End Time'] || '',
-        id:       p => SkateChat.Favorites.getId(p),
+        id:       p => SkateFavorites.getId(p),
 
         /**
          * Stable location key shared with rinks.json:
@@ -351,7 +351,7 @@ window.SkateApp = (() => {
                 const r = await fetch(url, { cache: 'no-store' });
                 if (!r.ok) throw new Error(`HTTP ${r.status}`);
                 saveBlob(await r.blob(), icsFileName(p));
-                SkateChat.Notify.toast('Calendar file saved. Open it to add the session.', 'success', 2500);
+                SkateUI.toast('Calendar file saved. Open it to add the session.', 'success', 2500);
                 return;
             } catch (e) { /* home server unreachable: build the file here */ }
         }
@@ -360,7 +360,7 @@ window.SkateApp = (() => {
 
     function downloadIcs(p) {
         const ev = calEvent(p);
-        if (!ev) return SkateChat.Notify.toast('This session has no date to add', 'error');
+        if (!ev) return SkateUI.toast('This session has no date to add', 'error');
         const blob = new Blob([icsText(ev)], { type: 'text/calendar;charset=utf-8' });
         if (isIOS()) {
             const url = URL.createObjectURL(blob);
@@ -369,11 +369,11 @@ window.SkateApp = (() => {
             return;
         }
         saveBlob(blob, icsFileName(p));
-        SkateChat.Notify.toast('Calendar file saved. Open it to add the session.', 'success', 2500);
+        SkateUI.toast('Calendar file saved. Open it to add the session.', 'success', 2500);
     }
     function openCalendarLink(p, kind) {
         const ev = calEvent(p);
-        if (!ev) return SkateChat.Notify.toast('This session has no date to add', 'error');
+        if (!ev) return SkateUI.toast('This session has no date to add', 'error');
         window.open(kind === 'outlook' ? outlookCalUrl(ev) : googleCalUrl(ev), '_blank', 'noopener');
     }
 
@@ -396,12 +396,12 @@ window.SkateApp = (() => {
         // Chat filter chips (muted chip starts hidden, like before)
         chips($('chat-filters'), CFG.chatFilters, {
             attr: 'cf', active: 'all',
-            onPick: id => { S.chatFilter = id; Render.conversations(SkateChat.getState()); },
+            onPick: id => { S.chatFilter = id; if (chatBooted) Render.conversations(SkateChat.getState()); },
             extra: (btn, it) => { if (it.dynamic) btn.classList.add('hidden'); }
         });
 
         // Guide category chips + write-form select
-        const cats = SkateGuides.CATEGORIES;
+        const cats = CFG.guideCategories;
         const catItems = [{ id: '', label: 'All' }, ...Object.entries(cats).map(([k, c]) => ({ id: k, label: `${c.emoji} ${c.name}` }))];
         chips($('guide-cat-filters'), catItems, {
             attr: 'cat', active: '',
@@ -730,7 +730,7 @@ window.SkateApp = (() => {
         const nowMs = Date.now();
         const rows = [];
         S.programs.forEach(p => {
-            if (!SkateChat.Favorites.has(p)) return;
+            if (!SkateFavorites.has(p)) return;
             if (SkateAlerts.isDropped(p)) return;           // the City dropped it: no countdown to nothing
             const st = SkateTime.status(p, nowMs);
             if (st.phase === 'ended' || st.phase === 'undated') return;
@@ -779,7 +779,7 @@ window.SkateApp = (() => {
     /** Saved sessions that have ended leave the list on their own (quietly). */
     function pruneEndedSaved(nowMs) {
         S.programs.forEach(p => {
-            if (SkateChat.Favorites.has(p) && SkateTime.status(p, nowMs).phase === 'ended') SkateChat.Favorites.remove(p);
+            if (SkateFavorites.has(p) && SkateTime.status(p, nowMs).phase === 'ended') SkateFavorites.remove(p);
         });
     }
 
@@ -853,7 +853,7 @@ window.SkateApp = (() => {
 
     Render.programs = function () {
         const { filtered } = S;
-        const chatState = SkateChat.getState();
+        const chatState = (window.SkateChat && SkateChat.booted) ? SkateChat.getState() : null;   // v3.8: the chat code may not be loaded
         const now = new Date();
         Render.dataWarnings(SkateAPI.getMetadata(), now);
         Render.status();
@@ -883,7 +883,7 @@ window.SkateApp = (() => {
 
         // the heart nudge rides the first card until a first save or "Got it";
         // anyone who already has saved sessions never sees it
-        if (!SkateSettings.get('heartHintDone') && SkateChat.Favorites.count()) SkateSettings.set('heartHintDone', true);
+        if (!SkateSettings.get('heartHintDone') && SkateFavorites.count()) SkateSettings.set('heartHintDone', true);
         S.heartHint = !SkateSettings.get('heartHintDone');
 
         // rows grouped under day headers — the date leaves the row
@@ -951,7 +951,7 @@ window.SkateApp = (() => {
             weekOffset: S.calWeekOffset,
             fmtClock,
             idFor: p => P.id(p),
-            isSaved: p => SkateChat.Favorites.has(p),
+            isSaved: p => SkateFavorites.has(p),
             alertFor: p => SkateAlerts.forProgram(p),
             statusFor: p => SkateTime.status(p),
             typeFor: p => P.typeCls(p)
@@ -980,7 +980,7 @@ window.SkateApp = (() => {
             kindLabel: p => { const cls = P.typeCls(p); return (CFG.activityTags.find(t => t.cls === cls) || {}).label || 'Skate'; },
             distanceFor: p => SkateGeo.distanceForProgram(p),
             idFor: p => P.id(p),
-            isSaved: p => SkateChat.Favorites.has(p),
+            isSaved: p => SkateFavorites.has(p),
             alertFor: p => SkateAlerts.forProgram(p),
             statusFor: p => SkateTime.status(p),
             typeFor: p => P.typeCls(p),
@@ -1087,7 +1087,7 @@ window.SkateApp = (() => {
         const note = CFG.locationNotes[String(p['Location ID'] ?? '')];
         const noteBtn = note ? `<button class="loc-note where-note" data-note="${escapeHtml(note)}" title="${escapeHtml(note)}" aria-label="Rink note">📝</button>` : '';
 
-        const isFavorite = SkateChat.Favorites.has(p);
+        const isFavorite = SkateFavorites.has(p);
         const actionHtml = CFG.programActions.map(a => {
             let title = a.title || '', text = a.text || '', extraCls = '';
             if (a.act === 'fav') {
@@ -1162,7 +1162,7 @@ window.SkateApp = (() => {
         const meta = el('div', { class: 'conv-meta' }, [
             el('span', { class: 'conv-time' }, [c.lastTs ? SkateSettings.formatWhen(c.lastTs) : ''])
         ]);
-        if (c.unread) meta.appendChild(el('span', { class: 'dm-unread-badge' }, [String(c.unread)]));
+        if (c.unread) meta.appendChild(el('span', { class: 'dm-unread-badge' + (c.mentions ? ' mention' : ''), title: c.mentions ? `${c.mentions} mention${c.mentions === 1 ? '' : 's'} of you` : '' }, [c.mentions ? `@ ${c.unread}` : String(c.unread)]));
         else if (c.kind === 'group' && c.online > 1) {
             meta.appendChild(el('span', { class: 'conv-online', html: `<span class="online-dot"></span>${c.online}` }));
         }
@@ -1215,14 +1215,25 @@ window.SkateApp = (() => {
         return `<div class="reply-ref"${mid}>↩ <strong>${escapeHtml(r.from || '')}</strong> ${escapeHtml(r.text || '')}</div>`;
     };
 
-    Render.msg = function (m, isDm) {
+    /** @name tokens: yours glows, everyone else's is tinted (text is already escaped). */
+    function highlightMentions(html, myName) {
+        const mine = (myName || '').toLowerCase();
+        return html.replace(/@([\w.-]{2,24})/g, (tok, n) => n.toLowerCase() === mine ? `<mark class="mention me">${tok}</mark>` : `<span class="mention">${tok}</span>`);
+    }
+
+    Render.msg = function (m, isDm, opts = {}) {
         let cls = 'chat-msg';
         if (m.mine) cls += ' mine';
         if (m.system) cls += ' system';
         if (m.type === 'share') cls += ' share';
         if (m.type === 'guide') cls += ' share guide-share';
+        if (opts.cont) cls += ' cont';
+        if (m.mention) cls += ' mentions-me';
+        if (m.deleted) {
+            return `<div class="${cls} deleted" data-mid="${escapeHtml(m.id)}"><div class="bubble">Message unsent</div></div>`;
+        }
 
-        let content = escapeHtml(m.text || '');
+        let content = highlightMentions(escapeHtml(m.text || ''), opts.myName);
         if (m.type === 'share' && m.data) {
             const loc = m.data.location;
             const town = String(m.data.city || 'Toronto').slice(0, 40);   // rode the wire — clamp it
@@ -1241,7 +1252,7 @@ window.SkateApp = (() => {
         } else if (m.type === 'image' && m.data && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(m.data.src || '')) {
             content = `<img class="msg-img" src="${m.data.src}" alt="photo" loading="lazy">`;
         } else if (m.type === 'guide' && m.data) {
-            const cat = SkateGuides.CATEGORIES[m.data.category];
+            const cat = CFG.guideCategories[m.data.category];
             content = `<strong>${escapeHtml(m.data.title)}</strong>` +
                 (cat ? `<br><span class="guide-cat">${cat.emoji} ${escapeHtml(cat.name)}</span>` : '') +
                 (m.data.excerpt ? `<br><em>“${escapeHtml(m.data.excerpt)}”</em>` : '') +
@@ -1253,16 +1264,56 @@ window.SkateApp = (() => {
             m.status === 'failed' ? '<span class="msg-tick failed" title="Not delivered. Tap the message to retry.">⚠ retry</span>' :
             '<span class="msg-tick" title="Delivered to relays">✓</span>';
 
-        const sender = (!m.mine && !m.system)
+        const sender = (!m.mine && !m.system && !opts.cont)
             ? `<div class="sender" ${m.fromPubkey ? `data-pk="${m.fromPubkey}"` : ''} data-name="${escapeHtml(m.from || 'Skater')}" title="Tap for message / mute">${!isDm ? hueDot(m.fromPubkey) : ''}${escapeHtml(m.from || 'Skater')}</div>`
+            : '';
+        // v3.8: reaction chips under the bubble; yours are outlined, tap to toggle
+        const reacts = Object.entries(m.reacts || {}).filter(([, pks]) => pks && pks.length);
+        const reactsHtml = reacts.length
+            ? `<div class="reacts">${reacts.map(([emoji, pks]) => {
+                const mine = opts.me && pks.includes(opts.me);
+                return `<button class="react-chip${mine ? ' mine' : ''}" type="button" data-react="${escapeHtml(emoji)}" title="${pks.length} reaction${pks.length === 1 ? '' : 's'}${mine ? ', including yours (tap to take it back)' : ' (tap to add yours)'}">${emoji} ${pks.length}</button>`;
+            }).join('')}</div>`
             : '';
 
         return `
             <div class="${cls}" data-mid="${escapeHtml(m.id)}"${m.localId ? ` data-local="${m.localId}"` : ''}>
                 ${sender}
                 <div class="bubble">${Render.replyRef(m.replyTo)}${content}${m.system ? '' : `<span class="msg-time">${SkateSettings.formatWhen(m.ts)}${tick}</span>`}</div>
+                ${reactsHtml}
             </div>`;
     };
+
+    /** Today / Yesterday / Tue, Oct 7 (with the year once it differs). */
+    function dayLabel(ts) {
+        const d = new Date(ts), today = new Date(), yest = new Date();
+        yest.setDate(today.getDate() - 1);
+        if (d.toDateString() === today.toDateString()) return 'Today';
+        if (d.toDateString() === yest.toDateString()) return 'Yesterday';
+        return d.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', ...(d.getFullYear() !== today.getFullYear() ? { year: 'numeric' } : {}) });
+    }
+
+    /**
+     * A thread as HTML: a "Load earlier" button, a separator per day, and
+     * consecutive messages from one person within five minutes grouped
+     * under one name.
+     */
+    function renderThread(visible, isDm, conv, chatState) {
+        const parts = [];
+        if (visible.length && conv && !conv.historyDone) {
+            parts.push(`<div class="load-earlier-wrap"><button class="load-earlier" type="button" data-load-earlier${conv.loadingOlder ? ' disabled' : ''}>${conv.loadingOlder ? 'Loading…' : CFG.actions.loadEarlier.label}</button></div>`);
+        }
+        let prevDay = null, prevKey = null, prevTs = 0;
+        visible.forEach(m => {
+            const day = new Date(m.ts).toDateString();
+            if (day !== prevDay) { parts.push(`<div class="chat-day"><span>${escapeHtml(dayLabel(m.ts))}</span></div>`); prevDay = day; prevKey = null; }
+            const key = m.system ? null : (m.mine ? 'me' : (m.fromPubkey || m.from || 'them'));
+            const cont = !!key && key === prevKey && (m.ts - prevTs) < 5 * 60000;
+            parts.push(Render.msg(m, isDm, { cont, me: chatState.myPublicKey, myName: chatState.myName }));
+            prevKey = key; prevTs = m.ts;
+        });
+        return parts.join('');
+    }
 
     Render.activeChat = function (chatState) {
         if (!S.chatOpen) return;
@@ -1297,7 +1348,7 @@ window.SkateApp = (() => {
             $('members-bar').classList.add('hidden');
             visible = activeDmThread.messages || [];
             msgs.innerHTML = visible.length
-                ? visible.map(m => Render.msg(m, true)).join('')
+                ? renderThread(visible, true, activeDmThread, chatState)
                 : '<div class="chat-empty"><p>Start a private conversation. It reaches them even if they are offline now.</p></div>';
             $('chat-input').placeholder = `Message ${activeDmThread.name}…`;
         } else if (activeGroup) {
@@ -1312,7 +1363,7 @@ window.SkateApp = (() => {
 
             visible = (activeGroup.messages || []).filter(m => m.mine || !SkateChat.Mutes.has(m.fromPubkey));
             msgs.innerHTML = visible.length
-                ? visible.map(m => Render.msg(m, false)).join('')
+                ? renderThread(visible, false, activeGroup, chatState)
                 : '<div class="chat-empty"><p>No messages yet. Say hi.</p></div>';
 
             Render.members(activeGroup.id);
@@ -1557,7 +1608,11 @@ window.SkateApp = (() => {
     function scheduleGuidesRender() {
         if (guidesRenderQueued) return;
         guidesRenderQueued = true;
-        requestAnimationFrame(() => {
+        // rAF never fires in a background tab: a timer covers that case
+        let done = false;
+        const run = () => {
+            if (done) return;
+            done = true;
             guidesRenderQueued = false;
             Render.guides();
             if (S.pendingGuideOpen && SkateGuides.get(S.pendingGuideOpen)) {
@@ -1565,10 +1620,13 @@ window.SkateApp = (() => {
                 S.pendingGuideOpen = null;
                 Actions.openGuide(gid);
             }
-        });
+        };
+        const fallback = setTimeout(run, document.visibilityState === 'hidden' ? 30 : 400);
+        requestAnimationFrame(() => { clearTimeout(fallback); run(); });
     }
 
     Render.guides = function () {
+        if (!window.SkateGuides) return;   // the community code is not loaded (yet)
         if (S.activeGuideId) return Render.guideDetail();
         const guides = SkateGuides.list(S.guideCat || null);
         if (!SkateGuides.loaded && !guides.length) {
@@ -1581,7 +1639,7 @@ window.SkateApp = (() => {
         }
         const myPk = SkateChat.getState().myPublicKey;
         $('guides-list').innerHTML = guides.map(g => {
-            const cat = SkateGuides.CATEGORIES[g.category] || {};
+            const cat = CFG.guideCategories[g.category] || {};
             return `
             <div class="guide-card ${g.pinned ? 'pinned' : ''}" data-guide="${g.id}">
                 <div class="guide-card-top">
@@ -1604,7 +1662,7 @@ window.SkateApp = (() => {
     Render.guideDetail = function () {
         const g = SkateGuides.get(S.activeGuideId);
         if (!g) { S.activeGuideId = null; return Render.guides(); }
-        const cat = SkateGuides.CATEGORIES[g.category] || {};
+        const cat = CFG.guideCategories[g.category] || {};
         const myPk = SkateChat.getState().myPublicKey;
         const voted = SkateGuides.hasVoted(g.id, myPk);
         $('guide-detail-content').innerHTML = `
@@ -1678,12 +1736,20 @@ window.SkateApp = (() => {
             const items = [];
             const isDm = chatState.viewMode === 'dm';
             const convId = isDm ? chatState.activeDmRecipient : chatState.activeGroup?.id;
+            const kind = isDm ? 'dm' : 'group';
+            if (m.deleted) return items;
+            if (!m.system && !m.localId) {
+                items.push({ reactions: SkateChat.REACTIONS, active: Object.keys(m.reacts || {}).filter(e => (m.reacts[e] || []).includes(chatState.myPublicKey)), onPick: (emoji) => SkateChat.react(kind, convId, m.id, emoji) });
+            }
             if (!m.system) items.push({ ...A('reply'), onClick: () => Actions.setReply(m) });
             if (m.text) items.push({ ...A('copyText'), onClick: () => copyText(m.text) });
             if (m.type === 'share' && m.data?.programId) items.push({ ...A('openProgram'), onClick: () => { Actions.switchView('programs'); Actions.focusProgram(m.data.programId); } });
             if (m.type === 'guide' && m.data?.guideId) items.push({ ...A('openGuide'), onClick: () => Actions.openGuide(m.data.guideId) });
             if (m.mine && m.status === 'failed' && m.localId) {
                 items.push({ ...A('retry'), onClick: () => SkateChat.retryMessage(isDm ? 'dm' : 'group', convId, m.localId) });
+            }
+            if (m.mine && !m.localId && !m.system) {
+                items.push({ ...A('unsend'), onClick: () => { if (confirm('Unsend this message for everyone?')) SkateChat.unsend(kind, convId, m.id); } });
             }
             if (!m.mine && !m.system && !isDm) items.push(...Menus.user(m.fromPubkey, m.from || 'Skater'));
             if (!m.mine && isDm) {
@@ -1713,7 +1779,7 @@ window.SkateApp = (() => {
                     items.push({ ...A('rename'), onClick: async () => {
                         const name = prompt('New group name:', g.name);
                         if (name === null) return;
-                        try { await SkateChat.renameGroup(g.id, name); } catch (e) { SkateChat.Notify.toast(e.message, 'error'); }
+                        try { await SkateChat.renameGroup(g.id, name); } catch (e) { SkateUI.toast(e.message, 'error'); }
                     } });
                 }
                 items.push({ ...A('clearHistory'), onClick: () => { if (confirm('Clear messages on this device? Others keep theirs.')) SkateChat.clearHistory('group', g.id); } });
@@ -1740,7 +1806,7 @@ window.SkateApp = (() => {
                 const mine = (SkateSettings.get('myRinks') || []).includes(key);
                 items.push({ ...A(mine ? 'removeRink' : 'addRink', { rink: P.location(p) }), onClick: () => {
                     Actions.toggleMyRink(key);
-                    SkateChat.Notify.toast(mine ? `${P.location(p)} removed from your rinks` : `${P.location(p)} added to your rinks`, 'success', 2200);
+                    SkateUI.toast(mine ? `${P.location(p)} removed from your rinks` : `${P.location(p)} added to your rinks`, 'success', 2200);
                 } });
             }
             const off = officialUrl(p);
@@ -1832,7 +1898,7 @@ window.SkateApp = (() => {
 
         /** Tapping a session block in the week calendar. */
         calBlock(p, anchor = null) {
-            const fav = SkateChat.Favorites.has(p);
+            const fav = SkateFavorites.has(p);
             const items = [
                 { label: fav ? 'Remove from saved' : 'Save this session', onClick: () => { Actions.toggleSaved(p); } },
                 { label: 'Show in the list', onClick: () => {
@@ -1853,7 +1919,11 @@ window.SkateApp = (() => {
     /* ================= Actions (named intents) ================= */
     const Actions = {};
 
-    Actions.switchView = view => Render.switchView(view);
+    Actions.switchView = view => {
+        Render.switchView(view);
+        if (view === 'chats' && !chatBooted) Render.chatLoading();
+        if (chatBooted) SkateChat.setViewOpen(chatsViewOnScreen());
+    };
 
     /** The filter pipeline, pure: state → sorted array (also sets S.paidMatching). */
     function computeFiltered() {
@@ -1867,7 +1937,7 @@ window.SkateApp = (() => {
         let result = S.programs.filter(p => {
             if (!S.showDropped && SkateAlerts.isDropped(p)) return false;   // toronto.ca is the ground truth
             if (!P.matchesTypes(p)) return false;
-            if (S.savedOnly && !SkateChat.Favorites.has(p)) return false;
+            if (S.savedOnly && !SkateFavorites.has(p)) return false;
             if (S.cities.length && !S.cities.includes(P.city(p))) return false;
             if (S.rinkScope === 'mine' && mine.size && !mine.has(P.locKey(p))) return false;
             if (S.nearRink && P.locKey(p) !== S.nearRink.key) return false;
@@ -1971,7 +2041,7 @@ window.SkateApp = (() => {
         S.sort = id;
         if (id === 'near' && !SkateGeo.getUserLocation()) {
             Modal.close('filters-modal');
-            SkateChat.Notify.toast('Nearest first needs your location. Set it here.', 'info', 3000);
+            SkateUI.toast('Nearest first needs your location. Set it here.', 'info', 3000);
             Actions.openRinks();
         }
         filtersChanged();
@@ -2063,7 +2133,7 @@ window.SkateApp = (() => {
             Actions.applyFilters();
             idx = find();
         }
-        if (idx === -1) return SkateChat.Notify.toast('That session is not in the current schedule anymore', 'error');
+        if (idx === -1) return SkateUI.toast('That session is not in the current schedule anymore', 'error');
         if (S.calMode) { S.calMode = false; }
         if (idx >= S.limit) S.limit = idx + 1;
         Render.programs();
@@ -2082,7 +2152,7 @@ window.SkateApp = (() => {
         if (sp.free === 0 && sp.paid > 0) {
             S.paidVisible = true;
             SkateSettings.set('freeOnly', false);
-            SkateChat.Notify.toast(`${what || 'That rink'} only has paid sessions. Paid is now on so they show.`, 'info', 4000);
+            SkateUI.toast(`${what || 'That rink'} only has paid sessions. Paid is now on so they show.`, 'info', 4000);
         }
     }
 
@@ -2103,7 +2173,7 @@ window.SkateApp = (() => {
         try {
             await SkateMap.open(opts);   // shows #rinks-modal, lazy-loads Leaflet
         } catch (e) {
-            SkateChat.Notify.toast('The map could not load. The rink list still works.', 'error');
+            SkateUI.toast('The map could not load. The rink list still works.', 'error');
         }
     };
     Actions.closeRinks = function () { SkateMap.close(); };
@@ -2199,40 +2269,162 @@ window.SkateApp = (() => {
         ensurePaidVisibleFor(key, name);
         SkateMap.close();
         Actions.applyFilters();
-        SkateChat.Notify.toast(`Showing only ${name}. Tap the pill's x to clear.`, 'info', 3500);
+        SkateUI.toast(`Showing only ${name}. Tap the pill's x to clear.`, 'info', 3500);
     };
 
     /* ---------- Section visibility + first-visit setup ---------- */
     let chatBooted = false;   // guards the badge refresh before SkateChat.init()
 
+    /* ---------- The community code (v3.8: loaded only when wanted) ----------
+     * nostr.bundle.js alone is 250 KB; with the chat, guides, moderation and
+     * dev-chat modules the stack is ~360 KB that a schedule-only visit never
+     * needs. The scripts are injected on demand (fetched in parallel, run in
+     * order), the service worker keeps every versioned file cache-first, so
+     * the first enable downloads once and every later load is instant and
+     * always the version index.html names. */
+    const COMMUNITY_SCRIPTS = [
+        '../assets/js/nostr.bundle.js?v=1',
+        'projects/js/moderation.js?v=7',
+        'projects/js/nostr-core.js?v=5',
+        'projects/js/chat-v2.js?v=17',
+        'projects/js/devchat.js?v=6',
+        'projects/js/guides.js?v=6',
+        'projects/js/profanity-list.js?v=1'
+    ];
+    const loadedScripts = new Set();
+    function loadScript(src) {
+        if (loadedScripts.has(src)) return Promise.resolve();
+        return new Promise((resolve, reject) => {
+            const tag = document.createElement('script');
+            tag.src = src;
+            tag.async = false;   // dynamic scripts with async=false run in insertion order
+            tag.onload = () => { loadedScripts.add(src); resolve(); };
+            tag.onerror = () => { tag.remove(); reject(new Error(`could not load ${src.split('/').pop().split('?')[0]}`)); };
+            document.head.appendChild(tag);
+        });
+    }
+    const communityLoaded = () => !!(window.NostrTools && window.SkateMod && window.SkateNostr && window.SkateChat && window.SkateGuides && window.SkateDev);   // each module attaches itself to window
+    let communityCodePromise = null;
+    function loadCommunityCode() {
+        if (communityLoaded()) return Promise.resolve();
+        if (communityCodePromise) return communityCodePromise;
+        S.communityState = 'loading';
+        Render.chatLoading();
+        communityCodePromise = Promise.all(COMMUNITY_SCRIPTS.map(src =>
+            loadScript(src).catch(e => { if (/profanity/.test(src)) return; throw e; })   // the word list degrades gracefully
+        )).then(() => {
+            if (!communityLoaded()) throw new Error('community modules missing after load');
+            S.communityState = 'ready';
+            SkateDev.bind();
+        }).catch(e => {
+            communityCodePromise = null;
+            S.communityState = 'failed';
+            S.communityError = e.message;
+            Render.chatLoading();
+            throw e;
+        });
+        return communityCodePromise;
+    }
+    /** Just the signing library (the City-refresh doorbell signs a throwaway note). */
+    const ensureNostrTools = () => window.NostrTools ? Promise.resolve() : loadScript(COMMUNITY_SCRIPTS[0]);
+
+    /** Loading / failed / connecting placeholder in the Chats list until the stack is up. */
+    Render.chatLoading = function () {
+        if (chatBooted) return;
+        const list = $('conversation-list');
+        if (!list) return;
+        list.innerHTML = '';
+        const li = el('li', { class: 'conv-empty community-loading' });
+        if (S.communityState === 'failed') {
+            li.append(
+                el('p', {}, [`Chat could not load${S.communityError ? ` (${S.communityError})` : ''}. Check your connection.`]),
+                el('button', { class: 'btn-primary btn-small', onclick: () => Actions.bootCommunity().catch(() => {}) }, ['Try again'])
+            );
+        } else {
+            li.append(el('p', {}, [S.communityState === 'loading' ? 'Loading chat… the first time takes a moment; after that it is instant.' : 'Connecting…']));
+        }
+        list.appendChild(li);
+    };
+
     /**
-     * Boot the community stack (profanity list → relays → guides) exactly
-     * once, and only when a community section is actually visible. A
-     * schedule-only visit (both sections hidden) opens zero websockets
-     * and never downloads the profanity list.
+     * Boot the community stack (code → relays → chat → guides) once, and only
+     * when a community section is on (or a deep link asks for it). A
+     * schedule-only visit downloads none of it and opens zero websockets.
      */
-    let communityBootPromise = null;
+    let communityBootPromise = null, guidesHooked = false;
+    const chatsViewOnScreen = () => S.chatOpen && document.querySelector('.view-panel.active')?.id === 'chats-panel';
     Actions.bootCommunity = function () {
         if (communityBootPromise) return communityBootPromise;
         communityBootPromise = (async () => {
-            // The word list is display-critical (incoming messages run
-            // through SkateMod.clean), so it loads BEFORE the relays connect.
-            await new Promise(resolve => {
-                const s = el('script', { src: 'projects/js/profanity-list.js' });
-                s.onload = resolve;
-                s.onerror = resolve;   // moderation degrades gracefully (remote checks remain)
-                document.head.appendChild(s);
-            });
-            SkateMod.resetLocal();     // un-latch, in case anything checked early
-            await SkateChat.init();
-            chatBooted = true;
-            SkateChat.onUpdate(Render.chatUI);
-            if (window.SkateDev) SkateDev.attach();
-            SkateGuides.load();
-            SkateGuides.onUpdate(scheduleGuidesRender);
-            Render.chatUI(SkateChat.getState());
+            try {
+                await loadCommunityCode();
+                SkateMod.resetLocal();     // un-latch, in case anything checked before the word list arrived
+                await SkateChat.init();    // identity, state, relays, subscriptions
+                chatBooted = true;
+                SkateChat.setViewOpen(chatsViewOnScreen());
+                SkateChat.onUpdate(Render.chatUI);
+                if (!netbarHooked) { netbarHooked = true; SkateNostr.onStatus(st => Render.netbar(st.connected)); }
+                SkateDev.attach();
+                if (SkateSettings.get('showGuides') !== false) {
+                    SkateGuides.load();
+                    if (!guidesHooked) { guidesHooked = true; SkateGuides.onUpdate(scheduleGuidesRender); }
+                }
+                Render.chatUI(SkateChat.getState());
+            } catch (e) {
+                communityBootPromise = null;
+                console.warn('[community] boot failed:', e.message);
+                Render.chatLoading();
+                throw e;
+            }
         })();
         return communityBootPromise;
+    };
+
+    /** Offline banner in the conversation view: no relay reachable right now. */
+    let netbarHooked = false;
+    Render.netbar = function (connected) {
+        const bar = $('chat-netbar');
+        if (bar) bar.classList.toggle('hidden', !(chatBooted && connected === 0));
+    };
+
+    /** A notification or deep link lands in a conversation: section on, Chats view, thread open. */
+    Actions.jumpToConversation = async function (kind, id) {
+        Actions.ensureSectionVisible('showChats');
+        try { await Actions.bootCommunity(); } catch { return; }
+        Actions.switchView('chats');
+        Actions.openConversation(kind, id);
+    };
+
+    /** Settings → Notify: ask the browser once; iPhones cannot do this for a website. */
+    Actions.enableNotifications = async function () {
+        if (typeof Notification === 'undefined') {
+            SkateSettings.set('notifyDesktop', false);
+            SkateUI.toast('This browser cannot show notifications for a website (iPhone Safari only allows them for installed apps with push, which this site does not use).', 'info', 6000);
+            Render.settings();
+            return;
+        }
+        let perm = Notification.permission;
+        if (perm === 'default') { try { perm = await Notification.requestPermission(); } catch { perm = 'denied'; } }
+        if (perm !== 'granted') {
+            SkateSettings.set('notifyDesktop', false);
+            SkateUI.toast('Notifications are blocked for this site. Allow them in the browser\'s site settings, then switch Notify on again.', 'error', 5000);
+        } else {
+            SkateUI.toast('You will be notified of DMs and @mentions while this tab is in the background.', 'success', 4000);
+        }
+        Render.settings();
+    };
+
+    /** Both sections off (and nothing else needs the relays): goodbye, sockets closed, badge cleared. */
+    Actions.shutdownCommunity = function () {
+        if (!chatBooted) { communityBootPromise = null; return; }
+        try { SkateGuides.stop(); } catch {}
+        try { SkateChat.shutdown(); } catch {}
+        chatBooted = false;
+        communityBootPromise = null;
+        S.communityState = 'ready';
+        $('chats-badge').classList.add('hidden');
+        Render.netbar(1);
+        Render.chatLoading();
     };
 
     /** First visit not yet handled? (Existing users are grandfathered.) */
@@ -2248,11 +2440,19 @@ window.SkateApp = (() => {
         (SkateSettings.get('showGuides') !== false || SkateSettings.get('showChats') !== false);
 
     Actions.applyVisibility = function () {
-        document.body.classList.toggle('hide-guides', SkateSettings.get('showGuides') === false);
+        const guidesOn = SkateSettings.get('showGuides') !== false;
+        document.body.classList.toggle('hide-guides', !guidesOn);
         document.body.classList.toggle('hide-chats', SkateSettings.get('showChats') === false);
         Render.tabs();
-        if (chatBooted) Render.chatUI(SkateChat.getState());   // repopulate the rebuilt badge
-        if (communityWanted()) Actions.bootCommunity();        // late enable → boot now
+        if (chatBooted) {
+            Render.chatUI(SkateChat.getState());   // repopulate the rebuilt badge
+            // guides follow their own switch while the stack is up
+            if (guidesOn) { SkateGuides.load(); if (!guidesHooked) { guidesHooked = true; SkateGuides.onUpdate(scheduleGuidesRender); } }
+            else SkateGuides.stop();
+            SkateChat.setViewOpen(chatsViewOnScreen());
+        }
+        if (communityWanted()) Actions.bootCommunity().catch(() => {});   // late enable → load + boot now
+        else Actions.shutdownCommunity();                                 // both off → silence
         // never leave the user staring at a hidden panel
         const active = document.querySelector('.view-panel.active');
         if (active && ((active.id === 'guides-panel' && SkateSettings.get('showGuides') === false) ||
@@ -2267,7 +2467,7 @@ window.SkateApp = (() => {
         if (SkateSettings.get(visKey) === false) {
             SkateSettings.set(visKey, true);
             Actions.applyVisibility();
-            SkateChat.Notify.toast(`${visKey === 'showGuides' ? 'Guides' : 'Chats'} switched on. Hide it again in Settings.`, 'info', 3500);
+            SkateUI.toast(`${visKey === 'showGuides' ? 'Guides' : 'Chats'} switched on. Hide it again in Settings.`, 'info', 3500);
         }
     };
 
@@ -2280,7 +2480,7 @@ window.SkateApp = (() => {
      */
     /** ♡ from a row or a calendar block; the first save retires the heart nudge. */
     Actions.toggleSaved = function (p) {
-        if (SkateChat.Favorites.toggle(p)) SkateSettings.set('heartHintDone', true);
+        if (SkateFavorites.toggle(p)) SkateSettings.set('heartHintDone', true);
         Render.programs();
     };
 
@@ -2357,13 +2557,14 @@ window.SkateApp = (() => {
         Modal.open('whatsnew-modal');
     };
 
-    Actions.openGuide = function (id) {
+    Actions.openGuide = async function (id) {
         Actions.ensureSectionVisible('showGuides');
         Actions.switchView('guides');
+        try { await Actions.bootCommunity(); } catch { return; }
         const g = SkateGuides.get(id);
         if (!g) {
             S.pendingGuideOpen = id;
-            if (SkateGuides.loaded) SkateChat.Notify.toast('That guide is not on the relays yet', 'info', 3000);
+            if (SkateGuides.loaded) SkateUI.toast('That guide is not on the relays yet', 'info', 3000);
             return;
         }
         S.pendingGuideOpen = null;
@@ -2387,8 +2588,8 @@ window.SkateApp = (() => {
         btn.disabled = true;
         try {
             const ok = await SkateGuides.vote(targetId, identity());
-            if (!ok) SkateChat.Notify.toast('The vote did not reach the relays. Try again.', 'error');
-        } catch (e) { SkateChat.Notify.toast(e.message, 'error'); }
+            if (!ok) SkateUI.toast('The vote did not reach the relays. Try again.', 'error');
+        } catch (e) { SkateUI.toast(e.message, 'error'); }
         btn.disabled = false;
         Render.guides();
     };
@@ -2412,8 +2613,8 @@ window.SkateApp = (() => {
         try {
             const ok = await SkateGuides.comment(S.activeGuideId, text, identity(), S.guideReply?.id || null);
             if (ok) { $('guide-comment-input').value = ''; Actions.clearGuideReply(); Render.guideDetail(); }
-            else SkateChat.Notify.toast('The comment did not reach the relays', 'error');
-        } catch (e) { SkateChat.Notify.toast(e.message, 'error'); }
+            else SkateUI.toast('The comment did not reach the relays', 'error');
+        } catch (e) { SkateUI.toast(e.message, 'error'); }
         btn.disabled = false; btn.textContent = '➤';
     };
 
@@ -2427,13 +2628,13 @@ window.SkateApp = (() => {
                 body: $('guide-body-input').value
             }, identity());
             if (ok) {
-                SkateChat.Notify.toast('Guide published', 'success');
+                SkateUI.toast('Guide published', 'success');
                 $('guide-title-input').value = ''; $('guide-body-input').value = '';
                 $('guide-write').classList.add('hidden');
                 $('guides-home').classList.remove('hidden');
                 Render.guides();
-            } else SkateChat.Notify.toast('The relays did not accept it. Try again.', 'error');
-        } catch (e) { SkateChat.Notify.toast(e.message, 'error'); }
+            } else SkateUI.toast('The relays did not accept it. Try again.', 'error');
+        } catch (e) { SkateUI.toast(e.message, 'error'); }
         btn.disabled = false; btn.textContent = 'Publish guide';
     };
 
@@ -2458,10 +2659,12 @@ window.SkateApp = (() => {
         S.chatOpen = true;
         Actions.clearReply();
         SkateChat.openConversation(kind, id);
+        SkateChat.setViewOpen(chatsViewOnScreen());
         Actions.focusChatInput();
     };
 
-    Actions.startDm = function (pubkey, name) {
+    Actions.startDm = async function (pubkey, name) {
+        await Actions.bootCommunity();
         if (SkateChat.startDm(pubkey, name)) {
             Actions.ensureSectionVisible('showChats');
             S.chatOpen = true;
@@ -2474,6 +2677,7 @@ window.SkateApp = (() => {
         const s = SkateChat.getState();
         if (s.viewMode === 'dm') SkateChat.closeDm();
         S.chatOpen = false;
+        SkateChat.setViewOpen(false);
         S.lastRenderedConv = null;
         Actions.clearReply();
         Render.chatUI(SkateChat.getState());
@@ -2495,6 +2699,7 @@ window.SkateApp = (() => {
         const text = input.value;
         if (!text.trim()) return;
         input.value = '';
+        input.style.height = '';
         const reply = S.replyTo;
         Actions.clearReply();
         const s = SkateChat.getState();
@@ -2511,12 +2716,13 @@ window.SkateApp = (() => {
 
     Actions.scrollToMsg = function (mid) {
         const node = document.querySelector(`.chat-msg[data-mid="${CSS.escape(mid)}"]`);
-        if (!node) return SkateChat.Notify.toast('That message isn\'t loaded anymore', 'info', 2000);
+        if (!node) return SkateUI.toast('That message isn\'t loaded anymore', 'info', 2000);
         flash(node);
     };
 
     /* ---------- Share picker ---------- */
-    Actions.openSharePicker = function (ctx) {
+    Actions.openSharePicker = async function (ctx) {
+        try { await Actions.bootCommunity(); } catch { return; }
         S.shareCtx = ctx;
         Render.sharePicker(ctx);
         Modal.open('share-modal');
@@ -2532,10 +2738,14 @@ window.SkateApp = (() => {
 
     /* ---------- Invites + router ---------- */
     let lastRoutedHash = null;
-    Actions.route = function () {
+    Actions.route = async function () {
         const hash = window.location.hash.slice(1);
         if (!hash || hash === lastRoutedHash) return;
         lastRoutedHash = hash;
+        // an invite link needs the chat code to be parsed (and then joined)
+        if (/^(i=|j=)/.test(hash) || /^[0-9a-f]{32,}$/i.test(hash)) {
+            try { await loadCommunityCode(); } catch { SkateUI.toast('Could not load the chat code for this invite. Try again online.', 'error', 4000); return; }
+        }
         for (const r of CFG.routes) {
             if (r.prefix && hash.startsWith(r.prefix)) {
                 const arg = hash.slice(r.prefix.length);
@@ -2599,7 +2809,7 @@ window.SkateApp = (() => {
     };
 
     Actions.openSettings = function () {
-        $('settings-name').value = SkateChat.getState().myName || '';
+        $('settings-name').value = (window.SkateChat && SkateChat.getState().myName) || SkateSettings.get('displayName') || '';
         $('btn-play-guide').textContent = `Watch the ${SkateTour.duration()}-second guide`;
         Render.settings();
         Render.identityLine();
@@ -2643,9 +2853,9 @@ window.SkateApp = (() => {
             ind.classList.add('busy'); text.textContent = 'Refreshing…'; setPull(52);
             try {
                 await Actions.reloadData();
-                SkateChat.Notify.toast('Schedule, alerts and spots refreshed', 'success', 2000);
+                SkateUI.toast('Schedule, alerts and spots refreshed', 'success', 2000);
             } catch (e) {
-                SkateChat.Notify.toast('Refresh failed: ' + e.message, 'error');
+                SkateUI.toast('Refresh failed: ' + e.message, 'error');
             } finally {
                 busy = false;
                 ind.classList.remove('busy', 'armed');
@@ -2688,7 +2898,7 @@ window.SkateApp = (() => {
     Render.identityLine = function () {
         const line = $('identity-line');
         if (!line) return;
-        const pk = SkateChat.getIdentity().pk || (() => { try { return JSON.parse(localStorage.getItem('skate_identity_v1') || '{}').pk; } catch { return null; } })();
+        const pk = (window.SkateChat && SkateChat.getIdentity().pk) || (() => { try { return JSON.parse(localStorage.getItem('skate_identity_v1') || '{}').pk; } catch { return null; } })();
         if (!pk) { line.textContent = 'This device has no chat key yet; one is created the first time a community feature or the feedback sheet opens.'; return; }
         const dev = pk === (CFG.devPubkey || CFG.ownerPubkey);
         let npub = pk;
@@ -2714,17 +2924,18 @@ window.SkateApp = (() => {
         $('status-data').textContent = 'Refreshing…';
         try {
             await Actions.reloadData();
-            SkateChat.Notify.toast('Schedule, alerts and spots refreshed', 'success', 2000);
-        } catch (e) { SkateChat.Notify.toast('Refresh failed: ' + e.message, 'error'); }
+            SkateUI.toast('Schedule, alerts and spots refreshed', 'success', 2000);
+        } catch (e) { SkateUI.toast('Refresh failed: ' + e.message, 'error'); }
         finally { Render.status(); btn.disabled = false; btn.classList.remove('spinning'); }
     };
 
     /** The doorbell: asks the CI to re-pull the City's export (status popover). */
     Actions.requestCityRefresh = async function () {
         try {
+            await ensureNostrTools();                               // the doorbell signs a throwaway note
             const res = await SkateRefresh.requestCityRefresh();   // toasts on queued/failed itself
-            if (res === 'cancelled') SkateChat.Notify.toast('No pull requested. Showing the latest published schedule.', 'info', 2500);
-        } catch (e) { SkateChat.Notify.toast('Could not send the request: ' + e.message, 'error'); }
+            if (res === 'cancelled') SkateUI.toast('No pull requested. Showing the latest published schedule.', 'info', 2500);
+        } catch (e) { SkateUI.toast('Could not send the request: ' + e.message, 'error'); }
     };
 
     /* ================= Bindings ================= */
@@ -2810,7 +3021,7 @@ window.SkateApp = (() => {
 
         // ---- List rows + show more ----
         delegate($('program-list'), [
-            ['.loc-note', (n, e) => { e.stopPropagation(); SkateChat.Notify.toast(n.dataset.note, 'info', 6000); }],
+            ['.loc-note', (n, e) => { e.stopPropagation(); SkateUI.toast(n.dataset.note, 'info', 6000); }],
             ['.heart-hint-x', (b, e) => { e.stopPropagation(); SkateSettings.set('heartHintDone', true); Render.programs(); }],
             ['button[data-act]', (btn) => {
                 const p = S.filtered[parseInt(btn.dataset.idx)];
@@ -2827,29 +3038,35 @@ window.SkateApp = (() => {
         $('btn-share-location').onclick = Actions.useMyLocation;
         $('btn-clear-location').onclick = Actions.clearLocation;
         $('btn-install').onclick = Actions.openInstall;
-        $('btn-devchat').onclick = () => window.SkateDev && SkateDev.open();
-        $('btn-feedback').onclick = () => window.SkateDev && SkateDev.open();
-        $('devchat-link').onclick = () => window.SkateDev && SkateDev.open();
-        $('btn-import-key').onclick = () => {
+        // The feedback sheet rides the chat stack: load it on first use.
+        Actions.openDevChat = async () => {
+            try { await loadCommunityCode(); } catch { SkateUI.toast('Could not load the chat code. Check your connection and try again.', 'error', 4000); return; }
+            SkateDev.open();
+        };
+        $('btn-devchat').onclick = Actions.openDevChat;
+        $('btn-feedback').onclick = Actions.openDevChat;
+        $('devchat-link').onclick = Actions.openDevChat;
+        $('btn-import-key').onclick = async () => {
+            try { await loadCommunityCode(); } catch { SkateUI.toast('Could not load the chat code. Try again online.', 'error', 3000); return; }
             const v = prompt('Paste the dev key (nsec or 64-character hex). This device then reads the dev inbox.');
             if (!v) return;
             const pk = SkateChat.importIdentity(v);   // works before the chat stack boots: the key is saved, init picks it up
-            if (!pk) { SkateChat.Notify.toast('That is not a valid key. It should start with nsec1 or be 64 hex characters.', 'error', 5000); return; }
+            if (!pk) { SkateUI.toast('That is not a valid key. It should start with nsec1 or be 64 hex characters.', 'error', 5000); return; }
             const dev = pk === (CFG.devPubkey || CFG.ownerPubkey);
             let note = '';
             if (dev && SkateSettings.get('dmsAllowed') === false) { SkateSettings.set('dmsAllowed', true); note = ' Allow DMs was off on this device; it is on now so the inbox can receive.'; }
             Render.identityLine();
-            SkateChat.Notify.toast(dev ? 'Dev inbox is on for this device.' + note : `Identity set (${pk.slice(0, 8)}…), but that is not the dev inbox key.`, dev ? 'success' : 'info', note ? 7000 : 5000);
+            SkateUI.toast(dev ? 'Dev inbox is on for this device.' + note : `Identity set (${pk.slice(0, 8)}…), but that is not the dev inbox key.`, dev ? 'success' : 'info', note ? 7000 : 5000);
             Actions.bootCommunity().then(() => { if (chatBooted) Render.chatUI(SkateChat.getState()); }).catch(() => {});
         };
-        $('btn-reset-key').onclick = () => {
+        $('btn-reset-key').onclick = async () => {
             if (!confirm('Start a fresh chat identity on this device? Saved sessions, filters and settings stay. Chat names and private threads start over.')) return;
+            try { await loadCommunityCode(); } catch { SkateUI.toast('Could not load the chat code. Try again online.', 'error', 3000); return; }
             const pk = SkateChat.resetIdentity();
             Render.identityLine();
-            SkateChat.Notify.toast(`New identity: ${pk.slice(0, 8)}…`, 'success', 3500);
+            SkateUI.toast(`New identity: ${pk.slice(0, 8)}…`, 'success', 3500);
             if (chatBooted) Render.chatUI(SkateChat.getState());
         };
-        if (window.SkateDev) SkateDev.bind();
         $('btn-install-close').onclick = () => Modal.close('install-modal');
         delegate($('install-hint'), [
             ['[data-install="how"]', Actions.openInstall],
@@ -2880,7 +3097,7 @@ window.SkateApp = (() => {
             ['[data-map-star]', (b) => {
                 Actions.toggleMyRink(b.dataset.mapStar);
                 const mine = (SkateSettings.get('myRinks') || []).includes(b.dataset.mapStar);
-                SkateChat.Notify.toast(mine ? 'Added to your rinks' : 'Removed from your rinks', 'success', 2000);
+                SkateUI.toast(mine ? 'Added to your rinks' : 'Removed from your rinks', 'success', 2000);
             }]
         ]);
 
@@ -2895,7 +3112,7 @@ window.SkateApp = (() => {
             Modal.close('settings-modal');
             Actions.switchView('programs');
             Render.programs();
-            SkateChat.Notify.toast(cal2.checked ? 'Calendar 2.0 is on: the day planner in the Calendar tab.' : 'Back to the classic week grid.', 'info', 3500);
+            SkateUI.toast(cal2.checked ? 'Calendar 2.0 is on: the day planner in the Calendar tab.' : 'Back to the classic week grid.', 'info', 3500);
         };
         $('btn-whatsnew').onclick = () => { Modal.close('settings-modal'); Actions.openWhatsNew(); };
         $('btn-whatsnew-close').onclick = () => Modal.close('whatsnew-modal');
@@ -2906,9 +3123,12 @@ window.SkateApp = (() => {
         $('btn-qr-copy').onclick = copySite;
         $('btn-start-tour').onclick = () => { Modal.close('settings-modal'); Actions.switchView('programs'); SkateTour.start(); };
         $('btn-play-guide').onclick = () => { Modal.close('settings-modal'); Actions.switchView('programs'); SkateTour.play(); };
-        $('btn-save-name').onclick = () => {
-            if (SkateChat.setDisplayName($('settings-name').value)) SkateChat.Notify.toast('Name updated', 'success', 2000);
-            else SkateChat.Notify.toast('That name will not work. Try another.', 'error', 2500);
+        $('btn-save-name').onclick = async () => {
+            // the chat code validates names (word list); load it if this device never chatted
+            try { await loadCommunityCode(); } catch { SkateUI.toast('Could not load the chat code to check the name. Try again online.', 'error', 3000); return; }
+            if (!window.SkateChat.booted) { await Actions.bootCommunity().catch(() => {}); }
+            if (SkateChat.setDisplayName($('settings-name').value)) SkateUI.toast('Name updated', 'success', 2000);
+            else SkateUI.toast('That name will not work. Try another.', 'error', 2500);
         };
         delegate($('settings-timefmt'), [
             ['button[data-fmt]', (b) => { SkateSettings.set('timeFormat', b.dataset.fmt); Render.settings(); }]
@@ -2930,6 +3150,7 @@ window.SkateApp = (() => {
                 const effective = cur == null ? !!def.default : cur;
                 SkateSettings.set(def.id, !effective);
                 if (chatBooted) SkateChat.applyPrivacy();
+                if (def.id === 'notifyDesktop' && !effective) Actions.enableNotifications();
                 Render.settings();
             }]
         ]);
@@ -2944,7 +3165,8 @@ window.SkateApp = (() => {
         $('btn-back').onclick = Actions.backToList;
         $('btn-chat-menu').onclick = e => { e.stopPropagation(); Popover.open($('btn-chat-menu'), Menus.conversation()); };
         $('btn-send').onclick = Actions.sendCurrent;
-        $('chat-input').onkeypress = e => { if (e.key === 'Enter') Actions.sendCurrent(); };
+        $('chat-input').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); Actions.sendCurrent(); } };
+        $('chat-input').oninput = () => { const ta = $('chat-input'); ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 120) + 'px'; };
         $('btn-reply-cancel').onclick = Actions.clearReply;
         $('jump-pill').onclick = () => {
             const msgs = $('chat-messages');
@@ -2964,6 +3186,26 @@ window.SkateApp = (() => {
         ]);
         delegate($('chat-messages'), [
             ['a', () => { /* links behave like links */ }],
+            ['[data-load-earlier]', async (b, e) => {
+                e.stopPropagation();
+                const st = SkateChat.getState();
+                const kind = st.viewMode === 'dm' ? 'dm' : 'group';
+                const id = kind === 'dm' ? st.activeDmRecipient : st.activeGroup?.id;
+                const msgs = $('chat-messages');
+                const h = msgs.scrollHeight, top = msgs.scrollTop;
+                const added = await SkateChat.loadOlder(kind, id);
+                S.jumpBase += added;   // older history is not "new messages"
+                requestAnimationFrame(() => requestAnimationFrame(() => { msgs.scrollTop = top + (msgs.scrollHeight - h); }));
+                if (!added) SkateUI.toast('That is all the history the relays still hold.', 'info', 2500);
+            }],
+            ['[data-react]', (chip, e) => {
+                e.stopPropagation();
+                const st = SkateChat.getState();
+                const kind = st.viewMode === 'dm' ? 'dm' : 'group';
+                const id = kind === 'dm' ? st.activeDmRecipient : st.activeGroup?.id;
+                const mid = chip.closest('.chat-msg')?.dataset.mid;
+                if (mid) SkateChat.react(kind, id, mid, chip.dataset.react);
+            }],
             ['[data-open-program]', (n) => { Actions.switchView('programs'); Actions.focusProgram(n.dataset.openProgram); }],
             ['[data-open-guide]', (n) => Actions.openGuide(n.dataset.openGuide)],
             ['.reply-ref[data-ref]', (n) => Actions.scrollToMsg(n.dataset.ref)],
@@ -2990,14 +3232,14 @@ window.SkateApp = (() => {
                     S.chatOpen = true;
                     Actions.switchView('chats');
                     Actions.focusChatInput();
-                } catch (err) { SkateChat.Notify.toast(err.message, 'error'); }
+                } catch (err) { SkateUI.toast(err.message, 'error'); }
             }]
         ]);
         $('btn-create-group').onclick = async () => {
             try {
                 const name = $('group-name-input').value.trim();
                 const password = $('group-password-input').value.trim() || null;
-                if (!name) return SkateChat.Notify.toast('Give your group a name first', 'error', 2000);
+                if (!name) return SkateUI.toast('Give your group a name first', 'error', 2000);
                 const { invite } = await SkateChat.createGroup({ name, password });
                 $('group-name-input').value = ''; $('group-password-input').value = '';
                 Modal.close('discover-modal');
@@ -3006,14 +3248,14 @@ window.SkateApp = (() => {
                 if (invite) copyText(invite.url, invite.hasPassword
                     ? 'Group created and the invite link copied. Friends will also need the password.'
                     : 'Group created and the invite link copied.');
-            } catch (e) { SkateChat.Notify.toast(e.message, 'error'); }
+            } catch (e) { SkateUI.toast(e.message, 'error'); }
         };
         $('btn-join-link').onclick = () => {
             const raw = $('join-link-input').value.trim();
             if (!raw) return;
             const hashPart = raw.includes('#') ? raw.slice(raw.indexOf('#') + 1) : raw;
             const inv = SkateChat.parseInviteHash(hashPart);
-            if (!inv) return SkateChat.Notify.toast('That does not look like a valid invite link', 'error');
+            if (!inv) return SkateUI.toast('That does not look like a valid invite link', 'error');
             $('join-link-input').value = '';
             Modal.close('discover-modal');
             Actions.showInvite(inv);
@@ -3146,7 +3388,7 @@ window.SkateApp = (() => {
         // rinks, all skippable); existing users are grandfathered past it.
         // Favorites are loaded here, not in the community boot — the ❤️
         // hearts must work even on a schedule-only (no chat/guides) visit.
-        SkateChat.Favorites.load();
+        SkateFavorites.load();
         const freshInstall = Actions.firstRun();
         Actions.applyVisibility();   // also kicks off bootCommunity() if a section is visible
         initPullToRefresh();

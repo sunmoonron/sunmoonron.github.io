@@ -28,13 +28,20 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.7',
+    version: '3.8',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
     // (npub1p07dm5lcx2gn6qq8t7fyduh5tsmz64r823h9j0kgutcas757tg7s096ykw).
     devPubkey: '0bfcddd3f832913d00075f9246f2f45c362d5467546e593ec8e2f1d87a9e5a3d',
     changelog: [
+        {
+            v: '3.8', date: '2026-10-09', items: [
+                'The community code (chat, guides, the feedback sheet: about 360 KB) is no longer part of every visit. It loads the first time you switch a section on, follow an invite or open the feedback sheet, and the app keeps it cached so later loads are instant and always the latest version. A schedule-only visit opens no connections at all, and switching both sections off closes them.',
+                'Chats: react to messages (👍 ❤️ 😂 🔥 🙏 ⛸️), unsend your own, load earlier history, @mention people (they get a highlight and, if they turned Notify on in Settings, a system notification while the tab is in the background), multi-line messages with Shift+Enter, day separators and grouped messages, an offline banner, and "here now" counts that mean people in that room right now.',
+                'Under the hood: messages that could not be sent go out by themselves when the relays are back, two tabs of the site no longer overwrite each other\'s history, chat storage sheds old photos before it runs out of room, and phones that come back from the background re-check their connections.',
+            ]
+        },
         {
             v: '3.7', date: '2026-10-07', items: [
                 'Three more Toronto arenas: Larry Grossman Forest Hill Memorial Arena ($3 pleasure skate, October to April), Leaside Memorial Community Gardens (free adults-only and all-ages skates, figure ticket ice) and William H. Bolton Arena (free public, adults-only and parent-and-tot skates). These are board-run City arenas with no live feed, so their schedules are read from their own websites, like Moss Park.',
@@ -254,7 +261,9 @@ window.SkateConfig = {
         { id: 'dmsAllowed',       seg: 'Allow DMs',   on: true, default: true },
         // third-party profanity APIs for PUBLIC rooms + guides (the on-device
         // word list is mandatory and always runs; private text never leaves)
-        { id: 'remoteModeration', seg: 'Cloud filter', on: true, default: true }
+        { id: 'remoteModeration', seg: 'Cloud filter', on: true, default: true },
+        // v3.8: system notifications for DMs and @mentions while the tab is in the background
+        { id: 'notifyDesktop',    seg: 'Notify',       on: true, default: false }
     ],
 
     // Canonical URL the QR code + share links point at (location.href
@@ -509,7 +518,9 @@ window.SkateConfig = {
         openOfficial: { label: 'Verify on {site} ↗' },
         addRink:      { label: 'Add {rink} to my rinks' },
         removeRink:   { label: 'Remove {rink} from my rinks' },
-        shareChat:    { label: 'Share to chat' }
+        shareChat:    { label: 'Share to chat' },
+        unsend:       { label: 'Unsend', danger: true },
+        loadEarlier:  { label: 'Load earlier messages' }
     },
 
     /* ---------- Hash routes (#p=…, #guide=…, invite fallback) ---------- */

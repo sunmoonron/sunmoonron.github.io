@@ -13,7 +13,7 @@ To run it yourself:
 - `node fetch-skate-data.js` (repo root) to grab the JSON files from the
   City of Toronto → `projects/data/`
 - Host this folder as static files (GitHub Pages works as-is). Note that
-  `index.html` loads the nostr bundle from `../assets/js/nostr.bundle.js`
+  the community stack is loaded on demand from `../assets/js/nostr.bundle.js`
   — one level **above** this folder — so deploy the repo root, not just
   `/skate`.
 
@@ -78,12 +78,17 @@ containers* that `app.js` populates from config at boot: `#view-tabs`,
 `#guide-cat-input`, `#settings-timefmt`, `#settings-theme`,
 `#settings-sections`, `#settings-privacy`. The tab bar hides itself when
 only the schedule is on. Script order at the bottom
-matters: bundle → **config** → settings → moderation → nostr-core →
-storage → api → time → geo → live → weather → alerts → chat-v2 → guides →
-**ui** → calendar → map → tour → **app** → refresh. (`profanity-list.js`
-has no script tag — `bootCommunity()` injects it lazily, so schedule-only
-visits never download it.) The `?v=` query params are the cache-busting
-mechanism — bump them when you change a file.
+matters: **config** → settings → favorites → api → time → geo → live →
+weather → alerts → **ui** → calendar → map → tour → **app** → refresh.
+The community stack (nostr bundle, moderation, nostr-core, chat-v2,
+devchat, guides, profanity-list) has no script tags: `app.js`
+(`COMMUNITY_SCRIPTS`) injects it the first time a community section,
+an invite link or the feedback sheet needs it, so schedule-only visits
+never download it, and switching both sections off closes the relay
+sockets again. The `?v=` query params are the cache-busting mechanism —
+bump them when you change a file, **including the lazy list in app.js**:
+the service worker serves any `?v=` URL cache-first, so an unbumped
+change never reaches returning visitors.
 
 **`projects/js/config.js`** — `window.SkateConfig`, pure data, zero logic.
 The tables and what consumes them:

@@ -25,6 +25,7 @@ const SkateNostr = (() => {
     const pendingOks = new Map();  // eventId -> { resolve, oks, timer }
     const seen = new Set();        // event-id dedupe (LRU-ish)
     const statusCbs = [];
+    let stopped = false;           // stop(): intentional close, no reconnects until start()
 
     function rememberSeen(id) {
         seen.add(id);
@@ -93,14 +94,14 @@ const SkateNostr = (() => {
         ws.onclose = () => {
             entry.status = 'closed';
             emitStatus();
-            scheduleReconnect(url);
+            if (!stopped) scheduleReconnect(url);
         };
         ws.onerror = () => { try { ws.close(); } catch {} };
     }
 
     function scheduleReconnect(url) {
         const entry = relays.get(url);
-        if (!entry || entry.timer) return;
+        if (!entry || entry.timer || stopped) return;
         entry.status = 'waiting';
         entry.timer = setTimeout(() => {
             entry.timer = null;
@@ -151,13 +152,75 @@ const SkateNostr = (() => {
     }
 
     function start() {
+        stopped = false;
         RELAYS.forEach(connect);
+    }
+
+    /** Close every socket on purpose (community switched off); start() reopens them. */
+    function stop() {
+        stopped = true;
+        relays.forEach((entry) => {
+            if (entry.timer) { clearTimeout(entry.timer); entry.timer = null; }
+            entry.status = 'closed';
+            try { entry.ws && entry.ws.close(); } catch {}
+            entry.ws = null;
+        });
+        pendingOks.forEach(p => { clearTimeout(p.timer); p.resolve(false); });
+        pendingOks.clear();
+        emitStatus();
+    }
+
+    /** Drop a named subscription on every relay. */
+    function unsub(subId) {
+        if (!subs.delete(subId)) return;
+        relays.forEach((entry) => {
+            if (entry.status === 'open') { try { entry.ws.send(JSON.stringify(['CLOSE', subId])); } catch {} }
+        });
+    }
+
+    /**
+     * One-shot query (history paging): events flow to onEvent until the first
+     * relay says EOSE or `timeoutMs` passes, then the subscription closes.
+     * Resolves the number of events delivered.
+     */
+    let onceSeq = 0;
+    function subOnce(filters, onEvent, timeoutMs = 8000) {
+        return new Promise((resolve) => {
+            const subId = `once-${++onceSeq}`;
+            let n = 0, done = false;
+            const finish = () => { if (done) return; done = true; clearTimeout(timer); unsub(subId); resolve(n); };
+            const timer = setTimeout(finish, timeoutMs);
+            sub(subId, filters, (ev) => { n++; onEvent(ev); }, finish);
+        });
+    }
+
+    /**
+     * Phones freeze sockets in the background and hand back a dead "open"
+     * one: ask each open relay for one event and close any that stays silent
+     * for 6 s, so the normal reconnect + subscription replay kicks in.
+     */
+    function checkAlive() {
+        relays.forEach((entry, url) => {
+            if (entry.status !== 'open' || entry.pingTimer) return;
+            const subId = `alive-${Date.now().toString(36)}`;
+            let answered = false;
+            subs.set(subId, { filters: [{ kinds: [42], limit: 1 }], onEvent: () => {}, onEose: () => { answered = true; }, eoseCount: 0 });
+            try { entry.ws.send(JSON.stringify(['REQ', subId, { kinds: [42], limit: 1 }])); } catch { answered = false; }
+            entry.pingTimer = setTimeout(() => {
+                entry.pingTimer = null;
+                subs.delete(subId);
+                if (answered) { try { entry.ws.send(JSON.stringify(['CLOSE', subId])); } catch {} return; }
+                console.warn('[SkateNostr]', url, 'silent after resume, reconnecting');
+                try { entry.ws.close(); } catch {}
+            }, 6000);
+        });
     }
 
 
     function onStatus(cb) { statusCbs.push(cb); cb({ connected: connectedCount(), total: RELAYS.length }); }
 
-    return { start, sub, publish, onStatus, connectedCount };
+    return { start, stop, sub, unsub, subOnce, publish, onStatus, connectedCount, checkAlive, get stopped() { return stopped; } };
 })();
+if (typeof window !== 'undefined') window.SkateNostr = SkateNostr;
 
 if (typeof module !== 'undefined') module.exports = SkateNostr;

@@ -36,7 +36,9 @@ const SkateChat = (() => {
     const CONFIG = {
         KINDS: { GROUP: 42, DM: 4, PRESENCE: 20104 },
         MAX_GROUPS: 10,
-        MAX_MESSAGES: 200,
+        MAX_MESSAGES: 200,       // persisted per conversation
+        MAX_IN_MEMORY: 1000,     // v3.8: "Load earlier" may page in more for the session
+        MAX_IMAGES_KEPT: 3,      // v3.8: photos persisted per thread (base64 eats the quota)
         MAX_MESSAGE_LENGTH: 500,
         STORAGE_KEY: 'skate_chat_v8',
         LEGACY_STORAGE_KEY: 'skate_chat_v7',
@@ -58,6 +60,8 @@ const SkateChat = (() => {
         newbies: { name: 'New Skaters',     passphrase: 'toronto-new-skaters-public-2026', emoji: '🐣', desc: 'First laps, zero judgement', autoJoin: true }
     };
     const PUBLIC_ROOMS = (typeof window !== 'undefined' && window.SkateConfig?.rooms) || DEFAULT_ROOMS;
+    // v3.8: the reaction palette (anything else on the wire is ignored)
+    const REACTIONS = ['👍', '❤️', '😂', '🔥', '🙏', '⛸️'];
 
     const NAME_POOLS = (typeof window !== 'undefined' && window.SkateConfig?.identity) || {
         adjectives: ['Swift', 'Gliding', 'Frozen', 'Quick', 'Cool', 'Icy', 'Smooth', 'Fast', 'Chill', 'Frosty'],
@@ -75,69 +79,22 @@ const SkateChat = (() => {
         activeDmRecipient: null,
         callbacks: [],
         presenceTimer: null,
-        favorites: new Set(),
         muted: new Set(),    // pubkeys muted by ME (local only)
         publicRoomSecrets: {},
         seededRooms: false,  // default rooms auto-joined once (leaving is respected forever)
-        subGeneration: 0
+        subGeneration: 0,
+        viewOpen: false      // v3.8: a conversation is on screen (presence is sent only for that room)
     };
 
-    // ========== NOTIFICATIONS ==========
+    // ========== NOTIFICATIONS + FAVORITES ==========
+    // v3.8: both live in always-loaded modules (ui.js, favorites.js) so the
+    // schedule never needs this file; the old SkateChat.Notify / .Favorites
+    // surface stays as thin aliases.
     const Notify = {
-        toast(message, type = 'info', duration = 4000) {
-            const container = document.getElementById('toast-container') || this._createContainer();
-            const el = document.createElement('div');
-            el.className = `toast toast-${type}`;
-            el.innerHTML = `<span></span><button aria-label="Dismiss">✕</button>`;
-            el.querySelector('span').textContent = message;
-            el.querySelector('button').onclick = () => el.remove();
-            container.appendChild(el);
-            setTimeout(() => el.classList.add('show'), 10);
-            setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, duration);
-        },
-        _createContainer() {
-            const c = document.createElement('div');
-            c.id = 'toast-container';
-            c.setAttribute('role', 'status');       // screen readers announce toasts
-            c.setAttribute('aria-live', 'polite');
-            document.body.appendChild(c);
-            return c;
-        },
-        updateTitle(unread) {
-            document.title = unread > 0 ? `(${unread}) Toronto Skating` : 'Toronto Skating';
-        }
+        toast: (m, t, d) => window.SkateUI.toast(m, t, d),
+        updateTitle: (n) => window.SkateUI.updateTitle(n)
     };
-
-    // ========== FAVORITES (unchanged) ==========
-    const Favorites = {
-        load() {
-            try {
-                const saved = localStorage.getItem(CONFIG.FAVORITES_KEY);
-                if (saved) state.favorites = new Set(JSON.parse(saved));
-            } catch {}
-        },
-        save() {
-            try { localStorage.setItem(CONFIG.FAVORITES_KEY, JSON.stringify([...state.favorites])); } catch {}
-        },
-        getId(program) {
-            const activity = program.Activity || program['Activity Title'] || '';
-            const location = program.LocationName || program['Location Name'] || '';
-            const date = program['Start Date Time'] || program['Start Date'] || '';
-            const time = program['Start Time'] || '';
-            return Crypto.hashSync(`${activity}|${location}|${date}|${time}`).slice(0, 16);
-        },
-        toggle(program) {
-            const id = this.getId(program);
-            if (state.favorites.has(id)) { state.favorites.delete(id); Notify.toast('Removed from saved', 'info', 2000); }
-            else { state.favorites.add(id); Notify.toast('Saved ❤️', 'success', 2000); }
-            this.save();
-            return state.favorites.has(id);
-        },
-        has(program) { return state.favorites.has(this.getId(program)); },
-        /** Drop a saved session quietly (the ended-session sweep). */
-        remove(program) { if (state.favorites.delete(this.getId(program))) this.save(); },
-        count() { return state.favorites.size; }
-    };
+    const Favorites = window.SkateFavorites;
 
     // ========== MUTES (mine, local-only) ==========
     const Mutes = {
@@ -190,18 +147,7 @@ const SkateChat = (() => {
             const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data));
             return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
         },
-        hashSync(str) {
-            let hash = 0x811c9dc5;
-            for (let i = 0; i < str.length; i++) { hash ^= str.charCodeAt(i); hash = Math.imul(hash, 0x01000193); }
-            let result = '';
-            for (let round = 0; round < 4; round++) {
-                hash = Math.imul(hash ^ (hash >>> 16), 0x85ebca6b);
-                hash = Math.imul(hash ^ (hash >>> 13), 0xc2b2ae35);
-                hash ^= hash >>> 16;
-                result += (hash >>> 0).toString(16).padStart(8, '0');
-            }
-            return result;
-        },
+        hashSync(str) { return window.SkateFavorites.hashSync(str); },
         deriveGroupId(secret) { return this.hashSync(secret).slice(0, 12); },
         groupKey(secretHex) {
             const sk = this.hexToBytes(secretHex.slice(0, 64));
@@ -281,33 +227,62 @@ const SkateChat = (() => {
         return true;
     }
 
-    // ========== PERSISTENCE (debounced) + v7 → v8 MIGRATION ==========
-    let saveTimer = null;
+    // ========== PERSISTENCE (debounced, quota-safe) + v7 → v8 MIGRATION ==========
+    let saveTimer = null, lastSavedJson = null;
+    /** The persisted picture of the state at a given history budget (`cap` messages per conversation). */
+    function snapshot(cap, imagesKept) {
+        const slimMsgs = (list) => {
+            const kept = list.slice(-cap);
+            // older photos lose their pixels (a placeholder line stays) so a few
+            // screenshots cannot fill the 5 MB the browser gives this site
+            let images = 0;
+            for (let i = kept.length - 1; i >= 0; i--) {
+                const m = kept[i];
+                if (m.type !== 'image' || !m.data?.src) continue;
+                if (++images > imagesKept) kept[i] = { ...m, data: { expired: true } };
+            }
+            return kept;
+        };
+        const slim = (groups) => {
+            const out = {};
+            for (const [id, g] of Object.entries(groups)) {
+                const { _online, historyDone, loadingOlder, ...rest } = g;   // paging flags are per session
+                out[id] = { ...rest, messages: slimMsgs(g.messages) };
+            }
+            return out;
+        };
+        const threads = {};
+        for (const [pk, t] of Object.entries(state.dmThreads)) { const { historyDone, loadingOlder, ...rest } = t; threads[pk] = { ...rest, messages: slimMsgs(t.messages) }; }
+        return JSON.stringify({
+            groups: slim(state.groups),
+            publicRooms: slim(state.publicRooms),
+            publicRoomSecrets: state.publicRoomSecrets,
+            dmThreads: threads,
+            threadsOwner: state.threadsOwner || null,
+            dmArchive: state.dmArchive || {},
+            activeGroupId: state.activeGroupId,
+            activeIsPublic: state.activeIsPublic,
+            seededRooms: state.seededRooms
+        });
+    }
     function saveState(immediate = false) {
         if (saveTimer) clearTimeout(saveTimer);
         const write = () => {
             saveTimer = null;
-            try {
-                const slim = (groups) => {
-                    const out = {};
-                    for (const [id, g] of Object.entries(groups)) {
-                        const { _online, ...rest } = g;
-                        out[id] = { ...rest, messages: g.messages.slice(-CONFIG.MAX_MESSAGES) };
-                    }
-                    return out;
-                };
-                localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify({
-                    groups: slim(state.groups),
-                    publicRooms: slim(state.publicRooms),
-                    publicRoomSecrets: state.publicRoomSecrets,
-                    dmThreads: state.dmThreads,
-                    threadsOwner: state.threadsOwner || null,
-                    dmArchive: state.dmArchive || {},
-                    activeGroupId: state.activeGroupId,
-                    activeIsPublic: state.activeIsPublic,
-                    seededRooms: state.seededRooms
-                }));
-            } catch (e) { console.warn('[SkateChat] save error:', e); }
+            // quota ladder: full budget → fewer photos → shorter history → give up loudly
+            const plans = [[CONFIG.MAX_MESSAGES, CONFIG.MAX_IMAGES_KEPT], [CONFIG.MAX_MESSAGES, 1], [80, 0], [30, 0]];
+            for (const [cap, imgs] of plans) {
+                try {
+                    const json = snapshot(cap, imgs);
+                    if (json === lastSavedJson) return;
+                    localStorage.setItem(CONFIG.STORAGE_KEY, json);
+                    lastSavedJson = json;
+                    return;
+                } catch (e) {
+                    if (!/quota|QUOTA|exceeded/i.test(String(e && (e.name || e.message)))) { console.warn('[SkateChat] save error:', e); return; }
+                }
+            }
+            console.warn('[SkateChat] storage full: chat history not saved this time');
         };
         immediate ? write() : (saveTimer = setTimeout(write, 500));
     }
@@ -354,15 +329,23 @@ const SkateChat = (() => {
     }
 
     // ========== UPDATE FANOUT (throttled) ==========
+    // One fan-out per frame while the tab draws; a background tab gets no
+    // frames, so a timer takes over there (the title's unread count and the
+    // list must still move while you are on another tab).
     let notifyPending = false;
     function notifyUpdate() {
         if (notifyPending) return;
         notifyPending = true;
-        requestAnimationFrame(() => {
+        let done = false;
+        const run = () => {
+            if (done) return;
+            done = true;
             notifyPending = false;
             const s = getState();
-            state.callbacks.forEach(cb => { try { cb(s); } catch {} });
-        });
+            state.callbacks.forEach(cb => { try { cb(s); } catch (e) { console.warn('[SkateChat] update handler failed:', e); } });
+        };
+        const fallback = setTimeout(run, document.visibilityState === 'hidden' ? 30 : 400);
+        requestAnimationFrame(() => { clearTimeout(fallback); run(); });
     }
 
     // ========== SUBSCRIPTIONS ==========
@@ -450,6 +433,27 @@ const SkateChat = (() => {
 
         if (c.type === 'vote') return;   // v3.2: time votes were cut; older clients may still send them
 
+        // v3.8: reactions and unsends ride the same encrypted channel
+        if (c.type === 'react') {
+            if (!REACTIONS.includes(c.e) || typeof c.to !== 'string') return;
+            const target = group.messages.find(m => m.id === c.to);
+            if (target) setReaction(target, event.pubkey, c.e, !!c.on);
+            else {
+                const list = pendingReacts.get(c.to) || [];
+                if (list.length < 50) list.push({ pk: event.pubkey, emoji: c.e, on: !!c.on });
+                pendingReacts.set(c.to, list);
+                if (pendingReacts.size > 500) pendingReacts.delete(pendingReacts.keys().next().value);
+            }
+            saveState(); notifyUpdate();
+            return;
+        }
+        if (c.type === 'delete') {
+            if (typeof c.to !== 'string') return;
+            const target = group.messages.find(m => m.id === c.to);
+            if (target && target.fromPubkey === event.pubkey && !target.system) { markDeleted(target); saveState(); notifyUpdate(); }
+            return;
+        }
+
         if (c.type === 'rename') {
             // last-writer-wins by relay timestamp; block muted users from renaming your view
             const newName = SkateMod.clean(String(c.name || '')).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 40);
@@ -477,23 +481,67 @@ const SkateChat = (() => {
             mine, system: !!c.system, ts,
             data: c.data, replyTo: sanitizeReplyRef(c.replyTo), status: 'sent'
         };
+        if (!mine && !c.system && mentionsMe(msg.text)) msg.mention = true;
         const wasNew = addMessage(group, msg);
-        if (wasNew && !mine && !c.system && ts > (group.lastReadTs || 0) && state.activeGroupId === group.id) {
+        if (wasNew && !mine && !c.system && ts > (group.lastReadTs || 0) && state.activeGroupId === group.id && state.viewOpen && document.visibilityState === 'visible') {
             group.lastReadTs = ts; // viewing it live: auto-read
         }
+        if (wasNew && msg.mention && ts > bootTs) maybeNotify('group', group.id, `${msg.from || 'Someone'} mentioned you in ${group.name}`, msg.text);
         saveState();
         notifyUpdate();
+    }
+
+    function markDeleted(msg) {
+        msg.deleted = true; msg.text = ''; msg.data = null; msg.replyTo = null; delete msg.reacts; delete msg.mention;
+    }
+    /** "@YourName" anywhere in the text (word-bounded, case-insensitive). */
+    function mentionsMe(text) {
+        const n = state.myName;
+        if (!n || !text) return false;
+        return new RegExp('@' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\w])', 'i').test(text);
+    }
+    /**
+     * v3.8: a system notification for a DM or a mention while the tab is in
+     * the background, if the visitor switched Notify on and the browser
+     * allows it (iOS Safari does not, and says so in Settings).
+     */
+    function maybeNotify(kind, id, title, body) {
+        if (window.SkateSettings?.get('notifyDesktop') !== true) return;
+        if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+        if (document.visibilityState === 'visible') return;
+        try {
+            const n = new Notification(title, { body: String(body || '').slice(0, 140), tag: `skate-${kind}-${id}` });
+            n.onclick = () => { try { window.focus(); } catch {} n.close(); window.SkateApp?.Actions?.jumpToConversation?.(kind, id); };
+        } catch {}
     }
 
     function addMessage(group, msg) {
         if (group.messages.some(m => m.id === msg.id)) return false;
         // Replace optimistic local echo when the relay copy arrives
         const localIdx = msg.mine ? group.messages.findIndex(m => m.localId && m.text === msg.text && Math.abs(m.ts - msg.ts) < 15000) : -1;
-        if (localIdx > -1) { group.messages[localIdx] = msg; return false; }
+        if (localIdx > -1) { group.messages[localIdx] = msg; applyPendingReacts(group, msg); return false; }
         group.messages.push(msg);
         group.messages.sort((a, b) => a.ts - b.ts);
-        if (group.messages.length > CONFIG.MAX_MESSAGES) group.messages = group.messages.slice(-CONFIG.MAX_MESSAGES);
+        if (group.messages.length > CONFIG.MAX_IN_MEMORY) group.messages = group.messages.slice(-CONFIG.MAX_IN_MEMORY);
+        applyPendingReacts(group, msg);
         return true;
+    }
+
+    // Reactions can arrive before the message they belong to (relays answer in
+    // any order): park them, apply when the message shows up.
+    const pendingReacts = new Map();   // msgId → [{pk, emoji, on}]
+    function applyPendingReacts(conv, msg) {
+        const list = pendingReacts.get(msg.id);
+        if (!list) return;
+        pendingReacts.delete(msg.id);
+        list.forEach(r => setReaction(msg, r.pk, r.emoji, r.on));
+    }
+    function setReaction(msg, pk, emoji, on) {
+        msg.reacts ||= {};
+        const set = new Set(msg.reacts[emoji] || []);
+        if (on) set.add(pk); else set.delete(pk);
+        if (set.size) msg.reacts[emoji] = [...set].slice(0, 200); else delete msg.reacts[emoji];
+        if (!Object.keys(msg.reacts).length) delete msg.reacts;
     }
 
     function trackMember(group, name, pubkey, ts) {
@@ -580,6 +628,19 @@ const SkateChat = (() => {
             return;
         }
 
+        if (c.type === 'react') {
+            if (!REACTIONS.includes(c.e) || typeof c.to !== 'string') return;
+            const target = thread.messages.find(m => m.id === c.to);
+            if (target) { setReaction(target, event.pubkey, c.e, !!c.on); saveState(); notifyUpdate(); }
+            return;
+        }
+        if (c.type === 'delete') {
+            if (typeof c.to !== 'string') return;
+            const target = thread.messages.find(m => m.id === c.to);
+            if (target && (target.mine ? isFromMe : event.pubkey === otherPubkey)) { markDeleted(target); saveState(); notifyUpdate(); }
+            return;
+        }
+
         const localIdx = isFromMe ? thread.messages.findIndex(m => m.localId && m.text === c.text && Math.abs(m.ts - ts) < 15000) : -1;
         const msg = {
             id: event.id,
@@ -588,16 +649,80 @@ const SkateChat = (() => {
             from: isFromMe ? state.myName : thread.name,
             mine: isFromMe, ts, data: c.ctx ? { ...(c.data || {}), ctx: String(c.ctx).slice(0, 200) } : c.data, replyTo: sanitizeReplyRef(c.replyTo), status: 'sent'
         };
+        let fresh = false;
         if (localIdx > -1) thread.messages[localIdx] = msg;
-        else { thread.messages.push(msg); thread.messages.sort((a, b) => a.ts - b.ts); }
-        if (thread.messages.length > 100) thread.messages = thread.messages.slice(-100);
+        else { thread.messages.push(msg); thread.messages.sort((a, b) => a.ts - b.ts); fresh = !isFromMe; }
+        if (thread.messages.length > CONFIG.MAX_IN_MEMORY) thread.messages = thread.messages.slice(-CONFIG.MAX_IN_MEMORY);
 
-        if (!isFromMe && ts > (thread.lastReadTs || 0) && state.activeDmRecipient === otherPubkey) thread.lastReadTs = ts;
+        if (!isFromMe && ts > (thread.lastReadTs || 0) && state.activeDmRecipient === otherPubkey && state.viewOpen && document.visibilityState === 'visible') thread.lastReadTs = ts;
+        if (fresh && ts > bootTs && !Mutes.has(otherPubkey)) maybeNotify('dm', otherPubkey, thread.name, msg.type === 'chat' ? msg.text : (msg.type === 'share' ? 'shared a session' : 'shared a guide'));
         saveState();
         notifyUpdate();
     }
 
+    // ========== v3.8: REACTIONS, UNSEND, PAGING ==========
+    function findMsg(kind, convId, msgId) {
+        const list = kind === 'dm' ? state.dmThreads[convId]?.messages : getGroupOrRoom(convId)?.messages;
+        return { list, msg: (list || []).find(m => m.id === msgId) || null };
+    }
+    /** Toggle my reaction on a delivered message (optimistic; rolled back if no relay takes it). */
+    async function react(kind, convId, msgId, emoji) {
+        if (!REACTIONS.includes(emoji)) return false;
+        const { msg } = findMsg(kind, convId, msgId);
+        if (!msg || msg.localId || msg.deleted || msg.system) return false;
+        const me = state.myPublicKey;
+        const on = !(msg.reacts?.[emoji] || []).includes(me);
+        setReaction(msg, me, emoji, on);
+        saveState(); notifyUpdate();
+        const payload = { type: 'react', to: msgId, e: emoji, on: on ? 1 : 0, text: on ? emoji : '', from: state.myName, fromName: state.myName };
+        const { ok } = kind === 'dm' ? await publishDm(convId, payload) : await publishToGroup(convId, payload);
+        if (!ok) { setReaction(msg, me, emoji, !on); saveState(); notifyUpdate(); }
+        return ok;
+    }
+    /** Unsend my own delivered message: everyone's client blanks it, and a NIP-09 deletion asks the relays to drop it. */
+    async function unsend(kind, convId, msgId) {
+        const { msg } = findMsg(kind, convId, msgId);
+        if (!msg || !msg.mine || msg.localId || msg.deleted) return false;
+        markDeleted(msg);
+        saveState(); notifyUpdate();
+        const payload = { type: 'delete', to: msgId, text: '', from: state.myName, fromName: state.myName };
+        const r = kind === 'dm' ? await publishDm(convId, payload) : await publishToGroup(convId, payload);
+        try { await signAndSend({ kind: 5, content: 'unsent', tags: [['e', msgId]], created_at: Math.floor(Date.now() / 1000) }, SkateMod.POW.chat); } catch {}
+        return r.ok;
+    }
+    /** Page older history in from the relays (one-shot query before the oldest message we hold). */
+    async function loadOlder(kind, convId) {
+        const conv = kind === 'dm' ? state.dmThreads[convId] : getGroupOrRoom(convId);
+        if (!conv || conv.historyDone || conv.loadingOlder) return 0;
+        const oldest = conv.messages.find(m => !m.localId);
+        const until = oldest ? Math.floor(oldest.ts / 1000) - 1 : Math.floor(Date.now() / 1000);
+        conv.loadingOlder = true; notifyUpdate();
+        const before = conv.messages.length;
+        const filters = kind === 'dm'
+            ? [{ kinds: [CONFIG.KINDS.DM], authors: [convId], '#p': [state.myPublicKey], until, limit: 60 },
+               { kinds: [CONFIG.KINDS.DM], authors: [state.myPublicKey], '#p': [convId], until, limit: 60 }]
+            : [{ kinds: [CONFIG.KINDS.GROUP], '#g': [convId], until, limit: 80 }];
+        try { await SkateNostr.subOnce(filters, handleIncoming, 8000); } catch {}
+        conv.loadingOlder = false;
+        const added = conv.messages.length - before;
+        if (added === 0) conv.historyDone = true;
+        saveState(); notifyUpdate();
+        return added;
+    }
+
     // ========== SEND PIPELINE ==========
+    /**
+     * v3.8: the relay pool never re-processes our own events (publish() marks
+     * them seen), so the optimistic echo was keeping its local_ id forever:
+     * reactions others sent to the real id never matched, and unsend was
+     * impossible. The moment a relay accepts the event, the echo becomes it.
+     */
+    function settle(m, ok, event) {
+        if (!m) return;
+        m.status = ok ? 'sent' : 'failed';
+        if (ok && event) { m.id = event.id; delete m.localId; delete m.payload; }
+    }
+
     async function signAndSend(template, powBits) {
         let tpl = template;
         if (powBits > 0) {
@@ -661,9 +786,8 @@ const SkateChat = (() => {
         group.messages.push(echo);
         notifyUpdate();
 
-        const { ok } = await publishToGroup(groupId, payload);
-        const m = group.messages.find(x => x.id === localId);
-        if (m) m.status = ok ? 'sent' : 'failed';
+        const { ok, event } = await publishToGroup(groupId, payload);
+        settle(group.messages.find(x => x.id === localId), ok, event);
         saveState();
         notifyUpdate();
         return ok;
@@ -688,9 +812,8 @@ const SkateChat = (() => {
         thread.messages.push({ id: localId, localId, type: 'chat', text: trimmed, from: state.myName, mine: true, ts: Date.now(), replyTo: payload.replyTo || null, status: 'pending', payload });
         notifyUpdate();
 
-        const { ok } = await publishDm(to, payload);
-        const m = thread.messages.find(x => x.id === localId);
-        if (m) m.status = ok ? 'sent' : 'failed';
+        const { ok, event } = await publishDm(to, payload);
+        settle(thread.messages.find(x => x.id === localId), ok, event);
         saveState();
         notifyUpdate();
         return ok;
@@ -710,9 +833,8 @@ const SkateChat = (() => {
         const localId = 'local_' + Crypto.randomHex(6);
         thread.messages.push({ id: localId, localId, type: 'chat', text, from: state.myName, mine: true, ts: Date.now(), status: 'pending', payload: body, data: body.ctx ? { ctx: body.ctx } : undefined });
         notifyUpdate();
-        const { ok } = await publishDm(toPubkey, body);
-        const m = thread.messages.find(x => x.id === localId);
-        if (m) m.status = ok ? 'sent' : 'failed';
+        const { ok, event } = await publishDm(toPubkey, body);
+        settle(thread.messages.find(x => x.id === localId), ok, event);
         saveState();
         notifyUpdate();
         return ok;
@@ -731,13 +853,14 @@ const SkateChat = (() => {
         const localId = 'local_' + id;
         thread.messages.push({ id: localId, localId, attachId: id, type: 'image', text: '', from: state.myName, mine: true, ts: Date.now(), status: 'pending', data: { src: dataUrl } });
         notifyUpdate();
-        let ok = true;
+        let ok = true, last = null;
         for (let part = 0; part < of; part++) {
             const r = await publishDm(toPubkey, { type: 'attach', id, part, of, mime, data: b64.slice(part * CH, (part + 1) * CH), fromName: meta.fromName || state.myName });
             ok = ok && r.ok;
+            last = r.event || last;
         }
         const mm = thread.messages.find(x => x.id === localId);
-        if (mm) mm.status = ok ? 'sent' : 'failed';
+        settle(mm, ok, last);   // the receiver files the photo under its final part's id too
         saveState();
         notifyUpdate();
         return ok;
@@ -805,8 +928,8 @@ const SkateChat = (() => {
         m.status = 'pending';
         m.ts = Date.now(); // refresh the echo-replacement window
         notifyUpdate();
-        const { ok } = kind === 'dm' ? await publishDm(convId, m.payload) : await publishToGroup(convId, m.payload);
-        m.status = ok ? 'sent' : 'failed';
+        const { ok, event } = kind === 'dm' ? await publishDm(convId, m.payload) : await publishToGroup(convId, m.payload);
+        settle(m, ok, event);
         saveState();
         notifyUpdate();
         return ok;
@@ -855,9 +978,8 @@ const SkateChat = (() => {
             const dmPayload = { ...payload, fromName: state.myName, toName: thread.name };
             thread.messages.push({ id: localId, localId, type: payload.type, text: payload.text, from: state.myName, mine: true, ts: Date.now(), data: payload.data, status: 'pending', payload: dmPayload });
             notifyUpdate();
-            const { ok } = await publishDm(dest.id, dmPayload);
-            const m = thread.messages.find(x => x.id === localId);
-            if (m) m.status = ok ? 'sent' : 'failed';
+            const { ok, event } = await publishDm(dest.id, dmPayload);
+            settle(thread.messages.find(x => x.id === localId), ok, event);
             saveState(); notifyUpdate();
             return ok;
         }
@@ -877,9 +999,8 @@ const SkateChat = (() => {
                 ts: Date.now(), data: payload.data, status: 'pending', payload: full
             });
             notifyUpdate();
-            const { ok } = await publishToGroup(dest.id, full);
-            const m = group.messages.find(x => x.id === localId);
-            if (m) m.status = ok ? 'sent' : 'failed';
+            const { ok, event } = await publishToGroup(dest.id, full);
+            settle(group.messages.find(x => x.id === localId), ok, event);
             saveState(); notifyUpdate();
             return ok;
         }
@@ -936,18 +1057,32 @@ const SkateChat = (() => {
     // seeing you in rosters/"here now"; you still read & send normally.
     const isInvisible = () => window.SkateSettings?.get('invisible') === true;
 
+    /**
+     * v3.8: presence means "in this room right now". One heartbeat for the
+     * room on screen (not one per joined room every 45 s, which at a few
+     * hundred visitors was most of the relay traffic), a goodbye when you
+     * leave it, nothing while the tab is hidden or a DM is open. The counts
+     * in the list and on the room cards become honest "here now" numbers.
+     */
+    const presenceGroupId = () =>
+        (state.viewOpen && !state.activeDmRecipient && document.visibilityState === 'visible') ? state.activeGroupId : null;
+    function beatNow() {
+        if (isInvisible()) return;
+        const gid = presenceGroupId(), group = gid && getGroupOrRoom(gid);
+        if (group) publishBeat(group, gid).catch(() => {});
+    }
     function startPresence() {
         stopPresence();
-        const beat = () => {
-            if (isInvisible()) return;
-            allGroupIds().forEach(gid => {
-                const group = getGroupOrRoom(gid);
-                if (!group) return;
-                publishBeat(group, gid).catch(() => {});
-            });
-        };
-        beat();
-        state.presenceTimer = setInterval(beat, CONFIG.PRESENCE_INTERVAL);
+        beatNow();
+        state.presenceTimer = setInterval(beatNow, CONFIG.PRESENCE_INTERVAL);
+    }
+    /** The app says whether a conversation is on screen; leaving it says goodbye. */
+    function setViewOpen(open) {
+        const was = presenceGroupId();
+        state.viewOpen = !!open;
+        const now = presenceGroupId();
+        if (was && was !== now && !isInvisible()) sendBye([was]);
+        if (now && now !== was) beatNow();
     }
 
     /** Called when the privacy toggles flip: going invisible broadcasts a
@@ -1166,10 +1301,13 @@ const SkateChat = (() => {
     function switchGroup(groupId) {
         const group = getGroupOrRoom(groupId);
         if (!group) return;
+        const was = presenceGroupId();
         state.activeGroupId = groupId;
         state.activeIsPublic = !!state.publicRooms[groupId];
         state.activeDmRecipient = null;
         group.lastReadTs = Date.now();
+        if (was && was !== groupId && !isInvisible()) sendBye([was]);
+        if (presenceGroupId() && presenceGroupId() !== was) beatNow();
         saveState();
         notifyUpdate();
     }
@@ -1202,13 +1340,15 @@ const SkateChat = (() => {
             state.dmThreads[pubkey].name = name;
         }
         state.dmThreads[pubkey].lastReadTs = Date.now();
+        const was = presenceGroupId();
         state.activeDmRecipient = pubkey;
+        if (was && !isInvisible()) sendBye([was]);   // a DM on screen: not "in" the room any more
         saveState();
         notifyUpdate();
         return true;
     }
 
-    function closeDm() { state.activeDmRecipient = null; notifyUpdate(); }
+    function closeDm() { state.activeDmRecipient = null; beatNow(); notifyUpdate(); }
 
     function openConversation(kind, id) {
         return kind === 'dm' ? startDm(id) : (switchGroup(id), true);
@@ -1216,11 +1356,14 @@ const SkateChat = (() => {
 
     // ========== READ SURFACE ==========
     function unreadOfGroup(g) {
-        return g.messages.filter(m => !m.mine && !m.system && m.ts > (g.lastReadTs || 0) && !Mutes.has(m.fromPubkey)).length;
+        return g.messages.filter(m => !m.mine && !m.system && !m.deleted && m.ts > (g.lastReadTs || 0) && !Mutes.has(m.fromPubkey)).length;
+    }
+    function mentionsOfGroup(g) {
+        return g.messages.filter(m => m.mention && !m.mine && !m.deleted && m.ts > (g.lastReadTs || 0) && !Mutes.has(m.fromPubkey)).length;
     }
     function unreadOfThread(t, pubkey) {
         if (Mutes.has(pubkey)) return 0;
-        return t.messages.filter(m => !m.mine && m.ts > (t.lastReadTs || 0)).length;
+        return t.messages.filter(m => !m.mine && !m.deleted && m.ts > (t.lastReadTs || 0)).length;
     }
 
     function previewOf(messages) {
@@ -1228,6 +1371,8 @@ const SkateChat = (() => {
             const m = messages[i];
             if (m.system || Mutes.has(m.fromPubkey)) continue;
             const who = m.mine ? 'You: ' : '';
+            if (m.deleted) return `${who}message deleted`;
+            if (m.type === 'image') return `${who}📷 photo`;
             if (m.type === 'share') return `${who}📤 shared a program`;
             if (m.type === 'guide') return `${who}📖 shared a guide`;
             return who + (m.text || '').slice(0, 48);
@@ -1241,14 +1386,14 @@ const SkateChat = (() => {
         for (const g of Object.values(state.publicRooms)) {
             out.push({
                 kind: 'group', isPublic: true, id: g.id, name: g.name, emoji: g.emoji || '🌐',
-                unread: unreadOfGroup(g), lastTs: g.messages.length ? g.messages[g.messages.length - 1].ts : (g.createdAt || 0),
+                unread: unreadOfGroup(g), mentions: mentionsOfGroup(g), lastTs: g.messages.length ? g.messages[g.messages.length - 1].ts : (g.createdAt || 0),
                 preview: previewOf(g.messages) || 'Public room', online: onlineCount(g)
             });
         }
         for (const g of Object.values(state.groups)) {
             out.push({
                 kind: 'group', isPublic: false, id: g.id, name: g.name, emoji: g.hasPassword ? '🔐' : '🔒',
-                unread: unreadOfGroup(g), lastTs: g.messages.length ? g.messages[g.messages.length - 1].ts : (g.createdAt || 0),
+                unread: unreadOfGroup(g), mentions: mentionsOfGroup(g), lastTs: g.messages.length ? g.messages[g.messages.length - 1].ts : (g.createdAt || 0),
                 preview: previewOf(g.messages) || 'Invite friends to start chatting', online: onlineCount(g),
                 hasPassword: !!g.hasPassword
             });
@@ -1264,8 +1409,80 @@ const SkateChat = (() => {
     }
 
     // ========== PUBLIC SURFACE ==========
+    let booted = false, pagehideHooked = false, storageHooked = false, bootTs = 0;
+
+    /**
+     * v3.8: two tabs of the site each hold the whole chat state and both
+     * save it; without merging, the last writer silently dropped whatever
+     * the other tab had received. Messages are unioned by id, read markers
+     * take the latest, a group left in the other tab is left here too.
+     */
+    function mergeFromOtherTab(json) {
+        let p;
+        try { p = JSON.parse(json); } catch { return; }
+        if (!p || typeof p !== 'object') return;
+        if (p.threadsOwner && state.threadsOwner && p.threadsOwner !== state.threadsOwner) return;   // a different key's threads
+        let resub = false;
+        const mergeMsgs = (mine, theirs) => {
+            const ids = new Set(mine.map(m => m.id));
+            (theirs || []).forEach(m => { if (m && !ids.has(m.id) && !m.localId) mine.push(m); });
+            mine.sort((a, b) => a.ts - b.ts);
+            if (mine.length > CONFIG.MAX_IN_MEMORY) mine.splice(0, mine.length - CONFIG.MAX_IN_MEMORY);
+        };
+        const mergeGroups = (local, theirs) => {
+            for (const [id, g] of Object.entries(theirs || {})) {
+                if (!local[id]) { local[id] = migrateGroupShape(g); resub = true; continue; }
+                const mine = local[id];
+                mergeMsgs(mine.messages, g.messages);
+                mine.lastReadTs = Math.max(mine.lastReadTs || 0, g.lastReadTs || 0);
+                if ((g.renamedAt || 0) > (mine.renamedAt || 0)) { mine.name = g.name; mine.renamedAt = g.renamedAt; }
+                for (const [pk, m] of Object.entries(g.roster || {})) {
+                    const r = mine.roster[pk] || { name: m.name, last: 0 };
+                    if ((m.last || 0) >= (r.last || 0)) { r.name = m.name || r.name; r.last = Math.max(r.last || 0, m.last || 0); }
+                    mine.roster[pk] = r;
+                }
+            }
+            for (const id of Object.keys(local)) {
+                if (!(theirs || {})[id] && !local[id].messages.some(m => m.localId)) { delete local[id]; resub = true; }   // left elsewhere
+            }
+        };
+        mergeGroups(state.groups, p.groups);
+        mergeGroups(state.publicRooms, p.publicRooms);
+        for (const [pk, t] of Object.entries(p.dmThreads || {})) {
+            if (!state.dmThreads[pk]) { state.dmThreads[pk] = t; continue; }
+            const mine = state.dmThreads[pk];
+            mergeMsgs(mine.messages, t.messages);
+            mine.lastReadTs = Math.max(mine.lastReadTs || 0, t.lastReadTs || 0);
+            if (t.name) mine.name = t.name;
+        }
+        state.publicRoomSecrets = { ...(p.publicRoomSecrets || {}), ...state.publicRoomSecrets };
+        state.seededRooms = state.seededRooms || !!p.seededRooms;
+        if (state.activeGroupId && !getGroupOrRoom(state.activeGroupId)) { state.activeGroupId = null; state.activeIsPublic = false; }
+        if (resub) resubscribe();
+        notifyUpdate();
+    }
+
+    /** Messages that never reached a relay (offline, timeout) go out again by themselves, newest last, within a day. */
+    let resending = false;
+    async function resendUnsent() {
+        if (resending || !booted) return;
+        resending = true;
+        try {
+            const cutoff = Date.now() - 86400000;
+            const jobs = [];
+            allGroupIds().forEach(id => (getGroupOrRoom(id)?.messages || []).forEach(m => { if (m.localId && m.payload && m.status === 'failed' && m.ts > cutoff) jobs.push(['group', id, m.localId]); }));
+            Object.entries(state.dmThreads).forEach(([pk, t]) => t.messages.forEach(m => { if (m.localId && m.payload && m.status === 'failed' && m.ts > cutoff) jobs.push(['dm', pk, m.localId]); }));
+            for (const [kind, id, localId] of jobs.slice(0, 20)) {
+                await retryMessage(kind, id, localId);
+                await new Promise(r => setTimeout(r, 150));
+            }
+        } finally { resending = false; }
+    }
     async function init() {
         if (typeof NostrTools === 'undefined') { console.error('[SkateChat] NostrTools not loaded'); return; }
+        if (booted) return;
+        booted = true;
+        bootTs = Date.now();
         loadState();
         initIdentity();
         adoptThreads();
@@ -1278,11 +1495,20 @@ const SkateChat = (() => {
 
         await seedDefaultRooms();
 
+        let wasOnline = false;
         SkateNostr.onStatus(({ connected }) => {
             const online = connected > 0;
             [...Object.values(state.groups), ...Object.values(state.publicRooms)].forEach(g => { g.connected = online; });
+            // relays back: push what could not be sent while they were gone
+            if (online && !wasOnline) setTimeout(resendUnsent, 800);
+            wasOnline = online;
             notifyUpdate();
         });
+        if (!storageHooked) {
+            storageHooked = true;
+            // another tab of this site saved: fold its messages in (never overwrite them later)
+            window.addEventListener('storage', (e) => { if (e.key === CONFIG.STORAGE_KEY && e.newValue && booted) mergeFromOtherTab(e.newValue); });
+        }
         SkateNostr.start();
 
         resubscribe();
@@ -1291,9 +1517,43 @@ const SkateChat = (() => {
         // Tell the room you're gone the moment the tab closes — kills the
         // "2 online" ghost. pagehide (not visibilitychange) so tab switches
         // don't flicker everyone offline.
-        window.addEventListener('pagehide', () => sendBye(allGroupIds()));
+        if (!pagehideHooked) {
+            pagehideHooked = true;
+            window.addEventListener('pagehide', () => { if (booted) sendBye(allGroupIds()); });
+            // Back from the background: sockets may be dead-but-open on phones;
+            // check them, replay the subscription with a fresh `since`, and
+            // say hello again in the room on screen.
+            document.addEventListener('visibilitychange', () => {
+                if (!booted) return;
+                if (document.visibilityState === 'visible') {
+                    try { SkateNostr.checkAlive(); } catch {}
+                    resubscribe();
+                    beatNow();
+                } else {
+                    const gid = state.viewOpen && !state.activeDmRecipient ? state.activeGroupId : null;
+                    if (gid && !isInvisible()) sendBye([gid]);
+                }
+            });
+        }
 
         notifyUpdate();
+    }
+
+    /**
+     * v3.8: Settings turned the community off (or the last section that needed
+     * the relays). Says goodbye, stops the heartbeat, drops the subscriptions
+     * and closes the sockets; init() brings everything back later. The code
+     * stays loaded (scripts cannot unload), idle and silent.
+     */
+    function shutdown({ keepRelays = false } = {}) {
+        if (!booted) return;
+        sendBye(allGroupIds());
+        stopPresence();
+        state.callbacks = [];
+        try { SkateNostr.unsub('skate-main'); } catch {}
+        if (!keepRelays) { try { SkateNostr.stop(); } catch {} }
+        booted = false;
+        Notify.updateTitle(0);
     }
 
     function onUpdate(cb) { state.callbacks.push(cb); cb(getState()); }
@@ -1323,7 +1583,7 @@ const SkateChat = (() => {
             totalDmUnread, totalGroupUnread, perGroupUnread,
             onlineCounts: Object.fromEntries(allGroupIds().map(id => [id, onlineCount(getGroupOrRoom(id))])),
             viewMode: state.activeDmRecipient ? 'dm' : 'group',
-            favoritesCount: state.favorites.size,
+            favoritesCount: Favorites.count(),
             mutedCount: state.muted.size,
             publicRoomSecrets: state.publicRoomSecrets
         };
@@ -1338,7 +1598,9 @@ const SkateChat = (() => {
     function getIdentity() { return { sk: state.mySecretKey, pk: state.myPublicKey, name: state.myName }; }
 
     return {
-        init, createGroup, joinPublicRoom, leaveGroup, renameGroup,
+        init, shutdown, setViewOpen, get booted() { return booted; },
+        react, unsend, loadOlder, REACTIONS,
+        createGroup, joinPublicRoom, leaveGroup, renameGroup,
         parseInviteHash, acceptInvite, getInviteInfo,
         sendMessage, shareProgram, shareGuide, retryMessage,
         startDm, sendDm, sendDmTo, sendDmImage, importIdentity, resetIdentity, closeDm, openConversation, deleteDmThread, clearHistory,

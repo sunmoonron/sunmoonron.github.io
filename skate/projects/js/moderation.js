@@ -213,5 +213,6 @@ const SkateMod = (() => {
 
     return { check, checkLocal, clean, POW, mine, eventPow, resetLocal };
 })();
+if (typeof window !== 'undefined') window.SkateMod = SkateMod;   // a top-level const is not a window property; the lazy loader probes it
 
 if (typeof module !== 'undefined') module.exports = SkateMod;

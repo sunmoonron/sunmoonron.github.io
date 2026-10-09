@@ -360,11 +360,17 @@ const SkateGuides = (() => {
         return c ? myVote(c.reactions, pubkey) : false;
     }
 
+    /** Guides switched off in Settings: drop both subscriptions (load() resumes them). */
+    function stop() {
+        try { SkateNostr.unsub('skate-guides'); SkateNostr.unsub('skate-guide-io'); } catch {}
+    }
+
     return {
-        load, list, get, postGuide, comment, hasVoted, onUpdate, CATEGORIES, OWNER_PUBKEY,
+        load, stop, list, get, postGuide, comment, hasVoted, onUpdate, CATEGORIES, OWNER_PUBKEY,
         vote: toggleReaction, voteComment: toggleReaction,
         get loaded() { return state.loaded; }
     };
 })();
+if (typeof window !== 'undefined') window.SkateGuides = SkateGuides;
 
 if (typeof module !== 'undefined') module.exports = SkateGuides;

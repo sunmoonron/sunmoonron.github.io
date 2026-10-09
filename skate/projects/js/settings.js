@@ -32,6 +32,7 @@ const SkateSettings = (() => {
         // v3.0: community privacy + one-time tour flag
         invisible: false,      // 👻 skip presence pings (never listed as online)
         dmsAllowed: true,      // ✉️ incoming DMs accepted on this device
+        notifyDesktop: false,  // v3.8: system notifications for DMs / @mentions in the background
         tourDone: false
     };
     let settings = { ...defaults };

@@ -17,7 +17,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=11">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=4">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=40">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=41">
 </head>
 <body>
     <div class="app" id="app">
@@ -168,6 +168,8 @@
                         <button class="btn-icon" id="btn-chat-menu" title="Conversation options" aria-label="Conversation options">⋯</button>
                     </div>
 
+                    <div class="chat-netbar hidden" id="chat-netbar" role="status">Offline: reconnecting to the relays. Messages you send now go out as soon as one is back.</div>
+
                     <div class="members-bar hidden" id="members-bar">
                         <span class="members-hint" title="Tap a member to message or mute them">Members</span>
                         <div id="members-list"></div>
@@ -183,7 +185,7 @@
                         <button class="btn-icon" id="btn-reply-cancel" title="Cancel reply">✕</button>
                     </div>
                     <div class="chat-input-bar" id="chat-input-bar">
-                        <input type="text" id="chat-input" maxlength="500" placeholder="Type a message...">
+                        <textarea id="chat-input" rows="1" maxlength="500" placeholder="Type a message…" enterkeyhint="send" aria-label="Message"></textarea>
                         <button id="btn-send" title="Send">➤</button>
                     </div>
                 </div>
@@ -281,7 +283,7 @@
                 <div class="settings-field">
                     <span>Privacy</span>
                     <div class="seg-control seg-multi" id="settings-privacy"></div>
-                    <p class="settings-hint">Invisible: never listed as online. Allow DMs: accept private messages on this device. Cloud filter: public rooms and guides go through a third-party profanity check before sending; off means the on-device word list only (it always runs). DMs and private groups never leave your device either way.</p>
+                    <p class="settings-hint">Invisible: never listed as online. Allow DMs: accept private messages on this device. Cloud filter: public rooms and guides go through a third-party profanity check before sending; off means the on-device word list only (it always runs). DMs and private groups never leave your device either way. Notify: a system notification for DMs and @mentions while this tab is in the background (not possible on iPhone Safari).</p>
                 </div>
                 <div class="settings-field">
                     <span>Chat name</span>
@@ -431,29 +433,27 @@
 
     <!-- Scripts (order matters: config → modules → ui → calendar → app;
          calendar.js reads SkateUI at load so it must come after ui.js) -->
-    <script src="../assets/js/nostr.bundle.js"></script>
-    <!-- profanity-list.js is injected lazily by app.js bootCommunity() —
-         schedule-only visits (community sections hidden) never download it -->
-    <script src="projects/js/config.js?v=40"></script>
-    <script src="projects/js/settings.js?v=8"></script>
-    <script src="projects/js/moderation.js?v=5"></script>
-    <script src="projects/js/nostr-core.js?v=3"></script>
+    <!-- The community stack (nostr.bundle.js, moderation.js, nostr-core.js,
+         chat-v2.js, devchat.js, guides.js, profanity-list.js) is NOT here:
+         app.js loads it on demand (COMMUNITY_SCRIPTS) the first time a
+         community section, invite link or the feedback sheet needs it, and
+         the service worker keeps it cache-first from then on. -->
+    <script src="projects/js/config.js?v=42"></script>
+    <script src="projects/js/settings.js?v=9"></script>
+    <script src="projects/js/favorites.js?v=1"></script>
     <script src="projects/js/api.js?v=18"></script>
     <script src="projects/js/time.js?v=2"></script>
     <script src="projects/js/geo.js?v=5"></script>
     <script src="projects/js/live.js?v=3"></script>
     <script src="projects/js/weather.js?v=2"></script>
     <script src="projects/js/alerts.js?v=5"></script>
-    <script src="projects/js/chat-v2.js?v=15"></script>
-    <script src="projects/js/devchat.js?v=5"></script>
-    <script src="projects/js/guides.js?v=4"></script>
-    <script src="projects/js/ui.js?v=2"></script>
+    <script src="projects/js/ui.js?v=4"></script>
     <script src="projects/js/calendar.js?v=11"></script>
     <script src="projects/js/calendar2.js?v=4"></script>
     <script src="projects/js/map.js?v=5"></script>
     <script src="projects/js/tour.js?v=5"></script>
-    <script src="projects/js/app.js?v=44"></script>
-    <script src="projects/js/refresh.js?v=4"></script>
+    <script src="projects/js/app.js?v=46"></script>
+    <script src="projects/js/refresh.js?v=5"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)
         if ('serviceWorker' in navigator) {

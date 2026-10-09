@@ -65,8 +65,34 @@ window.SkateUI = (() => {
     }
 
     /* ---------- clipboard (with execCommand fallback) ---------- */
+    /* ---------- toasts (moved out of chat-v2 in v3.8: the schedule never needs the chat code) ---------- */
+    function toastContainer() {
+        let c = document.getElementById('toast-container');
+        if (c) return c;
+        c = document.createElement('div');
+        c.id = 'toast-container';
+        c.setAttribute('role', 'status');       // screen readers announce toasts
+        c.setAttribute('aria-live', 'polite');
+        document.body.appendChild(c);
+        return c;
+    }
+    function toast(message, type = 'info', duration = 4000) {
+        const node = document.createElement('div');
+        node.className = `toast toast-${type}`;
+        node.innerHTML = `<span></span><button aria-label="Dismiss">✕</button>`;
+        node.querySelector('span').textContent = message;
+        node.querySelector('button').onclick = () => node.remove();
+        toastContainer().appendChild(node);
+        setTimeout(() => node.classList.add('show'), 10);
+        setTimeout(() => { node.classList.remove('show'); setTimeout(() => node.remove(), 300); }, duration);
+    }
+    /** "(3) Toronto Skating" while there are unread chat messages. */
+    function updateTitle(unread) {
+        document.title = unread > 0 ? `(${unread}) Toronto Skating` : 'Toronto Skating';
+    }
+
     function copyText(text, okMsg = 'Copied! 📋') {
-        const toast = (m, t) => window.SkateChat?.Notify.toast(m, t, t === 'error' ? 4000 : 2000);
+        const toast = (m, t) => SkateUI.toast(m, t, t === 'error' ? 4000 : 2000);
         const fallback = () => {
             try {
                 const ta = el('textarea');
@@ -135,6 +161,15 @@ window.SkateUI = (() => {
             const p = $('popover');
             p.innerHTML = '';
             items.forEach(it => {
+                if (it.reactions) {   // v3.8: a row of emoji, each its own button
+                    const row = el('div', { class: 'popover-reacts' });
+                    it.reactions.forEach(emoji => row.appendChild(el('button', {
+                        class: 'react-pick' + (it.active && it.active.includes(emoji) ? ' active' : ''), type: 'button', title: `React ${emoji}`,
+                        onclick: (e) => { e.stopPropagation(); Popover.close(); it.onPick(emoji); }
+                    }, [emoji])));
+                    p.appendChild(row);
+                    return;
+                }
                 p.appendChild(el('button', {
                     class: 'popover-item' + (it.danger ? ' danger' : ''),
                     onclick: (e) => { e.stopPropagation(); Popover.close(); it.onClick(); }
@@ -184,7 +219,7 @@ window.SkateUI = (() => {
         };
     }
 
-    return { $, $$, escapeHtml, parseLocalDate, mapsUrl, hueOf, hueDot, shortPk, el, copyText, flash, chips, fillSelect, Popover, Modal, delegate };
+    return { $, $$, escapeHtml, parseLocalDate, mapsUrl, hueOf, hueDot, shortPk, el, copyText, flash, chips, fillSelect, Popover, Modal, delegate, toast, updateTitle };
 })();
 
 if (typeof module !== 'undefined') module.exports = window.SkateUI;
