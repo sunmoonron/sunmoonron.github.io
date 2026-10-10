@@ -2615,6 +2615,8 @@ function dedupePrograms(list) {
  */
 const FACTS_FILE = 'venue-facts.json';
 const FACTS_TTL_DAYS = 30, FACTS_RETRY_DAYS = 3, FACTS_BATCH = Number(process.env.FACTS_BATCH || 4);
+// Bump when the guards below change: every site on file becomes due again and is re-read on the next runs.
+const FACTS_VERSION = 2;
 const FACTS_DEBUG = !!process.env.FACTS_DEBUG;
 const FACTS_MODEL = () => process.env.OLLAMA_FACTS_MODEL || 'qwen3.5:4b';
 // City-owned arenas run by their own boards: not in any City feed, each with a site.
@@ -2670,7 +2672,10 @@ const normQuote = (s) => String(s || '').toLowerCase().replace(/[’‘]/g, "'")
 const cleanQuote = (s) => String(s || '').trim().replace(/^["“”']+|["“”']+$/g, '').trim();
 // Guards the model cannot talk its way past: wording that marks a sentence as
 // about something other than skating admission or skate rentals.
-const NOT_ADMISSION_RE = /shinny|hockey|player|stick|puck|goalie|ticket ice|lesson|camp|birthday|party|league|tournament|per hour|\bpass(?:es)?\b|membership|\bmembers?\b|monthly|annual|per month|per year|punch|\bvisits?\b/i;
+const NOT_ADMISSION_RE = /shinny|hockey|player|stick|puck|goalie|ticket ice|lesson|camp|birthday|party|league|tournament|per hour|\bpass(?:es)?\b|membership|\bmembers?\b|monthly|annual|per month|per year|punch|\bvisits?\b|\bevents?\b|try-on|equipment|giveaway|festival|clinic/i;
+// "Free" must mean the price. "Adult Free Skate" is a programme name (unstructured skating, often $5+)
+// and "Free Skating Equipment Try-On Events" is an event; neither says admission is free.
+const FREE_ADMISSION_RE = /free (?:of charge|admission|entry|to (?:skate|attend|join|the public))|no (?:charge|cost|fee|admission fee)|admission:?\s*(?:is\s*)?free|(?:is|are|'s|remains?) free\b|free (?:public|leisure|pleasure|recreational|drop-in|family|community|open) skat|skat\w* (?:is|are) free/i;
 // ...and it must actually be about skating admission, not a bare price tier ("Older Adult: $34.86")
 const ADMISSION_CONTEXT_RE = /skat|admission|drop-in|per person|per skater|per visit/i;
 const NOT_SKATE_RENTAL_RE = /ice rental|rent the ice|arena rental|facility rental|room rental|hall rental|per hour|hourly/i;
@@ -2803,7 +2808,7 @@ async function extractFacts(venueName, windows) {
 }
 
 function factsDue(rec, now) {
-    if (!rec || !rec.checkedAt) return true;
+    if (!rec || !rec.checkedAt || rec.factsVersion !== FACTS_VERSION) return true;
     const age = (now - new Date(rec.checkedAt).getTime()) / 86400000;
     return age > (rec.error ? FACTS_RETRY_DAYS : FACTS_TTL_DAYS);
 }
@@ -2833,10 +2838,13 @@ async function fetchVenueFacts(rinks, { all = false } = {}) {
     for (const t of batch) {
         const rec = { url: t.url, checkedAt: new Date().toISOString(), model: FACTS_MODEL() };
         const save = () => {
+            const multi = t.venues.length > 1;   // a city's page serving several rinks
             t.venues.forEach(v => {
-                const mine = { name: v.name, ...rec };
-                if (mine.rentals && !appliesToVenue(mine.rentals, v.name)) delete mine.rentals;
-                if (mine.admission && !appliesToVenue(mine.admission, v.name)) delete mine.admission;
+                const mine = { name: v.name, ...rec, factsVersion: FACTS_VERSION };
+                // on a shared page, rentals/admission count only when the sentence names this rink
+                // ("rentals at Chic Murray Arena & Paul Coffey Arena" yes; "the pro shop rents skates" no)
+                if (mine.rentals && (!appliesToVenue(mine.rentals, v.name) || (multi && !namedPlaces(mine.rentals.quote).length))) delete mine.rentals;
+                if (mine.admission && (!appliesToVenue(mine.admission, v.name) || (multi && !namedPlaces(mine.admission.quote).length))) delete mine.admission;
                 // "free skating on our outdoor rinks" says nothing about an arena
                 const outdoorOnly = (f) => f && /outdoor/i.test(f.quote) && !v.kinds.includes('outdoor');
                 if (outdoorOnly(mine.rentals)) delete mine.rentals;
@@ -2859,8 +2867,11 @@ async function fetchVenueFacts(rinks, { all = false } = {}) {
             let admission = fillPrice(verifyField(raw.admission, corpus, ['price']));
             let helmets = verifyField(raw.helmets, corpus, ['age']);
             if (helmets && (NOT_HELMET_RE.test(helmets.quote) || !HELMET_CONTEXT_RE.test(helmets.quote))) helmets = null;   // a lesson/camp rule, or no skating context
+            // "mandatory for everyone" outranks an age the model picked from the same sentence
+            if (helmets && /mandatory for (?:everyone|all)|required for (?:all|everyone)|all (?:skaters|participants|patrons) (?:must|are required to|need to) wear|everyone must wear/i.test(helmets.quote)) helmets.rule = 'required';
             if (rentals && NOT_SKATE_RENTAL_RE.test(rentals.quote)) rentals = null;          // the ice, not skates
             if (admission && (NOT_ADMISSION_RE.test(admission.quote) || !ADMISSION_CONTEXT_RE.test(admission.quote))) admission = null;   // shinny / passes / lessons, or no skating context
+            if (admission && admission.unit === 'free' && !FREE_ADMISSION_RE.test(admission.quote)) admission = null;                      // "free skate" the programme, not the price
             if (rentals) {
                 // the quote outranks the model's yes/no: a plain "we do not offer skate rentals" is a no
                 if (NO_RENTALS_RE.test(rentals.quote)) { rentals.available = 'no'; rentals.price = null; rentals.unit = 'unknown'; }
