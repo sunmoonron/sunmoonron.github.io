@@ -2924,9 +2924,66 @@ window.SkateApp = (() => {
         $('status-data').textContent = 'Refreshing…';
         try {
             await Actions.reloadData();
-            SkateUI.toast('Schedule, alerts and spots refreshed', 'success', 2000);
+            // v3.8a: "refresh" also means the app itself. An installed app can sit open for
+            // weeks running old code; if the site has moved on, reload it (unless a message is half-typed).
+            const upd = await Actions.checkForUpdate({ force: true });
+            if (upd && !unsavedDraft()) {
+                SkateUI.toast(`Updating the app to ${upd.version ? 'v' + upd.version : 'the latest version'}…`, 'info', 1500);
+                setTimeout(() => location.reload(), 900);
+                return;
+            }
+            SkateUI.toast(upd ? 'Schedule refreshed. Finish your message, then tap Update at the top.' : 'Schedule, alerts and spots refreshed', 'success', upd ? 4000 : 2000);
         } catch (e) { SkateUI.toast('Refresh failed: ' + e.message, 'error'); }
         finally { Render.status(); btn.disabled = false; btn.classList.remove('spinning'); }
+    };
+
+    /* ---------- v3.8a: is the deployed site newer than the code running here? ----------
+     * The ?v= tokens in index.html are the release identity: every change bumps
+     * one. The running page's tokens are compared with a fresh copy of
+     * index.html (never from any cache). On a mismatch the ↻ button reloads
+     * the app; a page that has been open a while shows an Update bar instead,
+     * so nobody keeps an old build just because they never closed the tab. */
+    const LAZY_BASENAMES = new Set(COMMUNITY_SCRIPTS.map(s => s.split('/').pop().split('?')[0]));
+    const signatureOf = (html) => {
+        const found = new Set();
+        for (const m of html.matchAll(/(?:src|href)="([^"]*\?v=\d+)"/g)) {
+            const base = m[1].split('/').pop();
+            if (!LAZY_BASENAMES.has(base.split('?')[0])) found.add(base);
+        }
+        return [...found].sort().join('|');
+    };
+    let runningSignature = null, lastUpdateCheck = 0, updateSnoozedUntil = 0;
+    const pageLoadedAt = Date.now();
+    const unsavedDraft = () => !!(($('chat-input') && $('chat-input').value.trim()) || ($('devchat-input') && $('devchat-input').value.trim()) || ($('guide-body-input') && $('guide-body-input').value.trim()));
+    Actions.checkForUpdate = async function ({ force = false } = {}) {
+        const now = Date.now();
+        if (!force && now - lastUpdateCheck < 10 * 60000) return null;
+        lastUpdateCheck = now;
+        if (runningSignature === null) runningSignature = signatureOf(document.documentElement.outerHTML);
+        try {
+            const r = await fetch(`./?fresh=${now}`, { cache: 'no-store' });
+            if (!r.ok) return null;
+            const html = await r.text();
+            const remote = signatureOf(html);
+            if (!remote || remote === runningSignature) { Render.updateBar(null); return null; }
+            let version = '';
+            const cfg = html.match(/config\.js\?v=(\d+)/);
+            if (cfg) {
+                try { version = (((await (await fetch(`projects/js/config.js?v=${cfg[1]}`, { cache: 'no-store' })).text()).match(/version:\s*'([^']+)'/) || [])[1]) || ''; } catch {}
+            }
+            const upd = { version, signature: remote };
+            if (!force && now < updateSnoozedUntil) return upd;
+            Render.updateBar(upd);
+            return upd;
+        } catch { return null; }   // offline or blocked: nothing to say
+    };
+
+    Render.updateBar = function (upd) {
+        const bar = $('update-bar');
+        if (!bar) return;
+        if (!upd) { bar.classList.add('hidden'); return; }
+        $('update-text').textContent = `A newer version of the app is ready${upd.version ? ` (v${upd.version})` : ''}.`;
+        bar.classList.remove('hidden');
     };
 
     /** The doorbell: asks the CI to re-pull the City's export (status popover). */
@@ -3072,6 +3129,13 @@ window.SkateApp = (() => {
             ['[data-install="how"]', Actions.openInstall],
             ['[data-install="later"]', () => { SkateSettings.set('installSeen', true); Render.installHint(); }]
         ]);
+        $('btn-update-now').onclick = () => { $('update-text').textContent = 'Updating…'; location.reload(); };
+        $('btn-update-later').onclick = () => { updateSnoozedUntil = Date.now() + 6 * 3600000; Render.updateBar(null); };
+        // an app left open: look again when it comes back to the foreground after 30 min, and twice a day regardless
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && Date.now() - pageLoadedAt > 30 * 60000) Actions.checkForUpdate().catch(() => {});
+        });
+        setInterval(() => Actions.checkForUpdate().catch(() => {}), 12 * 3600000);
         $('btn-locator-search').onclick = Actions.searchLocation;
         $('locator-input').onkeydown = e => { if (e.key === 'Enter') Actions.searchLocation(); };
         $('rinks-search').oninput = () => Render.rinks();

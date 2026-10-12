@@ -160,6 +160,10 @@ window.SkateUI = (() => {
             if (!items.length) return;
             const p = $('popover');
             p.innerHTML = '';
+            // v3.8a: a ✕ of its own — on a phone the menu can fill the width, leaving nowhere to tap away
+            p.appendChild(el('div', { class: 'popover-head' }, [
+                el('button', { class: 'popover-close', type: 'button', 'aria-label': 'Close menu', title: 'Close', onclick: (e) => { e.stopPropagation(); Popover.close(); } }, ['✕'])
+            ]));
             items.forEach(it => {
                 if (it.reactions) {   // v3.8: a row of emoji, each its own button
                     const row = el('div', { class: 'popover-reacts' });
@@ -188,6 +192,7 @@ window.SkateUI = (() => {
     document.addEventListener('click', e => {
         if (!e.target.closest('#popover')) Popover.close();
     }, true);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && Popover.isOpen()) Popover.close(); });
     window.addEventListener('scroll', Popover.close, true);
     window.addEventListener('resize', Popover.close);
 

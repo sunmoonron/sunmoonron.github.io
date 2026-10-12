@@ -1625,3 +1625,13 @@ body.dark-mode .react-chip.mine { border-color: var(--acc-chats); }
 @media (min-width: 768px) and (max-width: 1099px) {
     .main-content .view-panel.panel-chats.chat-panel-view { max-width: none; flex: none; width: auto; }
 }
+
+/* ---------- v3.8a: popover ✕ + the update bar ---------- */
+.popover-head { display: flex; justify-content: flex-end; margin: -2px -2px 0 0; }
+.popover-close { background: none; border: none; color: var(--text-muted); font-size: 14px; width: 30px; height: 28px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.popover-close:hover, .popover-close:focus-visible { background: var(--bg); color: var(--text); }
+.update-bar { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: color-mix(in srgb, var(--acc-programs, #52c5ec) 16%, var(--bg)); border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text); }
+.update-bar.hidden { display: none; }
+.update-bar span { flex: 1; min-width: 0; }
+.update-bar .btn-update { background: var(--acc-programs, #52c5ec); color: #0b1620; font-weight: 700; border: none; padding: 6px 12px; border-radius: 10px; cursor: pointer; }
+.update-bar .btn-icon { width: 30px; height: 30px; }
