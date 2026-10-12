@@ -40,7 +40,8 @@ window.SkateConfig = {
                 'The community code (chat, guides, the feedback sheet: about 360 KB) is no longer part of every visit. It loads the first time you switch a section on, follow an invite or open the feedback sheet, and the app keeps it cached so later loads are instant and always the latest version. A schedule-only visit opens no connections at all, and switching both sections off closes them.',
                 'Chats: react to messages (👍 ❤️ 😂 🔥 🙏 ⛸️), unsend your own, load earlier history, @mention people (they get a highlight and, if they turned Notify on in Settings, a system notification while the tab is in the background), multi-line messages with Shift+Enter, day separators and grouped messages, an offline banner, and "here now" counts that mean people in that room right now.',
                 'Under the hood: messages that could not be sent go out by themselves when the relays are back, two tabs of the site no longer overwrite each other\'s history, chat storage sheds old photos before it runs out of room, and phones that come back from the background re-check their connections.',
-                'Every ⋯ menu has a ✕ to close it (on a phone there was nowhere to tap away). The ↻ button now also checks whether the app itself is out of date and reloads it; an installed app that has sat open for a while shows an Update bar instead of running old code forever.',
+                'Every ⋯ menu has a header with what it is about and a ✕ to close it (on a phone there was nowhere to tap away). The ↻ button now also checks whether the app itself is out of date and reloads it; an installed app that has sat open for a while shows an Update bar instead of running old code forever.',
+                'Rink alerts that name their own end ("re-opening on Monday, September 28") no longer mark later sessions as likely cancelled; they show as a note that the City has not cleared the alert yet.',
             ]
         },
         {

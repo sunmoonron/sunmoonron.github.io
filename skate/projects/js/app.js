@@ -1849,7 +1849,7 @@ window.SkateApp = (() => {
             const f = filterFacets().cats[cat];
             if (!f) return [];
             const sel = S.types[cat];
-            const reopen = () => { const a = $('active-filters').querySelector(`.pill.type[data-pill="type:${cat}"]`); if (a) Popover.open(a, Menus.subTypes(cat)); };
+            const reopen = () => { const a = $('active-filters').querySelector(`.pill.type[data-pill="type:${cat}"]`); if (a) Popover.open(a, Menus.subTypes(cat), `${CAT_LABEL(cat)}: age groups`); };
             const items = [{ label: `${sel === 'all' ? '✓ ' : '\u2007\u2007 '}Every age group · ${f.n}`, onClick: () => { Actions.setType(cat, null, true); reopen(); } }];
             CFG.subTypes.filter(x => f.subs[x.id]).forEach(x => {
                 const on = sel === 'all' || (Array.isArray(sel) && sel.includes(x.id));
@@ -1862,7 +1862,7 @@ window.SkateApp = (() => {
         otherTypes() {
             const f = filterFacets().cats;
             const present = otherMembersPresent();
-            const reopen = () => { const a = $('active-filters').querySelector(`.pill.type[data-pill="type:${OTHER_KEY}"]`); if (a) Popover.open(a, Menus.otherTypes()); };
+            const reopen = () => { const a = $('active-filters').querySelector(`.pill.type[data-pill="type:${OTHER_KEY}"]`); if (a) Popover.open(a, Menus.otherTypes(), 'Other kinds'); };
             const allOn = present.every(c => S.types[c]);
             const items = [{ label: `${allOn ? '✓ ' : '\u2007\u2007 '}Everything in Other`, onClick: () => { Actions.setType(OTHER_KEY, null, true); reopen(); } }];
             present.forEach(c => items.push({
@@ -1875,7 +1875,7 @@ window.SkateApp = (() => {
         /** City picker behind the standing city pill (multi-select; stays open while you pick). */
         cities() {
             const f = filterFacets().cities;
-            const reopen = () => { const a = $('active-filters').querySelector('.pill.city'); if (a) Popover.open(a, Menus.cities()); };
+            const reopen = () => { const a = $('active-filters').querySelector('.pill.city'); if (a) Popover.open(a, Menus.cities(), 'Cities'); };
             const items = [{ label: `${S.cities.length ? '\u2007\u2007 ' : '✓ '}All cities`, onClick: () => { Actions.setCities([]); } }];
             cityKeys(f).forEach(c => items.push({
                 label: `${S.cities.includes(c) ? '✓ ' : '\u2007\u2007 '}${c} · ${f[c]}`,
@@ -2118,7 +2118,7 @@ window.SkateApp = (() => {
         if (isApple()) return openIcs(p);
         if (isAndroid()) return openCalendarLink(p, 'google');
         const at = (anchor && document.contains(anchor)) ? anchor : (document.querySelector(`.program-item[data-pid="${P.id(p)}"] .btn-copy`) || document.body);
-        Popover.open(at, Menus.calendar(p));
+        Popover.open(at, Menus.calendar(p), 'Add to calendar');
     };
 
     Actions.focusProgram = function (pid) {
@@ -3019,15 +3019,15 @@ window.SkateApp = (() => {
         // ---- Pills (the city pill opens a picker; its x clears to every city) ----
         delegate($('active-filters'), [
             ['.pill.city .pill-x', (x, e) => { e.stopPropagation(); Actions.setCities([]); }],
-            ['.pill.city', (b, e) => { e.stopPropagation(); Popover.open(b, Menus.cities()); }],
+            ['.pill.city', (b, e) => { e.stopPropagation(); Popover.open(b, Menus.cities(), 'Cities'); }],
             ['.pill.type .pill-x', (x, e) => { e.stopPropagation(); Actions.removePill(x.closest('.pill').dataset.pill); }],
-            ['.pill.type', (b, e) => { e.stopPropagation(); const cat = b.dataset.pill.slice(5); Popover.open(b, cat === OTHER_KEY ? Menus.otherTypes() : Menus.subTypes(cat)); }],
+            ['.pill.type', (b, e) => { e.stopPropagation(); const cat = b.dataset.pill.slice(5); Popover.open(b, cat === OTHER_KEY ? Menus.otherTypes() : Menus.subTypes(cat), cat === OTHER_KEY ? 'Other kinds' : `${CAT_LABEL(cat)}: age groups`); }],
             ['.pill', (b) => Actions.removePill(b.dataset.pill)]
         ]);
 
         // ---- Status line + weather ----
-        $('status-data').onclick = (e) => { e.stopPropagation(); Popover.open($('status-data'), Menus.status()); };
-        $('weather-chip').onclick = (e) => { e.stopPropagation(); Popover.open($('weather-chip'), Menus.weather()); };
+        $('status-data').onclick = (e) => { e.stopPropagation(); Popover.open($('status-data'), Menus.status(), 'Data status'); };
+        $('weather-chip').onclick = (e) => { e.stopPropagation(); Popover.open($('weather-chip'), Menus.weather(), 'Weather'); };
         delegate($('saved-next'), [['.saved-row', (b) => Actions.focusProgram(b.dataset.pid)]]);
 
         // ---- Filters sheet ----
@@ -3072,7 +3072,7 @@ window.SkateApp = (() => {
             ['.cal-block', (block, e) => {
                 e.stopPropagation();
                 const p = S.filtered.find(x => P.id(x) === block.dataset.pid);
-                if (p) Popover.open(block, Menus.calBlock(p, block));
+                if (p) Popover.open(block, Menus.calBlock(p, block), p.Activity || p['Course Title'] || 'Session');
             }]
         ]);
 
@@ -3085,7 +3085,7 @@ window.SkateApp = (() => {
                 if (!p) return;
                 const act = btn.dataset.act;
                 if (act === 'fav') Actions.toggleSaved(p);
-                else if (act === 'copy') Popover.open(btn, Menus.programCopy(p, btn));
+                else if (act === 'copy') Popover.open(btn, Menus.programCopy(p, btn), p.Activity || p['Course Title'] || 'Session');
             }]
         ]);
         delegate($('show-more'), [['button[data-more]', (b) => { S.limit = b.dataset.more === 'all' ? Infinity : S.limit + 30; Render.programs(); }]]);
@@ -3227,7 +3227,11 @@ window.SkateApp = (() => {
 
         // ---- Chats — conversation ----
         $('btn-back').onclick = Actions.backToList;
-        $('btn-chat-menu').onclick = e => { e.stopPropagation(); Popover.open($('btn-chat-menu'), Menus.conversation()); };
+        $('btn-chat-menu').onclick = e => {
+            e.stopPropagation();
+            const s = SkateChat.getState();
+            Popover.open($('btn-chat-menu'), Menus.conversation(), s.viewMode === 'dm' ? (s.activeDmThread?.name || 'Conversation') : (s.activeGroup?.name || 'Conversation'));
+        };
         $('btn-send').onclick = Actions.sendCurrent;
         $('chat-input').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); Actions.sendCurrent(); } };
         $('chat-input').oninput = () => { const ta = $('chat-input'); ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 120) + 'px'; };
@@ -3246,7 +3250,7 @@ window.SkateApp = (() => {
             }
         });
         delegate($('members-list'), [
-            ['.member-chip', (chip, e) => { e.stopPropagation(); Popover.open(chip, Menus.user(chip.dataset.pk, chip.dataset.name)); }]
+            ['.member-chip', (chip, e) => { e.stopPropagation(); Popover.open(chip, Menus.user(chip.dataset.pk, chip.dataset.name), chip.dataset.name || 'Skater'); }]
         ]);
         delegate($('chat-messages'), [
             ['a', () => { /* links behave like links */ }],
@@ -3273,13 +3277,13 @@ window.SkateApp = (() => {
             ['[data-open-program]', (n) => { Actions.switchView('programs'); Actions.focusProgram(n.dataset.openProgram); }],
             ['[data-open-guide]', (n) => Actions.openGuide(n.dataset.openGuide)],
             ['.reply-ref[data-ref]', (n) => Actions.scrollToMsg(n.dataset.ref)],
-            ['.sender[data-pk]', (n, e) => { e.stopPropagation(); Popover.open(n, Menus.user(n.dataset.pk, n.dataset.name)); }],
+            ['.sender[data-pk]', (n, e) => { e.stopPropagation(); Popover.open(n, Menus.user(n.dataset.pk, n.dataset.name), n.dataset.name || 'Skater'); }],
             ['.chat-msg', (msgEl, e) => {
                 const st = SkateChat.getState();
                 const m = findMessage(st, msgEl.dataset.local || msgEl.dataset.mid);
                 if (!m) return;
                 e.stopPropagation();
-                Popover.open(msgEl.querySelector('.bubble') || msgEl, Menus.message(m, st));
+                Popover.open(msgEl.querySelector('.bubble') || msgEl, Menus.message(m, st), m.mine ? 'Your message' : `${m.from || 'Skater'}'s message`);
             }]
         ]);
 

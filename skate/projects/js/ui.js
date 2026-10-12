@@ -155,13 +155,15 @@ window.SkateUI = (() => {
             p.classList.add('hidden');
             p.innerHTML = '';
         },
-        /** items: [{label, danger?, onClick}] — built with textContent, never innerHTML. */
-        open(anchor, items) {
+        /** items: [{label, danger?, onClick}] — built with textContent, never innerHTML.
+         *  title: what the menu is about (a session, a person, a room) — it heads the
+         *  menu beside the ✕, so the close button is not a lone glyph in space. */
+        open(anchor, items, title = '') {
             if (!items.length) return;
             const p = $('popover');
             p.innerHTML = '';
-            // v3.8a: a ✕ of its own — on a phone the menu can fill the width, leaving nowhere to tap away
             p.appendChild(el('div', { class: 'popover-head' }, [
+                el('span', { class: 'popover-title', title: title || '' }, [title || '']),
                 el('button', { class: 'popover-close', type: 'button', 'aria-label': 'Close menu', title: 'Close', onclick: (e) => { e.stopPropagation(); Popover.close(); } }, ['✕'])
             ]));
             items.forEach(it => {
