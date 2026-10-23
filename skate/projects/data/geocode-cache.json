@@ -8,5 +8,55 @@
   "lat": 43.6933347,
   "lng": -79.2622512,
   "label": "75, Birchmount Road, Birchcliffe-Cliffside, Scarborough Southwest, Scarborough, Toronto, Golden Horseshoe, Ontario, M1N 1S5, Canada"
+ },
+ "200 eglinton ave w, toronto, on m4r 1a7": {
+  "lat": 43.7059141,
+  "lng": -79.4051212,
+  "label": "North Toronto Memorial Community Centre, 200, Eglinton Avenue West, Yonge-Eglinton, Eglinton—Lawrence, Toronto, Ontario, M4R 1A7, Canada"
+ },
+ "1200 lansdowne ave, toronto, on": {
+  "lat": 43.6719926,
+  "lng": -79.4492153,
+  "label": "Earlscourt Park Off-Leash Area, 1200, Lansdowne Avenue, Corso Italia-Davenport, Davenport, Toronto, Ontario, M6H 4L1, Canada"
+ },
+ "256 centennial park rd, toronto, on": {
+  "lat": 43.6574808,
+  "lng": -79.5869054,
+  "label": "256, Centennial Park Road, Eringate-Centennial-West Deane, Etobicoke Centre, Etobicoke, Toronto, Ontario, M9C 2N6, Canada"
+ },
+ "37 marquis ave, toronto, on": {
+  "lat": 43.6579415,
+  "lng": -79.5091261,
+  "label": "37, Marquis Avenue, Kingsway South, Etobicoke—Lakeshore, Etobicoke, Toronto, Ontario, M8X 2M6, Canada"
+ },
+ "8 avon park dr, toronto, on": {
+  "lat": 43.6264,
+  "lng": -79.50629,
+  "label": "8, Avon Park Drive, Stonegate-Queensway, Etobicoke—Lakeshore, Etobicoke, Toronto, Ontario, M8Z 1N3, Canada"
+ },
+ "50 amoro dr, toronto, on": {
+  "lat": 43.7244443,
+  "lng": -79.5774359,
+  "label": "Amoro Drive, West Humber-Clairville, Etobicoke North, Etobicoke, Toronto, Ontario, M9W 4L4, Canada"
+ },
+ "westway park, toronto, on": {
+  "lat": 43.6879069,
+  "lng": -79.541619,
+  "label": "Westway Park, Etobicoke Centre, Etobicoke, Toronto, Ontario, Canada"
+ },
+ "1 third st, toronto, on": {
+  "lat": 43.5988136,
+  "lng": -79.4990103,
+  "label": "Prince of Wales Rink, 1, Third Street, New Toronto, Etobicoke—Lakeshore, Etobicoke, Toronto, Ontario, M8V 2X7, Canada"
+ },
+ "55 eltham dr, toronto, on": {
+  "lat": 43.6024161,
+  "lng": -79.5514331,
+  "label": "Eltham Drive, Alderwood, Etobicoke—Lakeshore, Etobicoke, Toronto, Ontario, M8W 2K7, Canada"
+ },
+ "dennis flynn park, toronto, on": {
+  "lat": 43.6406513,
+  "lng": -79.5660594,
+  "label": "Dennis Flynn Park, 364, Etobicoke Centre, Etobicoke, Toronto, Ontario, Canada"
  }
 }
