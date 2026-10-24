@@ -97,10 +97,11 @@ window.SkateMap = (() => {
             userMarker = L.marker([u.lat, u.lng], { icon, zIndexOffset: 1000, title: u.label || 'Your location' })
                 .addTo(map).bindPopup(esc(u.label || 'Your location'));
             const key = `${u.lat},${u.lng}`;
+            // a new point, including the very first one granted while the map is open, flies there
             if (lastUserKey !== null && key !== lastUserKey) map.flyTo([u.lat, u.lng], Math.max(map.getZoom(), 12), { duration: 0.8 });
             lastUserKey = key;
         } else {
-            lastUserKey = null;
+            lastUserKey = 'none';
         }
         return rinks.length;
     }
@@ -139,6 +140,7 @@ window.SkateMap = (() => {
         const n = renderPins();
         const title = document.getElementById('rinks-title');
         if (title) title.textContent = `Rinks${f === 'all' ? '' : `: ${f}`}${n != null ? ` (${n})` : ''}`;
+        if (hooks.onFilter) { try { hooks.onFilter(f); } catch {} }   // the list beside the map follows
     }
 
     /**
@@ -158,7 +160,7 @@ window.SkateMap = (() => {
         const u = hooks.userPoint ? hooks.userPoint() : null;
         if (opts.center) map.setView(opts.center, opts.zoom || 13);
         else if (u && typeof u.lat === 'number') map.setView([u.lat, u.lng], 12);
-        lastUserKey = (u && typeof u.lat === 'number') ? `${u.lat},${u.lng}` : null;   // the view was just set: no fly on this render
+        lastUserKey = (u && typeof u.lat === 'number') ? `${u.lat},${u.lng}` : 'none';   // the view was just set: no fly on this render
         setFilter(opts.filter || filter || 'all');
         // modal was display:none during init → recalc dimensions
         requestAnimationFrame(() => map.invalidateSize());
@@ -173,7 +175,7 @@ window.SkateMap = (() => {
     /** Re-render pins in place (e.g. after starring a rink from a popup). */
     function refresh() { if (map) renderPins(); }
 
-    return { configure, open, close, setFilter, refresh, focusRink, get isOpen() { return !document.getElementById('rinks-modal').classList.contains('hidden'); } };
+    return { configure, open, close, setFilter, refresh, focusRink, get filter() { return filter; }, get isOpen() { return !document.getElementById('rinks-modal').classList.contains('hidden'); } };
 })();
 
 if (typeof module !== 'undefined') module.exports = window.SkateMap;

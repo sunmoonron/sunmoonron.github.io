@@ -76,12 +76,13 @@ window.SkateUI = (() => {
         document.body.appendChild(c);
         return c;
     }
-    function toast(message, type = 'info', duration = 4000) {
+    function toast(message, type = 'info', duration = 4000, onClick = null) {
         const node = document.createElement('div');
-        node.className = `toast toast-${type}`;
+        node.className = `toast toast-${type}` + (onClick ? ' toast-click' : '');
         node.innerHTML = `<span></span><button aria-label="Dismiss">✕</button>`;
         node.querySelector('span').textContent = message;
         node.querySelector('button').onclick = () => node.remove();
+        if (onClick) node.querySelector('span').onclick = () => { node.remove(); onClick(); };
         toastContainer().appendChild(node);
         setTimeout(() => node.classList.add('show'), 10);
         setTimeout(() => { node.classList.remove('show'); setTimeout(() => node.remove(), 300); }, duration);
@@ -195,7 +196,8 @@ window.SkateUI = (() => {
         if (!e.target.closest('#popover')) Popover.close();
     }, true);
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && Popover.isOpen()) Popover.close(); });
-    window.addEventListener('scroll', Popover.close, true);
+    // scrolling the page closes the menu; scrolling inside a long menu must not (v3.9)
+    window.addEventListener('scroll', (e) => { if (e.target instanceof Element && e.target.closest('#popover')) return; Popover.close(); }, true);
     window.addEventListener('resize', Popover.close);
 
     /* ---------- modals ---------- */
@@ -218,9 +220,17 @@ window.SkateUI = (() => {
        One listener per container; the table maps a closest()-selector to a
        handler. First match wins. Handlers receive (hitElement, event). */
     function delegate(container, table) {
+        // v3.9: on phones the page can move between finger-down and the click
+        // (a keyboard closing, a list re-rendering): act on the element that
+        // was under the finger when the touch began, not on what slid under it.
+        let down = null;
+        container.addEventListener('pointerdown', e => { down = e.pointerType === 'touch' ? { el: e.target, t: Date.now() } : null; }, { passive: true });
         container.onclick = e => {
+            let target = e.target;
+            if (down && Date.now() - down.t < 800 && down.el !== target && down.el.isConnected && container.contains(down.el) && !down.el.contains(target) && !target.contains(down.el)) target = down.el;
+            down = null;
             for (const [sel, handler] of table) {
-                const hit = e.target.closest(sel);
+                const hit = target.closest(sel);
                 if (hit && container.contains(hit)) return handler(hit, e);
             }
         };

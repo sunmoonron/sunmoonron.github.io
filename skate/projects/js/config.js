@@ -28,13 +28,22 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.8',
+    version: '3.9',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
     // (npub1p07dm5lcx2gn6qq8t7fyduh5tsmz64r823h9j0kgutcas757tg7s096ykw).
     devPubkey: '0bfcddd3f832913d00075f9246f2f45c362d5467546e593ec8e2f1d87a9e5a3d',
     changelog: [
+        {
+            v: '3.9', date: '2026-10-24', items: [
+                'Rink alerts: an alert that names its own end (a reopening date, "until", "today", one dated closure) is over after that day. For four days it shows as a grey heads-up worth a call, then says nothing. Alerts with no end ("closed for repairs until further notice") stay as long as the City posts them. A likely-cancelled session now strikes through its time and countdown too.',
+                'Phones: taps no longer land on the row below. Pull-to-refresh ignores touches that start on a button and no longer twitches on finger jitter; the Filters sheet keeps its scroll position and honours the row under your finger; long menus (weather, cities) scroll instead of closing; the sheet fits browsers with a bottom address bar.',
+                'Rinks & map: a city picker, the list follows the Indoor/Outdoor switch and the two counts agree, the map jumps to your location the first time you share it, and the "only this rink" pill is green.',
+                'Settings → Identity: Export for another device copies and downloads a backup (chat key, settings, saved sessions, my rinks, muted people, private groups) to paste into Import elsewhere.',
+                'The feedback button shows the dev an unread badge and a tap-to-open toast, with a nudge to switch notifications on. At the end of the day the list says so and offers tomorrow.',
+            ]
+        },
         {
             v: '3.8', date: '2026-10-09', items: [
                 'The community code (chat, guides, the feedback sheet: about 360 KB) is no longer part of every visit. It loads the first time you switch a section on, follow an invite or open the feedback sheet, and the app keeps it cached so later loads are instant and always the latest version. A schedule-only visit opens no connections at all, and switching both sections off closes them.',

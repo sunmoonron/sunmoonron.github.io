@@ -109,7 +109,7 @@ window.SkateCalendar = (() => {
         if (type) cls += ` cal-type-${type}`;   // same palette as the list badges
         if (p.Paid) cls += ' cal-paid';
         if (saved) cls += ' cal-saved';
-        if (alert) cls += alert.level === 'closed' ? ' cal-closed' : ' cal-warning';
+        if (alert && alert.level !== 'note') cls += alert.level === 'closed' ? ' cal-closed' : ' cal-warning';
         if (st.phase === 'live') cls += ' cal-live';
         else if (st.phase === 'soon') cls += ' cal-soon';
         else if (st.phase === 'ended') cls += ' cal-ended';
@@ -117,7 +117,7 @@ window.SkateCalendar = (() => {
 
         const hoverBits = [
             p.Activity || '', 'at', p.LocationName || '',
-            alert ? (alert.level === 'closed' ? '(likely cancelled, rink alert)' : '(service alert at this rink)') : '',
+            alert ? (alert.level === 'closed' ? '(likely cancelled, rink alert)' : alert.level === 'note' ? '(a past rink alert, worth a call)' : '(service alert at this rink)') : '',
             p.Unverified ? '(unverified schedule)' : ''
         ].filter(Boolean).join(' ');
         const block = el('button', { class: cls, dataset: { pid: opts.idFor(p) }, title: hoverBits });
@@ -163,7 +163,7 @@ window.SkateCalendar = (() => {
             if (p.Unverified) states.unverified = true;
             if (opts.isSaved(p)) states.saved = true;
             const a = opts.alertFor(p);
-            if (a) states[a.level === 'closed' ? 'closed' : 'warning'] = true;
+            if (a && a.level !== 'note') states[a.level === 'closed' ? 'closed' : 'warning'] = true;
         });
 
         // day strip: the scroll affordance on phones, a quick jump everywhere
@@ -192,7 +192,7 @@ window.SkateCalendar = (() => {
             ]));
 
             list.sort((a, b) => T.sortEpoch(a) - T.sortEpoch(b));
-            if (!list.length) col.appendChild(el('div', { class: 'cal-empty' }, ['·']));
+            if (!list.length) col.appendChild(el('div', { class: 'cal-empty' + (isToday ? ' today' : '') }, [isToday ? 'No more today' : '·']));
 
             list.forEach(p => col.appendChild(sessionBlock(p, opts)));
             grid.appendChild(col);

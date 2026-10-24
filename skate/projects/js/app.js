@@ -58,6 +58,7 @@ window.SkateApp = (() => {
         showDropped: false,            // include City sessions toronto.ca no longer lists (hidden by default: toronto.ca is the ground truth)
         moreFilters: false,            // Filters sheet: the collapsed "More options" section
         rinksAllCities: false,         // Rinks view: ignore the Where cities for one look
+        rinksCity: null,               // Rinks view: a city picked in the sheet ('all' = every city, null = follow the filters)
         nearRink: null,                // {key, name} — "Sessions" from the Rinks view
         expandedCats: {},              // Filters sheet: which categories show their age groups
         activeGuideId: null, guideCat: '',
@@ -528,7 +529,7 @@ window.SkateApp = (() => {
                 ]));
                 return;
             }
-            wrap.appendChild(el('button', { class: 'pill', dataset: { pill: pl.key }, title: 'Remove this filter' }, [
+            wrap.appendChild(el('button', { class: 'pill' + (pl.key === 'near' ? ' rink' : ''), dataset: { pill: pl.key }, title: 'Remove this filter' }, [
                 pl.label, el('span', { class: 'pill-x', 'aria-hidden': 'true' }, ['✕'])
             ]));
         });
@@ -873,10 +874,13 @@ window.SkateApp = (() => {
         if (!filtered.length) {
             const paidOnly = !S.paidVisible && S.paidMatching > 0;
             const empty = S.savedOnly ? 'Nothing saved yet. Tap ♡ on any session to keep it here.'
+                : (S.day === 'today' && !S.search && !S.nearRink) ? 'No more sessions today. <button class="flink" data-day-tomorrow="1">See tomorrow</button>'
                 : paidOnly ? `All ${S.paidMatching} matching session${S.paidMatching === 1 ? ' is' : 's are'} at paid venues. Switch Free only off in the top bar to show them.`
                 : S.rinkScope === 'mine' ? 'Nothing at your rinks with these filters. Tap the My rinks pill to see every rink.'
                 : 'No sessions match. Try fewer filters, or tap the city pill to add cities.';
             list.innerHTML = `<li class="loading">${empty}</li>`;
+            const tmr = list.querySelector('[data-day-tomorrow]');
+            if (tmr) tmr.onclick = () => Actions.setDay('tomorrow');
             Render.showMore(0);
             return;
         }
@@ -1022,6 +1026,9 @@ window.SkateApp = (() => {
         let alertHtml = '';
         if (alert && alert.live) {
             alertHtml = `<div class="alert-banner closed live-flag"><strong>${escapeHtml(alert.reason)}.</strong> ${escapeHtml(alert.text)}${verify}</div>`;
+        } else if (alert && alert.level === 'note') {
+            // v3.9: the alert ended before this session (by its own wording); a grey heads-up for a few days
+            alertHtml = `<div class="alert-banner note"><strong>Heads-up.</strong> ${escapeHtml(alert.text)}${verify}</div>`;
         } else if (alert) {
             const closed = alert.level === 'closed';
             const lead = closed ? 'Likely cancelled, rink alert'
@@ -1114,7 +1121,7 @@ window.SkateApp = (() => {
             : '';
 
         return `
-            <li class="program-item${rowStateCls}${p.Paid ? ' is-paid' : ''}${isFavorite ? ' is-saved' : ''}${alert ? (alert.level === 'closed' ? ' has-alert-closed' : ' has-alert') : ''}" data-pid="${pid}">
+            <li class="program-item${rowStateCls}${p.Paid ? ' is-paid' : ''}${isFavorite ? ' is-saved' : ''}${alert ? (alert.level === 'closed' ? ' has-alert-closed' : alert.level === 'note' ? ' has-alert-note' : ' has-alert') : ''}" data-pid="${pid}">
                 <div class="program-header">
                     <div class="program-main">
                         <div class="program-title">${escapeHtml(activity)}</div>
@@ -1513,6 +1520,8 @@ window.SkateApp = (() => {
     }
     /** The Where cities apply to the rink list and the map too (your rinks always show). */
     function rinkInScope(r) {
+        if (S.rinksCity === 'all') return true;
+        if (S.rinksCity) return rinkCity(r) === S.rinksCity;
         if (!S.cities.length || S.rinksAllCities) return true;
         return S.cities.includes(rinkCity(r)) || (SkateSettings.get('myRinks') || []).includes(String(r.locationid));
     }
@@ -1530,8 +1539,10 @@ window.SkateApp = (() => {
         }
         const q = $('rinks-search').value.trim().toLowerCase();
         const mine = new Set(SkateSettings.get('myRinks') || []);
+        const kind = SkateMap.filter;   // All / Indoor / Outdoor from the sheet's header
         let rows = SkateGeo.rinks
             .filter(rinkInScope)
+            .filter(r => kind === 'all' || (r.kinds || []).includes(kind))
             .map(r => ({ ...r, city: rinkCity(r), km: user && r.lat != null ? SkateGeo.distanceKm(user, { lat: r.lat, lng: r.lng }) : null }));
         if (q) rows = rows.filter(r => `${r.name} ${r.district || ''} ${r.city}`.toLowerCase().includes(q));
         rows.sort((a, b) =>
@@ -1540,9 +1551,22 @@ window.SkateApp = (() => {
             a.name.localeCompare(b.name));                                          // then A–Z
 
         // Scope line: which cities the list follows, with a one-tap way out.
-        const cityScoped = S.cities.length && !S.rinksAllCities;
-        scope.appendChild(el('span', {}, [`${rows.length} rink${rows.length === 1 ? '' : 's'}${S.cities.length ? (cityScoped ? ` in ${S.cities.join(', ')}` : ' in every city') : ''}`]));
-        if (S.cities.length) scope.appendChild(el('button', { class: 'flink', dataset: { rinksScope: cityScoped ? 'all' : 'cities' } }, [cityScoped ? 'Show every city' : `Only ${S.cities.join(', ')}`]));
+        // v3.9: a city picker (the old "show every city" link could not pick one city), and the
+        // count here is the same count as the map's title: both follow the city and the kind
+        scope.appendChild(el('span', {}, [`${rows.length} rink${rows.length === 1 ? '' : 's'}${kind !== 'all' ? ` (${kind})` : ''}`]));
+        const counts = {};
+        SkateGeo.rinks.forEach(r => { const c = rinkCity(r); counts[c] = (counts[c] || 0) + 1; });
+        const sel = el('select', { id: 'rinks-city', class: 'rinks-city', 'aria-label': 'Which city' });
+        if (S.cities.length > 1) sel.appendChild(el('option', { value: '' }, [`Your cities (${S.cities.length})`]));
+        sel.appendChild(el('option', { value: 'all' }, [`Every city (${SkateGeo.rinks.length})`]));
+        Object.entries(counts).sort((a, b) => b[1] - a[1]).forEach(([c, n]) => sel.appendChild(el('option', { value: c }, [`${c} (${n})`])));
+        sel.value = S.rinksCity || (S.cities.length === 1 ? S.cities[0] : (S.cities.length > 1 ? '' : 'all'));
+        sel.onchange = () => {
+            S.rinksCity = sel.value || null;
+            S.rinksAllCities = sel.value === 'all';
+            SkateMap.setFilter(SkateMap.filter);   // re-pins + retitles; the hook re-renders this list
+        };
+        scope.appendChild(sel);
 
         const row = (r) => {
             const key = String(r.locationid);
@@ -2004,8 +2028,15 @@ window.SkateApp = (() => {
     /** Re-render after a filter change: sheet (if open) + list. */
     function filtersChanged() {
         persistFilters();
-        if (!$('filters-modal').classList.contains('hidden')) Render.filters();
+        if (!$('filters-modal').classList.contains('hidden')) rerenderFilters();
         Actions.applyFilters();
+    }
+    /** Re-render the sheet without the rows jumping under the finger. */
+    function rerenderFilters() {
+        const body = $('filters-body');
+        const keep = body.scrollTop;
+        Render.filters();
+        body.scrollTop = keep;
     }
 
     Actions.openFilters = function () { Render.filters(); Modal.open('filters-modal'); };
@@ -2286,8 +2317,8 @@ window.SkateApp = (() => {
         '../assets/js/nostr.bundle.js?v=1',
         'projects/js/moderation.js?v=7',
         'projects/js/nostr-core.js?v=5',
-        'projects/js/chat-v2.js?v=17',
-        'projects/js/devchat.js?v=6',
+        'projects/js/chat-v2.js?v=18',
+        'projects/js/devchat.js?v=7',
         'projects/js/guides.js?v=6',
         'projects/js/profanity-list.js?v=1'
     ];
@@ -2828,16 +2859,20 @@ window.SkateApp = (() => {
         const text = ind.querySelector('.ptr-text');
         let startY = null, pulling = false, armed = false, busy = false;
         const setPull = (px) => { ind.style.height = `${px}px`; ind.classList.toggle('visible', px > 0); };
+        // A touch that starts on a control is a tap, never a pull: growing the
+        // indicator on finger jitter shifted the whole column under the finger,
+        // and Android then clicked whatever had slid under it (v3.9).
+        const SLOP = 14;
         panel.addEventListener('touchstart', (e) => {
-            if (busy || panel.scrollTop > 0 || Modal.any() || SkateTour.running) { startY = null; return; }
+            if (busy || panel.scrollTop > 0 || Modal.any() || SkateTour.running || e.target.closest('button, a, input, label, select, textarea, [role="button"], .pill, .fchip')) { startY = null; return; }
             startY = e.touches[0].clientY; pulling = false; armed = false;
         }, { passive: true });
         panel.addEventListener('touchmove', (e) => {
             if (startY === null || busy) return;
             const dy = e.touches[0].clientY - startY;
-            if (dy <= 0 || panel.scrollTop > 0) { if (pulling) { pulling = false; armed = false; setPull(0); } return; }
+            if (dy <= SLOP || panel.scrollTop > 0) { if (pulling) { pulling = false; armed = false; setPull(0); } return; }
             pulling = true;
-            const px = Math.min(104, dy * 0.45);
+            const px = Math.min(104, (dy - SLOP) * 0.45);
             setPull(px);
             armed = px >= THRESHOLD;
             text.textContent = armed ? 'Release to refresh' : 'Pull to refresh';
@@ -3034,8 +3069,17 @@ window.SkateApp = (() => {
         $('btn-filters-close').onclick = Actions.closeFilters;
         $('btn-filters-apply').onclick = Actions.closeFilters;
         $('btn-filters-reset').onclick = Actions.resetFilters;
+        let sheetTap = null;   // the row under the finger when the touch began (Android hit-test drift guard)
+        $('filters-body').addEventListener('pointerdown', (e) => { const row = e.target.closest('.fcheck'); sheetTap = row ? { row, t: Date.now() } : null; }, { passive: true });
         $('filters-body').addEventListener('change', (e) => {
-            const t = e.target;
+            let t = e.target;
+            if (sheetTap && Date.now() - sheetTap.t < 800 && t.type === 'checkbox' && !sheetTap.row.contains(t) && sheetTap.row.isConnected) {
+                // the page moved between finger-down and the click: undo the stray toggle, apply the intended one
+                t.checked = !t.checked;
+                const want = sheetTap.row.querySelector('input[type="checkbox"]');
+                if (want) { want.checked = !want.checked; t = want; }
+            }
+            sheetTap = null;
             if (t.id === 'f-age') return Actions.setAge(t.value);
             if (t.dataset.flag) return Actions.setFlag(t.dataset.flag, t.checked);
             if (t.dataset.type) return Actions.setType(t.dataset.type, t.dataset.sub || null, t.checked);
@@ -3046,7 +3090,7 @@ window.SkateApp = (() => {
                 const k = b.dataset.expand;
                 if (k === '__filters') S.moreFilters = !S.moreFilters;
                 else S.expandedCats[k] = b.getAttribute('aria-expanded') !== 'true';   // explicit: closes even with a partial pick
-                Render.filters();
+                rerenderFilters();
             }],
             ['.fchip[data-day]', (b) => Actions.setDay(b.dataset.day)],
             ['.fchip[data-city]', (b) => (b.dataset.city ? Actions.toggleCity(b.dataset.city) : Actions.setCities([]))],
@@ -3103,10 +3147,30 @@ window.SkateApp = (() => {
         $('btn-devchat').onclick = Actions.openDevChat;
         $('btn-feedback').onclick = Actions.openDevChat;
         $('devchat-link').onclick = Actions.openDevChat;
+        // v3.9: one backup to carry everything to another browser or phone
+        $('btn-export-bundle').onclick = async () => {
+            try { await loadCommunityCode(); } catch { SkateUI.toast('Could not load the chat code. Try again online.', 'error', 3000); return; }
+            if (!window.SkateChat.booted) await Actions.bootCommunity().catch(() => {});
+            const json = JSON.stringify(SkateChat.exportBundle());
+            try {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+                a.download = `toronto-skating-backup-${new Date().toISOString().slice(0, 10)}.json`;
+                document.body.appendChild(a); a.click(); a.remove();
+            } catch {}
+            copyText(json, 'Backup copied (and downloaded). On the other device: Settings → Import, paste it. It holds your private chat key: keep it to yourself.');
+        };
         $('btn-import-key').onclick = async () => {
             try { await loadCommunityCode(); } catch { SkateUI.toast('Could not load the chat code. Try again online.', 'error', 3000); return; }
-            const v = prompt('Paste the dev key (nsec or 64-character hex). This device then reads the dev inbox.');
+            const v = prompt('Paste a backup from Export (to move your settings, saved sessions and chat identity here), or the dev key (nsec or 64-character hex).');
             if (!v) return;
+            if (/^\s*\{/.test(v)) {
+                const res = SkateChat.importBundle(v);
+                if (!res.ok) { SkateUI.toast(`That backup could not be used: ${res.error}`, 'error', 5000); return; }
+                SkateUI.toast('Backup imported. Reloading…', 'success', 1500);
+                setTimeout(() => location.reload(), 900);
+                return;
+            }
             const pk = SkateChat.importIdentity(v);   // works before the chat stack boots: the key is saved, init picks it up
             if (!pk) { SkateUI.toast('That is not a valid key. It should start with nsec1 or be 64 hex characters.', 'error', 5000); return; }
             const dev = pk === (CFG.devPubkey || CFG.ownerPubkey);
@@ -3478,7 +3542,8 @@ window.SkateApp = (() => {
         SkateMap.configure({
             popupHtml: mapPopupHtml,
             userPoint: () => SkateGeo.getUserLocation(),
-            rinkFilter: rinkInScope
+            rinkFilter: rinkInScope,
+            onFilter: () => Render.rinks()   // the list follows All / Indoor / Outdoor
         });
 
         try {

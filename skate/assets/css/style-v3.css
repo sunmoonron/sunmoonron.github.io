@@ -1636,3 +1636,24 @@ body.dark-mode .react-chip.mine { border-color: var(--acc-chats); }
 .update-bar span { flex: 1; min-width: 0; }
 .update-bar .btn-update { background: var(--acc-programs, #52c5ec); color: #0b1620; font-weight: 700; border: none; padding: 6px 12px; border-radius: 10px; cursor: pointer; }
 .update-bar .btn-icon { width: 30px; height: 30px; }
+
+/* ---------- v3.9 ---------- */
+.alert-banner.note { background: color-mix(in srgb, var(--text-muted) 9%, var(--bg)); border: 1px dashed var(--border); color: var(--text-muted); }
+.alert-banner.note strong { color: var(--text); }
+.program-item.has-alert-closed .program-meta > * { text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: color-mix(in srgb, var(--alert-red) 65%, transparent); opacity: .8; }
+.pill.rink { background: color-mix(in srgb, var(--live, #1a9c4b) 16%, var(--bg-white)); border-color: var(--live, #1a9c4b); color: var(--live, #1a9c4b); font-weight: 600; }
+.rinks-city { font: inherit; font-size: 12px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-white); color: var(--text); max-width: 62%; }
+.top-feedback { position: relative; }
+.top-feedback .badge { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--alert-red, #d9534f); color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+.top-feedback .badge.hidden { display: none; }
+.ptr { transition: none; }
+.cal-empty.today { font-size: 11px; color: var(--text-muted); white-space: normal; }
+.toast.toast-click { cursor: pointer; }
+.toast.toast-click span { text-decoration: underline dotted; text-underline-offset: 3px; }
+/* browsers with a bottom address bar (Samsung Internet): the sheet stays inside what is visible */
+.modal.sheet { max-height: min(88dvh, 92%); }
+/* Android browsers: the page handles dark mode itself (no forced-dark inversion), text stays the size we set */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body:not(.dark-mode) { color-scheme: light; }
+body.dark-mode .rinks-city { background: #1b2530; border-color: #38485a; }
+body.dark-mode .alert-banner.note { background: #1b2530; }

@@ -230,12 +230,31 @@ window.SkateDev = (() => {
         attach();
     }
 
+    // v3.9: the dev's device says so when feedback lands (badge on the top-bar
+    // pill, a tap-to-open toast, a one-time nudge to switch Notify on); the
+    // visitor's device says so when the dev replies. Both only when the count grows.
+    let lastInbox = -1, lastReply = -1, nudged = false;
     function onChatUpdate() {
         if (isOpen()) { render(); return; }
-        if (isOwner()) return;
+        if (isOwner()) {
+            const th = SkateChat.getState().dmThreads;
+            const unread = Object.values(th).reduce((n, t) => n + (t.messages || []).filter(m => !m.mine && m.ts > (t.lastReadTs || 0)).length, 0);
+            const badge = document.getElementById('feedback-badge');
+            if (badge) { badge.textContent = String(unread); badge.classList.toggle('hidden', !unread); }
+            if (lastInbox >= 0 && unread > lastInbox) SkateUI.toast(`New message in the dev inbox (${unread} unread). Tap to open.`, 'success', 8000, open);
+            if (!nudged && unread && window.SkateSettings?.get('notifyDesktop') !== true) {
+                nudged = true;
+                SkateUI.toast('Tip: switch Notify on (Settings → Community → Privacy) to hear about feedback while this tab is in the background. Tap here to switch it on.', 'info', 10000,
+                    () => { SkateSettings.set('notifyDesktop', true); window.SkateApp?.Actions?.enableNotifications?.(); });
+            }
+            lastInbox = unread;
+            return;
+        }
         const t = threadFor(DEV());
         if (!t) return;
-        if (t.messages.some(m => !m.mine && m.ts > (t.lastReadTs || 0))) SkateUI.toast('The dev replied. Tap Report bug or feedback in the top bar.', 'success', 6000);
+        const unread = t.messages.filter(m => !m.mine && m.ts > (t.lastReadTs || 0)).length;
+        if (lastReply >= 0 && unread > lastReply) SkateUI.toast('The dev replied. Tap to read.', 'success', 8000, open);
+        lastReply = unread;
     }
     /** The chat stack may boot after us: hook its update feed once it exists. */
     function attach() { if (!hooked && window.SkateChat) { hooked = true; SkateChat.onUpdate(onChatUpdate); } }

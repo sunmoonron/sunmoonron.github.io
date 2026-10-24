@@ -262,7 +262,8 @@ const SkateChat = (() => {
             dmArchive: state.dmArchive || {},
             activeGroupId: state.activeGroupId,
             activeIsPublic: state.activeIsPublic,
-            seededRooms: state.seededRooms
+            seededRooms: state.seededRooms,
+            pendingRooms: state.pendingRooms || []
         });
     }
     function saveState(immediate = false) {
@@ -324,6 +325,7 @@ const SkateChat = (() => {
             state.activeGroupId = p.activeGroupId || null;
             state.activeIsPublic = p.activeIsPublic || false;
             state.seededRooms = !!p.seededRooms;
+            state.pendingRooms = Array.isArray(p.pendingRooms) ? p.pendingRooms : [];
             Object.values(state.groups).concat(Object.values(state.publicRooms)).forEach(migrateGroupShape);
         } catch (e) { console.warn('[SkateChat] load error:', e); }
     }
@@ -708,6 +710,57 @@ const SkateChat = (() => {
         if (added === 0) conv.historyDone = true;
         saveState(); notifyUpdate();
         return added;
+    }
+
+    // ========== v3.9: BACKUP (everything that makes this device "you", for another device) ==========
+    const SETTINGS_KEY = 'skate_settings_v1';
+    function exportBundle() {
+        const read = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
+        const groups = {};
+        for (const [id, g] of Object.entries(state.groups)) {
+            groups[id] = { name: g.name, secret: g.secret, hasPassword: !!g.hasPassword, inviteEnc: g.inviteEnc || null, createdAt: g.createdAt || Date.now() };
+        }
+        return {
+            app: 'toronto-skating', v: 1, exportedAt: new Date().toISOString(),
+            identity: { sk: Crypto.bytesToHex(state.mySecretKey), name: state.myName },
+            settings: read(SETTINGS_KEY) || {},          // theme, filters, my rinks, location, privacy…
+            favorites: read(CONFIG.FAVORITES_KEY) || [],
+            muted: [...state.muted],
+            groups,                                      // private groups: name + secret (the history replays from the relays)
+            rooms: Object.values(state.publicRooms).map(r => r.roomKey).filter(Boolean)
+        };
+    }
+    /** Writes the backup into this browser's storage; the caller reloads the page so every module starts from it. */
+    function importBundle(text) {
+        let b;
+        try { b = JSON.parse(text); } catch { return { ok: false, error: 'not valid JSON' }; }
+        if (!b || b.app !== 'toronto-skating' || b.v !== 1) return { ok: false, error: 'not a Toronto Skating backup' };
+        const sk = String(b.identity?.sk || '').toLowerCase();
+        if (!/^[0-9a-f]{64}$/.test(sk)) return { ok: false, error: 'no chat key inside' };
+        try {
+            const pk = NostrTools.getPublicKey(Crypto.hexToBytes(sk));
+            localStorage.setItem(CONFIG.IDENTITY_KEY, JSON.stringify({ sk, pk, name: String(b.identity.name || '').replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 24) || null }));
+            if (b.settings && typeof b.settings === 'object') {
+                let cur = {};
+                try { cur = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); } catch {}
+                localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...cur, ...b.settings, setupDone: true }));
+            }
+            if (Array.isArray(b.favorites)) localStorage.setItem(CONFIG.FAVORITES_KEY, JSON.stringify(b.favorites.filter(x => typeof x === 'string').slice(0, 500)));
+            if (Array.isArray(b.muted)) localStorage.setItem(CONFIG.MUTED_KEY, JSON.stringify(b.muted.filter(x => /^[0-9a-f]{64}$/i.test(x))));
+            let chat = {};
+            try { chat = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEY) || '{}'); } catch {}
+            chat.groups ||= {};
+            for (const [id, g] of Object.entries(b.groups || {})) {
+                if (chat.groups[id] || !/^[0-9a-f]{32,64}$/i.test(String(g.secret || ''))) continue;
+                chat.groups[id] = { id, name: String(g.name || 'Skating Group').slice(0, 40), secret: g.secret, hasPassword: !!g.hasPassword, inviteEnc: g.inviteEnc || null, roster: {}, messages: [], connected: false, lastReadTs: 0, createdAt: g.createdAt || Date.now() };
+            }
+            chat.pendingRooms = Array.isArray(b.rooms) ? b.rooms.filter(k => PUBLIC_ROOMS[k]) : [];
+            // private threads belong to a key: this device's old key keeps its threads archived, the imported key's replay from the relays
+            if (chat.threadsOwner && chat.threadsOwner !== pk) { chat.dmArchive = chat.dmArchive || {}; chat.dmArchive[chat.threadsOwner] = chat.dmThreads || {}; chat.dmThreads = {}; }
+            chat.threadsOwner = pk;
+            localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(chat));
+        } catch (e) { return { ok: false, error: e.message }; }
+        return { ok: true };
     }
 
     // ========== SEND PIPELINE ==========
@@ -1145,7 +1198,7 @@ const SkateChat = (() => {
         saveState(true);
     }
 
-    async function joinPublicRoom(roomKey) {
+    async function joinPublicRoom(roomKey, { quiet = false } = {}) {
         const room = PUBLIC_ROOMS[roomKey];
         if (!room) throw new Error('Unknown room');
         if (!state.publicRoomSecrets[roomKey]) state.publicRoomSecrets[roomKey] = await Crypto.sha256(room.passphrase);
@@ -1155,7 +1208,7 @@ const SkateChat = (() => {
         if (!state.publicRooms[groupId]) {
             state.publicRooms[groupId] = makeGroup(groupId, room.name, secret, { isPublic: true, roomKey, emoji: room.emoji });
             resubscribe();
-            Notify.toast(`Joined ${room.name}! ⛸️`, 'success');
+            if (!quiet) Notify.toast(`Joined ${room.name}! ⛸️`, 'success');
         }
         state.activeGroupId = groupId;
         state.activeIsPublic = true;
@@ -1494,6 +1547,9 @@ const SkateChat = (() => {
         }
 
         await seedDefaultRooms();
+        // rooms carried over by a backup import (v3.9)
+        for (const key of state.pendingRooms || []) { try { await joinPublicRoom(key, { quiet: true }); } catch {} }
+        state.pendingRooms = [];
 
         let wasOnline = false;
         SkateNostr.onStatus(({ connected }) => {
@@ -1600,6 +1656,7 @@ const SkateChat = (() => {
     return {
         init, shutdown, setViewOpen, get booted() { return booted; },
         react, unsend, loadOlder, REACTIONS,
+        exportBundle, importBundle,
         createGroup, joinPublicRoom, leaveGroup, renameGroup,
         parseInviteHash, acceptInvite, getInviteInfo,
         sendMessage, shareProgram, shareGuide, retryMessage,

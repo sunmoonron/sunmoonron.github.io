@@ -197,12 +197,28 @@ window.SkateAlerts = (() => {
         return true;
     }
 
-    /** "Re-opening on Mon, Sep 28" → the day the closure ends, for the banner wording. */
-    function reopenDateOf(a, programDate) {
+    /**
+     * The last day the alert's own wording covers ('YYYY-MM-DD'), or null
+     * when it names no end. Only the text decides this, never the alert's
+     * age: "closed for repairs until further notice" stays in force for
+     * months if the City leaves it up; a reopening date ends it the day
+     * before; "today" means the day it was posted; one dated closure is
+     * that day.
+     */
+    function alertEndsOn(a, programDate) {
         const year = +(programDate.slice(0, 4) || new Date().getFullYear());
-        const w = dateWindows(a.Comments, year).find(x => x.reopens);
-        return w ? w.reopens : null;
+        const wins = dateWindows(a.Comments, year);
+        if (wins.length) {
+            if (wins.some(w => !w.to)) return null;
+            return wins.map(w => w.to).sort().pop();
+        }
+        if (/\btoday\b|\btonight\b|\bthis (morning|afternoon|evening)\b/i.test(a.Comments || '')) {
+            return String(a.PostedDate || '').slice(0, 10) || null;
+        }
+        return null;
     }
+    const daysBetween = (a, b) => Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 86400000);
+    const fmtDay = (ymd) => new Date(ymd + 'T12:00:00').toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', ...(ymd.slice(0, 4) !== String(new Date().getFullYear()) ? { year: 'numeric' } : {}) });
 
     /**
      * A facility-wide notice (Scope 'facility', from the location's own
@@ -349,20 +365,43 @@ window.SkateAlerts = (() => {
         const pads = rink && Number.isFinite(rink.pads) ? rink.pads : 1;
         const programDate = (p['Start Date Time'] || p['Start Date'] || '').slice(0, 10);
 
+        // v3.9: an alert that names its own end is over after that day. For four
+        // days after, it is a grey heads-up ("there was an alert, worth a call");
+        // later it says nothing about this session. Alerts with no end stay.
+        const active = [], expired = [];
+        alerts.forEach(a => {
+            const end = programDate ? alertEndsOn(a, programDate) : null;
+            (end && end < programDate ? expired : active).push({ a, end });
+        });
+        if (!active.length) {
+            const recent = expired.filter(x => daysBetween(x.end, programDate) <= 4).sort((x, y) => y.end.localeCompare(x.end))[0];
+            if (!recent) return null;
+            const a = recent.a;
+            const posted = String(a.PostedDate || '').slice(0, 10);
+            return {
+                level: 'note',
+                ended: recent.end,
+                reason: a.Reason || 'Service alert',
+                text: `A rink alert${posted ? ` posted ${fmtDay(posted)}` : ''} was for ${fmtDay(recent.end)}, before this session: “${cleanComment(a.Comments) || a.Reason || ''}” Worth a quick call to the rink before you go.`,
+                postedDate: a.PostedDate || '',
+                alerts: [a]
+            };
+        }
+        const alertsNow = active.map(x => x.a);
+
         let level = 'warning';
         let padOnly = false;
-        // A closed-status alert that names its end ("re-opening on Sep 28") does not cancel sessions after it
-        const closedKinds = alerts.filter(a => a.Scope === 'facility' ? facilityClosesOn(a, programDate) : (a.Status === CLOSED_STATUS && windowAppliesOn(a, programDate))).map(alertKind);
-        const reopened = alerts.map(a => reopenDateOf(a, programDate)).find(r => r && programDate && r <= programDate) || null;
-        const padAlerts = alerts.filter(a => namesOnePad(`${a.Reason || ''} ${cleanComment(a.Comments)}`, pads));
-        if (padAlerts.length && padAlerts.length === alerts.length) {
+        // a closed-status alert that names its end ("re-opening on Sep 28") does not cancel sessions after it
+        const closedKinds = alertsNow.filter(a => a.Scope === 'facility' ? facilityClosesOn(a, programDate) : (a.Status === CLOSED_STATUS && windowAppliesOn(a, programDate))).map(alertKind);
+        const padAlerts = alertsNow.filter(a => namesOnePad(`${a.Reason || ''} ${cleanComment(a.Comments)}`, pads));
+        if (padAlerts.length && padAlerts.length === alertsNow.length) {
             // every alert here is about one pad of several: the other pad keeps skating
             padOnly = true;
         } else if (closedKinds.length && coversLocation(closedKinds, locationKinds)) {
             level = 'closed';
         } else {
             // Status-2 escalation: text says rink closed + date window covers program
-            for (const a of alerts) {
+            for (const a of alertsNow) {
                 if (a.Status === CLOSED_STATUS || !textSaysRinkClosed(a)) continue;
                 const wins = dateWindows(a.Comments, +(programDate.slice(0, 4) || new Date().getFullYear()));
                 if (!wins.length) { level = 'closed'; break; } // no dates given → assume it applies now
@@ -373,22 +412,16 @@ window.SkateAlerts = (() => {
             }
         }
 
-        const first = alerts[0];
+        const first = alertsNow[0];
         // Lead with the asset name so "outdoor pad closed" can't read as
         // "this indoor session is closed" — the reader sees which pad.
-        let text = alerts.map(a => {
+        const text = alertsNow.map(a => {
             const what = cleanComment(a.Comments) || a.Reason || '';
             return a.AssetName ? `${a.AssetName}: ${what}` : what;
         }).filter(Boolean).join(' • ');
-        if (reopened && level !== 'closed') {
-            const [y, mo, d] = reopened.split('-').map(Number);
-            const when = new Date(y, mo - 1, d).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
-            text = `The alert expected the rink to reopen ${when}, before this session, but the City has not cleared it yet. ${text}`;
-        }
         return {
             level,
             padOnly,
-            reopened,
             reason: first.Reason || 'Service alert',
             text,
             postedDate: first.PostedDate || '',
@@ -398,7 +431,9 @@ window.SkateAlerts = (() => {
 
     /** All skate alerts for a location id (locator modal uses this). */
     function forLocation(locId) {
-        return byLocation[String(locId)] || [];
+        // the rink list and map popups: only alerts still in force today
+        const today = new Date().toLocaleDateString('en-CA');
+        return (byLocation[String(locId)] || []).filter(a => { const end = alertEndsOn(a, today); return !end || end >= today; });
     }
 
     return {
