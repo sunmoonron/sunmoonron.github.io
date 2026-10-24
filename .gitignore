@@ -9,3 +9,7 @@ node_modules/
 
 # local scratch files
 omen.html
+
+# Playwright output (the suite lives in skate/tests; baselines in skate/tests/__screenshots__ are committed)
+test-results/
+playwright-report/
