@@ -58,5 +58,20 @@
   "lat": 43.6406513,
   "lng": -79.5660594,
   "label": "Dennis Flynn Park, 364, Etobicoke Centre, Etobicoke, Toronto, Ontario, Canada"
+ },
+ "2 arcot blvd, toronto, on": {
+  "lat": 43.7269016,
+  "lng": -79.5519443,
+  "label": "2, Arcot Boulevard, Elms-Old Rexdale, Etobicoke North, Etobicoke, Toronto, Ontario, M9W 2N8, Canada"
+ },
+ "50 cabernet cir, toronto, on": {
+  "lat": 43.7527,
+  "lng": -79.60475,
+  "label": "50, Cabernet Circle, West Humber-Clairville, Etobicoke North, Etobicoke, Toronto, Ontario, M9V 5B4, Canada"
+ },
+ "54 anglesey blvd, toronto, on": {
+  "lat": 43.6652401,
+  "lng": -79.5208845,
+  "label": "Anglesey Boulevard, Edenbridge-Humber Valley, Etobicoke Centre, Etobicoke, Toronto, Ontario, M9A 3V3, Canada"
  }
 }
