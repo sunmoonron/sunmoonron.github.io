@@ -1,7 +1,8 @@
 # Smoke suite
 
 Browser tests for the Toronto Skating app, run with Playwright against the same
-static server the dev preview uses. Everything is hermetic:
+static server the dev preview uses, plus a `unit` project that checks the alert
+logic in plain Node. Everything is hermetic:
 
 - **Data** comes from `fixtures.js` (`buildData()`): a dozen synthetic sessions
   around a frozen clock (Saturday 2026-10-24, 1 pm Toronto) covering an ended
@@ -23,7 +24,8 @@ static server the dev preview uses. Everything is hermetic:
 ```bash
 npm install                      # once
 npx playwright install chromium  # once
-npm test                         # every spec, four projects (desktop/phone × light/dark)
+npm test                         # every spec: the unit project + four browser projects (desktop/phone × light/dark)
+npm run test:unit                # the alert logic only, no browser, about 3 seconds
 npm run test:headed              # watch it on desktop-light
 npm run test:report              # open the last HTML report
 ```
@@ -46,6 +48,10 @@ npm run test:visual:update
 | `settings.spec.js` | theme, 24-hour time, Chats on/off (code loads on demand, sockets close), privacy toggles, Notify refusal path, backup export and import on a fresh profile |
 | `community.spec.js` | rooms, send → settle, react, unsend, private group + invite + leave, the feedback sheet, the guides tab |
 | `visual.spec.js` | screenshots of the schedule, filters sheet, rinks sheet and settings per project |
+| `unit/alerts.spec.js` | the app's alert classifier and the pipeline's alert reader against `unit/alert-corpus.json`: every alert the City's feed carried from July to November 2026, the 35 with real sentences hand-labelled and paired with the answer Claude Haiku 5.5 gave. Word rules alone, readings attached, the season rule for ten years ahead, part-of-day alerts, the reader's verification (verbatim evidence, dates and times backed by the text, no secrets in logs), indoor/outdoor inference |
+
+A misread alert in the wild belongs in `unit/alert-corpus.json`: add it, label
+what it means (`gold`), and both the word rules and the reader are held to it.
 
 Real touch events are generated for the phone projects (`hasTouch`), so the
 touch-target lock in `SkateUI.delegate` and the sheet's checkbox guard run as

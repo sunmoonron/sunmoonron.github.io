@@ -1,0 +1,2842 @@
+[
+ {
+  "id": 0,
+  "alert": {
+   "LocationID": 9001,
+   "AssetID": 37126,
+   "AssetName": "Grenadier Pond - Pond",
+   "Reason": "Closed",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "",
+   "PostedDate": "2022-02-28 11:33:02"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": null
+ },
+ {
+  "id": 1,
+  "alert": {
+   "LocationID": 802,
+   "AssetID": 721,
+   "AssetName": "Mimico Arena",
+   "Reason": "Technical Issues",
+   "Comments": "Please note that Leisure Skate from 11:30am-1:30pm is cancelled today due to a mechanical issue. We are currently working on resolving those issues. Please check back for further updates.",
+   "Status": 2,
+   "Category": "MIMICO ARENA\r\n",
+   "Type": "Centre",
+   "DisplayAlertName": "Centre",
+   "PostedDate": "2025-10-15 10:12:39",
+   "Scope": "facility"
+  },
+  "first": "2026-09-25",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Mimico Arena",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "reduced",
+    "off"
+   ],
+   "day": "2025-10-15",
+   "ends": "2025-10-15",
+   "timeFrom": "11:30",
+   "timeTo": "13:30"
+  },
+  "haiku": {
+   "skating": "off",
+   "about": "sessions",
+   "starts": "2025-10-15",
+   "ends": "2025-10-15",
+   "time_from": "11:30",
+   "time_to": "13:30",
+   "seasonal": false,
+   "evidence": "Leisure Skate from 11:30am-1:30pm is cancelled today"
+  }
+ },
+ {
+  "id": 2,
+  "alert": {
+   "LocationID": 3488,
+   "AssetID": 17335,
+   "AssetName": "George Bell Arena - Indoor Ice Rink",
+   "Reason": "Under Construction",
+   "Comments": "George Bell Arena is closed as it <a href=\"https://www.toronto.ca/city-government/planning-development/construction-new-facilities/park-facility-projects/george-bell-arena-improvements/\">undergoes improvements</a>.",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Indoor Ice Rink",
+   "PostedDate": "2025-11-05 16:26:36"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "George Bell Arena",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "off"
+   ],
+   "day": "2025-11-05"
+  },
+  "haiku": {
+   "skating": "off",
+   "about": "building",
+   "starts": "2025-11-05",
+   "ends": null,
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "George Bell Arena is closed as it undergoes improvements"
+  }
+ },
+ {
+  "id": 3,
+  "alert": {
+   "LocationID": 801,
+   "AssetID": 1910,
+   "AssetName": "Pine Point Arena",
+   "Reason": "Technical Issues",
+   "Comments": "Please note that Pine Point Arena is experiencing cooler than normal building temperatures. We apologize for the inconvenience.",
+   "Status": 2,
+   "Category": "PINE POINT ARENA\r\n",
+   "Type": "Centre",
+   "DisplayAlertName": "Centre",
+   "PostedDate": "2026-02-01 10:03:09",
+   "Scope": "facility"
+  },
+  "first": "2026-09-25",
+  "last": "2026-10-09",
+  "rink": {
+   "name": "Pine Point Arena",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "on"
+   ],
+   "day": "2026-02-01"
+  },
+  "haiku": {
+   "skating": "on",
+   "about": "building",
+   "starts": "2026-02-01",
+   "ends": null,
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "experiencing cooler than normal building temperatures"
+  }
+ },
+ {
+  "id": 4,
+  "alert": {
+   "LocationID": 801,
+   "AssetID": 17348,
+   "AssetName": "Pine Point Arena - Indoor Ice Rink",
+   "Reason": "Maintenance/Repairs",
+   "Comments": "Ice viewing heaters are not operational at this time. Sorry for the inconvenience. ",
+   "Status": 2,
+   "Category": "Skate",
+   "Type": "Indoor Ice Rink",
+   "PostedDate": "2026-02-03 12:04:48"
+  },
+  "first": "2026-07-16",
+  "last": "2026-09-21",
+  "rink": {
+   "name": "Pine Point Arena",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "on"
+   ],
+   "day": "2026-02-03"
+  },
+  "haiku": {
+   "skating": "on",
+   "about": "amenity",
+   "starts": "2026-02-03",
+   "ends": null,
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "Ice viewing heaters are not operational at this time."
+  }
+ },
+ {
+  "id": 5,
+  "alert": {
+   "LocationID": 2715,
+   "AssetID": 14076,
+   "AssetName": "Joseph Bannon Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "Due to mechanical issues, this rink is closed for the remainder of the season",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-02-23 10:43:50"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Joseph Bannon Park",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "off"
+   ],
+   "day": "2026-02-23",
+   "seasonal": true
+  },
+  "haiku": {
+   "skating": "off",
+   "about": "ice",
+   "starts": "2026-02-23",
+   "ends": null,
+   "time_from": null,
+   "time_to": null,
+   "seasonal": true,
+   "evidence": "this rink is closed for the remainder of the season"
+  }
+ },
+ {
+  "id": 6,
+  "alert": {
+   "LocationID": 330,
+   "AssetID": 17333,
+   "AssetName": "East York Memorial Arena - Indoor Ice Rink",
+   "Reason": "Technical Issues",
+   "Comments": "Please note that the elevator is currently out of service. ",
+   "Status": 2,
+   "Category": "Skate",
+   "Type": "Indoor Ice Rink",
+   "PostedDate": "2026-02-28 17:16:38"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "East York Memorial Arena",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "on"
+   ],
+   "day": "2026-02-28"
+  },
+  "haiku": {
+   "skating": "on",
+   "about": "amenity",
+   "starts": "2026-02-28",
+   "ends": null,
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "the elevator is currently out of service"
+  }
+ },
+ {
+  "id": 7,
+  "alert": {
+   "LocationID": 306,
+   "AssetID": 14311,
+   "AssetName": "Withrow Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-09 09:13:23"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Withrow Park",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 8,
+  "alert": {
+   "LocationID": 1860,
+   "AssetID": 14073,
+   "AssetName": "Sherbourne Common - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-09 09:43:29"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Sherbourne Common",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 9,
+  "alert": {
+   "LocationID": 870,
+   "AssetID": 14302,
+   "AssetName": "Summerlea Rink - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-10 10:24:59"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Summerlea Park",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ],
+   "fromPrograms": true
+  }
+ },
+ {
+  "id": 10,
+  "alert": {
+   "LocationID": 813,
+   "AssetID": 14266,
+   "AssetName": "Buttonwood Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-10 10:47:07"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Buttonwood Park",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 11,
+  "alert": {
+   "LocationID": 2597,
+   "AssetID": 1216,
+   "AssetName": "Ethennonnhawahstihnen Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-10 11:00:06"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Ethennonnhawahstihnen Park",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 12,
+  "alert": {
+   "LocationID": 145,
+   "AssetID": 14289,
+   "AssetName": "Monarch Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-11 05:43:05"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Monarch Park",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 13,
+  "alert": {
+   "LocationID": 210,
+   "AssetID": 14298,
+   "AssetName": "Rosedale Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-11 05:43:26"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Rosedale Park",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 14,
+  "alert": {
+   "LocationID": 773,
+   "AssetID": 14308,
+   "AssetName": "Wedgewood Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-11 07:03:45"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Wedgewood Park - Etobicoke",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 15,
+  "alert": {
+   "LocationID": 812,
+   "AssetID": 14305,
+   "AssetName": "Valleyfield Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-11 07:04:32"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Valleyfield Park",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 16,
+  "alert": {
+   "LocationID": 876,
+   "AssetID": 14309,
+   "AssetName": "Westgrove Rink - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-11 09:24:11"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Westgrove Park",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 17,
+  "alert": {
+   "LocationID": 871,
+   "AssetID": 14303,
+   "AssetName": "Sunnydale Acres Rink - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-11 10:26:30"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Sunnydale Acres Park",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ],
+   "fromPrograms": true
+  }
+ },
+ {
+  "id": 18,
+  "alert": {
+   "LocationID": 568,
+   "AssetID": 13022,
+   "AssetName": "Downsview Arena",
+   "Reason": "Technical Issues",
+   "Comments": "Please note there is currently no hot water in the building. We are working on resolving the issue. Please check back for updates. ",
+   "Status": 2,
+   "Category": "DOWNSVIEW ARENA",
+   "Type": "Centre",
+   "DisplayAlertName": "Centre",
+   "PostedDate": "2026-03-11 20:08:34",
+   "Scope": "facility"
+  },
+  "first": "2026-09-25",
+  "last": "2026-10-09",
+  "rink": {
+   "name": "Downsview Arena",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "on"
+   ],
+   "day": "2026-03-11"
+  },
+  "haiku": {
+   "skating": "on",
+   "about": "amenity",
+   "starts": "2026-03-11",
+   "ends": null,
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "there is currently no hot water in the building"
+  }
+ },
+ {
+  "id": 19,
+  "alert": {
+   "LocationID": 873,
+   "AssetID": 14075,
+   "AssetName": "West Deane Park / Martingrove - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-12 08:32:10"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "West Deane Park",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 20,
+  "alert": {
+   "LocationID": 2065,
+   "AssetID": 14301,
+   "AssetName": "Sir Adam Beck Rink - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-13 08:13:17"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Sir Adam Beck Park",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ],
+   "fromPrograms": true
+  }
+ },
+ {
+  "id": 21,
+  "alert": {
+   "LocationID": 770,
+   "AssetID": 14074,
+   "AssetName": "Van Horne Park / Pleasantview Rink - Outdoor Artificial Ice Rink",
+   "Reason": "Ice Conditions",
+   "Comments": "Outdoor pad closed for the season. Thank you. ",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-19 13:09:25"
+  },
+  "first": "2026-07-16",
+  "last": "2026-09-16",
+  "rink": {
+   "name": "Van Horne Park",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 22,
+  "alert": {
+   "LocationID": 327,
+   "AssetID": 14271,
+   "AssetName": "Dieppe Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-22 21:52:40"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Dieppe Park",
+   "pads": 2,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 23,
+  "alert": {
+   "LocationID": 107,
+   "AssetID": 44137,
+   "AssetName": "Kew Gardens - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-22 21:54:16"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Kew Gardens",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 24,
+  "alert": {
+   "LocationID": 155,
+   "AssetID": 14287,
+   "AssetName": "Jimmie Simpson Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-22 21:54:42"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Jimmie Simpson Park",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 25,
+  "alert": {
+   "LocationID": 419,
+   "AssetID": 14295,
+   "AssetName": "Regent Park Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-22 21:55:13"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Regent Park Athletic Grounds",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 26,
+  "alert": {
+   "LocationID": 343,
+   "AssetID": 14297,
+   "AssetName": "Riverdale Park East - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-22 21:55:39"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Riverdale Park East",
+   "pads": 2,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 27,
+  "alert": {
+   "LocationID": 1220,
+   "AssetID": 14284,
+   "AssetName": "Hodgson Public School - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-22 21:57:04"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Hodgson Public School",
+   "pads": 2,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 28,
+  "alert": {
+   "LocationID": 251,
+   "AssetID": 14069,
+   "AssetName": "Otter Creek Centre - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-22 21:57:21"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Otter Creek Centre",
+   "pads": 2,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 29,
+  "alert": {
+   "LocationID": 956,
+   "AssetID": 14288,
+   "AssetName": "Mel Lastman Square - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-22 21:57:48"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Mel Lastman Square",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 30,
+  "alert": {
+   "LocationID": 189,
+   "AssetID": 14278,
+   "AssetName": "North Toronto Memorial / Eglinton Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-22 21:58:19"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "North Toronto Memorial Community Centre",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ],
+   "fromPrograms": true
+  }
+ },
+ {
+  "id": 31,
+  "alert": {
+   "LocationID": 1500,
+   "AssetID": 1868,
+   "AssetName": "Mccowan District Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 05:41:02"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "McCowan District Park",
+   "pads": 2,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 32,
+  "alert": {
+   "LocationID": 2155,
+   "AssetID": 14072,
+   "AssetName": "Albert Campbell Square - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 05:41:18"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Albert Campbell Square",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 33,
+  "alert": {
+   "LocationID": 70,
+   "AssetID": 14280,
+   "AssetName": "Greenwood Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 05:43:51"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Greenwood Park",
+   "pads": 2,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 34,
+  "alert": {
+   "LocationID": 466,
+   "AssetID": 14064,
+   "AssetName": "Colonel Samuel Smith Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 07:41:17"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Colonel Samuel Smith Park",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 35,
+  "alert": {
+   "LocationID": 77,
+   "AssetID": 14281,
+   "AssetName": "High Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 07:42:27"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "High Park",
+   "pads": 2,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 36,
+  "alert": {
+   "LocationID": 1012,
+   "AssetID": 14285,
+   "AssetName": "Humber Valley Rink - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 07:43:25"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Humber Valley Park",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ],
+   "fromPrograms": true
+  }
+ },
+ {
+  "id": 37,
+  "alert": {
+   "LocationID": 847,
+   "AssetID": 14065,
+   "AssetName": "Lambton - Kingsway Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 07:44:12"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Lambton - Kingsway Park",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ],
+   "fromPrograms": true
+  }
+ },
+ {
+  "id": 38,
+  "alert": {
+   "LocationID": 924,
+   "AssetID": 14290,
+   "AssetName": "Prince Of Wales Rink - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 07:44:52"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Prince of Wales Park",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ],
+   "fromPrograms": true
+  }
+ },
+ {
+  "id": 39,
+  "alert": {
+   "LocationID": 861,
+   "AssetID": 14291,
+   "AssetName": "Queensway Rink - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 07:46:48"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Queensway Park",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ],
+   "fromPrograms": true
+  }
+ },
+ {
+  "id": 40,
+  "alert": {
+   "LocationID": 181,
+   "AssetID": 14296,
+   "AssetName": "Rennie Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 07:47:14"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Rennie Park",
+   "pads": 2,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 41,
+  "alert": {
+   "LocationID": 2642,
+   "AssetID": 14270,
+   "AssetName": "Dennis Flynn Park / Dennis Flynn Park / West Mall Rink - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 07:48:28"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Dennis Flynn Park",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ],
+   "fromPrograms": true
+  }
+ },
+ {
+  "id": 42,
+  "alert": {
+   "LocationID": 355,
+   "AssetID": 14071,
+   "AssetName": "Rivercrest Rink - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 07:48:48"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Rivercrest Rink",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 43,
+  "alert": {
+   "LocationID": 878,
+   "AssetID": 14299,
+   "AssetName": "Royalcrest Rink - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 07:49:35"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Royal Crest Park",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ],
+   "fromPrograms": true
+  }
+ },
+ {
+  "id": 44,
+  "alert": {
+   "LocationID": 874,
+   "AssetID": 14310,
+   "AssetName": "Westway Outdoor Rink - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 07:50:57"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Westway Park",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ],
+   "fromPrograms": true
+  }
+ },
+ {
+  "id": 45,
+  "alert": {
+   "LocationID": 167,
+   "AssetID": 14292,
+   "AssetName": "Ramsden Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 09:55:17"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Ramsden Park",
+   "pads": 2,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 46,
+  "alert": {
+   "LocationID": 240,
+   "AssetID": 14300,
+   "AssetName": "Toronto Metropolitan University Square - Outdoor Artificial Ice",
+   "Reason": "Closed for the Season",
+   "Comments": "Ice not safe for skating ",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 09:55:36"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Toronto Metropolitan University Square",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 47,
+  "alert": {
+   "LocationID": 241,
+   "AssetID": 14304,
+   "AssetName": "Trinity Bellwoods Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "Ice not safe for skating",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 09:55:53"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Trinity Bellwoods Park",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 48,
+  "alert": {
+   "LocationID": 223,
+   "AssetID": 215,
+   "AssetName": "College Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 09:56:44"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "College Park",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 49,
+  "alert": {
+   "LocationID": 514,
+   "AssetID": 14275,
+   "AssetName": "Giovanni Caboto - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 09:57:25"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Earlscourt Park",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ],
+   "fromPrograms": true
+  }
+ },
+ {
+  "id": 50,
+  "alert": {
+   "LocationID": 1053,
+   "AssetID": 14267,
+   "AssetName": "Campbell Avenue Playground - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "Ice not safe for skating",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 09:57:39"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Campbell Avenue Playground",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 51,
+  "alert": {
+   "LocationID": 260,
+   "AssetID": 14307,
+   "AssetName": "Wallace Emerson Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "Ice not safe for skating",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 09:58:45"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Wallace Emerson Park",
+   "pads": 2,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 52,
+  "alert": {
+   "LocationID": 196,
+   "AssetID": 14268,
+   "AssetName": "Christie Pits - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "Ice not safe for skating",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 09:59:15"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Christy Pits Park",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 53,
+  "alert": {
+   "LocationID": 638,
+   "AssetID": 14279,
+   "AssetName": "Glen Long Community Centre - Outdoor Artificial Ice Rink",
+   "Reason": "Ice Conditions",
+   "Comments": "Closed for the season. ",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 10:36:57"
+  },
+  "first": "2026-07-16",
+  "last": "2026-09-16",
+  "rink": {
+   "name": "Glen Long Community Centre",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 54,
+  "alert": {
+   "LocationID": 678,
+   "AssetID": 14066,
+   "AssetName": "Ledbury Park - Outdoor Artificial Ice Rink",
+   "Reason": "Ice Conditions",
+   "Comments": "Closed for the season",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 10:37:30"
+  },
+  "first": "2026-07-16",
+  "last": "2026-09-16",
+  "rink": {
+   "name": "Ledbury Community Centre",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 55,
+  "alert": {
+   "LocationID": 664,
+   "AssetID": 14286,
+   "AssetName": "Irving W. Chapley Community Centre - Outdoor Artificial Ice Rink",
+   "Reason": "Ice Conditions",
+   "Comments": "Closed for the season. ",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 10:38:08"
+  },
+  "first": "2026-07-16",
+  "last": "2026-09-16",
+  "rink": {
+   "name": "Irving W. Chapley Community Centre",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 56,
+  "alert": {
+   "LocationID": 7,
+   "AssetID": 14265,
+   "AssetName": "Broadlands Community Recreation Centre – Outdoor Artificial Ice Rink",
+   "Reason": "Ice Conditions",
+   "Comments": "Closed for the season ",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 10:38:47"
+  },
+  "first": "2026-07-16",
+  "last": "2026-09-16",
+  "rink": {
+   "name": "Broadlands Community Centre",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 57,
+  "alert": {
+   "LocationID": 87,
+   "AssetID": 14273,
+   "AssetName": "Dufferin Grove Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 12:58:01"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Dufferin Grove Park",
+   "pads": 2,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 58,
+  "alert": {
+   "LocationID": 629,
+   "AssetID": 14062,
+   "AssetName": "Cedarvale Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 12:58:16"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Cedarvale Park",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 59,
+  "alert": {
+   "LocationID": 31,
+   "AssetID": 14262,
+   "AssetName": "Harry Gairey / Alexandra Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-03-23 12:58:43"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Alexandra Park",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 60,
+  "alert": {
+   "LocationID": 1089,
+   "AssetID": 14067,
+   "AssetName": "Nathan Phillips Square - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "Ice not safe for skating",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "PostedDate": "2026-05-19 11:08:03"
+  },
+  "first": "2026-07-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Nathan Phillips Square",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 61,
+  "alert": {
+   "LocationID": 330,
+   "AssetID": 13024,
+   "AssetName": "East York Memorial Arena",
+   "Reason": "Maintenance/Repairs",
+   "Comments": "Public Skate is cancelled for today Sunday, May 24th.  Regular programming will resume tomorrow for Monday, May 25th.  We apologize for any inconvenience this may have caused.",
+   "Status": 2,
+   "Category": "EAST YORK MEMORIAL ARENA",
+   "Type": "Centre",
+   "DisplayAlertName": "Centre",
+   "PostedDate": "2026-05-24 14:41:09",
+   "Scope": "facility"
+  },
+  "first": "2026-09-25",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "East York Memorial Arena",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "reduced",
+    "off"
+   ],
+   "day": "2026-05-24",
+   "ends": "2026-05-24"
+  },
+  "haiku": {
+   "skating": "off",
+   "about": "sessions",
+   "starts": "2026-05-24",
+   "ends": "2026-05-24",
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "Public Skate is cancelled for today Sunday, May 24th."
+  }
+ },
+ {
+  "id": 62,
+  "alert": {
+   "LocationID": 652,
+   "AssetID": 17336,
+   "AssetName": "Habitant Arena - Indoor Ice Rink",
+   "Reason": "Planned Closure",
+   "Comments": "Please be advised Habitant Arena parking lot will be unavailable for the week of Monday, June 8, 2026 due to the parking lot being repaired.  <br/>\nWe anticipate resuming regular access on Monday, June 15, 2026. <br/>\nWe apologize for the inconvenience. ",
+   "Status": 2,
+   "Category": "Skate",
+   "Type": "Indoor Ice Rink",
+   "PostedDate": "2026-06-01 12:33:02"
+  },
+  "first": "2026-07-16",
+  "last": "2026-09-21",
+  "rink": {
+   "name": "Habitant Arena",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "on"
+   ],
+   "day": "2026-06-08",
+   "ends": "2026-06-14"
+  },
+  "haiku": {
+   "skating": "on",
+   "about": "amenity",
+   "starts": "2026-06-08",
+   "ends": "2026-06-14",
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "Habitant Arena parking lot will be unavailable for the week of Monday, June 8, 2026"
+  }
+ },
+ {
+  "id": 63,
+  "alert": {
+   "LocationID": 508,
+   "AssetID": 60564,
+   "AssetName": "Weston Lions Recreation Arena - Indoor Ice Rink",
+   "Reason": "Planned Closure",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Indoor Ice Rink",
+   "PostedDate": "2026-07-28 15:18:39"
+  },
+  "first": "2026-07-28",
+  "last": "2026-07-28",
+  "rink": {
+   "name": "Weston Lions Recreation Arena",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  }
+ },
+ {
+  "id": 64,
+  "alert": {
+   "LocationID": 2007,
+   "AssetID": 60564,
+   "AssetName": "Weston Lions Recreation Arena - Indoor Ice Rink",
+   "Reason": "Planned Closure",
+   "Comments": "",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Indoor Ice Rink",
+   "PostedDate": "2026-07-28 16:03:41"
+  },
+  "first": "2026-07-28",
+  "last": "2026-11-11",
+  "rink": null
+ },
+ {
+  "id": 65,
+  "alert": {
+   "LocationID": 537,
+   "AssetID": 17363,
+   "AssetName": "Centennial Recreation Centre - Scarborough - Indoor Ice Rink",
+   "Reason": "Maintenance/Repairs",
+   "Comments": "Please be advised that the older adult and adult skating sessions have been cancelled for August 4th, 2026 due to mechanical issues.",
+   "Status": 2,
+   "Category": "Skate",
+   "Type": "Indoor Ice Rink",
+   "PostedDate": "2026-08-04 11:05:07"
+  },
+  "first": "2026-08-04",
+  "last": "2026-08-04",
+  "rink": {
+   "name": "Centennial Recreation Centre - Scarborough",
+   "pads": 2,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "reduced",
+    "off"
+   ],
+   "day": "2026-08-04",
+   "ends": "2026-08-04"
+  },
+  "haiku": {
+   "skating": "reduced",
+   "about": "sessions",
+   "starts": "2026-08-04",
+   "ends": "2026-08-04",
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "older adult and adult skating sessions have been cancelled for August 4th, 2026"
+  }
+ },
+ {
+  "id": 66,
+  "alert": {
+   "LocationID": 712,
+   "AssetID": 17366,
+   "AssetName": "Don Montgomery Community Recreation Centre - Indoor Ice Rink",
+   "Reason": "Maintenance/Repairs",
+   "Comments": "Please be advised that Rink 1 is temporarily closed due to unforeseen maintenance and repairs. Please check back for updates regarding when the rink will reopen. We apologize for any inconvenience this may cause and appreciate your understanding. Thank you.",
+   "Status": 2,
+   "Category": "Skate",
+   "Type": "Indoor Ice Rink",
+   "DisplayAlertName": "",
+   "PostedDate": "2026-08-24 15:45:51"
+  },
+  "first": "2026-08-24",
+  "last": "2026-11-09",
+  "rink": {
+   "name": "Don Montgomery Community Recreation Centre",
+   "pads": 2,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "one_pad_off"
+   ],
+   "day": "2026-08-24"
+  },
+  "haiku": {
+   "skating": "one_pad_off",
+   "about": "ice",
+   "starts": "2026-08-24",
+   "ends": null,
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "Rink 1 is temporarily closed due to unforeseen maintenance and repairs"
+  }
+ },
+ {
+  "id": 67,
+  "alert": {
+   "LocationID": 714,
+   "AssetID": 2095,
+   "AssetName": "Oriole Community Recreation Centre",
+   "Reason": "Technical Issues",
+   "Comments": "Please be advised, due to some technical issues with the HVAC unit, there's a roof leak. We have isolated the area and contractors are working to resolve the issues. Thank you for your understanding. ",
+   "Status": 2,
+   "Category": "ORIOLE COMMUNITY CENTRE\r\n",
+   "Type": "Centre",
+   "DisplayAlertName": "Centre",
+   "PostedDate": "2026-09-10 15:26:15",
+   "Scope": "facility"
+  },
+  "first": "2026-09-25",
+  "last": "2026-10-05",
+  "rink": {
+   "name": "Oriole Community Centre",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "on"
+   ],
+   "day": "2026-09-10"
+  },
+  "haiku": {
+   "skating": "on",
+   "about": "building",
+   "starts": "2026-09-10",
+   "ends": null,
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "We have isolated the area"
+  }
+ },
+ {
+  "id": 68,
+  "alert": {
+   "LocationID": 7,
+   "AssetID": 14265,
+   "AssetName": "Broadlands Community Recreation Centre – Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "Closed for the season ",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "DisplayAlertName": "",
+   "PostedDate": "2026-09-16 11:41:16"
+  },
+  "first": "2026-09-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Broadlands Community Centre",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 69,
+  "alert": {
+   "LocationID": 638,
+   "AssetID": 14279,
+   "AssetName": "Glen Long Community Centre - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "Closed for the season. ",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "DisplayAlertName": "",
+   "PostedDate": "2026-09-16 11:43:41"
+  },
+  "first": "2026-09-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Glen Long Community Centre",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 70,
+  "alert": {
+   "LocationID": 664,
+   "AssetID": 14286,
+   "AssetName": "Irving W. Chapley Community Centre - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "Closed for the season. ",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "DisplayAlertName": "",
+   "PostedDate": "2026-09-16 11:44:25"
+  },
+  "first": "2026-09-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Irving W. Chapley Community Centre",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 71,
+  "alert": {
+   "LocationID": 678,
+   "AssetID": 14066,
+   "AssetName": "Ledbury Park - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "Closed for the season",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "DisplayAlertName": "",
+   "PostedDate": "2026-09-16 11:44:58"
+  },
+  "first": "2026-09-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Ledbury Community Centre",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 72,
+  "alert": {
+   "LocationID": 770,
+   "AssetID": 14074,
+   "AssetName": "Van Horne Park / Pleasantview Rink - Outdoor Artificial Ice Rink",
+   "Reason": "Closed for the Season",
+   "Comments": "Outdoor pad closed for the season. Thank you. ",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Outdoor Ice Rink",
+   "DisplayAlertName": "",
+   "PostedDate": "2026-09-16 11:45:28"
+  },
+  "first": "2026-09-16",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Van Horne Park",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  }
+ },
+ {
+  "id": 73,
+  "alert": {
+   "LocationID": 712,
+   "AssetID": 281,
+   "AssetName": "Don Montgomery Community Recreation Centre",
+   "Reason": "Unplanned Closure",
+   "Comments": "Rink 1 is currently closed due to unplanned repairs. We apologize for any inconvenience this may cause. Our team is working to reopen the rink as soon as possible. Please check back for updates. Thank you for your patience and understanding.   \n\nPlease note that All Table tennis programs at Don Montgomery are cancelled until further notice.",
+   "Status": 0,
+   "Category": "DON MONTGOMERY COMMUNITY RECREATION CENTRE",
+   "Type": "Centre",
+   "DisplayAlertName": "Centre",
+   "PostedDate": "2026-09-16 16:45:35",
+   "Scope": "facility"
+  },
+  "first": "2026-09-25",
+  "last": "2026-11-04",
+  "rink": {
+   "name": "Don Montgomery Community Recreation Centre",
+   "pads": 2,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "one_pad_off"
+   ],
+   "day": "2026-09-16"
+  },
+  "haiku": {
+   "skating": "one_pad_off",
+   "about": "ice",
+   "starts": "2026-09-16",
+   "ends": null,
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "Rink 1 is currently closed due to unplanned repairs."
+  }
+ },
+ {
+  "id": 74,
+  "alert": {
+   "LocationID": 537,
+   "AssetID": 17363,
+   "AssetName": "Centennial Recreation Centre - Scarborough - Indoor Ice Rink",
+   "Reason": "Planned Closure",
+   "Comments": "Temporary Reduction in Ice Rink\nIce rink programming and public skating hours are reduced from Monday, September 21 to Wednesday, September 23, 2026 for planned maintenance and repairs.\nAffected registered programs will be contacted directly. Regular hours resume once repairs are complete.\nThank you for your patience — please check back for updates.",
+   "Status": 2,
+   "Category": "Skate",
+   "Type": "Indoor Ice Rink",
+   "DisplayAlertName": "",
+   "PostedDate": "2026-09-21 07:47:34"
+  },
+  "first": "2026-09-21",
+  "last": "2026-09-22",
+  "rink": {
+   "name": "Centennial Recreation Centre - Scarborough",
+   "pads": 2,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "reduced"
+   ],
+   "day": "2026-09-22",
+   "ends": "2026-09-23"
+  },
+  "haiku": {
+   "skating": "reduced",
+   "about": "ice",
+   "starts": "2026-09-21",
+   "ends": "2026-09-23",
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "public skating hours are reduced from Monday, September 21 to Wednesday, September 23, 2026"
+  }
+ },
+ {
+  "id": 75,
+  "alert": {
+   "LocationID": 801,
+   "AssetID": 17348,
+   "AssetName": "Pine Point Arena - Indoor Ice Rink",
+   "Reason": "Technical Issues",
+   "Comments": "Please be advised Pine Point Arena will be closed due to machinery issues. All permits are cancelled during this time.\nWe anticipate re-opening on Monday, September 28,2026.\nWe apologize for the inconvenience. ",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Indoor Ice Rink",
+   "DisplayAlertName": "",
+   "PostedDate": "2026-09-26 10:57:28"
+  },
+  "first": "2026-09-26",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Pine Point Arena",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "off"
+   ],
+   "day": "2026-09-27",
+   "ends": "2026-09-27"
+  },
+  "haiku": {
+   "skating": "off",
+   "about": "ice",
+   "starts": "2026-09-26",
+   "ends": "2026-09-27",
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "Pine Point Arena will be closed due to machinery issues."
+  }
+ },
+ {
+  "id": 76,
+  "alert": {
+   "LocationID": 824,
+   "AssetID": 17329,
+   "AssetName": "Central Arena - Indoor Ice Rink",
+   "Reason": "Unplanned Closure",
+   "Comments": "Please be advised due to the Toronto Hydro Power Outage in the immediate community, Central Arena remains closed at this time.  We anticipate re-opening tomorrow morning at 6am. We apologize for the inconvenience. ",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Indoor Ice Rink",
+   "DisplayAlertName": "",
+   "PostedDate": "2026-09-30 17:42:44"
+  },
+  "first": "2026-09-30",
+  "last": "2026-10-01",
+  "rink": {
+   "name": "Central Arena",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "off"
+   ],
+   "day": "2026-09-30",
+   "ends": "2026-09-30"
+  },
+  "haiku": {
+   "skating": "off",
+   "about": "building",
+   "starts": "2026-09-30",
+   "ends": "2026-09-30",
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "Central Arena remains closed at this time."
+  }
+ },
+ {
+  "id": 77,
+  "alert": {
+   "LocationID": 647,
+   "AssetID": 17357,
+   "AssetName": "Grandravine Community Recreation Centre - Indoor Ice Rink",
+   "Reason": "Maintenance/Repairs",
+   "Comments": "Please be advised that due to mechanical issues, the ice rink will have a delayed opening of Friday October 16, 2026. We apologize for any inconvenience this may cause. Please check back later in the week for updates.",
+   "Status": 2,
+   "Category": "Skate",
+   "Type": "Indoor Ice Rink",
+   "DisplayAlertName": "",
+   "PostedDate": "2026-10-05 11:31:42"
+  },
+  "first": "2026-10-05",
+  "last": "2026-10-07",
+  "rink": {
+   "name": "Grandravine Community Recreation Centre",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "off"
+   ],
+   "day": "2026-10-06",
+   "ends": "2026-10-15"
+  },
+  "haiku": {
+   "skating": "off",
+   "about": "ice",
+   "starts": "2026-10-05",
+   "ends": "2026-10-15",
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "the ice rink will have a delayed opening of Friday October 16, 2026"
+  }
+ },
+ {
+  "id": 78,
+  "alert": {
+   "LocationID": 647,
+   "AssetID": 17357,
+   "AssetName": "Grandravine Community Recreation Centre - Indoor Ice Rink",
+   "Reason": "Maintenance/Repairs",
+   "Comments": "Please be advised that due to mechanical issues, the ice rink will have a delayed opening of Saturday October 17, 2026. We apologize for any inconvenience this may cause. Please check back later in the week for updates.",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Indoor Ice Rink",
+   "DisplayAlertName": "",
+   "PostedDate": "2026-10-07 10:30:09"
+  },
+  "first": "2026-10-07",
+  "last": "2026-10-19",
+  "rink": {
+   "name": "Grandravine Community Recreation Centre",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "off"
+   ],
+   "day": "2026-10-08",
+   "ends": "2026-10-16"
+  },
+  "haiku": {
+   "skating": "off",
+   "about": "ice",
+   "starts": "2026-10-07",
+   "ends": "2026-10-16",
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "the ice rink will have a delayed opening of Saturday October 17, 2026"
+  }
+ },
+ {
+  "id": 79,
+  "alert": {
+   "LocationID": 664,
+   "AssetID": 2080,
+   "AssetName": "Irving W. Chapley Community Centre",
+   "Reason": "Planned Closure",
+   "Comments": "From November 2025 to December 2027, Irving W. Chapley Community Centre will undergo improvements to the ice rink, pool and other areas of the building. Construction will take place in phases to minimize service disruptions. The building is not expected to close during construction.\n<br/>\n\n",
+   "Status": 2,
+   "Category": "IRVING W. CHAPLEY COMMUNITY CENTRE\r\n",
+   "Type": "Centre",
+   "DisplayAlertName": "Centre",
+   "PostedDate": "2026-10-09 12:18:52",
+   "Scope": "facility"
+  },
+  "first": "2026-10-23",
+  "last": "2026-11-02",
+  "rink": {
+   "name": "Irving W. Chapley Community Centre",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "on"
+   ],
+   "day": "2026-10-09"
+  },
+  "haiku": {
+   "skating": "on",
+   "about": "building",
+   "starts": "2026-10-09",
+   "ends": "2027-12-31",
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "The building is not expected to close during construction."
+  }
+ },
+ {
+  "id": 80,
+  "alert": {
+   "LocationID": 506,
+   "AssetID": 17370,
+   "AssetName": "Mcgregor Park Community Centre - Indoor Ice Rink",
+   "Reason": "Maintenance/Repairs",
+   "Comments": "Rink 1 is currently closed due to mechanical issues. Please check back for any updates. Sorry for the inconveneience.",
+   "Status": 2,
+   "Category": "Skate",
+   "Type": "Indoor Ice Rink",
+   "DisplayAlertName": "",
+   "PostedDate": "2026-10-13 13:56:04"
+  },
+  "first": "2026-10-13",
+  "last": "2026-10-14",
+  "rink": {
+   "name": "McGregor Park Community Centre",
+   "pads": 2,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "one_pad_off"
+   ],
+   "day": "2026-10-13"
+  },
+  "haiku": {
+   "skating": "one_pad_off",
+   "about": "ice",
+   "starts": "2026-10-13",
+   "ends": null,
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "Rink 1 is currently closed due to mechanical issues."
+  }
+ },
+ {
+  "id": 81,
+  "alert": {
+   "LocationID": 803,
+   "AssetID": 1853,
+   "AssetName": "Long Branch Arena",
+   "Reason": "Technical Issues",
+   "Comments": "Please note that Long Branch Arena is currently closed due to unexpected technical issues. All scheduled permits and programs are cancelled until further notice. We are currently working on a solution. Please check back for updates. ",
+   "Status": 0,
+   "Category": "LONG BRANCH ARENA\r\n",
+   "Type": "Centre",
+   "DisplayAlertName": "Centre",
+   "PostedDate": "2026-10-24 09:04:21",
+   "Scope": "facility"
+  },
+  "first": "2026-10-24",
+  "last": "2026-10-24",
+  "rink": {
+   "name": "Long Branch Arena",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "off"
+   ],
+   "day": "2026-10-24"
+  },
+  "haiku": {
+   "skating": "off",
+   "about": "building",
+   "starts": "2026-10-24",
+   "ends": null,
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "Long Branch Arena is currently closed due to unexpected technical issues."
+  }
+ },
+ {
+  "id": 82,
+  "alert": {
+   "LocationID": 499,
+   "AssetID": 2060,
+   "AssetName": "Cummer Park Community Centre",
+   "Reason": "",
+   "Comments": "Tuesday October 27th , Please note there is no Hot water in the men's , women's and universal  changerooms,  We apologize for the inconvenience.",
+   "Status": 2,
+   "Category": "CUMMER PARK COMMUNITY CENTRE",
+   "Type": "Centre",
+   "DisplayAlertName": "Centre",
+   "PostedDate": "2026-10-27 15:23:25",
+   "Scope": "facility"
+  },
+  "first": "2026-10-27",
+  "last": "2026-10-28",
+  "rink": {
+   "name": "Cummer Park Community Centre",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "on"
+   ],
+   "day": "2026-10-27",
+   "ends": "2026-10-27"
+  },
+  "haiku": {
+   "skating": "on",
+   "about": "amenity",
+   "starts": "2026-10-27",
+   "ends": null,
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "there is no Hot water in the men's , women's and universal changerooms"
+  }
+ },
+ {
+  "id": 83,
+  "alert": {
+   "LocationID": 499,
+   "AssetID": 2060,
+   "AssetName": "Cummer Park Community Centre",
+   "Reason": "",
+   "Comments": "Wednesday October 28th , Please note there is no Hot water in the men's , women's and universal  changerooms,  We apologize for the inconvenience.",
+   "Status": 2,
+   "Category": "CUMMER PARK COMMUNITY CENTRE",
+   "Type": "Centre",
+   "DisplayAlertName": "Centre",
+   "PostedDate": "2026-10-28 12:29:46",
+   "Scope": "facility"
+  },
+  "first": "2026-10-28",
+  "last": "2026-10-29",
+  "rink": {
+   "name": "Cummer Park Community Centre",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "on"
+   ],
+   "day": "2026-10-28",
+   "ends": "2026-10-28"
+  },
+  "haiku": {
+   "skating": "on",
+   "about": "amenity",
+   "starts": "2026-10-28",
+   "ends": null,
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "there is no Hot water in the men's , women's and universal changerooms"
+  }
+ },
+ {
+  "id": 84,
+  "alert": {
+   "LocationID": 803,
+   "AssetID": 1853,
+   "AssetName": "Long Branch Arena",
+   "Reason": "Maintenance/Repairs",
+   "Comments": "Please note that Long Branch Arena will be closed indefinitely. All programs and permits are cancelled until further notice. We are working on resolving the issue. Please check back for updates. ",
+   "Status": 0,
+   "Category": "LONG BRANCH ARENA\r\n",
+   "Type": "Centre",
+   "DisplayAlertName": "Centre",
+   "PostedDate": "2026-10-28 14:45:05",
+   "Scope": "facility"
+  },
+  "first": "2026-10-28",
+  "last": "2026-10-31",
+  "rink": {
+   "name": "Long Branch Arena",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "off"
+   ],
+   "day": "2026-10-28"
+  },
+  "haiku": {
+   "skating": "off",
+   "about": "building",
+   "starts": "2026-10-28",
+   "ends": null,
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "Long Branch Arena will be closed indefinitely."
+  }
+ },
+ {
+  "id": 85,
+  "alert": {
+   "LocationID": 499,
+   "AssetID": 2060,
+   "AssetName": "Cummer Park Community Centre",
+   "Reason": "",
+   "Comments": "Thursday October 29th ,Please note there is no Hot water in the men's , women's and universal  changerooms,  We apologize for the inconvenience.",
+   "Status": 2,
+   "Category": "CUMMER PARK COMMUNITY CENTRE",
+   "Type": "Centre",
+   "DisplayAlertName": "Centre",
+   "PostedDate": "2026-10-29 09:33:38",
+   "Scope": "facility"
+  },
+  "first": "2026-10-29",
+  "last": "2026-10-30",
+  "rink": {
+   "name": "Cummer Park Community Centre",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "on"
+   ],
+   "day": "2026-10-29",
+   "ends": "2026-10-29"
+  },
+  "haiku": {
+   "skating": "on",
+   "about": "amenity",
+   "starts": "2026-10-29",
+   "ends": null,
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "there is no Hot water in the men's , women's and universal changerooms"
+  }
+ },
+ {
+  "id": 86,
+  "alert": {
+   "LocationID": 499,
+   "AssetID": 2060,
+   "AssetName": "Cummer Park Community Centre",
+   "Reason": "",
+   "Comments": "Friday October 30th , Please note there is no Hot water in the men's , women's and universal  changerooms,  We apologize for the inconvenience.",
+   "Status": 2,
+   "Category": "CUMMER PARK COMMUNITY CENTRE",
+   "Type": "Centre",
+   "DisplayAlertName": "Centre",
+   "PostedDate": "2026-10-30 09:33:15",
+   "Scope": "facility"
+  },
+  "first": "2026-10-30",
+  "last": "2026-10-30",
+  "rink": {
+   "name": "Cummer Park Community Centre",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "on"
+   ],
+   "day": "2026-10-30",
+   "ends": "2026-10-30"
+  },
+  "haiku": {
+   "skating": "on",
+   "about": "amenity",
+   "starts": "2026-10-30",
+   "ends": "2026-10-30",
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "there is no Hot water in the men's , women's and universal changerooms"
+  }
+ },
+ {
+  "id": 87,
+  "alert": {
+   "LocationID": 664,
+   "AssetID": 2080,
+   "AssetName": "Irving W. Chapley Community Centre",
+   "Reason": "Planned Closure",
+   "Comments": "From November 2025 to December 2027, Irving W. Chapley Community Centre will undergo improvements to the ice rink, pool and other areas of the building. Construction will take place in phases to minimize service disruptions. The building is not expected to close during construction.\n\nPlease be advised the facility will be closed November 4,2026. There will be no access to site. \n<br/>\n\n",
+   "Status": 2,
+   "Category": "IRVING W. CHAPLEY COMMUNITY CENTRE\r\n",
+   "Type": "Centre",
+   "DisplayAlertName": "Centre",
+   "PostedDate": "2026-11-02 10:49:28",
+   "Scope": "facility"
+  },
+  "first": "2026-11-02",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Irving W. Chapley Community Centre",
+   "pads": 1,
+   "kinds": [
+    "outdoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "off"
+   ],
+   "day": "2026-11-04",
+   "ends": "2026-11-04"
+  },
+  "haiku": {
+   "skating": "off",
+   "about": "building",
+   "starts": "2026-11-04",
+   "ends": "2026-11-04",
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "the facility will be closed November 4,2026"
+  }
+ },
+ {
+  "id": 88,
+  "alert": {
+   "LocationID": 568,
+   "AssetID": 17332,
+   "AssetName": "Downsview Arena - Indoor Ice Rink",
+   "Reason": "Unplanned Closure",
+   "Comments": "Downsview arena is closed Monday November 2, 2026. Please check back for updates. We apologize for the inconvenience. ",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Indoor Ice Rink",
+   "DisplayAlertName": "",
+   "PostedDate": "2026-11-02 14:11:18"
+  },
+  "first": "2026-11-02",
+  "last": "2026-11-03",
+  "rink": {
+   "name": "Downsview Arena",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "off"
+   ],
+   "day": "2026-11-02"
+  },
+  "haiku": {
+   "skating": "off",
+   "about": "ice",
+   "starts": "2026-11-02",
+   "ends": "2026-11-02",
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "Downsview arena is closed Monday November 2, 2026."
+  }
+ },
+ {
+  "id": 89,
+  "alert": {
+   "LocationID": 568,
+   "AssetID": 17332,
+   "AssetName": "Downsview Arena - Indoor Ice Rink",
+   "Reason": "Unplanned Closure",
+   "Comments": "Downsview arena is currently closed. Please check back for updates. We apologize for the inconvenience. ",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Indoor Ice Rink",
+   "DisplayAlertName": "",
+   "PostedDate": "2026-11-03 12:55:09"
+  },
+  "first": "2026-11-03",
+  "last": "2026-11-05",
+  "rink": {
+   "name": "Downsview Arena",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "off"
+   ],
+   "day": "2026-11-03"
+  },
+  "haiku": {
+   "skating": "off",
+   "about": "ice",
+   "starts": "2026-11-03",
+   "ends": null,
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "Downsview arena is currently closed."
+  }
+ },
+ {
+  "id": 90,
+  "alert": {
+   "LocationID": 743,
+   "AssetID": 27682,
+   "AssetName": "Scarborough Village Recreation Centre - Indoor Ice Rink",
+   "Reason": "Maintenance/Repairs",
+   "Comments": "Tuesday November 3, 2026 Scarborough Village  Arena will be closed due to a mechanical issue. Please check back for updates on when arena will reopen. ",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Indoor Ice Rink",
+   "DisplayAlertName": "",
+   "PostedDate": "2026-11-03 14:21:01"
+  },
+  "first": "2026-11-03",
+  "last": "2026-11-03",
+  "rink": {
+   "name": "Scarborough Village Recreation Centre",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "off"
+   ],
+   "day": "2026-11-03"
+  },
+  "haiku": {
+   "skating": "off",
+   "about": "ice",
+   "starts": "2026-11-03",
+   "ends": null,
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "Scarborough Village Arena will be closed due to a mechanical issue"
+  }
+ },
+ {
+  "id": 91,
+  "alert": {
+   "LocationID": 568,
+   "AssetID": 17332,
+   "AssetName": "Downsview Arena - Indoor Ice Rink",
+   "Reason": "Unplanned Closure",
+   "Comments": "Downsview arena is currently closed. Please check back for updates. We apologize for the inconvenience. Emergency repairs are underway. ",
+   "Status": 0,
+   "Category": "Skate",
+   "Type": "Indoor Ice Rink",
+   "DisplayAlertName": "",
+   "PostedDate": "2026-11-05 10:46:30"
+  },
+  "first": "2026-11-05",
+  "last": "2026-11-10",
+  "rink": {
+   "name": "Downsview Arena",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "off"
+   ],
+   "day": "2026-11-05"
+  },
+  "haiku": {
+   "skating": "off",
+   "about": "ice",
+   "starts": "2026-11-05",
+   "ends": null,
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "Downsview arena is currently closed."
+  }
+ },
+ {
+  "id": 92,
+  "alert": {
+   "LocationID": 568,
+   "AssetID": 13022,
+   "AssetName": "Downsview Arena",
+   "Reason": "Emergency Response",
+   "Comments": "Downsview arena is closed for emergency repairs. We apologize. ",
+   "Status": 0,
+   "Category": "DOWNSVIEW ARENA",
+   "Type": "Centre",
+   "DisplayAlertName": "Centre",
+   "PostedDate": "2026-11-05 10:47:10",
+   "Scope": "facility"
+  },
+  "first": "2026-11-05",
+  "last": "2026-11-05",
+  "rink": {
+   "name": "Downsview Arena",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "off"
+   ],
+   "day": "2026-11-05"
+  },
+  "haiku": {
+   "skating": "off",
+   "about": "building",
+   "starts": "2026-11-05",
+   "ends": null,
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "Downsview arena is closed for emergency repairs."
+  }
+ },
+ {
+  "id": 93,
+  "alert": {
+   "LocationID": 568,
+   "AssetID": 13022,
+   "AssetName": "Downsview Arena",
+   "Reason": "Emergency Response",
+   "Comments": "Downsview arena is closed for emergency repairs. We apologize.",
+   "Status": 0,
+   "Category": "DOWNSVIEW ARENA",
+   "Type": "Centre",
+   "DisplayAlertName": "Centre",
+   "PostedDate": "2026-11-05 16:49:33",
+   "Scope": "facility"
+  },
+  "first": "2026-11-05",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Downsview Arena",
+   "pads": 1,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "off"
+   ],
+   "day": "2026-11-05"
+  },
+  "haiku": {
+   "skating": "off",
+   "about": "building",
+   "starts": "2026-11-05",
+   "ends": null,
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "Downsview arena is closed for emergency repairs."
+  }
+ },
+ {
+  "id": 94,
+  "alert": {
+   "LocationID": 633,
+   "AssetID": 17368,
+   "AssetName": "Heron Park Community Recreation Centre - Indoor Ice Rink",
+   "Reason": "Maintenance/Repairs",
+   "Comments": "Arenas both are closed till further notice due to Zamboni issues. Please check back for updates ",
+   "Status": 2,
+   "Category": "Skate",
+   "Type": "Indoor Ice Rink",
+   "DisplayAlertName": "",
+   "PostedDate": "2026-11-10 10:10:55"
+  },
+  "first": "2026-11-10",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Heron Park Community Recreation Centre",
+   "pads": 2,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "off"
+   ],
+   "day": "2026-11-10"
+  },
+  "haiku": {
+   "skating": "off",
+   "about": "ice",
+   "starts": "2026-11-10",
+   "ends": null,
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "Arenas both are closed till further notice"
+  }
+ },
+ {
+  "id": 95,
+  "alert": {
+   "LocationID": 537,
+   "AssetID": 1675,
+   "AssetName": "Centennial Recreation Centre - Scarborough",
+   "Reason": "",
+   "Comments": "Main Lobby Washrooms will be closed Wednesday November 11 and Thursday November 12, 2026 for repairs. They are expected to re-open on Friday November 13, 2026. Please use washrooms in Upper Ice Galaxy or on lower pool level during this time.",
+   "Status": 2,
+   "Category": "CENTENNIAL RECREATION CENTRE - SCARBOROUGH",
+   "Type": "Centre",
+   "DisplayAlertName": "Centre",
+   "PostedDate": "2026-11-10 15:10:09",
+   "Scope": "facility"
+  },
+  "first": "2026-11-10",
+  "last": "2026-11-11",
+  "rink": {
+   "name": "Centennial Recreation Centre - Scarborough",
+   "pads": 2,
+   "kinds": [
+    "indoor"
+   ]
+  },
+  "gold": {
+   "skating": [
+    "on"
+   ],
+   "day": "2026-11-11",
+   "ends": "2026-11-12"
+  },
+  "haiku": {
+   "skating": "on",
+   "about": "amenity",
+   "starts": "2026-11-11",
+   "ends": "2026-11-12",
+   "time_from": null,
+   "time_to": null,
+   "seasonal": false,
+   "evidence": "Main Lobby Washrooms will be closed Wednesday November 11 and Thursday November 12, 2026 for repairs."
+  }
+ }
+]

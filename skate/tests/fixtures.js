@@ -99,7 +99,7 @@ function buildData() {
 }
 
 const DEFAULT_SETTINGS = {
-    setupDone: true, tourDone: true, heartHintDone: true, installSeen: true, lastSeenVersion: '3.9',
+    setupDone: true, tourDone: true, heartHintDone: true, installSeen: true, lastSeenVersion: '3.10',
     showGuides: false, showChats: false, timeFormat: '12h', freeOnly: false, rinkScope: 'all', myRinks: [], sort: 'time',
     cities: ['Toronto'], typeSel: { leisure: 'all', figure: 'all', other: 'all', adapted: 'all', ringette: 'all', speed: 'all' },
     invisible: false, dmsAllowed: true, notifyDesktop: false
@@ -174,4 +174,4 @@ const test = base.test.extend({
     }
 });
 
-module.exports = { test, expect: base.expect, NOW_ISO, dayPlus, buildData, RINKS, DEFAULT_SETTINGS };
+module.exports = { test, expect: base.expect, NOW_ISO, dayPlus, stamp, row, buildData, RINKS, DEFAULT_SETTINGS };

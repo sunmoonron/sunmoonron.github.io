@@ -117,7 +117,7 @@ window.SkateCalendar = (() => {
 
         const hoverBits = [
             p.Activity || '', 'at', p.LocationName || '',
-            alert ? (alert.level === 'closed' ? '(likely cancelled, rink alert)' : alert.level === 'note' ? '(a past rink alert, worth a call)' : '(service alert at this rink)') : '',
+            alert ? (alert.level === 'closed' ? '(likely cancelled, rink alert)' : alert.level === 'note' ? '(a notice at this rink, see the list)' : '(service alert at this rink)') : '',
             p.Unverified ? '(unverified schedule)' : ''
         ].filter(Boolean).join(' ');
         const block = el('button', { class: cls, dataset: { pid: opts.idFor(p) }, title: hoverBits });

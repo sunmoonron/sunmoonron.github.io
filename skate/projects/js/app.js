@@ -751,7 +751,7 @@ window.SkateApp = (() => {
             if (a && a.level === 'closed') return { cls: ' is-alert', txt: 'Likely cancelled' };
             if (st.phase === 'live') return { cls: ' is-live', txt: `On now · ${SkateTime.fmtMins(st.minsLeft)} left` };
             const soon = st.minsToStart < 24 * 60 ? `Starts in ${SkateTime.fmtMins(st.minsToStart)}` : '';
-            return a ? { cls: ' is-warn', txt: `${soon ? soon + ' · ' : ''}rink alert` } : { cls: '', txt: soon };
+            return a && a.level !== 'note' ? { cls: ' is-warn', txt: `${soon ? soon + ' · ' : ''}rink alert` } : { cls: '', txt: soon };
         };
         const toMins = (t) => { const m = /^(\d{1,2}):(\d{2})/.exec(t || ''); return m ? (+m[1]) * 60 + (+m[2]) : null; };
         const durOf = (p) => {
@@ -1027,14 +1027,16 @@ window.SkateApp = (() => {
         if (alert && alert.live) {
             alertHtml = `<div class="alert-banner closed live-flag"><strong>${escapeHtml(alert.reason)}.</strong> ${escapeHtml(alert.text)}${verify}</div>`;
         } else if (alert && alert.level === 'note') {
-            // v3.9: the alert ended before this session (by its own wording); a grey heads-up for a few days
-            alertHtml = `<div class="alert-banner note"><strong>Heads-up.</strong> ${escapeHtml(alert.text)}${verify}</div>`;
+            // a grey heads-up, not about this session: an alert that ended in the last few days (v3.9),
+            // a building notice, an alert for other hours, last season's closure notice (v3.10)
+            alertHtml = `<div class="alert-banner note"><strong>${escapeHtml(alert.lead || 'Heads-up')}.</strong> ${escapeHtml(alert.text)}${verify}</div>`;
         } else if (alert) {
             const closed = alert.level === 'closed';
-            const lead = closed ? 'Likely cancelled, rink alert'
+            const lead = alert.lead || (closed ? 'Likely cancelled, rink alert'
                 : alert.padOnly ? 'One pad is closed here. This session likely runs on the other pad'
-                : 'Service alert at this rink';
-            alertHtml = `<div class="alert-banner ${closed ? 'closed' : 'warning'}"><strong>${lead}.</strong> ${escapeHtml(alert.reason)}${alert.text ? `. ${escapeHtml(alert.text)}` : ''}${verify}</div>`;
+                : 'Service alert at this rink');
+            const body = [alert.reason, alert.text].filter(Boolean).map(escapeHtml).join('. ');
+            alertHtml = `<div class="alert-banner ${closed ? 'closed' : 'warning'}"><strong>${escapeHtml(lead)}.</strong> ${body}${verify}</div>`;
         }
 
         // Schedules read from a PDF or website have no live feed: say so, calmly.
@@ -1859,6 +1861,7 @@ window.SkateApp = (() => {
             const items = [
                 { label: `Schedule data: ${fmt(meta?.lastUpdated)}${meta?.counts?.duplicatesRemoved ? ` · ${meta.counts.duplicatesRemoved} duplicate row${meta.counts.duplicatesRemoved === 1 ? '' : 's'} merged` : ''}`, onClick: () => {} },
                 { label: `Rink alerts checked: ${fmt(SkateAlerts.checkedAt)}`, onClick: () => {} },
+                ...(SkateAlerts.reader ? [{ label: alertReaderLine(SkateAlerts.reader), onClick: () => {} }] : []),
                 { label: `toronto.ca cross-check: ${fmt(SkateAlerts.liveCheckedAt)}${st ? ` (${st.missing} hidden as no longer listed, ${st.extra} added)` : ''}`, onClick: () => {} }
             ];
             if (st?.missing) items.push({ label: S.showDropped ? 'Hide the sessions toronto.ca no longer lists' : `Show the ${st.missing} session${st.missing === 1 ? '' : 's'} toronto.ca no longer lists`, onClick: () => Actions.setFlag('dropped', !S.showDropped) });
@@ -2555,6 +2558,13 @@ window.SkateApp = (() => {
             $('qr-holder').innerHTML = '<p class="settings-hint">Could not build the QR code. The Copy link button still works.</p>';
         }
     };
+
+    /** How the pipeline read the alerts on file, for the freshness menu (v3.10). */
+    function alertReaderLine(r) {
+        const counts = `${r.read} read for meaning, ${r.rules} plain status notices${r.waiting ? `, ${r.waiting} waiting` : ''}`;
+        return r.error ? `Alert reading: reader offline (${r.error}), word rules cover the gap · ${counts}`
+            : `Alert reading: ${r.by} · ${counts}`;
+    }
 
     /** Popup body for a rink pin (SkateMap calls this per open). */
     function mapPopupHtml(r) {

@@ -28,13 +28,21 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.9',
+    version: '3.10',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
     // (npub1p07dm5lcx2gn6qq8t7fyduh5tsmz64r823h9j0kgutcas757tg7s096ykw).
     devPubkey: '0bfcddd3f832913d00075f9246f2f45c362d5467546e593ec8e2f1d87a9e5a3d',
     changelog: [
+        {
+            v: '3.10', date: '2026-11-11', items: [
+                'Rink alerts are now read for meaning instead of matched on keywords. Each alert the City posts is read once into plain facts (is skating off, is it one pad of several, which days, which hours) and checked against the alert\'s own words before it reaches the app. A washroom or elevator notice is a grey building notice, not a rink alert. "Arenas both are closed" strikes the session through. A delayed opening counts as closed until opening day. An alert about the 11:30 skate no longer touches the evening one, and reduced hours are a warning, not a cancellation.',
+                'Last season\'s "Closed for the Season" notices no longer strike through the new season. The City leaves them up all summer and lifts each one when the rink reopens, so on upcoming sessions they are a grey note, and yellow on the day itself if the notice is still up. A rink closed for the rest of the current season still shows as cancelled.',
+                'Twelve outdoor rinks that were listed as indoor (the Etobicoke park rinks, Earlscourt Park, the North Toronto outdoor rink) are tagged outdoor, so the Indoor/Outdoor switch and its counts are right for them.',
+                'Fixed in the fallback rules: "November 2025" was read as November 20, reopening "tomorrow" was missed, and a closure label on a building notice could cancel sessions the text said would go ahead.',
+            ]
+        },
         {
             v: '3.9', date: '2026-10-24', items: [
                 'Rink alerts: an alert that names its own end (a reopening date, "until", "today", one dated closure) is over after that day. For four days it shows as a grey heads-up worth a call, then says nothing. Alerts with no end ("closed for repairs until further notice") stay as long as the City posts them. A likely-cancelled session now strikes through its time and countdown too.',

@@ -1,6 +1,6 @@
 // The schedule: boot, search, filters, pills, saved sessions, menus, alerts,
 // calendar, the self-update check, the service worker, phone layout.
-const { test, expect, dayPlus } = require('./fixtures');
+const { test, expect, dayPlus, stamp, row } = require('./fixtures');
 
 const card = (page, text) => page.locator('.program-item', { hasText: text });
 const isPhone = (testInfo) => testInfo.project.name.startsWith('phone');
@@ -117,6 +117,48 @@ test.describe('schedule', () => {
         await expect(card(page, 'Leisure Skate: Adult')).toHaveCount(0);           // the City's live schedule dropped it
         await page.evaluate(() => SkateApp.Actions.setFlag('dropped', true));
         await expect(card(page, 'Leisure Skate: Adult').locator('.alert-banner.live-flag')).toContainText("Not on the City's live schedule");
+        await app.noErrors();
+    });
+
+    test('alerts v3.10: the pipeline\'s reading wins over the words, a building notice is grey, last season\'s notice is a note and yellow on the day', async ({ page, app }) => {
+        const T = dayPlus(0), T3 = dayPlus(3);
+        const rink = (o) => ({ postal: 'M8V 6Z6', district: 'Etobicoke York', lat: 43.61, lng: -79.5, pads: 1, operator: '', source: 'city', ...o });
+        app.data['rinks.json'].rinks.push(
+            rink({ locationid: '600', name: 'Frost Park Rink', address: '6 Zeta Way', kinds: ['outdoor'] }),
+            rink({ locationid: '700', name: 'Lobby Arena', address: '7 Eta Blvd', kinds: ['indoor'], pads: 2 }),
+            rink({ locationid: '800', name: 'Zed Arena', address: '8 Theta Cres', kinds: ['indoor'] }));
+        app.data['skating-programs.json'].programs.push(
+            row({ id: 's1', loc: 600, rink: 'Frost Park Rink', activity: 'Leisure Skate', date: T, start: '21:00', end: '22:00' }),
+            row({ id: 's2', loc: 600, rink: 'Frost Park Rink', activity: 'Leisure Skate', date: T3, start: '11:00', end: '12:00' }),
+            row({ id: 'b1', loc: 700, rink: 'Lobby Arena', activity: 'Leisure Skate', date: T, start: '21:30', end: '22:30' }),
+            row({ id: 'z1', loc: 800, rink: 'Zed Arena', activity: 'Leisure Skate', date: T, start: '22:00', end: '23:00' }));
+        const alerts = app.data['alerts.json'];
+        alerts.alerts.push(
+            // last winter's notice, still posted: this fall's sessions are a new season
+            { LocationID: 600, AssetID: '6', AssetName: 'Frost Park Rink - Outdoor Artificial Ice Rink', Type: 'Outdoor Artificial Ice Rink', DisplayAlertName: 'Skate', Category: 'FROST PARK', Status: 0,
+              Reason: 'Closed for the Season', Comments: '', PostedDate: stamp(-220) },
+            { LocationID: 700, AssetID: '7', AssetName: 'Lobby Arena - Indoor Ice Rink', Type: 'Indoor Ice Rink', DisplayAlertName: 'Skate', Category: 'LOBBY ARENA', Status: 2,
+              Reason: 'Technical Issues', Comments: 'Please note that the elevator is currently out of service.', PostedDate: stamp(-30) },
+            // no closure word for the rules to find; the reading says what it means
+            { LocationID: 800, AssetID: '8', AssetName: 'Zed Arena - Indoor Ice Rink', Type: 'Indoor Ice Rink', DisplayAlertName: 'Skate', Category: 'ZED ARENA', Status: 2,
+              Reason: 'Maintenance/Repairs', Comments: 'The Zamboni is away for repairs this week, so public skating will not run.', PostedDate: stamp(-1),
+              Read: { v: 1, skating: 'off', about: 'ice', starts: dayPlus(-1), ends: null, timeFrom: null, timeTo: null, seasonal: false, by: 'claude-haiku-5-5' } });
+        alerts.reader = { v: 1, by: 'claude-haiku-5-5', read: 1, rules: 6, waiting: 0, error: null };
+        await app.open();
+
+        const frostToday = card(page, 'Frost Park Rink').first(), frostLater = card(page, 'Frost Park Rink').nth(1);
+        await expect(frostToday.locator('.alert-banner.warning')).toContainText('Still marked closed for the season');
+        await expect(frostToday).not.toHaveClass(/has-alert-closed/);
+        await expect(frostLater).toHaveClass(/has-alert-note/);
+        await expect(frostLater.locator('.alert-banner.note')).toContainText('lifts it when the rink reopens');
+        await expect(frostLater.locator('.program-title')).toHaveCSS('text-decoration-line', 'none');
+        await expect(card(page, 'Lobby Arena').locator('.alert-banner.note')).toContainText('Building notice, skating not affected');
+        await expect(card(page, 'Zed Arena')).toHaveClass(/has-alert-closed/);
+        await expect(card(page, 'Zed Arena').locator('.alert-banner.closed')).toContainText('Likely cancelled');
+
+        await page.click('#status-data');                                           // the freshness menu names the reader
+        await expect(page.locator('#popover')).toContainText('Alert reading: claude-haiku-5-5');
+        await page.keyboard.press('Escape');
         await app.noErrors();
     });
 

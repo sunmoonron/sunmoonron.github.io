@@ -4,6 +4,7 @@
   "description": "sunmoonron.github.io — static site; the Toronto Skating app lives in /skate. The pipeline (fetch-skate-data.js) has no dependencies; devDependencies are the browser test suite only.",
   "scripts": {
     "test": "playwright test",
+    "test:unit": "playwright test --project=unit",
     "test:headed": "playwright test --headed --project=desktop-light",
     "test:visual": "playwright test skate/tests/visual.spec.js",
     "test:visual:update": "playwright test skate/tests/visual.spec.js --update-snapshots",

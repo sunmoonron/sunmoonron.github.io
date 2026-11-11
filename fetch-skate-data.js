@@ -8,6 +8,7 @@
  * Usage:
  *   node fetch-skate-data.js                # full refresh (programs + rinks + alerts + live check)
  *   node fetch-skate-data.js --alerts-only  # light pass: alerts.json + live-check.json (cheap, run often)
+ *   node fetch-skate-data.js --reader-selftest  # one made-up alert through each configured alert-reader tier
  *
  * toronto.ca live endpoints send no Access-Control-Allow-Origin header,
  * so the browser can never fetch them directly — CI snapshots them here.
@@ -36,8 +37,9 @@
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
-const PACKAGE_ID = '1a5be46a-4039-48cd-a2d2-8e702abf9516';
+const PACKAGE_ID ='1a5be46a-4039-48cd-a2d2-8e702abf9516';
 const BASE_URL = 'https://ckan0.cf.opendata.inter.prod-toronto.ca/api/3/action';
 // Script lives at the repo root, but the app reads from skate/projects/data/
 const OUTPUT_DIR = path.join(__dirname, 'skate', 'projects', 'data');
@@ -870,6 +872,34 @@ async function geocodeAddress(query) {
     return hit;
 }
 
+/** No outdoor rink in Toronto has ice between mid-April and mid-November. */
+const inOutdoorLull = (ymd) => { const md = String(ymd || '').slice(5); return md >= '04-15' && md <= '11-14'; };
+/** 'indoor' | 'outdoor' | null from the asset an alert is filed under ("Outdoor Artificial Ice Rink"). */
+const assetKind = (a) => { const t = String(a && a.Type || '').toLowerCase(); return t.includes('outdoor') ? 'outdoor' : t.includes('indoor') ? 'indoor' : null; };
+
+/**
+ * What ice does a City location have when neither rink dataset lists it?
+ * Until 2026-11 every such location was called indoor, which made eleven
+ * Etobicoke park rinks and the North Toronto outdoor rink indoor arenas in
+ * the rink list, the filters and the alert logic.
+ *
+ * Evidence, strongest first, and it is remembered (kindsSeen), because the
+ * first kind is only visible while the City has an alert posted there:
+ *   - the alert feed files a notice under an outdoor or an indoor rink asset
+ *   - a session on a date when no outdoor rink has ice means indoor ice
+ * With no evidence yet, the City's own location type decides: every park
+ * the datasets do list has an outdoor rink (36 of 36), everything else is
+ * most often an arena or a community centre with indoor ice.
+ * A location can have both.
+ */
+function inferKinds({ locationType, feedKinds = [], lullSession = false, kindsSeen = [] } = {}) {
+    const seen = new Set([...(kindsSeen || []), ...feedKinds]);
+    if (lullSession) seen.add('indoor');
+    const remembered = ['indoor', 'outdoor'].filter(k => seen.has(k));
+    const kinds = remembered.length ? remembered : [/park|outdoor/i.test(String(locationType || '')) ? 'outdoor' : 'indoor'];
+    return { kinds, kindsSeen: remembered };
+}
+
 async function fetchRinkInventory(programs = []) {
     const byLocation = {};
 
@@ -961,13 +991,27 @@ async function fetchRinkInventory(programs = []) {
 
     // City locations that only exist in the program rows
     const missing = {};
+    const lullSession = new Set();   // locations with a session while no outdoor rink has ice
     programs.forEach(p => {
         if (p.Source && p.Source !== 'city') return;
         const id = p['Location ID'];
-        if (id == null || byLocation[String(id)] || missing[id]) return;
-        if (!p.LocationName) return;
+        if (id == null || byLocation[String(id)]) return;
+        if (inOutdoorLull(String(p['Start Date'] || '').slice(0, 10))) lullSession.add(String(id));
+        if (missing[id] || !p.LocationName) return;
         missing[id] = p;
     });
+    // what we knew last run: the kinds each of these locations has shown, and the City's own asset types in the alert feed
+    const seenBefore = {}, feedKinds = {};
+    try {
+        (JSON.parse(fs.readFileSync(path.join(OUTPUT_DIR, 'rinks.json'), 'utf8')).rinks || [])
+            .forEach(r => { if (Array.isArray(r.kindsSeen)) seenBefore[String(r.locationid)] = r.kindsSeen; });
+    } catch { /* first run */ }
+    try {
+        (JSON.parse(fs.readFileSync(path.join(OUTPUT_DIR, 'alerts.json'), 'utf8')).alerts || []).forEach(a => {
+            const k = assetKind(a);
+            if (k) (feedKinds[String(a.LocationID)] ||= new Set()).add(k);
+        });
+    } catch { /* first run */ }
     for (const [id, p] of Object.entries(missing)) {
         let geo = null;
         try {
@@ -976,6 +1020,12 @@ async function fetchRinkInventory(programs = []) {
         } catch (e) {
             console.warn(`   📍 geocode failed for ${p.LocationName}: ${e.message}`);
         }
+        const ice = inferKinds({
+            locationType: p.LocationType,
+            feedKinds: [...(feedKinds[String(id)] || [])],
+            lullSession: lullSession.has(String(id)),
+            kindsSeen: seenBefore[String(id)]
+        });
         byLocation[String(id)] = {
             locationid: String(id),
             name: p.LocationName,
@@ -983,13 +1033,14 @@ async function fetchRinkInventory(programs = []) {
             postal: p.PostalCode || '',
             district: p.District || '',
             lat: geo ? geo.lat : null, lng: geo ? geo.lng : null,
-            kinds: ['indoor'],
+            kinds: ice.kinds,
+            ...(ice.kindsSeen.length ? { kindsSeen: ice.kindsSeen } : {}),
             pads: 1,
             operator: 'City of Toronto',
             source: 'city',
             fromPrograms: true
         };
-        console.log(`   📍 added ${p.LocationName} (${id}) from the program rows${geo ? '' : ' (no coordinates yet)'}`);
+        console.log(`   📍 added ${p.LocationName} (${id}) from the program rows as ${ice.kinds.join(' + ')}${geo ? '' : ' (no coordinates yet)'}`);
     }
 
     return Object.values(byLocation).sort((a, b) => a.name.localeCompare(b.name));
@@ -1060,7 +1111,479 @@ async function fetchFacilityAlerts(locIds) {
     return out;
 }
 
-async function fetchAlerts(programs = null) {
+/* ================= Alert reading → alerts[].Read ================= */
+
+/**
+ * Staff write alerts by hand, and word rules kept misreading them: on
+ * 2026-11-11 a washroom notice that named a room "Upper Ice Galaxy" was
+ * shown as a closed pad, and "Arenas both are closed till further notice"
+ * was shown as a mild warning. So every alert with real sentences is read
+ * ONCE by a model into fixed fields, the answer is checked against the
+ * alert's own words, and the verified reading rides inside alerts.json as
+ * `Read`. The app prefers it and keeps its word rules as the floor.
+ *
+ * Tiers, in order; the first whose answer verifies wins:
+ *   1. Anthropic API (key in ALERT_READER_ANTHROPIC_KEY or the credentials file)
+ *   2. OpenRouter, same model (ALERT_READER_OPENROUTER_KEY or the credentials file)
+ *   3. the local Ollama model, only when ALERT_READER_LOCAL=1 (OLLAMA_URL): meaning
+ *      only, its dates are not trusted. Off by default: on the 2026 corpus the small
+ *      model read a roof leak as a closed rink, and a wrong closure is worse than the
+ *      plain yellow alert the word rules give when they cannot tell
+ *   4. readings another producer already published (ALERT_READINGS_URL): how the
+ *      GitHub cron reuses the home server's work without holding a key
+ *   5. nothing: the alert ships without a reading and the app's word rules decide
+ *
+ * Nothing here can fail the run, and a model can never make an alert say
+ * more than its text: the evidence must be a verbatim quote, dates and
+ * times must be backed by the words, and the City's own closed flag is
+ * never read down to "skating as usual".
+ *
+ * Spend guards: one call per distinct alert text (the cache is keyed by
+ * content, so one notice pasted on forty rinks is one call), a cap per day
+ * and per run, an hour's back-off after a key or billing error, and an
+ * alert no tier could read is retried once a day, three times at most.
+ */
+const READER_VERSION = 1;                    // bump to re-read everything; the app ignores readings of another version
+const READER_MODEL = process.env.ALERT_READER_MODEL || 'claude-haiku-5-5';
+const READER_OPENROUTER_MODEL = process.env.ALERT_READER_OPENROUTER_MODEL || 'anthropic/claude-haiku-5.5';
+const READER_DAILY_CAP = Math.max(0, Number(process.env.ALERT_READER_DAILY_CAP ?? 80));   // paid calls per Toronto day
+const READER_RUN_CAP = 25;                   // paid calls per run
+const READER_LOCAL_RUN_CAP = 12;             // local-model calls per run (about 3 s each)
+const READER_RETRY_MS = 24 * 3600 * 1000;
+const READER_KEEP_DAYS = 45;                 // readings of alerts gone from the feed this long are dropped
+const READINGS_FILE = path.join(OUTPUT_DIR, 'alert-readings.json');
+const READINGS_URL = process.env.ALERT_READINGS_URL ?? 'https://skate-data.ronishbhatt.com/projects/data/alert-readings.json';
+const READER_SKATING = ['off', 'one_pad_off', 'reduced', 'on'];
+const READER_ABOUT = ['ice', 'building', 'amenity', 'sessions', 'other'];
+
+// Tried on every alert the feed carried from July to November 2026 that had real
+// sentences (35 of 96): Haiku 5.5 got the meaning of all 35 right. Change the
+// wording only with skate/tests/unit/alert-corpus.json to hand, then bump READER_VERSION.
+const READER_SYSTEM = `You read service alerts that City of Toronto recreation staff post about rinks, arenas and community centres, and report what each one means for a person planning to go skating at that location. Staff write quickly and in their own words, so judge by meaning, not by keywords. The name of a room or area inside a building can contain words like "ice" or "rink" without the alert being about the ice.
+
+You are given the location and how many ice pads it has, the asset the alert is filed under, the City's status and reason label, the day it was posted, and the alert text.
+
+Answer with these fields.
+
+skating: what the alert means for public skating at this location while it applies.
+  "off"          no skating there: the rink, arena, ice or whole building is closed, is not open yet, or all skating is cancelled
+  "one_pad_off"  the location has more than one ice pad and only some of them are closed, so skating continues on the rest
+  "reduced"      skating continues, but hours are shorter or some sessions are cancelled, and the text does not pin down which hours
+  "on"           skating is not affected: the alert is about washrooms, change rooms, parking, an elevator, heating, a viewing area, a pool, a gym, construction that does not close the rink, and the like
+
+about: the main thing the alert concerns. One of "ice", "building", "amenity", "sessions", "other".
+
+starts: the first calendar day the disruption applies, as YYYY-MM-DD. Use the posting date unless the text names a later start.
+ends: the last calendar day the disruption applies, as YYYY-MM-DD, or null when the text gives no end. When the text names a reopening day or an opening day, the disruption ends the day before it. "Today" and "tonight" mean the posting date. Work out "tomorrow" and weekday names from the posting date. "Until further notice", "check back for updates" and "for the season" give no end.
+
+time_from, time_to: when the text limits the disruption to part of a day, the 24-hour clock times it covers, as HH:MM. Otherwise null. "Closed until 2 pm today" is time_to 14:00 with time_from null. "Leisure skate from 11:30am to 1:30pm is cancelled" is skating "off" with time_from 11:30 and time_to 13:30.
+
+seasonal: true when the alert says the rink is closed for the season or for the rest of the season. Otherwise false.
+
+evidence: the shortest exact quote from the alert text that justifies your "skating" answer. Copy it character for character.`;
+
+const READER_SCHEMA = {
+    type: 'object',
+    properties: {
+        skating: { type: 'string', enum: READER_SKATING },
+        about: { type: 'string', enum: READER_ABOUT },
+        starts: { type: ['string', 'null'] },
+        ends: { type: ['string', 'null'] },
+        time_from: { type: ['string', 'null'] },
+        time_to: { type: ['string', 'null'] },
+        seasonal: { type: 'boolean' },
+        evidence: { type: 'string' }
+    },
+    required: ['skating', 'about', 'starts', 'ends', 'time_from', 'time_to', 'seasonal', 'evidence'],
+    additionalProperties: false
+};
+
+/**
+ * Keys for the paid tiers: env vars, or one small file in any layout, since
+ * each key is recognised by its shape. The file is ALERT_READER_CREDENTIALS, or
+ * the systemd credential "alert-reader" on the home server. The standard
+ * ANTHROPIC_API_KEY is deliberately not read here, so wiring this stage up
+ * cannot switch on the older schedule fallback (llmParseSchedule) and its own
+ * spending.
+ */
+function readerCreds() {
+    let blob = '';
+    const file = process.env.ALERT_READER_CREDENTIALS
+        || (process.env.CREDENTIALS_DIRECTORY ? path.join(process.env.CREDENTIALS_DIRECTORY, 'alert-reader') : '');
+    if (file) { try { blob = fs.readFileSync(file, 'utf8'); } catch { /* optional */ } }
+    const pick = (re) => (blob.match(re) || [])[0] || '';
+    return {
+        anthropicKey: process.env.ALERT_READER_ANTHROPIC_KEY || pick(/sk-ant-[A-Za-z0-9_-]{20,}/),
+        anthropicWorkspace: process.env.ALERT_READER_ANTHROPIC_WORKSPACE || pick(/wrkspc_[A-Za-z0-9]{6,}/),
+        openrouterKey: process.env.ALERT_READER_OPENROUTER_KEY || pick(/sk-or-[A-Za-z0-9_-]{20,}/)
+    };
+}
+
+/** Never let a key reach a log line or a published file, whatever an error message echoes back. */
+const readerScrub = (s) => String(s || '').replace(/sk-[A-Za-z0-9_-]{8,}/g, 'sk-…').replace(/wrkspc_[A-Za-z0-9]+/g, 'wrkspc_…').slice(0, 180);
+
+class ReaderError extends Error {
+    constructor(kind, message) { super(readerScrub(message)); this.kind = kind; }
+}
+/** auth and billing need a human; rate and server pass by themselves; request means our call is wrong. */
+const readerErrorKind = (status, message) =>
+    status === 401 || status === 403 ? 'auth'
+    : status === 402 || /credit balance|insufficient credits|billing/i.test(message || '') ? 'billing'
+    : status === 429 ? 'rate'
+    : status >= 500 ? 'server'
+    : status >= 400 ? 'request'
+    : 'answer';
+
+/** POST JSON and keep the status code (postText below drops it). */
+function postStatus(url, body, headers, timeoutMs = 45000) {
+    return new Promise((resolve, reject) => {
+        const u = new URL(url);
+        const mod = u.protocol === 'http:' ? require('http') : https;
+        const req = mod.request(u, { method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body), ...headers } }, (r) => {
+            let d = '';
+            r.on('data', c => d += c);
+            r.on('end', () => resolve({ status: r.statusCode || 0, text: d }));
+            r.on('error', (e) => reject(new ReaderError('network', e.message)));
+        });
+        req.on('error', (e) => reject(new ReaderError('network', e.message)));
+        req.setTimeout(timeoutMs, () => req.destroy(new ReaderError('network', 'timeout')));
+        req.write(body); req.end();
+    });
+}
+
+const readerClean = (s) => String(s || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
+/** Only alerts with real sentences go to a model; a bare status ("Closed for the Season", no text) needs no reading. */
+const readerWants = (a) => readerClean(a.Comments).split(' ').filter(Boolean).length >= 4;
+
+/** One reading per distinct notice: the same words under the same status, posted the same day, at a rink with one pad or several. */
+function readerKey(a, multiPad) {
+    return crypto.createHash('sha1').update([
+        READER_VERSION, String(a.Status), a.Scope || 'asset', a.Type || '', a.Reason || '',
+        readerClean(a.Comments), String(a.PostedDate || '').slice(0, 10), multiPad ? 'multi' : 'single'
+    ].join('\n')).digest('hex').slice(0, 20);
+}
+
+function readerUserMessage(a, rink) {
+    const posted = String(a.PostedDate || '').slice(0, 10);
+    const t = Date.parse(posted + 'T12:00:00Z');
+    const postedLine = Number.isNaN(t) ? (posted || 'unknown')
+        : `${new Date(t).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })} ${posted}`;
+    const n = rink ? (rink.pads || 1) : 1;
+    const where = rink
+        ? `${rink.name} (${n} ice pad${n !== 1 ? 's' : ''}, ${(rink.kinds || []).join(' and ') || 'kind unknown'})`
+        : '(not in our rink list)';
+    return [
+        `Location: ${where}`,
+        `Filed under: ${a.AssetName || '(none)'}${a.Type ? ` [${a.Type}]` : ''}`,
+        `City status: ${String(a.Status) === '0' ? 'the City marks this asset closed' : 'service alert'}`,
+        `Reason label: ${a.Reason || '(none)'}`,
+        `Posted: ${postedLine}`,
+        `Text: ${readerClean(a.Comments) || '(no text)'}`
+    ].join('\n');
+}
+
+const READER_MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const ymdOk = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || '') && !Number.isNaN(Date.parse(s + 'T12:00:00Z'));
+const ymdAdd = (ymd, n) => new Date(Date.parse(ymd + 'T12:00:00Z') + n * 86400000).toISOString().slice(0, 10);
+const ymdDiff = (a, b) => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 86400000);
+
+/**
+ * Is this date backed by the alert's own words? It is when the text names it
+ * (or the day after it, for "re-opening on …"), when it is the posting day,
+ * when a relative word ("tomorrow", "Friday") or a stated span ("for two
+ * weeks", "the week of …") can reach it from there.
+ */
+function readerDateBacked(ymd, low, posted) {
+    const named = (d) => new RegExp(`\\b${READER_MONTHS[+d.slice(5, 7) - 1]}[a-z]*\\.?\\s+0?${+d.slice(8, 10)}(?!\\d)`).test(low);
+    if (named(ymd) || named(ymdAdd(ymd, 1))) return true;
+    if (/\bweek\b/.test(low)) { for (let k = 1; k <= 7; k++) if (named(ymdAdd(ymd, -k))) return true; }
+    if (!posted) return false;
+    if (ymd === posted) return true;
+    const gap = Math.abs(ymdDiff(posted, ymd));
+    if (gap <= 8 && /\b(?:today|tonight|tomorrow|this (?:morning|afternoon|evening|week|weekend)|next week|(?:mon|tues|wednes|thurs|fri|satur|sun)day)\b/.test(low)) return true;
+    return gap <= 100 && /\b(?:for|next|within|about|approximately)\s+(?:the\s+)?(?:next\s+)?(?:\d+|a|one|two|three|four|five|six|a few|several)\s+(?:days?|weeks?|months?)\b/.test(low);
+}
+
+/** Every clock time the text mentions, as minutes of the day ("2 pm", "11:30am", "13:30", "noon"). */
+function readerTimesIn(low) {
+    const set = new Set();
+    let m;
+    const ampm = /\b(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)(?![a-z])/g;
+    while ((m = ampm.exec(low))) set.add(((+m[1] % 12) + (m[3][0] === 'p' ? 12 : 0)) * 60 + +(m[2] || 0));
+    const bare = /\b(\d{1,2}):(\d{2})\b/g;
+    while ((m = bare.exec(low))) {
+        const h = +m[1], mi = +m[2];
+        if (h < 24 && mi < 60) { set.add(h * 60 + mi); if (h < 12) set.add((h + 12) * 60 + mi); }
+    }
+    if (/\bnoon\b/.test(low)) set.add(720);
+    if (/\bmidnight\b/.test(low)) set.add(0);
+    return set;
+}
+
+/**
+ * A model's answer becomes a reading only if the alert's own words back it.
+ * → { ok: true, read, quote } or { ok: false, why }
+ */
+function verifyReading(a, rink, out, { by = 'model', trustDates = true } = {}) {
+    if (!out || typeof out !== 'object') return { ok: false, why: 'no answer' };
+    if (!READER_SKATING.includes(out.skating)) return { ok: false, why: 'skating value not in the list' };
+    const text = readerClean(a.Comments);
+    const quote = normQuote(out.evidence);
+    if (quote.length < 4 || !normQuote(`${text} ${a.Reason || ''} ${a.AssetName || ''}`).includes(quote)) return { ok: false, why: 'evidence is not a quote from the alert' };
+    // Status 0 on an asset is the City's own closed flag (a building notice carries the field loosely)
+    if (out.skating === 'on' && a.Scope !== 'facility' && String(a.Status) === '0') return { ok: false, why: 'says skating is unaffected while the City marks the asset closed' };
+
+    const low = `${text} ${a.Reason || ''}`.toLowerCase();
+    const posted = ymdOk(String(a.PostedDate || '').slice(0, 10)) ? String(a.PostedDate).slice(0, 10) : null;
+    const read = {
+        v: READER_VERSION,
+        skating: out.skating,
+        about: READER_ABOUT.includes(out.about) ? out.about : 'other',
+        starts: null, ends: null, timeFrom: null, timeTo: null,
+        seasonal: !!out.seasonal && /season|winter|summer/.test(low),
+        by
+    };
+    // one pad of one is the rink (pad counts are real for rinks the City's datasets list)
+    if (read.skating === 'one_pad_off' && rink && !rink.fromPrograms && !(rink.pads > 1)) read.skating = 'off';
+
+    if (!trustDates) { read.dates = 'rules'; return { ok: true, read, quote: cleanQuote(out.evidence) }; }
+
+    // A date the words do not back is dropped, never guessed: no start means "from the posting day",
+    // no end means "while the City leaves it up".
+    const inRange = (d) => ymdOk(d) && (!posted || (ymdDiff(posted, d) >= -2 && ymdDiff(posted, d) <= 400));
+    if (inRange(out.starts) && readerDateBacked(out.starts, low, posted)) read.starts = out.starts;
+    if (inRange(out.ends) && readerDateBacked(out.ends, low, posted)) read.ends = out.ends;
+    if (read.starts && read.ends && read.ends < read.starts) { read.starts = null; read.ends = null; }
+    if (posted && read.ends && read.ends < posted && !read.starts) read.ends = null;
+
+    // a part-of-day window only when both clock times are in the text; otherwise the whole day stands
+    const hm = (s) => (/^([01]\d|2[0-3]):[0-5]\d$/.test(s || '') ? s : null);
+    const tf = hm(out.time_from), tt = hm(out.time_to);
+    if (tf || tt) {
+        const mentioned = readerTimesIn(low);
+        const mins = (s) => +s.slice(0, 2) * 60 + +s.slice(3);
+        if ((!tf || mentioned.has(mins(tf))) && (!tt || mentioned.has(mins(tt))) && (!tf || !tt || mins(tf) < mins(tt))) { read.timeFrom = tf; read.timeTo = tt; }
+    }
+    return { ok: true, read, quote: cleanQuote(out.evidence) };
+}
+
+/** Parse a tier's JSON answer or name what went wrong. */
+function readerParse(text) {
+    try { return JSON.parse(String(text || '').replace(/^```(?:json)?\s*|```\s*$/g, '').trim()); }
+    catch { throw new ReaderError('answer', 'the answer was not JSON'); }
+}
+
+async function readWithAnthropic(creds, userMsg) {
+    const headers = { authorization: `Bearer ${creds.anthropicKey}`, 'anthropic-version': '2026-10-21' };
+    // a key that is not tied to one workspace must say which workspace the call belongs to
+    if (creds.anthropicWorkspace) headers['anthropic-workspace-id'] = creds.anthropicWorkspace;
+    const { status, text } = await postStatus('https://api.anthropic.com/v1/messages', JSON.stringify({
+        model: READER_MODEL,
+        max_tokens: 2048,
+        system: READER_SYSTEM,
+        messages: [{ role: 'user', content: userMsg }],
+        output_config: { format: { type: 'json_schema', schema: READER_SCHEMA } }
+    }), headers);
+    let body = null;
+    try { body = JSON.parse(text); } catch { /* not JSON: handled below */ }
+    if (status !== 200 || !body) throw new ReaderError(readerErrorKind(status, body?.error?.message), `HTTP ${status} ${body?.error?.type || ''} ${body?.error?.message || ''}`);
+    // a refusal or a cut-off answer is not a reading
+    if (body.stop_reason !== 'end_turn') throw new ReaderError('answer', `stopped with ${body.stop_reason}`);
+    const block = (body.content || []).find(b => b.type === 'text');
+    return { out: readerParse(block && block.text), usage: { in: body.usage?.input_tokens, out: body.usage?.output_tokens } };
+}
+
+async function readWithOpenRouter(creds, userMsg) {
+    const { status, text } = await postStatus('https://openrouter.ai/api/v1/chat/completions', JSON.stringify({
+        model: READER_OPENROUTER_MODEL,
+        max_tokens: 2048,
+        messages: [{ role: 'system', content: READER_SYSTEM }, { role: 'user', content: userMsg }],
+        response_format: { type: 'json_schema', json_schema: { name: 'alert_reading', strict: true, schema: READER_SCHEMA } },
+        provider: { require_parameters: true }   // only a provider that honours the schema
+    }), { authorization: `Bearer ${creds.openrouterKey}` });
+    let body = null;
+    try { body = JSON.parse(text); } catch { /* handled below */ }
+    // OpenRouter can report an error inside an HTTP 200
+    const err = body?.error || body?.choices?.[0]?.error;
+    if (status !== 200 || !body || err) {
+        const code = Number(err?.code) || status;
+        throw new ReaderError(readerErrorKind(code, err?.message), `HTTP ${code} ${err?.message || ''}`);
+    }
+    const choice = body.choices?.[0];
+    if (!choice || choice.finish_reason !== 'stop') throw new ReaderError('answer', `stopped with ${choice?.finish_reason}`);
+    return { out: readerParse(choice.message?.content), usage: { in: body.usage?.prompt_tokens, out: body.usage?.completion_tokens } };
+}
+
+async function readWithOllama(ollama, userMsg) {
+    let res;
+    try {
+        res = JSON.parse(await postText(`${ollama}/api/chat`, JSON.stringify({
+            model: FACTS_MODEL(), stream: false, think: false, format: READER_SCHEMA,
+            options: { temperature: 0, num_ctx: 4096 },
+            messages: [{ role: 'system', content: READER_SYSTEM }, { role: 'user', content: userMsg }]
+        }), {}, 120000));
+    } catch (e) { throw new ReaderError('network', e.message); }
+    if (res.error) throw new ReaderError('server', res.error);
+    return { out: readerParse(res.message?.content), usage: { in: res.prompt_eval_count, out: res.eval_count } };
+}
+
+/** The tiers this run can use, best first. */
+function readerTiers(creds = readerCreds()) {
+    const ollama = (process.env.OLLAMA_URL || '').replace(/\/+$/, '');
+    const tiers = [];
+    if (creds.anthropicKey) tiers.push({ name: 'anthropic', by: READER_MODEL, paid: true, trustDates: true, call: (msg) => readWithAnthropic(creds, msg) });
+    if (creds.openrouterKey) tiers.push({ name: 'openrouter', by: `${READER_OPENROUTER_MODEL} (openrouter)`, paid: true, trustDates: true, call: (msg) => readWithOpenRouter(creds, msg) });
+    // opt-in: the small local model reads meaning well and dates badly (33 of 35 and 3 of 15 on the 2026 corpus); the app's rules date its readings
+    if (ollama && process.env.ALERT_READER_LOCAL === '1') tiers.push({ name: 'local', by: FACTS_MODEL(), paid: false, trustDates: false, call: (msg) => readWithOllama(ollama, msg) });
+    return tiers;
+}
+
+/**
+ * Attach a verified reading to every alert that has one (mutates `alerts`).
+ * → the summary the app shows in its freshness menu: { v, by, read, rules, waiting, error }
+ */
+async function readAlerts(alerts, rinks) {
+    if (!Array.isArray(rinks) || !rinks.length) {
+        try { rinks = JSON.parse(fs.readFileSync(path.join(OUTPUT_DIR, 'rinks.json'), 'utf8')).rinks || []; } catch { rinks = []; }
+    }
+    const rinkBy = Object.fromEntries(rinks.map(r => [String(r.locationid), r]));
+    const rinkOf = (a) => rinkBy[String(a.LocationID)] || null;
+    const keyOf = (a) => { const r = rinkOf(a); return readerKey(a, !!(r && r.pads > 1)); };
+    const tiers = readerTiers();
+    const today = torontoDateStr();
+    const now = Date.now();
+    const stamp = () => new Date().toISOString();
+
+    let cache = { v: READER_VERSION, day: today, calls: 0, backoff: {}, readings: {} };
+    try {
+        const c = JSON.parse(fs.readFileSync(READINGS_FILE, 'utf8'));
+        if (c && c.v === READER_VERSION && c.readings) cache = { ...cache, ...c, backoff: c.backoff || {}, readings: c.readings };
+    } catch { /* first run */ }
+    let dirty = false;
+    if (cache.day !== today) { cache.day = today; cache.calls = 0; dirty = true; }
+
+    const wanted = alerts.filter(readerWants);
+    // longest first: if a cap bites, the notices with the most to misread have been read
+    const order = [...wanted].sort((x, y) => readerClean(y.Comments).length - readerClean(x.Comments).length);
+    const down = new Set();     // tiers out for the rest of this run
+    let runPaid = 0, runLocal = 0, fresh = 0, lastError = null;
+    const done = new Set();
+
+    for (const a of order) {
+        const key = keyOf(a);
+        if (done.has(key)) continue;
+        done.add(key);
+        const had = cache.readings[key];
+        if (had) {
+            if (had.seenDay !== today) { had.seenDay = today; dirty = true; }
+            if (had.read) continue;
+            if (had.fail && ((had.tries || 0) >= 3 || now - Date.parse(had.at) < READER_RETRY_MS)) continue;
+        }
+        const msg = readerUserMessage(a, rinkOf(a));
+        let failWhy = null;
+        for (const t of tiers) {
+            const off = cache.backoff[t.name];
+            if (down.has(t.name) || (off && off.until > now)) continue;
+            if (t.paid && (cache.calls >= READER_DAILY_CAP || runPaid >= READER_RUN_CAP)) continue;
+            if (!t.paid && runLocal >= READER_LOCAL_RUN_CAP) continue;
+            if (t.paid) { cache.calls++; runPaid++; } else runLocal++;
+            dirty = true;
+            try {
+                const { out } = await t.call(msg);
+                if (cache.backoff[t.name]) delete cache.backoff[t.name];
+                const v = verifyReading(a, rinkOf(a), out, { by: t.by, trustDates: t.trustDates });
+                if (v.ok) { cache.readings[key] = { read: v.read, quote: v.quote, at: stamp(), seenDay: today }; fresh++; failWhy = null; break; }
+                failWhy = `${t.name}: ${v.why}`;
+            } catch (e) {
+                const kind = e.kind || 'answer';
+                console.warn(`   🧠 ${t.name} could not read an alert (${kind}: ${readerScrub(e.message)})`);
+                if (kind === 'answer') { failWhy = `${t.name}: ${readerScrub(e.message)}`; continue; }
+                lastError = `${t.name}: ${kind}`;
+                down.add(t.name);
+                // a bad key, an empty balance or a malformed call will not fix itself in ten minutes
+                if (kind === 'auth' || kind === 'billing' || kind === 'request') cache.backoff[t.name] = { until: now + (kind === 'billing' ? 6 : 1) * 3600 * 1000, error: kind, at: stamp() };
+            }
+        }
+        if (failWhy) cache.readings[key] = { fail: failWhy, at: stamp(), tries: ((had && had.tries) || 0) + 1, seenDay: today };
+    }
+
+    // Without a tier of our own (the GitHub cron), borrow what the home server already read.
+    let borrowed = {};
+    const stillWaiting = wanted.filter(a => !cache.readings[keyOf(a)]);
+    if (!tiers.length && stillWaiting.length && READINGS_URL) {
+        try {
+            const remote = await fetchJSON(READINGS_URL);
+            if (remote && remote.v === READER_VERSION && remote.readings) borrowed = remote.readings;
+        } catch (e) { console.warn(`   🧠 no published readings to borrow (${e.message})`); }
+    }
+
+    // forget readings of alerts long gone from the feed
+    const keepFrom = ymdAdd(today, -READER_KEEP_DAYS);
+    for (const [k, e] of Object.entries(cache.readings)) {
+        if ((e.seenDay || String(e.at || '').slice(0, 10)) < keepFrom) { delete cache.readings[k]; dirty = true; }
+    }
+
+    const stats = { read: 0, rules: 0, waiting: 0 };
+    const by = new Set();
+    for (const a of alerts) {
+        delete a.Read;
+        if (!readerWants(a)) { stats.rules++; continue; }
+        const key = keyOf(a);
+        const own = cache.readings[key];
+        let read = own && own.read;
+        if (!read && borrowed[key] && borrowed[key].read) {
+            // same checks as a fresh answer: a borrowed reading must still quote this alert
+            const b = borrowed[key];
+            const again = verifyReading(a, rinkOf(a), { ...b.read, evidence: b.quote, time_from: b.read.timeFrom, time_to: b.read.timeTo }, { by: b.read.by, trustDates: b.read.dates !== 'rules' });
+            if (again.ok) read = again.read;
+        }
+        if (read) { a.Read = read; stats.read++; by.add(read.by); }
+        else if ((own && own.fail) || !tiers.length) stats.rules++;   // no tier here will ever read it: the word rules have it
+        else stats.waiting++;
+    }
+
+    if (dirty && tiers.length) {
+        try { fs.writeFileSync(READINGS_FILE, JSON.stringify(cache)); }
+        catch (e) { console.warn(`   🧠 could not save the readings cache: ${e.message}`); }
+    }
+    const held = Object.entries(cache.backoff).filter(([, b]) => b.until > now).map(([n, b]) => `${n}: ${b.error}`)[0] || null;
+    const summary = {
+        v: READER_VERSION,
+        by: [...by].sort().join(', ') || (tiers[0] ? tiers[0].by : 'word rules'),
+        read: stats.read, rules: stats.rules, waiting: stats.waiting,
+        error: lastError || held
+    };
+    console.log(`   🧠 alert reader: ${stats.read} read${fresh ? ` (${fresh} new)` : ''}, ${stats.rules} left to the word rules, ${stats.waiting} waiting`
+        + `${tiers.length ? ` · ${tiers.map(t => t.name).join(' → ')} · ${cache.calls}/${READER_DAILY_CAP} paid calls today` : ' · no reader tier here'}${summary.error ? ` · ${summary.error}` : ''}`);
+    return summary;
+}
+
+/** `--reader-selftest`: one made-up alert through every configured tier, so a new key can be checked in one command. */
+async function readerSelfTest() {
+    const rink = { name: 'Example Arena', pads: 2, kinds: ['indoor'] };
+    const a = { LocationID: 0, AssetName: 'Example Arena - Indoor Ice Rink', Type: 'Indoor Ice Rink', Status: 2, Reason: 'Maintenance/Repairs',
+        Comments: 'Rink 2 is closed for board repairs and will reopen on Friday November 13, 2026. Rink 1 is open as usual.', PostedDate: '2026-11-10 09:00:00' };
+    const tiers = readerTiers();
+    if (!tiers.length) { console.log('🧠 no reader tier is configured (no key): the app\'s word rules read every alert'); return true; }
+    let allOk = true;
+    for (const t of tiers) {
+        const t0 = Date.now();
+        try {
+            const { out, usage } = await t.call(readerUserMessage(a, rink));
+            const v = verifyReading(a, rink, out, { by: t.by, trustDates: t.trustDates });
+            const right = v.ok && v.read.skating === 'one_pad_off' && (!t.trustDates || v.read.ends === '2026-11-12');
+            if (!right) allOk = false;
+            console.log(`🧠 ${t.name.padEnd(10)} ${t.by.padEnd(40)} ${right ? 'OK  ' : 'WRONG'} ${Date.now() - t0} ms · ${usage.in ?? '?'} tokens in, ${usage.out ?? '?'} out`
+                + (right ? '' : ` · ${v.ok ? JSON.stringify(v.read) : v.why}`));
+        } catch (e) {
+            allOk = false;
+            console.log(`🧠 ${t.name.padEnd(10)} ${t.by.padEnd(40)} FAILED (${e.kind || 'error'}: ${readerScrub(e.message)})`);
+        }
+    }
+    return allOk;
+}
+
+async function fetchAlerts(programs = null, rinks = null) {
     console.log('\n🚨 Fetching skate service alerts...');
     const raw = await fetchJSON(ALERTS_URL);
     const all = [];
@@ -1100,12 +1623,19 @@ async function fetchAlerts(programs = null) {
     // Stable order → stable diffs
     all.sort((a, b) => (a.LocationID - b.LocationID) || String(a.AssetID).localeCompare(String(b.AssetID)));
 
+    // What each alert means, read once by a model and verified against its own words (fail-soft)
+    let reader = null;
+    try { reader = await readAlerts(all, rinks); }
+    catch (e) { console.warn(`   ⚠️ alert reader skipped: ${e.message} — the app's word rules decide`); }
+
     const alertsFile = path.join(OUTPUT_DIR, 'alerts.json');
     let previous = null;
     try { previous = JSON.parse(fs.readFileSync(alertsFile, 'utf8')); } catch {}
 
     const now = new Date().toISOString();
-    const changed = !previous || JSON.stringify(previous.alerts) !== JSON.stringify(all);
+    const alertsChanged = !previous || JSON.stringify(previous.alerts) !== JSON.stringify(all);
+    // the reader going down or coming back is worth a rewrite even when no alert moved
+    const changed = alertsChanged || JSON.stringify(previous.reader || null) !== JSON.stringify(reader);
     // Heartbeat: even with no content change, refresh checkedAt every ~2h so
     // clients can tell "feed quiet" apart from "checker dead" and warn people
     // before they travel on stale data. ≤12 commits/day of overhead.
@@ -1114,9 +1644,10 @@ async function fetchAlerts(programs = null) {
 
     if (changed || heartbeatDue) {
         fs.writeFileSync(alertsFile, JSON.stringify({
-            fetchedAt: changed ? now : (previous?.fetchedAt || now),  // last CONTENT change
-            checkedAt: now,                                           // last successful check
+            fetchedAt: alertsChanged ? now : (previous?.fetchedAt || now),  // last CONTENT change
+            checkedAt: now,                                                 // last successful check
             source: 'toronto.ca live parks data',
+            ...(reader ? { reader } : {}),                                  // how the alerts were read (shown in the app's freshness menu)
             alerts: all
         }));
         console.log(changed
@@ -2917,6 +3448,11 @@ async function main() {
             }
             return;
         }
+        if (process.argv.includes('--reader-selftest')) {
+            // one made-up alert through every configured alert-reader tier; writes nothing
+            if (!(await readerSelfTest())) process.exitCode = 1;
+            return;
+        }
         if (process.argv.includes('--facts-only')) {
             let prevRinks = [];
             try { prevRinks = JSON.parse(fs.readFileSync(path.join(OUTPUT_DIR, 'rinks.json'), 'utf8')).rinks || []; } catch {}
@@ -3067,7 +3603,7 @@ async function main() {
         // Step 3d: Service alerts snapshot
         let alertsInfo = { changed: false, count: 0 };
         try {
-            alertsInfo = await fetchAlerts(allPrograms);
+            alertsInfo = await fetchAlerts(allPrograms, rinksOk ? rinks : null);
         } catch (e) {
             console.warn(`   ⚠️ alerts fetch failed: ${e.message} — keeping previous alerts.json`);
         }
@@ -3158,5 +3694,7 @@ async function main() {
 }
 
 if (require.main === module) main();
-module.exports = { llmParseSchedule, parseScheduleText, fetchLiveCheck, EXTERNAL_SOURCES, parseTimeRange, parseSeasonRange, parseDateList, parseWeekdayGridText, parseWeekdayLinesText, favouriteId, writeIcsFiles, dedupePrograms, sessionIdentity, titleCaseIfShouty };
+module.exports = { llmParseSchedule, parseScheduleText, fetchLiveCheck, EXTERNAL_SOURCES, parseTimeRange, parseSeasonRange, parseDateList, parseWeekdayGridText, parseWeekdayLinesText, favouriteId, writeIcsFiles, dedupePrograms, sessionIdentity, titleCaseIfShouty,
+    // alert reader + rink kinds (skate/tests/unit)
+    verifyReading, readAlerts, fetchAlerts, readerKey, readerWants, readerUserMessage, readerCreds, readerTiers, readerErrorKind, readerScrub, READER_SCHEMA, READER_VERSION, inferKinds, inOutdoorLull };
 

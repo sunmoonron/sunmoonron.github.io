@@ -1,6 +1,8 @@
 // Browser smoke suite for /skate (see skate/tests/README.md).
-// Four projects: desktop and phone, each light and dark. The static site is
-// served by the same python server the dev preview uses.
+// Four browser projects: desktop and phone, each light and dark. The static
+// site is served by the same python server the dev preview uses. A fifth
+// project, `unit`, runs skate/tests/unit in plain Node (the alert logic
+// against the City's real alert history) and opens no browser.
 const { defineConfig, devices } = require('@playwright/test');
 
 const phone = { ...devices['Pixel 7'], hasTouch: true, isMobile: true };
@@ -30,9 +32,10 @@ module.exports = defineConfig({
         timeout: 20000
     },
     projects: [
-        { name: 'desktop-light', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 }, theme: 'light' } },
-        { name: 'desktop-dark',  use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 }, theme: 'dark' } },
-        { name: 'phone-light',   use: { ...phone, theme: 'light' } },
-        { name: 'phone-dark',    use: { ...phone, theme: 'dark' } }
+        { name: 'unit', testMatch: /unit\/.*\.spec\.js$/ },
+        { name: 'desktop-light', testIgnore: /unit\//, use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 }, theme: 'light' } },
+        { name: 'desktop-dark',  testIgnore: /unit\//, use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 }, theme: 'dark' } },
+        { name: 'phone-light',   testIgnore: /unit\//, use: { ...phone, theme: 'light' } },
+        { name: 'phone-dark',    testIgnore: /unit\//, use: { ...phone, theme: 'dark' } }
     ]
 });

@@ -1,39 +1,49 @@
 /**
  * SkateAlerts — toronto.ca service alerts, matched to programs.
  *
- * Data: projects/data/alerts.json — a CI snapshot of
- * https://www.toronto.ca/data/parks/live/skate_allupdates.json
- * (toronto.ca sends no CORS headers, so the browser can't hit it live;
- * the refresh-listener workflow re-snapshots it every ~30 min).
+ * Data: projects/data/alerts.json — a pipeline snapshot of
+ * https://www.toronto.ca/data/parks/live/skate_allupdates.json plus each
+ * rink location's own notice feed (toronto.ca sends no CORS headers, so the
+ * browser can't hit it live; the pipeline re-snapshots it every ~10 min).
  *
- * Matching model:
- *  - Alerts are per-ASSET ("X Arena - Indoor Ice Rink", "Y Park - Outdoor
- *    Artificial Ice Rink") and keyed by the same city locationid the
- *    program records carry ('Location ID').
- *  - Only Category 'Skate' alerts count — a pool sauna closure at the
- *    same community centre must not flag a skate program.
- *  - Status 0  → that asset is CLOSED. If the closed asset kinds cover
- *    every rink kind at the location (via rinks.json), programs there are
- *    flagged 'closed' ("likely cancelled"). If only e.g. the outdoor pad
- *    of an indoor+outdoor site is closed, programs get a 'warning' instead
- *    — we can't know which pad a program uses, so we don't cry wolf.
- *  - Status 2  → service alert. Stays a 'warning' unless the comment text
- *    clearly says the rink/ice/skating itself is closed or cancelled AND
- *    any date range mentioned covers the program's date — then 'closed'.
- *    (Classic counter-example from the live feed: "parking lot will be
- *    unavailable" is a warning, not a cancellation.)
- *  - One pad of many (2026-09-15, the Don Montgomery lesson): a building
- *    with several ice pads whose alert names ONE of them ("Rink 1 is
- *    temporarily closed") keeps running its sessions on the other pad.
- *    That is a 'warning' flagged `padOnly`, never a cancellation, no
- *    matter how loud the closure wording is. Only text about the whole
- *    facility ("arena closed", "both rinks", "all ice") or a single-pad
- *    building can still cancel.
+ * How a banner is decided (v3.10):
  *
- * This is deterministic on purpose: a static page can't call an LLM per
- * render, and every flag we show can be traced to a rule + the alert text
- * we display alongside it. The full alert text is always shown so the
- * human makes the final call.
+ *  1. Every alert gets a READING: what it means for skating at that
+ *     location ('off' / 'one_pad_off' / 'reduced' / 'on' / unknown), the
+ *     days it covers, an optional part-of-day window, and whether it is a
+ *     "closed for the season" notice.
+ *       - The pipeline has a model read each alert with real sentences once,
+ *         checks the answer against the alert's own words, and ships it
+ *         inside alerts.json as `Read`. Staff write these by hand, and word
+ *         rules kept misreading them (the washroom notice that named a room
+ *         "Upper Ice Galaxy", "Arenas both are closed", 2026-11-11).
+ *       - When there is no `Read` (no sentences, reader offline, older data
+ *         file), the word rules below produce the same shape. They are the
+ *         floor, never removed.
+ *
+ *  2. One function turns the readings at a location plus the session (date,
+ *     time, the rink's indoor/outdoor kinds and pad count) into the banner:
+ *       closed  — skating is off there on that day, for every kind of ice
+ *                 the location has
+ *       warning — one pad of several, part of the location, reduced hours,
+ *                 or an alert nobody could classify
+ *       note    — good to know, not about this session: a building notice,
+ *                 an alert for other hours, one that ended in the last four
+ *                 days, or last season's closure notice
+ *
+ *  Standing rules:
+ *   - An alert is never dropped for being old. Only its own words end it
+ *     ("re-opening on Sep 28", "today", a dated closure). "Closed until
+ *     further notice" stays in force for months if the City leaves it up.
+ *   - A "closed for the season" notice closes the season it was posted in.
+ *     The City leaves those up all summer and lifts each one when the rink
+ *     reopens, so for a session in a LATER season it only says the rink has
+ *     not reopened yet: a grey note, yellow on the day itself. (Before
+ *     2026-11, the previous March's notices struck through every session of
+ *     the new outdoor season the moment the City published it.)
+ *   - Status 0 on a rink asset is the City's own closed flag; no reading
+ *     talks it down to "skating as usual".
+ *   - The full alert text is always shown so the human makes the final call.
  */
 window.SkateAlerts = (() => {
     'use strict';
@@ -49,6 +59,7 @@ window.SkateAlerts = (() => {
     let byLocation = {};   // locationid(string) → [alert, …]  (skate alerts only)
     let fetchedAt = null;  // when alert CONTENT last changed (CI stamp)
     let checkedAt = null;  // when the CI checker last confirmed the feed (heartbeat)
+    let reader = null;     // how the pipeline read the alerts: { by, read, rules, waiting, error }
     let loaded = false;
     let liveFlags = {};    // key → { s:'missing'|'cancelled', t:title, n?:note }
     let liveExtra = [];    // live-only sessions the export lacks (informational)
@@ -101,6 +112,7 @@ window.SkateAlerts = (() => {
                 index(data.alerts || []);
                 fetchedAt = data.fetchedAt || null;
                 checkedAt = data.checkedAt || data.fetchedAt || null;
+                reader = data.reader || null;
                 lastOkAt = Date.now();
             } catch (e) {
                 console.warn('[SkateAlerts] could not load alerts.json:', e.message);
@@ -159,9 +171,29 @@ window.SkateAlerts = (() => {
 
     function onUpdate(cb) { listeners.push(cb); }
 
-    /* ---------- classification ---------- */
+    /* ---------- small helpers ---------- */
 
-    const CLOSED_STATUS = 0;
+    const isYmd = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
+    const isHm = (s) => /^([01]\d|2[0-3]):[0-5]\d$/.test(s || '');
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const addDays = (ymd, n) => { const [y, m, d] = ymd.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10); };
+    const daysBetween = (a, b) => Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 86400000);
+    const fmtDay = (ymd) => new Date(ymd + 'T12:00:00').toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', ...(ymd.slice(0, 4) !== String(new Date().getFullYear()) ? { year: 'numeric' } : {}) });
+    const minsOf = (hm) => { const m = /^(\d{1,2}):(\d{2})/.exec(hm || ''); return m ? (+m[1]) * 60 + (+m[2]) : null; };
+    /** The day the alert was posted ('YYYY-MM-DD'), or null. */
+    const postedDay = (a) => { const d = String(a.PostedDate || '').slice(0, 10); return isYmd(d) ? d : null; };
+    /** Today in Toronto (the app's clock when it is loaded, the device's otherwise). */
+    const todayKey = () => (window.SkateTime && window.SkateTime.todayKey ? window.SkateTime.todayKey()
+        : new Date().toLocaleDateString('en-CA', { timeZone: 'America/Toronto' }));
+
+    function cleanComment(s) {
+        return String(s || '')
+            .replace(/<br\s*\/?>/gi, ' ')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/&nbsp;/gi, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
 
     /** 'indoor' | 'outdoor' | 'any' from the alert's asset Type/name. */
     function alertKind(a) {
@@ -172,66 +204,238 @@ window.SkateAlerts = (() => {
         return 'any';
     }
 
+    /* ---------- seasons ---------- */
+
+    /** An ice season runs July to June: 2026 is the winter of 2026-27. */
+    const seasonOf = (ymd) => { const y = +ymd.slice(0, 4), m = +ymd.slice(5, 7); return m >= 7 ? y : y - 1; };
+    const SEASON_RE = /for the (?:remainder of the |rest of the )?season|season(?:al)? clos|closed for (?:the )?(?:winter|summer|year)/i;
+    const REST_OF_SEASON_RE = /(?:remainder|rest) of the season/i;
+
     /**
-     * A building notice that closes the ice or the building, AND applies to
-     * this date: dated windows must cover it, and a "today" notice only
-     * counts on the day it was posted (the feed keeps old ones around).
+     * The season a "closed for the season" notice closed.
+     *
+     * Posted while ice is in: that season. Posted in the lull before the
+     * ice comes back, it is the off-season status of the season that already
+     * ended (the City re-stamps these in the fall; a batch was re-posted on
+     * 2026-09-16). The lull runs from July 1 to December 1 for outdoor rinks
+     * (none has opened before the last week of November) and to September 1
+     * for indoor ice. A notice that says "remainder of the season" is about
+     * the season in progress whenever it was posted.
+     *
+     * Calendar months only, so this holds every year without upkeep.
      */
-    function facilityClosesOn(a, programDate) {
-        return facilityCloses(a) && windowAppliesOn(a, programDate);
+    function noticeSeason(a) {
+        const posted = postedDay(a);
+        if (!posted) return null;
+        const s = seasonOf(posted);
+        if (REST_OF_SEASON_RE.test(`${a.Reason || ''} ${a.Comments || ''}`)) return s;
+        const md = posted.slice(5);
+        const lullEnd = alertKind(a) === 'outdoor' ? '12-01' : '09-01';
+        return (md >= '07-01' && md < lullEnd) ? s - 1 : s;
+    }
+    /** Is this session in a later season than the one the notice closed? */
+    function laterSeason(a, programDate) {
+        const s = noticeSeason(a);
+        return s != null && isYmd(programDate) && seasonOf(programDate) > s;
+    }
+    /** No outdoor rink in Toronto has ice between mid-April and mid-November. */
+    const inOutdoorLull = (ymd) => { const md = ymd.slice(5); return md >= '04-15' && md <= '11-14'; };
+
+    /* ---------- reading an alert with word rules (the floor) ---------- */
+
+    const MONTH_NUM = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+    // "(?!\d)" after the day: "November 2025" is a month and a year, not November 20.
+    const DATE_SRC = '\\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\.?\\s+(\\d{1,2})(?!\\d)(?:st|nd|rd|th)?(?:\\s*,?\\s*(\\d{4})(?!\\d))?';
+    const WEEKDAY_SRC = '(?:(?:mon|tues|wednes|thurs|fri|satur|sun)day,?\\s+)?';
+    const REOPEN_BEFORE_RE = new RegExp('(?:re-?open\\w*|open(?:s|ing)? again|back open|resum\\w*|delayed opening|(?:will|to) open|opens|opening (?:day|date))\\b[^.;]*$', 'i');
+    const STAYS_OPEN_RE = /(?:remain\w*|stay\w*) open\b[^.;]*$|open until\s*$/i;
+    const UNTIL_BEFORE_RE = new RegExp('(?:until|till|through|thru|up to)\\s+(?:and including\\s+)?(?:the\\s+)?' + WEEKDAY_SRC + '$', 'i');
+
+    /**
+     * The days an alert's own words cover, relative to the day it was posted:
+     * { starts, ends } as 'YYYY-MM-DD' or null. `ends` null = no end stated.
+     *   "from Monday, June 8 ... to June 15, 2026", "until July 20",
+     *   "for the week of Monday, June 8", "closed November 4",
+     *   "anticipate re-opening on Monday, September 28" (ends the day before),
+     *   "delayed opening of Friday October 16" (same),
+     *   "cancelled today", "re-opening tomorrow morning".
+     */
+    function datesIn(text, posted) {
+        const t = String(text || '');
+        const refYear = posted ? +posted.slice(0, 4) : new Date().getFullYear();
+        const re = new RegExp(DATE_SRC, 'gi');
+        const found = [];
+        let m;
+        while ((m = re.exec(t))) {
+            const mo = MONTH_NUM[m[1].slice(0, 3).toLowerCase()], d = +m[2];
+            if (!mo || d < 1 || d > 31) continue;
+            let y = m[3] ? +m[3] : refYear;
+            let key = `${y}-${pad2(mo)}-${pad2(d)}`;
+            // no year given and it lands months before the posting: it means next year ("closed until January 3", posted in December)
+            if (!m[3] && posted && daysBetween(key, posted) > 90) key = `${++y}-${pad2(mo)}-${pad2(d)}`;
+            let before = t.slice(Math.max(0, m.index - 70), m.index);
+            before = before.slice(before.lastIndexOf('. ') + 1);   // stay inside the sentence
+            const role = REOPEN_BEFORE_RE.test(before) && !STAYS_OPEN_RE.test(before) ? 'reopen'
+                : UNTIL_BEFORE_RE.test(before) ? 'until' : 'day';
+            found.push({ key, role });
+        }
+        let starts = null, ends = null;
+        if (found.length) {
+            const reopen = found.filter(f => f.role === 'reopen').map(f => f.key).sort()[0];
+            const until = found.filter(f => f.role === 'until').map(f => f.key).sort().pop();
+            const days = found.filter(f => f.role === 'day').map(f => f.key).sort();
+            if (reopen) {
+                ends = addDays(reopen, -1);
+                starts = days.filter(k => k < reopen)[0] || null;
+            } else if (until) {
+                ends = until;
+                starts = days.filter(k => k <= until)[0] || null;
+            } else if (/week of/i.test(t)) {
+                starts = days[0]; ends = addDays(days[0], 6);
+            } else {
+                starts = days[0]; ends = days[days.length - 1];
+            }
+            if (starts && ends && ends < starts) starts = null;
+            return { starts, ends };
+        }
+        if (!posted) return { starts: null, ends: null };
+        const low = t.toLowerCase();
+        if (/\b(?:re-?open\w*|resum\w*|open again|back open)\b[^.;]*\btomorrow\b/.test(low)) return { starts: null, ends: posted };
+        if (/\btoday\b|\btonight\b|\bthis (?:morning|afternoon|evening)\b/.test(low)) return { starts: posted, ends: posted };
+        if (/\btomorrow\b/.test(low)) return { starts: addDays(posted, 1), ends: addDays(posted, 1) };
+        return { starts: null, ends: null };
+    }
+
+    /** Legacy shape for callers and tests: [{from, to}] windows found in the text. */
+    function dateWindows(text, ref) {
+        const posted = isYmd(ref) ? ref : `${ref || new Date().getFullYear()}-01-01`;
+        const d = datesIn(text, posted);
+        const dated = new RegExp(DATE_SRC, 'i').test(String(text || ''));
+        return dated && (d.starts || d.ends) ? [{ from: d.starts, to: d.ends }] : [];
+    }
+
+    // A sentence that takes something away: closed, cancelled, out of service, not open yet.
+    const CLOSE_RE = /\b(?:closed|closures?|cancel+ed|cancel+ations?|unavailable|not available|out of service|out of order|not operational|not working|no ice|will not open|not yet open|delayed opening|opening (?:is|has been|will be) delayed|shut ?down)\b/i;
+    const NOT_CLOSED_RE = /\bnot (?:be |been |expected to be |currently |yet )?(?:closed|cancel+ed)\b|\bno (?:closures?|cancel+ations?)\b/i;
+    // The ice itself. A bare "ice" is not enough: rooms get names like "Upper Ice Galaxy".
+    // "Arena" counts unless it is only naming where an amenity is ("Habitant Arena parking lot").
+    const ICE_RE = /\b(?:rinks?|ice (?:pads?|surfaces?|rinks?|plant)|the ice|skat\w*|shinny|hockey|zamboni)\b|\barenas?\b(?!\s+(?:parking|lobby|washrooms?|change|locker|elevator|lot|viewing)\b)/i;
+    const AMENITY_RE = /\b(?:parking|washrooms?|restrooms?|bathrooms?|change ?rooms?|locker ?rooms?|showers?|saunas?|lobby|elevators?|lift|pools?|gym(?:nasium)?|fitness|weight room|viewing|heaters?|hot water|concessions?|snack bar|vending|table tennis|pickleball|fields?|courts?|track|playground|splash pad|library|daycare|camps?|wi-?fi)\b/i;
+    const REDUCED_RE = /\b(?:reduc(?:ed|tion)|limited|modified|shortened|fewer)\b[^.]*\b(?:hours?|schedules?|programming|programs?|sessions?|skat\w*)\b|\b(?:hours?|schedules?|programming|sessions?)\b[^.]*\b(?:reduc(?:ed|tion)|limited|modified|shortened)\b|\bclos(?:e|es|ing) early\b|\bearly clos/i;
+
+    /**
+     * Does the sentence single out ONE pad of a multi-pad building?
+     * "Rink 1", "Pad B", "the north rink", "rink #2" → that pad only.
+     * "both rinks", "all ice", "the arena/facility/building is closed" → no.
+     */
+    const PAD_RE = /\b(?:rink|pad|ice\s*pad|ice\s*surface|arena)\s*(?:#\s*)?(?:[0-9]{1,2}|[a-d]|one|two|three|north|south|east|west|main|upper|lower|small|big|large|olympic|nhl)\b|\b(?:north|south|east|west|main|upper|lower|small|big|large|olympic|nhl)\s+(?:rink|pad|ice)\b/i;
+    const WHOLE_RE = /\b(?:both|all)\s+(?:rinks|pads|ice)|\b(?:rinks|pads|arenas)\s+(?:both|all)\b|\b(?:arena|facility|building|centre|center|complex)\s+(?:is|will be|remains)?\s*(?:closed|closing)|\bentire\b|\bwhole\b|\bno ice\b/i;
+
+    /** Split staff prose into sentences ("St." and "a.m." do not end one). */
+    function sentences(text) {
+        const out = [];
+        const re = /[.!?]+(?=\s+[A-Z(]|\s*$)/g;
+        let start = 0, m;
+        while ((m = re.exec(text))) {
+            const end = m.index + m[0].length;
+            const piece = text.slice(start, end);
+            if (/\b(?:st|dr|ave|rd|blvd|mr|mrs|ms|no|approx|a\.m|p\.m)\.$/i.test(piece)) continue;
+            out.push(piece.trim());
+            start = end;
+        }
+        const tail = text.slice(start).trim();
+        if (tail) out.push(tail);
+        return out.filter(Boolean);
     }
 
     /**
-     * Does the alert's own wording cover this date? Explicit windows win
-     * ("until July 20", "re-opening on Monday, September 28"), then
-     * "today" (the posting day only), else it applies.
+     * What the words say, sentence by sentence. A closure counts for the ice
+     * unless the sentence is plainly about an amenity; one that names a single
+     * pad of several stays a pad closure; "hours are reduced" is not a closure.
+     * `skating` is null when the rules cannot tell (shown as a plain alert).
      */
-    function windowAppliesOn(a, programDate) {
-        const year = +(programDate.slice(0, 4) || new Date().getFullYear());
-        const wins = dateWindows(a.Comments, year);
-        if (wins.length) return !!programDate && wins.some(w => (!w.from || programDate >= w.from) && (!w.to || programDate <= w.to));
-        if (/\btoday\b|\btonight\b|\bthis (morning|afternoon|evening)\b/i.test(a.Comments || '')) {
-            const posted = String(a.PostedDate || '').slice(0, 10);
-            return !!posted && posted === programDate;
+    function ruleReading(a, pads) {
+        const comments = cleanComment(a.Comments);
+        const reason = String(a.Reason || '');
+        // Status 0 on an asset is the City's own closed flag. A building notice
+        // (Scope 'facility') carries the same field loosely, so its words decide.
+        const cityClosed = a.Scope !== 'facility' && String(a.Status) === '0';
+        let whole = false, pad = false, reduced = false, amenity = false;
+        for (const s of sentences(comments)) {
+            if (REDUCED_RE.test(s)) reduced = true;
+            if (!CLOSE_RE.test(s) || NOT_CLOSED_RE.test(s)) continue;
+            if (AMENITY_RE.test(s) && !ICE_RE.test(s)) { amenity = true; continue; }
+            if (pads > 1 && PAD_RE.test(s) && !WHOLE_RE.test(s)) pad = true; else whole = true;
         }
-        return true;
+        const skating = whole ? 'off' : pad ? 'one_pad_off' : cityClosed ? 'off' : reduced ? 'reduced' : amenity ? 'on' : null;
+        const d = datesIn(comments, postedDay(a));
+        return {
+            skating, about: skating === 'on' ? 'amenity' : 'ice',
+            starts: d.starts, ends: d.ends, timeFrom: null, timeTo: null,
+            seasonal: SEASON_RE.test(`${reason} ${comments}`),
+            by: 'rules'
+        };
     }
 
-    /**
-     * The last day the alert's own wording covers ('YYYY-MM-DD'), or null
-     * when it names no end. Only the text decides this, never the alert's
-     * age: "closed for repairs until further notice" stays in force for
-     * months if the City leaves it up; a reopening date ends it the day
-     * before; "today" means the day it was posted; one dated closure is
-     * that day.
-     */
-    function alertEndsOn(a, programDate) {
-        const year = +(programDate.slice(0, 4) || new Date().getFullYear());
-        const wins = dateWindows(a.Comments, year);
-        if (wins.length) {
-            if (wins.some(w => !w.to)) return null;
-            return wins.map(w => w.to).sort().pop();
-        }
-        if (/\btoday\b|\btonight\b|\bthis (morning|afternoon|evening)\b/i.test(a.Comments || '')) {
-            return String(a.PostedDate || '').slice(0, 10) || null;
-        }
-        return null;
+    /* ---------- the pipeline's reading ---------- */
+
+    const READ_VERSION = 1;   // the pipeline's READER_VERSION; another version is ignored, not guessed at
+    const SKATING = ['off', 'one_pad_off', 'reduced', 'on'];
+
+    function modelReading(a) {
+        const r = a && a.Read;
+        if (!r || r.v !== READ_VERSION || !SKATING.includes(r.skating)) return null;
+        return {
+            skating: r.skating, about: r.about || 'other',
+            starts: isYmd(r.starts) ? r.starts : null, ends: isYmd(r.ends) ? r.ends : null,
+            timeFrom: isHm(r.timeFrom) ? r.timeFrom : null, timeTo: isHm(r.timeTo) ? r.timeTo : null,
+            seasonal: !!r.seasonal, by: r.by || 'model', ruleDates: r.dates === 'rules'
+        };
     }
-    const daysBetween = (a, b) => Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 86400000);
-    const fmtDay = (ymd) => new Date(ymd + 'T12:00:00').toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', ...(ymd.slice(0, 4) !== String(new Date().getFullYear()) ? { year: 'numeric' } : {}) });
+
+    const memo = new WeakMap();
+    /** The reading used for an alert: the pipeline's when it shipped one, the word rules otherwise. */
+    function readingFor(a, pads) {
+        let per = memo.get(a);
+        if (!per) memo.set(a, per = {});
+        const k = pads > 1 ? 'multi' : 'single';
+        if (per[k]) return per[k];
+        const rule = ruleReading(a, pads);
+        const model = modelReading(a);
+        let R = rule;
+        if (model) {
+            R = model;
+            if (R.ruleDates) { R.starts = rule.starts; R.ends = rule.ends; }   // a reader whose dates are not trusted
+            if (R.skating === 'one_pad_off' && !(pads > 1)) R.skating = 'off'; // one pad of one is the rink
+            // the City's own closed flag on a rink asset is never talked down to "skating as usual"
+            if (R.skating === 'on' && a.Scope !== 'facility' && String(a.Status) === '0') R = rule;
+        }
+        return (per[k] = R);
+    }
+
+    /* ---------- one alert against one session ---------- */
 
     /**
-     * A facility-wide notice (Scope 'facility', from the location's own
-     * feed) only cancels skating when its text closes the building or the
-     * ice: "the centre is closed", "rink closed for repairs". A parking or
-     * program notice on the same feed must not.
+     * Where the session falls against the alert's own window:
+     * 'before' it starts, 'active', 'outside' its hours on a covered day,
+     * or 'ended' (with the last day it covered).
      */
-    function facilityCloses(a) {
-        const txt = `${a.Reason || ''} ${a.Comments || ''}`.toLowerCase();
-        const closedWord = /(closed|closure|cancel+ed|unavailable|out of service|no ice)/.test(txt);
-        const target = /(rink|ice pad|\bice\b|skat|centre|center|facility|building|arena)/.test(txt);
-        const amenityOnly = /(parking|washroom|change\s*room|changeroom|sauna|lobby|elevator|locker|pool|gym|fitness)/.test(txt) && !/(rink|ice pad|skat|centre is|center is|facility is|building is)/.test(txt);
-        return closedWord && target && !amenityOnly;
+    function phaseOf(R, a, programDate, p) {
+        if (!isYmd(programDate)) return { phase: 'active' };
+        const start = R.starts || postedDay(a);
+        if (start && programDate < start) return { phase: 'before' };
+        if (R.ends && programDate > R.ends) return { phase: 'ended', ended: R.ends };
+        // "closed until 2 pm today", "the 11:30 to 1:30 skate is cancelled": only that part of a single day
+        if ((R.timeFrom || R.timeTo) && R.ends && (R.starts || start) === R.ends) {
+            const ps = minsOf(p['Start Time']);
+            if (ps != null) {
+                const pe = minsOf(p['End Time']);
+                const end = pe != null && pe > ps ? pe : ps + 1;
+                const from = R.timeFrom ? minsOf(R.timeFrom) : 0, to = R.timeTo ? minsOf(R.timeTo) : 1440;
+                if (end <= from || ps >= to) return { phase: 'outside' };
+            }
+        }
+        return { phase: 'active' };
     }
 
     /**
@@ -250,92 +454,25 @@ window.SkateAlerts = (() => {
         return locationKinds.every(k => closedKinds.includes(k));
     }
 
-    const MONTHS = { january: 0, february: 1, march: 2, april: 3, may: 4, june: 5, july: 6, august: 7, september: 8, october: 9, november: 10, december: 11 };
-
-    /**
-     * Pull explicit date windows out of comment text:
-     *   "from Monday, June 8 ... to June 15, 2026", "until July 20",
-     *   "for the week of Monday, June 8, 2026", "June 8 - June 15".
-     * Returns [{from:'YYYY-MM-DD'|null, to:'YYYY-MM-DD'|null}, …] (best effort).
-     */
-    function dateWindows(text, refYear) {
-        const wins = [];
-        const t = String(text || '');
-        const monthRe = '(January|February|March|April|May|June|July|August|September|October|November|December)';
-        const dRe = new RegExp(`${monthRe}\\s+(\\d{1,2})(?:,?\\s*(\\d{4}))?`, 'gi');
-        const found = [];
-        let m;
-        while ((m = dRe.exec(t))) {
-            const y = m[3] ? +m[3] : refYear;
-            const key = `${y}-${String(MONTHS[m[1].toLowerCase()] + 1).padStart(2, '0')}-${String(+m[2]).padStart(2, '0')}`;
-            found.push({ key, index: m.index });
-        }
-        if (!found.length) return wins;
-
-        // "re-opening on Monday, September 28, 2026" / "will reopen July 3" / "back open June 1":
-        // the closure ends the day before; an earlier "from/starting <date>" opens it.
-        const reopenIdx = found.findIndex(f => /(?:re-?open(?:s|ing|ed)?|back open|open again|resum(?:e|es|ing))\s+(?:on\s+|by\s+|from\s+)?(?:(?:mon|tues|wednes|thurs|fri|satur|sun)day,?\s+)?$/i.test(t.slice(Math.max(0, f.index - 40), f.index)));
-        if (reopenIdx > -1) {
-            const r = found[reopenIdx].key;
-            const [y, mo, d] = r.split('-').map(Number);
-            const to = new Date(Date.UTC(y, mo - 1, d - 1)).toISOString().slice(0, 10);
-            const startIdx = found.findIndex((f, i) => i !== reopenIdx && /(?:from|starting|beginning|effective|as of)\s+(?:(?:mon|tues|wednes|thurs|fri|satur|sun)day,?\s+)?$/i.test(t.slice(Math.max(0, f.index - 30), f.index)));
-            wins.push({ from: startIdx > -1 ? found[startIdx].key : null, to, reopens: r });
-            return wins;
-        }
-        if (/week of/i.test(t) && found.length >= 1) {
-            // "week of <date>" → 7-day window
-            const from = found[0].key;
-            const [y, mo, d] = from.split('-').map(Number);
-            const to = new Date(Date.UTC(y, mo - 1, d + 6)).toISOString().slice(0, 10);
-            wins.push({ from, to });
-        }
-        if (found.length >= 2) {
-            wins.push({ from: found[0].key, to: found[found.length - 1].key });
-        } else if (/until|through|up to/i.test(t)) {
-            wins.push({ from: null, to: found[0].key });
-        } else if (wins.length === 0) {
-            wins.push({ from: found[0].key, to: found[0].key });
-        }
-        return wins;
+    /** The kinds of ice a session on this date can be on: outdoor pads have none from mid-April to mid-November. */
+    function kindsOn(locationKinds, programDate) {
+        if (!locationKinds || locationKinds.length < 2 || !isYmd(programDate) || !inOutdoorLull(programDate)) return locationKinds;
+        const indoor = locationKinds.filter(k => k !== 'outdoor');
+        return indoor.length ? indoor : locationKinds;
     }
 
-    /** Status-2 alert whose text really says the ice/rink/skating is off? */
-    function textSaysRinkClosed(a) {
-        const txt = `${a.Reason || ''} ${a.Comments || ''}`.toLowerCase();
-        const closedWord = /(closed|closure|cancel+ed|cancel+ation|unavailable|out of service|no ice)/.test(txt);
-        const rinkWord = /(rink|ice pad|\bice\b|skat)/.test(txt);
-        // Exclude the "amenity, not the ice" pattern: parking, washroom, changeroom, sauna, lobby…
-        const amenityOnly = /(parking|washroom|change\s*room|changeroom|sauna|lobby|elevator|locker)/.test(txt)
-            && !/(rink|ice pad|skat)/.test(txt);
-        return closedWord && rinkWord && !amenityOnly;
-    }
-
-    /**
-     * Does the alert text single out ONE pad of a multi-pad building?
-     * "Rink 1", "Pad B", "the north rink", "rink #2" → that pad only.
-     * "both rinks", "all ice", "the arena/facility/building is closed" → no.
-     */
-    const PAD_RE = /\b(?:rink|pad|ice\s*pad|ice\s*surface|arena)\s*(?:#\s*)?(?:[0-9]{1,2}|[a-d]|one|two|three|north|south|east|west|main|upper|lower|small|big|large|olympic|nhl)\b|\b(?:north|south|east|west|main|upper|lower|small|big|large|olympic|nhl)\s+(?:rink|pad|ice)\b/i;
-    const WHOLE_RE = /\b(?:both|all)\s+(?:rinks|pads|ice)|\b(?:arena|facility|building|centre|center|complex)\s+(?:is|will be|remains)?\s*(?:closed|closing)|\bentire\b|\bwhole\b|\bno ice\b/i;
-    function namesOnePad(text, pads) {
-        if (!(pads > 1)) return false;
-        const t = String(text || '');
-        return PAD_RE.test(t) && !WHOLE_RE.test(t);
-    }
-
-    function cleanComment(s) {
-        return String(s || '')
-            .replace(/<br\s*\/?>/gi, ' ')
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-    }
+    const lineFor = (a) => {
+        const what = cleanComment(a.Comments) || a.Reason || '';
+        // Lead with the asset name so "outdoor pad closed" can't read as
+        // "this indoor session is closed" — the reader sees which pad.
+        return a.AssetName ? `${a.AssetName}: ${what}` : what;
+    };
 
     /**
      * Alert verdict for one program.
-     * → null (no skate alerts at its location) or
-     *   { level: 'closed'|'warning', reason, text, postedDate, alerts:[…] }
+     * → null (nothing to say) or
+     *   { level: 'closed'|'warning'|'note', kind, lead, reason, text, padOnly, postedDate, alerts:[…] }
+     * `lead` is the bold opening of the banner; `kind` names the rule that fired.
      */
     function forProgram(p) {
         const locId = p['Location ID'] != null ? String(p['Location ID']) : null;
@@ -349,6 +486,7 @@ window.SkateAlerts = (() => {
             const missing = live.status === 'missing';
             return {
                 level: 'closed',
+                kind: 'live',
                 live,
                 reason: missing ? 'Not on the City\'s live schedule' : 'Cancelled by the City',
                 text: missing
@@ -364,76 +502,106 @@ window.SkateAlerts = (() => {
         const locationKinds = rink ? rink.kinds : null;
         const pads = rink && Number.isFinite(rink.pads) ? rink.pads : 1;
         const programDate = (p['Start Date Time'] || p['Start Date'] || '').slice(0, 10);
+        const kindsHere = kindsOn(locationKinds, programDate);
 
-        // v3.9: an alert that names its own end is over after that day. For four
-        // days after, it is a grey heads-up ("there was an alert, worth a call");
-        // later it says nothing about this session. Alerts with no end stay.
-        const active = [], expired = [];
+        const off = [], padOff = [], reduced = [], unknown = [], season = [], building = [], otherHours = [], ended = [];
         alerts.forEach(a => {
-            const end = programDate ? alertEndsOn(a, programDate) : null;
-            (end && end < programDate ? expired : active).push({ a, end });
-        });
-        if (!active.length) {
-            const recent = expired.filter(x => daysBetween(x.end, programDate) <= 4).sort((x, y) => y.end.localeCompare(x.end))[0];
-            if (!recent) return null;
-            const a = recent.a;
-            const posted = String(a.PostedDate || '').slice(0, 10);
-            return {
-                level: 'note',
-                ended: recent.end,
-                reason: a.Reason || 'Service alert',
-                text: `A rink alert${posted ? ` posted ${fmtDay(posted)}` : ''} was for ${fmtDay(recent.end)}, before this session: “${cleanComment(a.Comments) || a.Reason || ''}” Worth a quick call to the rink before you go.`,
-                postedDate: a.PostedDate || '',
-                alerts: [a]
-            };
-        }
-        const alertsNow = active.map(x => x.a);
-
-        let level = 'warning';
-        let padOnly = false;
-        // a closed-status alert that names its end ("re-opening on Sep 28") does not cancel sessions after it
-        const closedKinds = alertsNow.filter(a => a.Scope === 'facility' ? facilityClosesOn(a, programDate) : (a.Status === CLOSED_STATUS && windowAppliesOn(a, programDate))).map(alertKind);
-        const padAlerts = alertsNow.filter(a => namesOnePad(`${a.Reason || ''} ${cleanComment(a.Comments)}`, pads));
-        if (padAlerts.length && padAlerts.length === alertsNow.length) {
-            // every alert here is about one pad of several: the other pad keeps skating
-            padOnly = true;
-        } else if (closedKinds.length && coversLocation(closedKinds, locationKinds)) {
-            level = 'closed';
-        } else {
-            // Status-2 escalation: text says rink closed + date window covers program
-            for (const a of alertsNow) {
-                if (a.Status === CLOSED_STATUS || !textSaysRinkClosed(a)) continue;
-                const wins = dateWindows(a.Comments, +(programDate.slice(0, 4) || new Date().getFullYear()));
-                if (!wins.length) { level = 'closed'; break; } // no dates given → assume it applies now
-                if (programDate && wins.some(w => (!w.from || programDate >= w.from) && (!w.to || programDate <= w.to))) {
-                    level = 'closed';
-                    break;
-                }
+            const R = readingFor(a, pads);
+            const ph = phaseOf(R, a, programDate, p);
+            if (ph.phase === 'before') return;                       // not in force yet on that day
+            if (ph.phase === 'ended') {                              // over by its own words
+                if (R.skating !== 'on') ended.push({ a, end: ph.ended });
+                return;
             }
-        }
+            if (ph.phase === 'outside') { otherHours.push(a); return; }
+            if (R.skating === 'off' && R.seasonal && laterSeason(a, programDate)) season.push(a);
+            else if (R.skating === 'off') off.push(a);
+            else if (R.skating === 'one_pad_off') padOff.push(a);
+            else if (R.skating === 'reduced') reduced.push(a);
+            else if (R.skating === 'on') building.push(a);
+            else unknown.push(a);
+        });
 
-        const first = alertsNow[0];
-        // Lead with the asset name so "outdoor pad closed" can't read as
-        // "this indoor session is closed" — the reader sees which pad.
-        const text = alertsNow.map(a => {
-            const what = cleanComment(a.Comments) || a.Reason || '';
-            return a.AssetName ? `${a.AssetName}: ${what}` : what;
-        }).filter(Boolean).join(' • ');
-        return {
-            level,
-            padOnly,
-            reason: first.Reason || 'Service alert',
-            text,
-            postedDate: first.PostedDate || '',
-            alerts
-        };
+        const make = (level, kind, lead, list, extra = {}) => ({
+            level, kind, lead, padOnly: false,
+            reason: list[0].Reason || 'Service alert',
+            text: list.map(lineFor).filter(Boolean).join(' • '),
+            postedDate: list[0].PostedDate || '',
+            alerts,
+            ...extra
+        });
+        const serious = [...off, ...padOff, ...reduced, ...unknown];
+
+        if (off.length) {
+            const closedKinds = off.map(alertKind);
+            if (coversLocation(closedKinds, kindsHere)) return make('closed', 'closed', 'Likely cancelled, rink alert', serious);
+            // one kind of ice is closed at a place that has another (or that we know too little about)
+            const which = closedKinds.includes('outdoor') ? 'outdoor' : 'indoor';
+            const other = which === 'outdoor' ? 'indoor' : 'outdoor';
+            const lead = kindsHere && kindsHere.includes(other)
+                ? `The ${which} rink here is closed. Sessions on the ${other} ice are not affected`
+                : 'Service alert at this rink';
+            return make('warning', 'part', lead, serious);
+        }
+        if (padOff.length) return make('warning', 'pad', 'One pad is closed here. This session likely runs on the other pad', serious, { padOnly: true });
+        if (reduced.length) return make('warning', 'reduced', 'Hours are reduced or some sessions are cancelled here', serious);
+        if (unknown.length) return make('warning', 'alert', 'Service alert at this rink', serious);
+
+        if (season.length) {
+            // Last season's "closed for the season" notice: the rink has not been marked open again.
+            const a = season[0];
+            const posted = postedDay(a);
+            const when = posted ? ` on ${fmtDay(posted)}` : '';
+            const covers = coversLocation(season.map(alertKind), kindsHere);
+            if (covers && isYmd(programDate) && programDate <= todayKey()) {
+                return make('warning', 'season-today', 'Still marked closed for the season', season, {
+                    reason: '',
+                    text: `The City posted that notice${when} and has not lifted it. If the rink has not reopened yet, this session will not run.`
+                });
+            }
+            return make('note', 'season', 'Still marked closed for the season', season, {
+                reason: '',
+                text: covers
+                    ? `The City posted that notice${when}, before this season, and lifts it when the rink reopens. Opening day can move with the weather.`
+                    : `That notice${when} is for ${season.map(x => x.AssetName).filter(Boolean).join(', ') || 'another rink here'}, from before this season.`
+            });
+        }
+        if (otherHours.length) {
+            return make('note', 'other-hours', 'Heads-up', otherHours, {
+                text: `An alert here covers other hours that day: “${otherHours.map(a => cleanComment(a.Comments) || a.Reason || '').join(' • ')}”`
+            });
+        }
+        if (building.length) return make('note', 'building', 'Building notice, skating not affected', building, { reason: '' });
+
+        // v3.9: an alert that named its own end is over after that day. For four
+        // days after, it is a grey heads-up ("there was an alert, worth a call");
+        // later it says nothing about this session.
+        const recent = ended.filter(x => daysBetween(x.end, programDate) <= 4).sort((x, y) => y.end.localeCompare(x.end))[0];
+        if (!recent) return null;
+        const a = recent.a;
+        const posted = postedDay(a);
+        return make('note', 'ended', 'Heads-up', [a], {
+            ended: recent.end,
+            text: `A rink alert${posted ? ` posted ${fmtDay(posted)}` : ''} was for ${fmtDay(recent.end)}, before this session: “${cleanComment(a.Comments) || a.Reason || ''}” Worth a quick call to the rink before you go.`,
+            alerts: [a]
+        });
     }
 
-    /** All skate alerts for a location id (locator modal uses this). */
+    /**
+     * The alerts that matter at a rink today (rink list, map popups): in
+     * force by their own words and about the ice. A building notice or an
+     * alert that has not started yet does not flag the rink.
+     */
     function forLocation(locId) {
-        // the rink list and map popups: only alerts still in force today
-        const today = new Date().toLocaleDateString('en-CA');
-        return (byLocation[String(locId)] || []).filter(a => { const end = alertEndsOn(a, today); return !end || end >= today; });
+        const today = todayKey();
+        const rink = window.SkateGeo ? window.SkateGeo.rinkByLocation(String(locId)) : null;
+        const pads = rink && Number.isFinite(rink.pads) ? rink.pads : 1;
+        return (byLocation[String(locId)] || []).filter(a => {
+            const R = readingFor(a, pads);
+            if (R.skating === 'on') return false;
+            const start = R.starts || postedDay(a);
+            return !(start && today < start) && !(R.ends && today > R.ends);
+        });
     }
 
     return {
@@ -442,13 +610,14 @@ window.SkateAlerts = (() => {
         get loaded() { return loaded; },
         get fetchedAt() { return fetchedAt; },
         get checkedAt() { return checkedAt; },
+        get reader() { return reader; },
         get liveCheckedAt() { return liveCheckedAt; },
         get liveChangedAt() { return liveChangedAt; },
         get liveWindow() { return liveWindow; },
         get liveStats() { return liveStats; },
         get liveExtra() { return liveExtra; },
         // exposed for testing
-        _classifyHelpers: { alertKind, coversLocation, dateWindows, textSaysRinkClosed, namesOnePad, index, isSkateAlert }
+        _classifyHelpers: { alertKind, coversLocation, dateWindows, datesIn, ruleReading, readingFor, noticeSeason, seasonOf, sentences, index, isSkateAlert }
     };
 })();
 

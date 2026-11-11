@@ -49,7 +49,7 @@ window.SkateCalendar2 = (() => {
         if (p.Paid) cls += ' cal-paid';
         if (opts.isSaved(p)) cls += ' cal-saved';
         const a = opts.alertFor(p);
-        if (a) cls += a.level === 'closed' ? ' cal-closed' : ' cal-warning';
+        if (a && a.level !== 'note') cls += a.level === 'closed' ? ' cal-closed' : ' cal-warning';   // a grey note is not an alert on this session
         const st = opts.statusFor(p);
         if (st.phase === 'live') cls += ' cal-live';
         else if (st.phase === 'soon') cls += ' cal-soon';
@@ -68,7 +68,7 @@ window.SkateCalendar2 = (() => {
             if (p.Unverified) states.unverified = true;
             if (opts.isSaved(p)) states.saved = true;
             const a = opts.alertFor(p);
-            if (a) states[a.level === 'closed' ? 'closed' : 'warning'] = true;
+            if (a && a.level !== 'note') states[a.level === 'closed' ? 'closed' : 'warning'] = true;
         });
         return { types: [...types], states };
     }
@@ -77,7 +77,7 @@ window.SkateCalendar2 = (() => {
         const a = opts.alertFor(p);
         return `${p.Activity || 'Skating'} · ${p.LocationName || ''} · ${opts.fmtClock(p['Start Time'] || '')}${p['End Time'] ? '–' + opts.fmtClock(p['End Time']) : ''}`
             + (dur(p) ? ` (${fmtDur(dur(p))})` : '') + (p.Paid ? ' · paid' : '')
-            + (a ? (a.level === 'closed' ? ' · likely cancelled (rink alert)' : ' · service alert at this rink') : '')
+            + (a && a.level !== 'note' ? (a.level === 'closed' ? ' · likely cancelled (rink alert)' : ' · service alert at this rink') : '')
             + (p.Unverified ? ' · unverified schedule' : '');
     };
 
@@ -109,7 +109,7 @@ window.SkateCalendar2 = (() => {
             : st.phase === 'live' ? { cls: ' live', txt: `On now · ${opts.fmtMins(st.minsLeft)} left` }
             : st.phase === 'soon' ? { cls: ' soon', txt: `In ${opts.fmtMins(st.minsToStart)}` }
             : st.phase === 'ended' ? { cls: ' ended', txt: 'Ended' }
-            : alert ? { cls: ' warn', txt: 'Rink alert' } : null;
+            : alert && alert.level !== 'note' ? { cls: ' warn', txt: 'Rink alert' } : null;
         const km = nameIsRink ? opts.distanceFor(p) : null;
         const meta = [
             el('span', { class: 'c2-kind ' + kindCls }, [opts.kindLabel(p)]),
