@@ -34,6 +34,12 @@ window.SkateConfig = {
     // Where "Report a bug or feedback" goes: the personal site / relay key
     // (npub1p07dm5lcx2gn6qq8t7fyduh5tsmz64r823h9j0kgutcas757tg7s096ykw).
     devPubkey: '0bfcddd3f832913d00075f9246f2f45c362d5467546e593ec8e2f1d87a9e5a3d',
+    // Members' entrance (projects/js/gate.js): where the members' app is fetched after a key
+    // has been proved, and the release key that app must be signed with to be run at all.
+    gate: {
+        url: 'wss://skate-data.ronishbhatt.com/hq',
+        key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
+    },
     changelog: [
         {
             v: '3.10.2', date: '2026-11-12', items: [

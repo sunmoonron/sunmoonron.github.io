@@ -48,6 +48,7 @@ npm run test:visual:update
 | `settings.spec.js` | theme, 24-hour time, Chats on/off (code loads on demand, sockets close), privacy toggles, Notify refusal path, backup export and import on a fresh profile |
 | `community.spec.js` | rooms, send → settle, react, unsend, private group + invite + leave, the feedback sheet, the guides tab |
 | `visual.spec.js` | screenshots of the schedule, filters sheet, rinks sheet and settings per project |
+| `gate.spec.js` | the members' entrance (`projects/js/gate.js`) against a stand-in relay and a stand-in app: an ordinary visit never loads it or connects anywhere; a key that is not on the list gets a card and nothing is kept; only a build signed by the pinned release key runs (not one signed by another key, altered, of the wrong kind, or older than one already run); a refused device is wiped |
 | `unit/alerts.spec.js` | the app's alert classifier and the pipeline's alert reader against `unit/alert-corpus.json`: every alert the City's feed carried from July to November 2026, the 35 with real sentences hand-labelled and paired with the answer Claude Haiku 5.5 gave. Word rules alone, readings attached, the season rule for ten years ahead, part-of-day alerts, the reader's verification (verbatim evidence, dates and times backed by the text, no secrets in logs), indoor/outdoor inference |
 
 A misread alert in the wild belongs in `unit/alert-corpus.json`: add it, label

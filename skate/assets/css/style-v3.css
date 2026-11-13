@@ -1694,3 +1694,19 @@ body.dark-mode .map-header-actions .btn-icon { border: none; background: transpa
 .devchat-threads .devchat-empty { padding: 6px 4px; }
 .devchat .modal-header, .devchat-compose, .devchat-preview { flex: 0 0 auto; }
 body.dark-mode .devchat-thread.active { background: color-mix(in srgb, var(--acc-programs) 20%, #141c25); }
+
+
+/* ============================================================
+   v3.11: members' entrance (projects/js/gate.js)
+   ============================================================ */
+.btn-gate { position: relative; }
+.gate-backdrop { position: fixed; inset: 0; z-index: 3900; background: rgba(0, 0, 0, .45); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.gate-card { background: var(--bg-white); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 18px 14px; width: min(420px, 100%); box-shadow: 0 12px 40px rgba(0, 0, 0, .3); }
+.gate-card h2 { margin: 0 0 6px; font-size: 18px; }
+.gate-card p { margin: 0 0 10px; color: var(--text-muted); font-size: 14px; line-height: 1.45; }
+.gate-key { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
+.gate-key code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 7px 8px; user-select: all; }
+.gate-input { width: 100%; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 9px 10px; margin: 0 0 6px; }
+.gate-error { color: var(--alert-red); min-height: 18px; }
+.gate-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.gate-actions button { min-height: 38px; }

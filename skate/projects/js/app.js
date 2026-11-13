@@ -2379,17 +2379,20 @@ window.SkateApp = (() => {
         'projects/js/guides.js?v=6',
         'projects/js/profanity-list.js?v=1'
     ];
-    const loadedScripts = new Set();
+    const loadedScripts = new Map();   // src -> promise: two callers asking at once share one <script>, a failure can be retried
     function loadScript(src) {
-        if (loadedScripts.has(src)) return Promise.resolve();
-        return new Promise((resolve, reject) => {
+        let p = loadedScripts.get(src);
+        if (p) return p;
+        p = new Promise((resolve, reject) => {
             const tag = document.createElement('script');
             tag.src = src;
             tag.async = false;   // dynamic scripts with async=false run in insertion order
-            tag.onload = () => { loadedScripts.add(src); resolve(); };
-            tag.onerror = () => { tag.remove(); reject(new Error(`could not load ${src.split('/').pop().split('?')[0]}`)); };
+            tag.onload = () => resolve();
+            tag.onerror = () => { tag.remove(); loadedScripts.delete(src); reject(new Error(`could not load ${src.split('/').pop().split('?')[0]}`)); };
             document.head.appendChild(tag);
         });
+        loadedScripts.set(src, p);
+        return p;
     }
     const communityLoaded = () => !!(window.NostrTools && window.SkateMod && window.SkateNostr && window.SkateChat && window.SkateGuides && window.SkateDev);   // each module attaches itself to window
     let communityCodePromise = null;
@@ -2415,6 +2418,26 @@ window.SkateApp = (() => {
     }
     /** Just the signing library (the City-refresh doorbell signs a throwaway note). */
     const ensureNostrTools = () => window.NostrTools ? Promise.resolve() : loadScript(COMMUNITY_SCRIPTS[0]);
+
+    /* ---------- Members' entrance (v3.11) ----------
+     * projects/js/gate.js is fetched only for the #hq link, or on a device that
+     * has been let in before. An ordinary visit never downloads it and never
+     * contacts the members' server. */
+    const GATE_SCRIPT = 'projects/js/gate.js?v=1';
+    /** Let in before, with the key now on this device? Reads two localStorage entries, nothing else. */
+    function gateKnown() {
+        try {
+            const id = JSON.parse(localStorage.getItem('skate_identity_v1') || 'null');
+            const st = JSON.parse(localStorage.getItem('skate_gate_v1') || 'null');
+            return !!(id && id.pk && st && st.members && st.members[id.pk]);
+        } catch { return false; }
+    }
+    Actions.openGate = async function (opts) {
+        const quiet = !!(opts && opts.quiet);
+        try { await ensureNostrTools(); await loadScript(GATE_SCRIPT); }
+        catch { if (!quiet) SkateUI.toast('Could not load that part of the site. Try again online.', 'error', 3500); return; }
+        return window.SkateGate.open({ quiet });
+    };
 
     /** Loading / failed / connecting placeholder in the Chats list until the stack is up. */
     Render.chatLoading = function () {
@@ -2837,6 +2860,7 @@ window.SkateApp = (() => {
         const hash = window.location.hash.slice(1);
         if (!hash || hash === lastRoutedHash) return;
         lastRoutedHash = hash;
+        if (hash === 'hq') { Actions.openGate(); return; }
         // an invite link needs the chat code to be parsed (and then joined)
         if (/^(i=|j=)/.test(hash) || /^[0-9a-f]{32,}$/i.test(hash)) {
             try { await loadCommunityCode(); } catch { SkateUI.toast('Could not load the chat code for this invite. Try again online.', 'error', 4000); return; }
@@ -3305,6 +3329,12 @@ window.SkateApp = (() => {
 
         // ---- Settings ----
         $('btn-settings').onclick = Actions.openSettings;
+        // members' entrance: the button exists only on a device that has been let in
+        $('btn-gate').onclick = () => Actions.openGate();
+        if (gateKnown()) {
+            $('btn-gate').classList.remove('hidden');
+            (window.requestIdleCallback || ((fn) => setTimeout(fn, 1500)))(() => Actions.openGate({ quiet: true }));
+        }
         $('btn-settings-close').onclick = () => Modal.close('settings-modal');
         const cal2 = $('set-cal2');
         cal2.checked = cal2Active();

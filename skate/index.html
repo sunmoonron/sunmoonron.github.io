@@ -17,7 +17,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=11">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=4">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=45">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=46">
 </head>
 <body>
     <div class="app" id="app">
@@ -28,6 +28,7 @@
                 <button class="top-toggle top-feedback" id="btn-feedback" title="Report a bug or send feedback to the dev"><span class="top-toggle-icon" aria-hidden="true">💬</span><span class="top-toggle-text"><span>Report bug</span><span>&amp; feedback</span></span><span class="badge hidden" id="feedback-badge">0</span></button>
                 <button class="top-toggle free" id="btn-free" title="Free sessions only. Off = everything, with prices." aria-pressed="false"><span class="top-toggle-dot" aria-hidden="true"></span><span class="top-toggle-text"><span>Free</span><span>only</span></span></button>
                 <button class="btn-icon btn-refresh" id="btn-refresh" title="Refresh the schedule, rink alerts and live spots" aria-label="Refresh">↻</button>
+                <button class="btn-icon btn-gate hidden" id="btn-gate" title="Members" aria-label="Members">🏠<span class="new-dot hidden" id="gate-dot"></span></button>
                 <button class="btn-icon btn-settings" id="btn-settings" title="Settings" aria-label="Settings">⚙️<span class="new-dot hidden" id="settings-dot"></span></button>
             </div>
         </div>
@@ -448,7 +449,7 @@
          app.js loads it on demand (COMMUNITY_SCRIPTS) the first time a
          community section, invite link or the feedback sheet needs it, and
          the service worker keeps it cache-first from then on. -->
-    <script src="projects/js/config.js?v=49"></script>
+    <script src="projects/js/config.js?v=50"></script>
     <script src="projects/js/settings.js?v=9"></script>
     <script src="projects/js/favorites.js?v=1"></script>
     <script src="projects/js/api.js?v=19"></script>
@@ -462,7 +463,7 @@
     <script src="projects/js/calendar2.js?v=5"></script>
     <script src="projects/js/map.js?v=7"></script>
     <script src="projects/js/tour.js?v=5"></script>
-    <script src="projects/js/app.js?v=51"></script>
+    <script src="projects/js/app.js?v=52"></script>
     <script src="projects/js/refresh.js?v=5"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)
