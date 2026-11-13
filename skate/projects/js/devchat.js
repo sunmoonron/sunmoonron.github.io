@@ -94,6 +94,18 @@ window.SkateDev = (() => {
         const box = $('devchat-messages');
         box.innerHTML = '';
         const thread = target ? st.dmThreads[target] : null;
+        // Owner side: the open thread's public key, to copy (it is what gets added to a members' list).
+        if (owner && thread && target) {
+            let npub = target;
+            try { npub = NostrTools.nip19.npubEncode(target); } catch {}
+            const sub = $('devchat-sub');
+            sub.textContent = '';
+            const code = el('code', { class: 'devchat-npub' }, [npub]);
+            const copy = el('button', { class: 'flink devchat-copy' }, ['Copy key']);
+            copy.type = 'button';
+            copy.onclick = async () => { try { await navigator.clipboard.writeText(npub); copy.textContent = 'Copied'; } catch { copy.textContent = 'Select the key to copy'; } };
+            sub.append(`${thread.name || 'Skater'}: `, code, ' ', copy);
+        }
         const msgs = thread ? thread.messages : [];
         if (!msgs.length) {
             if (owner) box.appendChild(el('div', { class: 'devchat-empty' }, ['Pick a thread.']));

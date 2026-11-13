@@ -1741,3 +1741,7 @@ body.dark-mode .facts-badge.lend { color: #06210f; background: var(--live, #4ee0
 .lend-what { font-size: 13.5px; }
 .lend-list.also .lend-when { font-weight: 600; white-space: normal; }
 @media (max-width: 520px) { .lend-list:not(.also) li { flex-direction: column; gap: 0; } .lend-list:not(.also) .lend-when { flex: none; } }
+
+/* Dev inbox, owner side: the open thread's public key */
+.devchat-npub { font-size: 11px; word-break: break-all; user-select: all; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 4px; }
+.devchat-copy { margin-left: 0; white-space: nowrap; }

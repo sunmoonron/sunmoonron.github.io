@@ -2452,7 +2452,7 @@ window.SkateApp = (() => {
         'projects/js/moderation.js?v=7',
         'projects/js/nostr-core.js?v=5',
         'projects/js/chat-v2.js?v=18',
-        'projects/js/devchat.js?v=7',
+        'projects/js/devchat.js?v=8',
         'projects/js/guides.js?v=6',
         'projects/js/profanity-list.js?v=1'
     ];
