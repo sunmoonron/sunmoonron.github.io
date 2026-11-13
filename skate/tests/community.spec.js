@@ -49,6 +49,36 @@ test.describe('community', () => {
         await app.noErrors();
     });
 
+    test('dev inbox: the thread rail keeps its height and its names when the thread on screen is long', async ({ page, app }) => {
+        await app.open();
+        await page.evaluate(() => SkateApp.Actions.bootCommunity());
+        await page.waitForFunction(() => window.SkateChat && SkateChat.getIdentity().pk, null, { timeout: 20000 });
+        await page.evaluate(() => {
+            SkateConfig.devPubkey = SkateChat.getIdentity().pk;                    // this device is the dev for the test
+            const now = Date.now();
+            const thread = (name, n) => ({ name, lastReadTs: 0, messages: Array.from({ length: n }, (_, i) => ({ mine: i % 2 === 1, ts: now - (n - i) * 60000, text: `line ${i}: the rink time looked wrong on my phone`, type: 'chat', status: 'sent' })) });
+            const th = SkateChat.getState().dmThreads;
+            th['26b2b8' + 'a'.repeat(58)] = thread('Smoothy', 40);
+            th['b77dd6' + 'b'.repeat(58)] = thread('QuickTiger60', 3);
+            th['c0ffee' + 'c'.repeat(58)] = thread('A visitor with quite a long display name', 2);
+            SkateDev.open();
+        });
+        await expect(page.locator('#devchat-title')).toHaveText('Dev inbox');
+        const chips = page.locator('#devchat-threads .devchat-thread');
+        await expect(chips).toHaveCount(3);
+        const rail = await page.locator('#devchat-threads').boundingBox();
+        expect(rail.height).toBeGreaterThanOrEqual(40);                             // it was squashed to a sliver
+        for (const chip of await chips.all()) {
+            const fits = await chip.evaluate(e => ({ h: e.getBoundingClientRect().height, clipped: e.scrollHeight > e.clientHeight + 1 }));
+            expect(fits.h).toBeGreaterThanOrEqual(32);
+            expect(fits.clipped).toBe(false);
+        }
+        await expect(chips.first()).toContainText('Smoothy · 26b2b8');
+        await chips.nth(1).click();                                                 // and it still switches threads
+        await expect(chips.nth(1)).toHaveClass(/active/);
+        await expect(page.locator('#devchat-messages .devchat-msg')).toHaveCount(3);
+    });
+
     test('the feedback sheet sends a message to the dev', async ({ page, app }) => {
         await app.open();
         await page.click('#btn-feedback');

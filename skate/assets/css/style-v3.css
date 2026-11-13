@@ -1657,3 +1657,40 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body:not(.dark-mode) { color-scheme: light; }
 body.dark-mode .rinks-city { background: #1b2530; border-color: #38485a; }
 body.dark-mode .alert-banner.note { background: #1b2530; }
+
+/* ===================== v3.10.2 ===================== */
+/* Rinks sheet: one search box (rink, area, address, postal code), the map follows it */
+.rinks-locate { display: flex; gap: 8px; align-items: stretch; margin-bottom: 4px; }
+.rinks-search-box { flex: 1 1 auto; min-width: 0; }
+.rinks-locate .rinks-search-box input, #rinks-search { width: 100%; height: 40px; margin: 0; box-sizing: border-box; font-size: 14px; padding-right: 38px; }
+/* the clear ✕ lives inside the field and stays quiet: no box, no fill, only there once something is typed */
+.rinks-locate .search-clear, body.dark-mode .rinks-locate .search-clear {
+    height: auto; padding: 6px 9px; border: none; background: none; font-size: 12px; font-weight: 400;
+    color: var(--text-muted); opacity: 0.75; border-radius: 50%;
+}
+.rinks-locate .search-clear:hover { opacity: 1; color: var(--text); }
+.rinks-locate #btn-share-location { height: 40px; flex: 0 0 auto; }
+.rinks-from {
+    display: block; width: 100%; margin: 6px 0 2px; padding: 9px 12px; text-align: left;
+    border: 1px dashed color-mix(in srgb, var(--acc-programs) 55%, var(--border)); border-radius: var(--radius);
+    background: color-mix(in srgb, var(--acc-programs) 7%, transparent); color: var(--text); font-size: 13px; font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
+}
+.rinks-from:hover { border-style: solid; }
+.rinks-from:disabled { opacity: 0.6; cursor: default; }
+.locator-status { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.locator-status .flink { font-size: 12px; padding: 0; }
+/* the sheet's close ✕ sat in the same boxes as All / Indoor / Outdoor and read as a fourth choice */
+.map-header-actions .btn-icon { border: none; background: transparent; box-shadow: none; margin-left: 4px; color: var(--text-muted); }
+.map-header-actions .btn-icon:hover { color: var(--text); background: color-mix(in srgb, var(--text-muted) 14%, transparent); }
+body.dark-mode .map-header-actions .btn-icon { border: none; background: transparent; }
+
+/* Dev inbox: the thread rail was a shrinkable flex child with overflow, so a long thread
+   squashed it to a sliver: empty pill outlines with the names cut off by the scrollbar */
+.devchat-threads { flex: 0 0 auto; align-items: center; padding: 2px 2px 10px; scrollbar-width: thin; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+.devchat-thread { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 13px; white-space: nowrap; line-height: 1.2; font-weight: 600; cursor: pointer; }
+.devchat-thread.active { background: color-mix(in srgb, var(--acc-programs) 14%, var(--bg)); }
+.devchat-thread .devchat-unread { margin-left: 0; line-height: 16px; }
+.devchat-threads .devchat-empty { padding: 6px 4px; }
+.devchat .modal-header, .devchat-compose, .devchat-preview { flex: 0 0 auto; }
+body.dark-mode .devchat-thread.active { background: color-mix(in srgb, var(--acc-programs) 20%, #141c25); }

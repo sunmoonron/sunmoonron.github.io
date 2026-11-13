@@ -28,13 +28,20 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.10.1',
+    version: '3.10.2',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
     // (npub1p07dm5lcx2gn6qq8t7fyduh5tsmz64r823h9j0kgutcas757tg7s096ykw).
     devPubkey: '0bfcddd3f832913d00075f9246f2f45c362d5467546e593ec8e2f1d87a9e5a3d',
     changelog: [
+        {
+            v: '3.10.2', date: '2026-11-12', items: [
+                'Rinks & map has one search box. Type a rink, an area like Scarborough, a street or a postal code: the list and the map narrow together as you type, and the map moves to what matched. The same text can be used as the spot to measure distances from, with one tap on the line under the box.',
+                'Typing in that box no longer stutters. Each keystroke used to recount every session once per rink.',
+                'Tidier controls there: a quiet clear ✕ that only appears once you have typed, "Forget this spot" as a small link, and a close button that no longer looks like a fourth filter.',
+            ]
+        },
         {
             v: '3.10.1', date: '2026-11-12', items: [
                 'When the home server that feeds the app its freshest data is unreachable, alerts, rinks and live spots now come from the backup copy on the first paint. Before, a visit during an outage showed no alerts for up to a minute and no rink details at all. Once the server is back, an open app returns to it within ten minutes.',

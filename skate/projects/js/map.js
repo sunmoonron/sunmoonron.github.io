@@ -175,7 +175,21 @@ window.SkateMap = (() => {
     /** Re-render pins in place (e.g. after starring a rink from a popup). */
     function refresh() { if (map) renderPins(); }
 
-    return { configure, open, close, setFilter, refresh, focusRink, get filter() { return filter; }, get isOpen() { return !document.getElementById('rinks-modal').classList.contains('hidden'); } };
+    /**
+     * Frame the pins currently on the map (v3.10.2: the rink search calls this as
+     * its matches change, so typing "scarborough" shows Scarborough, not all of Toronto).
+     */
+    function fitPins() {
+        if (!map) return false;
+        const pts = Object.values(markersByKey).map(m => m.getLatLng());
+        if (!pts.length) return false;
+        map.invalidateSize();
+        if (pts.length === 1) map.flyTo(pts[0], Math.max(map.getZoom(), 14), { duration: 0.5 });
+        else map.flyToBounds(L.latLngBounds(pts), { padding: [28, 28], maxZoom: 14, duration: 0.5 });
+        return true;
+    }
+
+    return { configure, open, close, setFilter, refresh, focusRink, fitPins, get filter() { return filter; }, get isOpen() { return !document.getElementById('rinks-modal').classList.contains('hidden'); } };
 })();
 
 if (typeof module !== 'undefined') module.exports = window.SkateMap;

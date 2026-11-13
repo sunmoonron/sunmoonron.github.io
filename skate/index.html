@@ -17,7 +17,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=11">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=4">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=44">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=45">
 </head>
 <body>
     <div class="app" id="app">
@@ -354,18 +354,21 @@
                     <button class="btn-icon" id="btn-rinks-close" aria-label="Close">✕</button>
                 </div>
             </div>
+            <!-- v3.10.2: one box for the whole sheet. Typing filters the list AND the map;
+                 the line under it offers the same text as "measure distances from here". -->
             <div class="rinks-locate">
-                <button id="btn-share-location" title="Distances from where you are right now">Use my location</button>
-                <input type="text" id="locator-input" placeholder="Address or postal code" autocomplete="off" aria-label="Address or postal code">
-                <button id="btn-locator-search" class="btn-primary">Go</button>
-                <button id="btn-clear-location" class="hidden" title="Forget my saved location">Clear</button>
+                <div class="search-box rinks-search-box">
+                    <input type="text" id="rinks-search" placeholder="Rink, area or postal code" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Find a rink by name, area, address or postal code">
+                    <button id="btn-rinks-search-clear" class="search-clear hidden" aria-label="Clear the search">✕</button>
+                </div>
+                <button id="btn-share-location" title="Distances from where you are right now">Near me</button>
             </div>
-            <p class="settings-hint locator-status" id="locator-status"></p>
+            <button class="rinks-from hidden" id="btn-locator-search"></button>
+            <p class="settings-hint locator-status"><span id="locator-status"></span><button class="flink hidden" id="btn-clear-location" title="Forget my saved location">Forget this spot</button></p>
             <div class="rinks-split">
                 <div id="map-canvas" class="map-canvas"><div class="loading">Loading map…</div></div>
                 <div class="rinks-list-wrap">
                     <div class="rinks-scope" id="rinks-scope"></div>
-                    <input type="text" id="rinks-search" placeholder="Find a rink" autocomplete="off" aria-label="Find a rink">
                     <div id="rinks-list" class="rinks-list"></div>
                 </div>
             </div>
@@ -445,7 +448,7 @@
          app.js loads it on demand (COMMUNITY_SCRIPTS) the first time a
          community section, invite link or the feedback sheet needs it, and
          the service worker keeps it cache-first from then on. -->
-    <script src="projects/js/config.js?v=48"></script>
+    <script src="projects/js/config.js?v=49"></script>
     <script src="projects/js/settings.js?v=9"></script>
     <script src="projects/js/favorites.js?v=1"></script>
     <script src="projects/js/api.js?v=19"></script>
@@ -457,9 +460,9 @@
     <script src="projects/js/ui.js?v=7"></script>
     <script src="projects/js/calendar.js?v=13"></script>
     <script src="projects/js/calendar2.js?v=5"></script>
-    <script src="projects/js/map.js?v=6"></script>
+    <script src="projects/js/map.js?v=7"></script>
     <script src="projects/js/tour.js?v=5"></script>
-    <script src="projects/js/app.js?v=50"></script>
+    <script src="projects/js/app.js?v=51"></script>
     <script src="projects/js/refresh.js?v=5"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)

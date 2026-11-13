@@ -452,14 +452,27 @@ window.SkateApp = (() => {
     /** Upcoming sessions at a location split by Paid, ignoring sessions the
      *  City's live schedule dropped — so a paid-only rink (Markham, Canlan)
      *  can say "12 paid" instead of a misleading "0 sessions". */
-    function upcomingSplit(key, nowMs = Date.now()) {
-        let free = 0, paid = 0;
+    // v3.10.2: every rink's count from ONE pass over the schedule, kept for the minute.
+    // It used to be one full pass per rink row, so each keystroke in the rink search
+    // walked the schedule up to 80 times (the lag while typing).
+    let rinkCountCache = { stamp: '', map: new Map() };
+    function rinkCounts(nowMs = Date.now()) {
+        const stamp = `${S.programs.length}|${Math.floor(nowMs / 60000)}|${SkateAlerts.liveCheckedAt || ''}`;
+        if (rinkCountCache.stamp === stamp) return rinkCountCache.map;
+        const map = new Map();
         S.programs.forEach(p => {
-            if (P.locKey(p) !== key) return;
             if (SkateTime.status(p, nowMs).phase === 'ended' || SkateAlerts.isDropped(p)) return;
-            if (p.Paid) paid++; else free++;
+            const k = P.locKey(p);
+            let e = map.get(k);
+            if (!e) map.set(k, e = { free: 0, paid: 0 });
+            if (p.Paid) e.paid++; else e.free++;
         });
-        return { free, paid };
+        rinkCountCache = { stamp, map };
+        return map;
+    }
+    const NO_SESSIONS = Object.freeze({ free: 0, paid: 0 });
+    function upcomingSplit(key, nowMs = Date.now()) {
+        return rinkCounts(nowMs).get(key) || NO_SESSIONS;
     }
 
     /* ---------- Active filters as removable pills ---------- */
@@ -1528,9 +1541,23 @@ window.SkateApp = (() => {
         return S.cities.includes(rinkCity(r)) || (SkateSettings.get('myRinks') || []).includes(String(r.locationid));
     }
 
+    /** Lower case, no accents or punctuation: "Étienne-Brûlé" is found by "etienne brule". */
+    const foldText = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+    const rinkHay = new WeakMap();   // rink → its searchable text, built once
+    /** The rink search: every word typed must appear in the name, area, city, address or postal code. */
+    function rinkMatchesQuery(r, q) {
+        if (!q) return true;
+        let hay = rinkHay.get(r);
+        if (!hay) rinkHay.set(r, hay = `${foldText(`${r.name} ${r.district || ''} ${rinkCity(r)} ${r.address || ''} ${r.postal || ''}`)} ${foldText(r.postal).replace(/ /g, '')}`);
+        return q.split(' ').every(word => hay.includes(word));
+    }
+    const rinksQuery = () => foldText($('rinks-search').value);
+    /** What the map and the list both show: in scope for the chosen cities and matching the search. */
+    const rinkShown = (r) => rinkInScope(r) && rinkMatchesQuery(r, rinksQuery());
+
     Render.rinks = function () {
         const user = SkateGeo.getUserLocation();
-        $('locator-status').textContent = user ? `Distances from ${user.label}` : 'Use your location or type an address for distances, or just browse.';
+        $('locator-status').textContent = user ? `Distances from ${user.label}` : 'Type a rink, an area or your postal code. Near me sorts by distance.';
         const wrap = $('rinks-list');
         const scope = $('rinks-scope');
         wrap.innerHTML = '';
@@ -1539,14 +1566,13 @@ window.SkateApp = (() => {
             wrap.appendChild(el('p', { class: 'settings-hint' }, ['Rink list still loading, one second.']));
             return;
         }
-        const q = $('rinks-search').value.trim().toLowerCase();
+        const q = rinksQuery();
         const mine = new Set(SkateSettings.get('myRinks') || []);
         const kind = SkateMap.filter;   // All / Indoor / Outdoor from the sheet's header
-        let rows = SkateGeo.rinks
-            .filter(rinkInScope)
+        const rows = SkateGeo.rinks
+            .filter(r => rinkInScope(r) && rinkMatchesQuery(r, q))
             .filter(r => kind === 'all' || (r.kinds || []).includes(kind))
             .map(r => ({ ...r, city: rinkCity(r), km: user && r.lat != null ? SkateGeo.distanceKm(user, { lat: r.lat, lng: r.lng }) : null }));
-        if (q) rows = rows.filter(r => `${r.name} ${r.district || ''} ${r.city}`.toLowerCase().includes(q));
         rows.sort((a, b) =>
             (mine.has(String(b.locationid)) - mine.has(String(a.locationid))) ||   // yours first
             ((a.km ?? Infinity) - (b.km ?? Infinity)) ||                            // then nearest
@@ -1617,7 +1643,7 @@ window.SkateApp = (() => {
             if (others.length) wrap.appendChild(el('div', { class: 'rinks-head' }, ['Other rinks']));
         }
         others.slice(0, 80).forEach(r => wrap.appendChild(row(r)));
-        if (!rows.length) wrap.appendChild(el('p', { class: 'settings-hint' }, ['No rink matches that.']));
+        if (!rows.length) wrap.appendChild(el('p', { class: 'settings-hint' }, [q ? 'No rink matches that. If it is an address or a postal code, use the line above to measure distances from it.' : 'No rink matches that.']));
     };
 
     /* ---------- What's new ---------- */
@@ -2201,8 +2227,31 @@ window.SkateApp = (() => {
     };
 
     /* ---------- Rinks & map ---------- */
+    /** The search box's two helpers: the clear ✕, and "measure distances from what I typed". */
+    function syncRinkSearch() {
+        const raw = $('rinks-search').value.trim();
+        $('btn-rinks-search-clear').classList.toggle('hidden', !$('rinks-search').value);
+        const from = $('btn-locator-search');
+        from.classList.toggle('hidden', raw.length < 3);
+        from.textContent = raw.length >= 3 ? `📍 Measure distances from “${raw.length > 30 ? raw.slice(0, 29) + '…' : raw}”` : '';
+    }
+    let rinkMapTimer = 0;
+    /** Typing in the rink search: the list at once (cheap), the map a beat later so it never fights the keyboard. */
+    Actions.rinkSearchTyped = function () {
+        syncRinkSearch();
+        Render.rinks();
+        clearTimeout(rinkMapTimer);
+        rinkMapTimer = setTimeout(() => { SkateMap.setFilter(SkateMap.filter); SkateMap.fitPins(); }, 220);
+    };
+    Actions.clearRinkSearch = function (focus = true) {
+        $('rinks-search').value = '';
+        Actions.rinkSearchTyped();
+        if (focus) $('rinks-search').focus();
+    };
+
     Actions.openRinks = async function (opts = {}) {
         $('rinks-search').value = '';
+        syncRinkSearch();
         Render.rinks();
         try {
             await SkateMap.open(opts);   // shows #rinks-modal, lazy-loads Leaflet
@@ -2230,7 +2279,7 @@ window.SkateApp = (() => {
         } catch (e) {
             $('locator-status').textContent = e.message;
         }
-        btn.disabled = false; btn.textContent = 'Use my location';
+        btn.disabled = false; btn.textContent = 'Near me';
     };
 
     /** Forget the saved location: distances, Nearest order and the weather spot fall back. */
@@ -2238,9 +2287,8 @@ window.SkateApp = (() => {
         SkateGeo.setUserLocation(null);
         S.sort = S.sort === 'near' ? 'time' : S.sort;
         persistFilters();
-        $('locator-input').value = '';
-        $('locator-status').textContent = 'Location cleared. Distances are off until you set one again.';
         locationChanged();
+        $('locator-status').textContent = 'Location cleared. Distances are off until you set one again.';
     };
 
     /* ---------- Add to Home Screen (phones) ---------- */
@@ -2280,13 +2328,19 @@ window.SkateApp = (() => {
         Modal.open('install-modal');
     };
 
+    /** Measure distances from what is typed in the rink search (an address, a postal code, a neighbourhood). */
     Actions.searchLocation = async function () {
         const btn = $('btn-locator-search');
+        const text = $('rinks-search').value.trim();
+        if (!text) return;
         btn.disabled = true;
         $('locator-status').textContent = 'Searching…';
         try {
-            const loc = await SkateGeo.geocode($('locator-input').value);
+            const loc = await SkateGeo.geocode(text);
             SkateGeo.setUserLocation(loc);
+            // the text was a place, not a rink filter: show every rink again, nearest first
+            $('rinks-search').value = '';
+            syncRinkSearch();
             locationChanged();
         } catch (e) {
             $('locator-status').textContent = e.message;
@@ -3211,8 +3265,18 @@ window.SkateApp = (() => {
         });
         setInterval(() => Actions.checkForUpdate().catch(() => {}), 12 * 3600000);
         $('btn-locator-search').onclick = Actions.searchLocation;
-        $('locator-input').onkeydown = e => { if (e.key === 'Enter') Actions.searchLocation(); };
-        $('rinks-search').oninput = () => Render.rinks();
+        $('rinks-search').oninput = Actions.rinkSearchTyped;
+        $('btn-rinks-search-clear').onclick = () => Actions.clearRinkSearch();
+        $('rinks-search').onkeydown = (e) => {
+            if (e.key === 'Escape' && $('rinks-search').value) { e.stopPropagation(); Actions.clearRinkSearch(); return; }
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            const raw = $('rinks-search').value.trim();
+            const postal = /^[a-z]\d[a-z]\s?(\d[a-z]\d)?$/i.test(raw);
+            // a postal code, or text no rink matches, is a place to measure from; otherwise Enter just puts the keyboard away
+            if (raw.length >= 3 && (postal || !$('rinks-list').querySelector('.rink-row'))) Actions.searchLocation();
+            else $('rinks-search').blur();
+        };
         delegate($('rinks-list'), [
             ['[data-loc-filter]', (b) => Actions.filterToRink(b.dataset.locFilter, b.dataset.locName)],
             ['[data-loc-star]', (b) => Actions.toggleMyRink(b.dataset.locStar)],
@@ -3552,7 +3616,7 @@ window.SkateApp = (() => {
         SkateMap.configure({
             popupHtml: mapPopupHtml,
             userPoint: () => SkateGeo.getUserLocation(),
-            rinkFilter: rinkInScope,
+            rinkFilter: rinkShown,           // the pins follow the cities AND the rink search
             onFilter: () => Render.rinks()   // the list follows All / Indoor / Outdoor
         });
 
