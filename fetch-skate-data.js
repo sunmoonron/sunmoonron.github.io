@@ -1123,15 +1123,19 @@ async function fetchFacilityAlerts(locIds) {
  * `Read`. The app prefers it and keeps its word rules as the floor.
  *
  * Tiers, in order; the first whose answer verifies wins:
- *   1. Anthropic API (key in ALERT_READER_ANTHROPIC_KEY or the credentials file)
- *   2. OpenRouter, same model (ALERT_READER_OPENROUTER_KEY or the credentials file)
- *   3. the local Ollama model, only when ALERT_READER_LOCAL=1 (OLLAMA_URL): meaning
+ *   1. Anthropic API (key in ALERT_READER_ANTHROPIC_KEY or the credentials file).
+ *      It runs on a fixed credit. When that is spent, or the key lapses, this
+ *      tier backs off and everything below carries on; nothing needs doing.
+ *   2. the local Ollama model, only when ALERT_READER_LOCAL=1 (OLLAMA_URL): meaning
  *      only, its dates are not trusted. Off by default: on the 2026 corpus the small
  *      model read a roof leak as a closed rink, and a wrong closure is worse than the
  *      plain yellow alert the word rules give when they cannot tell
- *   4. readings another producer already published (ALERT_READINGS_URL): how the
+ *   3. readings another producer already published (ALERT_READINGS_URL): how the
  *      GitHub cron reuses the home server's work without holding a key
- *   5. nothing: the alert ships without a reading and the app's word rules decide
+ *   4. nothing: the alert ships without a reading and the app's word rules decide.
+ *      This is the main fallback, the same rules the app has always had.
+ * (A second paid route through OpenRouter was written on 2026-11-11 and removed
+ * the next day unused: one fixed credit, then the word rules, is the whole plan.)
  *
  * Nothing here can fail the run, and a model can never make an alert say
  * more than its text: the evidence must be a verbatim quote, dates and
@@ -1145,7 +1149,6 @@ async function fetchFacilityAlerts(locIds) {
  */
 const READER_VERSION = 1;                    // bump to re-read everything; the app ignores readings of another version
 const READER_MODEL = process.env.ALERT_READER_MODEL || 'claude-haiku-5-5';
-const READER_OPENROUTER_MODEL = process.env.ALERT_READER_OPENROUTER_MODEL || 'anthropic/claude-haiku-5.5';
 const READER_DAILY_CAP = Math.max(0, Number(process.env.ALERT_READER_DAILY_CAP ?? 80));   // paid calls per Toronto day
 const READER_RUN_CAP = 25;                   // paid calls per run
 const READER_LOCAL_RUN_CAP = 12;             // local-model calls per run (about 3 s each)
@@ -1214,8 +1217,7 @@ function readerCreds() {
     const pick = (re) => (blob.match(re) || [])[0] || '';
     return {
         anthropicKey: process.env.ALERT_READER_ANTHROPIC_KEY || pick(/sk-ant-[A-Za-z0-9_-]{20,}/),
-        anthropicWorkspace: process.env.ALERT_READER_ANTHROPIC_WORKSPACE || pick(/wrkspc_[A-Za-z0-9]{6,}/),
-        openrouterKey: process.env.ALERT_READER_OPENROUTER_KEY || pick(/sk-or-[A-Za-z0-9_-]{20,}/)
+        anthropicWorkspace: process.env.ALERT_READER_ANTHROPIC_WORKSPACE || pick(/wrkspc_[A-Za-z0-9]{6,}/)
     };
 }
 
@@ -1393,27 +1395,6 @@ async function readWithAnthropic(creds, userMsg) {
     return { out: readerParse(block && block.text), usage: { in: body.usage?.input_tokens, out: body.usage?.output_tokens } };
 }
 
-async function readWithOpenRouter(creds, userMsg) {
-    const { status, text } = await postStatus('https://openrouter.ai/api/v1/chat/completions', JSON.stringify({
-        model: READER_OPENROUTER_MODEL,
-        max_tokens: 2048,
-        messages: [{ role: 'system', content: READER_SYSTEM }, { role: 'user', content: userMsg }],
-        response_format: { type: 'json_schema', json_schema: { name: 'alert_reading', strict: true, schema: READER_SCHEMA } },
-        provider: { require_parameters: true }   // only a provider that honours the schema
-    }), { authorization: `Bearer ${creds.openrouterKey}` });
-    let body = null;
-    try { body = JSON.parse(text); } catch { /* handled below */ }
-    // OpenRouter can report an error inside an HTTP 200
-    const err = body?.error || body?.choices?.[0]?.error;
-    if (status !== 200 || !body || err) {
-        const code = Number(err?.code) || status;
-        throw new ReaderError(readerErrorKind(code, err?.message), `HTTP ${code} ${err?.message || ''}`);
-    }
-    const choice = body.choices?.[0];
-    if (!choice || choice.finish_reason !== 'stop') throw new ReaderError('answer', `stopped with ${choice?.finish_reason}`);
-    return { out: readerParse(choice.message?.content), usage: { in: body.usage?.prompt_tokens, out: body.usage?.completion_tokens } };
-}
-
 async function readWithOllama(ollama, userMsg) {
     let res;
     try {
@@ -1432,7 +1413,6 @@ function readerTiers(creds = readerCreds()) {
     const ollama = (process.env.OLLAMA_URL || '').replace(/\/+$/, '');
     const tiers = [];
     if (creds.anthropicKey) tiers.push({ name: 'anthropic', by: READER_MODEL, paid: true, trustDates: true, call: (msg) => readWithAnthropic(creds, msg) });
-    if (creds.openrouterKey) tiers.push({ name: 'openrouter', by: `${READER_OPENROUTER_MODEL} (openrouter)`, paid: true, trustDates: true, call: (msg) => readWithOpenRouter(creds, msg) });
     // opt-in: the small local model reads meaning well and dates badly (33 of 35 and 3 of 15 on the 2026 corpus); the app's rules date its readings
     if (ollama && process.env.ALERT_READER_LOCAL === '1') tiers.push({ name: 'local', by: FACTS_MODEL(), paid: false, trustDates: false, call: (msg) => readWithOllama(ollama, msg) });
     return tiers;

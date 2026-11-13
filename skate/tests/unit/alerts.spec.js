@@ -281,7 +281,7 @@ test.describe('the pipeline\'s alert reader', () => {
     test('keys are found in a credentials file of any layout, and never survive into a log line', () => {
         const fakeKey = 'sk-ant-usr-' + 'A1b2'.repeat(12), fakeWs = 'wrkspc_' + '01AbCdEf'.repeat(3), fakeOr = 'sk-or-v1-' + 'c0ffee'.repeat(10);
         const file = path.join(os.tmpdir(), `reader-creds-${process.pid}.txt`);
-        fs.writeFileSync(file, `${fakeKey}\n${fakeWs}\nopenrouter: ${fakeOr}\n`);
+        fs.writeFileSync(file, `my key: ${fakeKey}\n${fakeWs}\nsomething else: ${fakeOr}\n`);
         const saved = { ...process.env };
         try {
             for (const k of Object.keys(process.env)) if (k.startsWith('ALERT_READER_')) delete process.env[k];
@@ -289,8 +289,8 @@ test.describe('the pipeline\'s alert reader', () => {
             delete process.env.CREDENTIALS_DIRECTORY;
             expect(pipe.readerTiers().map(t => t.name)).toEqual([]);
             process.env.ALERT_READER_CREDENTIALS = file;
-            expect(pipe.readerCreds()).toEqual({ anthropicKey: fakeKey, anthropicWorkspace: fakeWs, openrouterKey: fakeOr });
-            expect(pipe.readerTiers().map(t => t.name)).toEqual(['anthropic', 'openrouter']);
+            expect(pipe.readerCreds()).toEqual({ anthropicKey: fakeKey, anthropicWorkspace: fakeWs });
+            expect(pipe.readerTiers().map(t => t.name)).toEqual(['anthropic']);            // one paid route; no second provider
             process.env.ALERT_READER_CREDENTIALS = file + '.missing';
             expect(pipe.readerTiers()).toEqual([]);
             // a systemd credential named "alert-reader" is found without any other setting; an empty one means no tier
