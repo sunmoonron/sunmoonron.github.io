@@ -1,6 +1,6 @@
 // The schedule: boot, search, filters, pills, saved sessions, menus, alerts,
 // calendar, the self-update check, the service worker, phone layout.
-const { test, expect, dayPlus, stamp, row } = require('./fixtures');
+const { test, expect, dayPlus, stamp, row, NOW_ISO } = require('./fixtures');
 
 const card = (page, text) => page.locator('.program-item', { hasText: text });
 const isPhone = (testInfo) => testInfo.project.name.startsWith('phone');
@@ -160,6 +160,30 @@ test.describe('schedule', () => {
         await expect(page.locator('#popover')).toContainText('Alert reading: claude-haiku-5-5');
         await page.keyboard.press('Escape');
         await app.noErrors();
+    });
+
+    test('home server down (Cloudflare error 1033): schedule, alerts and rinks come from the committed copies on the first paint, and the server gets another look later', async ({ page, context, app }) => {
+        // what Cloudflare answers when the tunnel is gone: HTTP 530 with no CORS headers, so the browser fails the fetch
+        const down = (route) => route.fulfill({ status: 530, contentType: 'text/plain', body: 'error code: 1033' });
+        await context.route(/skate-data\.ronishbhatt\.com/, down);
+        await app.open();
+        await expect(card(page, 'Alpha Arena').first().locator('.alert-banner.closed')).toContainText('Likely cancelled');   // 2026-11-12: there were no alerts at all
+        const state = () => page.evaluate(() => ({
+            onHomeServer: !!(SkateAPI._dataBase && !SkateAPI._remoteBroken),
+            alerts: !!SkateAlerts.checkedAt, liveCheck: !!SkateAlerts.liveCheckedAt, rinks: !!SkateGeo.rinkByLocation('100')
+        }));
+        expect(await state()).toEqual({ onHomeServer: false, alerts: true, liveCheck: true, rinks: true });
+        await expect(card(page, 'Leaside Memorial').locator('.spots-badge, .live-spots, [class*="spots"]').first()).toBeVisible();   // live spots too
+
+        // the outage ends; ten minutes on, the next alert refresh finds the home server again
+        await context.unroute(/skate-data\.ronishbhatt\.com/, down);
+        await page.clock.setFixedTime(new Date(new Date(NOW_ISO).getTime() + 5 * 60000));
+        await page.evaluate(() => SkateAlerts.load(true));
+        expect((await state()).onHomeServer).toBe(false);                            // too soon: no probe storm against a dead server
+        await page.clock.setFixedTime(new Date(new Date(NOW_ISO).getTime() + 11 * 60000));
+        await page.evaluate(() => SkateAlerts.load(true));
+        expect(await state()).toEqual({ onHomeServer: true, alerts: true, liveCheck: true, rinks: true });
+        expect(app.errors.filter(e => e.startsWith('pageerror'))).toEqual([]);      // blocked fetches log to the console; nothing may throw
     });
 
     test('unverified banner, price, rentals chip and live spots', async ({ page, app }) => {

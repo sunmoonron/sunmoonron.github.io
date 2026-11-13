@@ -17,14 +17,18 @@ const SkateAPI = {
     // committed same-origin copies stay the fallback (and the offline copy —
     // sw.js never caches cross-origin). Set via SkateConfig.dataBase or
     // SkateAPI.configure({ dataBase: 'https://…/skate-data' }) before boot.
-    // Any failure on the remote origin falls back to same-origin for the
-    // rest of the session.
+    // Any failure on the remote origin falls back to same-origin, and the
+    // remote gets another look every REPROBE_MS (v3.10.1): a session opened
+    // during an outage returns to the fresher copies once the server is back.
     _dataBase: (typeof window !== 'undefined' && window.SkateConfig?.dataBase) || null,
     _remoteBroken: false,
+    _brokenAt: 0,
+    REPROBE_MS: 10 * 60000,
 
     configure({ dataBase } = {}) {
         if (dataBase !== undefined) this._dataBase = dataBase ? String(dataBase).replace(/\/+$/, '') : null;
         this._remoteBroken = false;
+        this._originPromise = null;
     },
 
     /**
@@ -46,10 +50,24 @@ const SkateAPI = {
      * without looking. Both metas are ~1 KB; unreachable remote → local;
      * remote more than an hour behind the committed copy → local.
      */
-    _originChecked: false,
-    async pickOrigin() {
-        if (!this._dataBase || this._remoteBroken || this._originChecked) return;
-        this._originChecked = true;
+    _originPromise: null,
+    /**
+     * One shared check for every loader. v3.10.1: this used to be a flag, so a
+     * loader that asked while the check was still running got "already checked"
+     * and went straight to a home server that was down (2026-11-12: no alerts,
+     * no rinks on a fresh visit while the server was off the network).
+     */
+    pickOrigin() {
+        if (!this._dataBase) return Promise.resolve();
+        if (this._remoteBroken) {
+            if (Date.now() - this._brokenAt < this.REPROBE_MS) return Promise.resolve();
+            this._remoteBroken = false;          // it failed a while ago: look again, it may be back
+            this._originPromise = null;
+        }
+        if (!this._originPromise) this._originPromise = this._probeOrigin();
+        return this._originPromise;
+    },
+    async _probeOrigin() {
         const t = Date.now();
         const stamp = async (base) => {
             try {
@@ -74,7 +92,30 @@ const SkateAPI = {
     _fallbackLocal(reason) {
         if (this._dataBase && !this._remoteBroken) {
             this._remoteBroken = true;
+            this._brokenAt = Date.now();
             console.warn(`[SkateAPI] data origin ${this._dataBase} failed (${reason}) — using committed copies`);
+        }
+    },
+
+    /**
+     * One data JSON for the loaders that run beside the schedule (alerts, live
+     * check, rinks, live spots). Waits for the origin choice, and if the home
+     * server fails anyway, reads the committed copy in the same call. A loader
+     * never has to know which origin answered.
+     */
+    async fetchJson(file, bust = Math.floor(Date.now() / 600000)) {
+        await this.pickOrigin();
+        const get = async () => {
+            const res = await fetch(this.dataUrl(file, bust));
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+        };
+        try {
+            return await get();
+        } catch (e) {
+            if (!this._dataBase || this._remoteBroken) throw e;   // that was the committed copy: a real failure
+            this._fallbackLocal(`${String(file).replace(/^.*\//, '')}: ${e.message}`);
+            return get();
         }
     },
 
@@ -123,7 +164,7 @@ const SkateAPI = {
         }
 
         try {
-            if (force) this._originChecked = false;   // a manual refresh re-checks which origin is fresher
+            if (force) { this._originPromise = null; this._remoteBroken = false; }   // a manual refresh re-checks which origin is fresher
             await this.pickOrigin();
             const data = await this.fetchData('skating-programs.json', force);
 

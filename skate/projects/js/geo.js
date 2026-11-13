@@ -31,9 +31,15 @@ window.SkateGeo = (() => {
         try {
             // 10-min-bucket cache-buster (same reasoning as api.js/alerts.js)
             const bust = Math.floor(Date.now() / 600000);
-            const res = await fetch(window.SkateAPI?.dataUrl ? SkateAPI.dataUrl(DATA_URL, bust) : `${DATA_URL}?t=${bust}`);
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
+            // SkateAPI.fetchJson waits for the origin choice and falls back to the committed copy
+            // (v3.10.1: an outage of the home server used to leave the session with no rinks at all)
+            let data;
+            if (window.SkateAPI?.fetchJson) data = await SkateAPI.fetchJson(DATA_URL, bust);
+            else {
+                const res = await fetch(`${DATA_URL}?t=${bust}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                data = await res.json();
+            }
             rinks = data.rinks || [];
             byLocation = {};
             byName = {};

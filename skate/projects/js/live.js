@@ -44,9 +44,7 @@ window.SkateLive = (() => {
 
     async function loadSnapshot(force) {
         const bust = force ? Date.now() : Math.floor(Date.now() / TTL_MS);
-        const res = await fetch(window.SkateAPI.dataUrl('live-spots.json', bust));
-        if (!res.ok) throw new Error(`live-spots HTTP ${res.status}`);
-        const json = await res.json();
+        const json = await window.SkateAPI.fetchJson('live-spots.json', bust);   // origin-aware, falls back to the committed copy
         Object.entries(json.byId || {}).forEach(([id, v]) => {
             byId[String(id)] = { ...v, snapshotAt: json.checkedAt || v.at || null };
         });

@@ -55,6 +55,14 @@ window.SkateAlerts = (() => {
     // "<LocationID>|<date>|<start>|<normalized title>".
     const LIVE_URL = 'projects/data/live-check.json';
     const dataUrl = (file, bust) => (window.SkateAPI?.dataUrl ? SkateAPI.dataUrl(file, bust) : `${file}?t=${bust}`);
+    // Through SkateAPI when it is there: it waits for the origin choice and reads the
+    // committed copy when the home server is down (v3.10.1; before, an outage meant no alerts).
+    const getJson = async (file, bust) => {
+        if (window.SkateAPI?.fetchJson) return SkateAPI.fetchJson(file, bust);
+        const res = await fetch(dataUrl(file, bust));
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+    };
 
     let byLocation = {};   // locationid(string) → [alert, …]  (skate alerts only)
     let fetchedAt = null;  // when alert CONTENT last changed (CI stamp)
@@ -92,9 +100,7 @@ window.SkateAlerts = (() => {
             // bonus layer — its failure never blocks the alert feed.
             const liveJob = (async () => {
                 try {
-                    const res = await fetch(dataUrl(LIVE_URL, bust));
-                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                    const data = await res.json();
+                    const data = await getJson(LIVE_URL, bust);
                     liveFlags = data.flags || {};
                     liveExtra = Array.isArray(data.extra) ? data.extra : [];
                     liveCheckedAt = data.checkedAt || null;
@@ -106,9 +112,7 @@ window.SkateAlerts = (() => {
                 }
             })();
             try {
-                const res = await fetch(dataUrl(DATA_URL, bust));
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const data = await res.json();
+                const data = await getJson(DATA_URL, bust);
                 index(data.alerts || []);
                 fetchedAt = data.fetchedAt || null;
                 checkedAt = data.checkedAt || data.fetchedAt || null;
