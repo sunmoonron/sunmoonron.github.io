@@ -28,7 +28,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.10.2',
+    version: '3.11',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -36,11 +36,19 @@ window.SkateConfig = {
     devPubkey: '0bfcddd3f832913d00075f9246f2f45c362d5467546e593ec8e2f1d87a9e5a3d',
     // Members' entrance (projects/js/gate.js): where the members' app is fetched after a key
     // has been proved, and the release key that app must be signed with to be run at all.
+    // The superadmin is devPubkey above unless `admins: [hex, …]` is listed here.
     gate: {
         url: 'wss://skate-data.ronishbhatt.com/hq',
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.11', date: '2026-11-13', items: [
+                'Free skates: the City\'s Skate Lending Library is in the app. It is a van, run with Desjardins, that brings free skates, helmets and skating aids to one outdoor rink a day. When it is at a rink, the sessions it overlaps carry a ⛸ Free skates chip with the hours, the day\'s heading says where the van is, and Rinks & map shows each rink\'s next visit.',
+                'The City has not posted this winter\'s stops yet (the van starts November 20). They will appear by themselves: the City\'s page is read several times a day.',
+                'Rinks & map has a new link, "No skates? Where to borrow them free". It lists the van\'s stops and other free options, each checked on its own page: Harbourfront\'s free-rental Saturdays, The Bentway\'s free-rental Thursdays from January, College Park\'s opening day, and Burlington\'s Skate Hub.',
+            ]
+        },
         {
             v: '3.10.2', date: '2026-11-12', items: [
                 'Rinks & map has one search box. Type a rink, an area like Scarborough, a street or a postal code: the list and the map narrow together as you type, and the map moves to what matched. The same text can be used as the spot to measure distances from, with one tap on the line under the box.',

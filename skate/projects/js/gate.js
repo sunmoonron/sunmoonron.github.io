@@ -163,7 +163,9 @@ const SkateGate = (() => {
         const url = cfg().url;
         app = mod.mount({
             N: NostrTools, identity: { pk: id.pk, sk: id.sk }, url, relay: url,
-            superadmins: [window.SkateConfig.devPubkey], idb: window.indexedDB, host: document.body, win: window,
+            // who the members' app treats as superadmin is pinned here, in the public page, never taken from the server
+            superadmins: Array.isArray(cfg().admins) && cfg().admins.length ? cfg().admins.slice() : [window.SkateConfig.devPubkey],
+            idb: window.indexedDB, host: document.body, win: window,
             onUnread: (n) => chip(n),
             onHide: () => unmark(),
             wipe: () => leave('denied'),

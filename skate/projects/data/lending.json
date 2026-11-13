@@ -1,0 +1,70 @@
+{
+ "generatedAt": "2026-11-13T05:20:09.947Z",
+ "checkedAt": "2026-11-13T05:20:09.947Z",
+ "van": {
+  "name": "Skate Lending Library",
+  "by": "City of Toronto, with Desjardins",
+  "url": "https://www.toronto.ca/explore-enjoy/parks-recreation/program-activities/ice-snow-activities/public-leisure-skating/skate-lending-library/",
+  "lends": "skates, helmets and skating aids",
+  "terms": "Free for all ages. No reservation: find the van at the rink.",
+  "status": "soon",
+  "startsOn": "2026-11-20",
+  "modified": "2026-09-25",
+  "stops": []
+ },
+ "also": [
+  {
+   "id": "harbourfront-saturdays",
+   "place": "Harbourfront Centre rink",
+   "address": "235 Queens Quay W, Toronto",
+   "what": "Free skate rentals every Saturday, while quantities last",
+   "days": [
+    6
+   ],
+   "start": "2026-11-21",
+   "end": "2027-02-27",
+   "url": "https://harbourfrontcentre.com/program/skate/",
+   "checked": "2026-11-12"
+  },
+  {
+   "id": "bentway-thursdays",
+   "place": "The Bentway skate trail",
+   "address": "250 Fort York Blvd, Toronto",
+   "what": "Free skate rentals on Thursdays. Bring government ID; a waiver is signed on site",
+   "days": [
+    4
+   ],
+   "from": "17:00",
+   "to": "20:00",
+   "start": "2027-01-07",
+   "end": "2027-02-25",
+   "url": "https://thebentway.ca/event/billy-bishop-free-rental-thursdays-2/",
+   "checked": "2026-11-12"
+  },
+  {
+   "id": "college-park-opening",
+   "place": "College Park ice trail",
+   "address": "420 Yonge St, Toronto",
+   "what": "Free skate lending at the opening event, while supplies last",
+   "rink": "223",
+   "date": "2026-12-05",
+   "from": "14:00",
+   "to": "18:00",
+   "start": "2026-12-05",
+   "end": "2026-12-05",
+   "url": "https://downtownyonge.com/basit2025/",
+   "checked": "2026-11-12"
+  },
+  {
+   "id": "burlington-skate-hub",
+   "place": "Skate Hub, Appleby Ice Centre (Arena A)",
+   "address": "1201 Appleby Line, Burlington",
+   "what": "Free skates to take: first come, first served, no sign-out, keep them as long as you need",
+   "rink": "ext-burlington-appleby-ice-centre",
+   "start": "2026-11-01",
+   "end": "2027-04-30",
+   "url": "https://www.burlington.ca/recreation/skating/",
+   "checked": "2026-11-12"
+  }
+ ]
+}

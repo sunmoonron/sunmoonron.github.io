@@ -3407,6 +3407,191 @@ async function fetchVenueFacts(rinks, { all = false } = {}) {
     return { venues: Object.keys(store.venues).length, verified, refreshed, due: due.length };
 }
 
+/* ================= Free skates → lending.json (v3.11) =================
+ *
+ * The City's Skate Lending Library (with Desjardins) is a van that brings free
+ * skates, helmets and skating aids to one rink a day. Its schedule exists in
+ * exactly one place: a hand-edited HTML table on a toronto.ca page. There is
+ * no feed, so the page is read here, defensively:
+ *   - a row counts only if its date resolves to a day whose weekday matches
+ *     the one written in the row (catches a wrong year and typos);
+ *   - times come in half a dozen spellings ("4 to 8 p.m.", "Noon to 4 p.m.",
+ *     "1:45 to 3:45 p.m."); a start without a.m./p.m. is the latest reading
+ *     that still falls before the end;
+ *   - each stop links a City location id, the same id rinks.json is keyed by;
+ *   - a page with no table is "not posted yet", which is a normal state every
+ *     autumn, not an error; a page that cannot be fetched leaves the last
+ *     good file in place.
+ * Alongside the van, a short list of other free options that were read on
+ * their own pages (each entry says where and when it was checked, and expires
+ * by itself at the end of its season).
+ */
+const LENDING_FILE = 'lending.json';
+const LENDING_URL = 'https://www.toronto.ca/explore-enjoy/parks-recreation/program-activities/ice-snow-activities/public-leisure-skating/skate-lending-library/';
+const LENDING_MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+const LENDING_DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+/* Other free ways to get on skates, each confirmed on the page named (checked = the day it was read). */
+const LENDING_ALSO = [
+    { id: 'harbourfront-saturdays', place: 'Harbourfront Centre rink', address: '235 Queens Quay W, Toronto', what: 'Free skate rentals every Saturday, while quantities last', days: [6], start: '2026-11-21', end: '2027-02-27', url: 'https://harbourfrontcentre.com/program/skate/', checked: '2026-11-12' },
+    { id: 'bentway-thursdays', place: 'The Bentway skate trail', address: '250 Fort York Blvd, Toronto', what: 'Free skate rentals on Thursdays. Bring government ID; a waiver is signed on site', days: [4], from: '17:00', to: '20:00', start: '2027-01-07', end: '2027-02-25', url: 'https://thebentway.ca/event/billy-bishop-free-rental-thursdays-2/', checked: '2026-11-12' },
+    { id: 'college-park-opening', place: 'College Park ice trail', address: '420 Yonge St, Toronto', what: 'Free skate lending at the opening event, while supplies last', rink: '223', date: '2026-12-05', from: '14:00', to: '18:00', start: '2026-12-05', end: '2026-12-05', url: 'https://downtownyonge.com/basit2025/', checked: '2026-11-12' },
+    { id: 'burlington-skate-hub', place: 'Skate Hub, Appleby Ice Centre (Arena A)', address: '1201 Appleby Line, Burlington', what: 'Free skates to take: first come, first served, no sign-out, keep them as long as you need', rink: 'ext-burlington-appleby-ice-centre', start: '2026-11-01', end: '2027-04-30', url: 'https://www.burlington.ca/recreation/skating/', checked: '2026-11-12' }
+];
+const lendingPlain = (html) => String(html || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;|&#160;/g, ' ').replace(/&amp;/g, '&').replace(/&(?:rsquo|lsquo|#8217|#8216|#39|apos);/g, "'")
+    .replace(/&(?:ndash|mdash|#8211|#8212);/g, '-').replace(/&quot;/g, '"').replace(/&#(\d+);/g, (m, n) => String.fromCharCode(Number(n)))
+    .replace(/\s+/g, ' ').trim();
+const lendingYmd = (y, m, d) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+const lendingToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: TORONTO_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+
+/** "4 to 8 p.m." / "Noon to 4 p.m." / "10 a.m. to 4 p.m." → { from: "16:00", to: "20:00" }, or null. */
+function parseLendingTime(text) {
+    const t = lendingPlain(text).toLowerCase().replace(/\./g, '').replace(/\s+/g, ' ').trim();
+    const m = /^(noon|\d{1,2}(?::\d{2})?)\s*(am|pm)?\s*(?:to|-)\s*(noon|\d{1,2}(?::\d{2})?)\s*(am|pm)?$/.exec(t);
+    if (!m) return null;
+    const mins = (clock, half) => {
+        if (clock === 'noon') return 720;
+        const [h, mm = '0'] = clock.split(':');
+        const hour = Number(h), minute = Number(mm);
+        if (hour < 1 || hour > 12 || minute > 59) return null;
+        return ((hour % 12) + (half === 'pm' ? 12 : 0)) * 60 + minute;
+    };
+    if (m[3] !== 'noon' && !m[4]) return null;                    // an end with no a.m./p.m. is a guess: refuse
+    const end = mins(m[3], m[4]);
+    if (end === null) return null;
+    let start = null;
+    if (m[1] === 'noon') start = 720;
+    else {
+        const am = mins(m[1], 'am'), pm = mins(m[1], 'pm');
+        if (am === null) return null;
+        // as written if that works; otherwise (unmarked, or a typo like "10 p.m. to 4 p.m.") the latest reading before the end
+        const written = m[2] ? mins(m[1], m[2]) : null;
+        start = written !== null && written < end ? written : [pm, am].find(v => v < end);
+        if (start === undefined) return null;
+    }
+    const length = end - start;
+    if (length < 30 || length > 12 * 60) return null;
+    const hhmm = (v) => `${String(Math.floor(v / 60)).padStart(2, '0')}:${String(v % 60).padStart(2, '0')}`;
+    return { from: hhmm(start), to: hhmm(end) };
+}
+/** "Friday, January 2" (+ optional year, + optional note) → "2026-01-02" for the year whose weekday agrees. */
+function parseLendingDate(text, today, headingYear) {
+    const t = lendingPlain(text).toLowerCase();
+    const m = new RegExp(`(?:(${LENDING_DAYS.join('|')})\\w*,?\\s+)?(${LENDING_MONTHS.join('|')})\\s+(\\d{1,2})(?:,?\\s+(20\\d\\d))?`).exec(t);
+    if (!m) return null;
+    const month = LENDING_MONTHS.indexOf(m[2]) + 1, day = Number(m[3]);
+    const weekday = m[1] ? LENDING_DAYS.indexOf(m[1]) : -1;
+    const thisYear = Number(today.slice(0, 4));
+    // years to try, most trusted first: the one in the cell, the one in the heading, then around today
+    const years = [m[4] && Number(m[4]), headingYear, thisYear, thisYear + 1, thisYear - 1].filter(Boolean);
+    const valid = (y) => { const d = new Date(Date.UTC(y, month - 1, day)); return d.getUTCMonth() === month - 1 && d.getUTCDate() === day ? d : null; };
+    for (const y of [...new Set(years)]) {
+        const d = valid(y);
+        if (!d) continue;
+        if (weekday >= 0 && d.getUTCDay() !== weekday) continue;
+        return lendingYmd(y, month, day);
+    }
+    return null;
+}
+/** The schedule page → { status: 'scheduled' | 'soon' | 'none', startsOn, modified, stops, skipped }. Pure. */
+function parseLendingPage(html, today = lendingToday()) {
+    const page = String(html || '');
+    const at = page.search(/id=["']accordion-schedule["']/i);
+    const block = at >= 0 ? page.slice(at) : page;
+    const stops = [], skipped = [];
+    let headingYear = null;
+    const walker = /<h[2-4][^>]*>([\s\S]*?)<\/h[2-4]>|<table\b[\s\S]*?<\/table>/gi;
+    let part;
+    while ((part = walker.exec(block))) {
+        if (part[1] !== undefined) { const y = /(20\d\d)\s+schedule/i.exec(lendingPlain(part[1])); if (y) headingYear = Number(y[1]); continue; }
+        const rows = part[0].match(/<tr\b[\s\S]*?<\/tr>/gi) || [];
+        const head = rows.length ? lendingPlain(rows[0]).toLowerCase() : '';
+        if (!(head.includes('date') && head.includes('location') && head.includes('time'))) continue;
+        for (const row of rows.slice(1)) {
+            const cells = (row.match(/<t[dh]\b[^>]*>[\s\S]*?(?=<\/t[dh]>|<t[dh]\b|<\/tr>)/gi) || []).map(c => c.replace(/^<t[dh]\b[^>]*>/i, ''));
+            if (cells.length < 3) continue;
+            const date = parseLendingDate(cells[0], today, headingYear);
+            const time = parseLendingTime(cells[2]);
+            const id = (/location\/\?id=(\d+)/i.exec(cells[1]) || /\/complex\/(\d+)\//i.exec(cells[1]) || [])[1] || null;
+            // The cell is "name, descriptor, address" with paragraph or line breaks in no fixed place,
+            // sometimes none at all ("…ice rink276 Davisville Ave."). The address is whatever starts
+            // at the first street number; everything before it names the place.
+            const whole = lendingPlain(cells[1].replace(/<\/p>|<p\b[^>]*>|<br\s*\/?>/gi, ' '));
+            const cut = /(?:^|[\sa-z)])(\d{1,5}\s+[A-Z])/.exec(whole);
+            const at = cut ? cut.index + cut[0].length - cut[1].length : -1;
+            const place = (at >= 0 ? whole.slice(0, at) : whole).replace(/\s+,/g, ',').replace(/[\s,]+$/, '').trim();
+            const address = at >= 0 ? whole.slice(at).trim() : '';
+            const note = lendingPlain(cells[0]).replace(new RegExp(`^(?:(?:${LENDING_DAYS.join('|')})\\w*,?\\s+)?(?:${LENDING_MONTHS.join('|')})\\s+\\d{1,2}(?:,?\\s+20\\d\\d)?`, 'i'), '').trim();
+            if (!date || !time || !place) { skipped.push(lendingPlain(row).slice(0, 140)); continue; }
+            stops.push({ date, from: time.from, to: time.to, id, place: place.slice(0, 120), address: address.slice(0, 120), ...(note ? { note: note.slice(0, 80) } : {}) });
+        }
+    }
+    const seen = new Set();
+    const unique = stops.filter(s => { const k = `${s.date}|${s.from}|${s.id || s.place}`; if (seen.has(k)) return false; seen.add(k); return true; })
+        .sort((a, b) => (a.date + a.from < b.date + b.from ? -1 : 1));
+    const text = lendingPlain(block);
+    const starts = new RegExp(`starting\\s+(${LENDING_MONTHS.join('|')})\\s+(\\d{1,2}),?\\s+(20\\d\\d)`, 'i').exec(text);
+    const mod = new RegExp(`date modified:\\s*(${LENDING_MONTHS.join('|')})\\s+(\\d{1,2}),?\\s+(20\\d\\d)`, 'i').exec(lendingPlain(page));
+    const ymd = (m) => m ? lendingYmd(Number(m[3]), LENDING_MONTHS.indexOf(m[1].toLowerCase()) + 1, Number(m[2])) : null;
+    return {
+        status: unique.length ? 'scheduled' : (/schedule is coming soon/i.test(text) ? 'soon' : 'none'),
+        startsOn: ymd(starts), modified: ymd(mod), stops: unique, skipped
+    };
+}
+/**
+ * Which rink of ours is a stop at? The City's id when rinks.json has it; else the
+ * street address (the same place sometimes carries a park id in one season and a
+ * complex id in the next). Returns the rinks.json key, or null.
+ */
+const lendingAddrKey = (a) => String(a || '').toLowerCase().replace(/[.,]/g, '').split(/\s+/).filter(Boolean).slice(0, 2).join(' ');
+function lendingRinkKey(stop, rinks) {
+    const list = Array.isArray(rinks) ? rinks : [];
+    if (stop.id && list.some(r => String(r.locationid) === String(stop.id))) return String(stop.id);
+    const want = lendingAddrKey(stop.address);
+    if (!/^\d+ \S/.test(want)) return null;
+    const hit = list.filter(r => lendingAddrKey(r.address) === want);
+    return hit.length === 1 ? String(hit[0].locationid) : null;       // two rinks at one address key: do not guess
+}
+/** Fetch the page (at most every 6 hours unless forced) and write lending.json. Never throws. */
+async function fetchLending({ force = false, rinks = null } = {}) {
+    if (!rinks) { try { rinks = JSON.parse(fs.readFileSync(path.join(OUTPUT_DIR, 'rinks.json'), 'utf8')).rinks || []; } catch { rinks = []; } }
+    const file = path.join(OUTPUT_DIR, LENDING_FILE);
+    let prev = null;
+    try { prev = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* first run */ }
+    const today = lendingToday();
+    const also = LENDING_ALSO.filter(a => a.end >= today);
+    if (!force && prev && prev.van && Date.now() - Date.parse(prev.checkedAt || 0) < 6 * 3600 * 1000 && JSON.stringify(prev.also) === JSON.stringify(also)) {
+        console.log(`   ⛸ lending: checked ${Math.round((Date.now() - Date.parse(prev.checkedAt)) / 60000)} min ago (${prev.van.stops.length} stops, ${prev.van.status})`);
+        return prev;
+    }
+    let van = prev && prev.van ? { ...prev.van } : null;
+    try {
+        const parsed = parseLendingPage(await httpGetText(LENDING_URL), today);
+        // a schedule that was there and is now "nothing at all" (not even "coming soon") smells like a page redesign: keep what we had
+        const vanished = parsed.status === 'none' && van && van.stops && van.stops.some(s => s.date >= today);
+        if (vanished) { console.warn('   ⚠️ lending: the schedule table disappeared from the page; keeping the last good list'); van.stale = true; }
+        else {
+            van = {
+                name: 'Skate Lending Library', by: 'City of Toronto, with Desjardins', url: LENDING_URL,
+                lends: 'skates, helmets and skating aids', terms: 'Free for all ages. No reservation: find the van at the rink.',
+                status: parsed.status, startsOn: parsed.startsOn, modified: parsed.modified,
+                stops: parsed.stops.map(x => ({ ...x, rink: lendingRinkKey(x, rinks) }))
+            };
+        }
+        if (parsed.skipped.length) console.warn(`   ⚠️ lending: ${parsed.skipped.length} row(s) could not be read: ${parsed.skipped.slice(0, 3).join(' || ')}`);
+        console.log(`   ⛸ lending: ${van.status}, ${van.stops.length} stop(s)${van.startsOn ? `, van starts ${van.startsOn}` : ''}`);
+    } catch (e) {
+        console.warn(`   ⚠️ lending: ${e.message}${prev ? ' (keeping the last good file)' : ''}`);
+        if (!van) return prev;
+        van.stale = true;
+    }
+    const out = { generatedAt: new Date().toISOString(), checkedAt: van.stale && prev ? prev.checkedAt : new Date().toISOString(), van, also };
+    fs.writeFileSync(file, JSON.stringify(out, null, 1));
+    return out;
+}
+
+
 async function main() {
     console.log('🛼 Toronto Skating Data Fetcher');
     console.log('================================\n');
@@ -3431,6 +3616,12 @@ async function main() {
         if (process.argv.includes('--reader-selftest')) {
             // one made-up alert through every configured alert-reader tier; writes nothing
             if (!(await readerSelfTest())) process.exitCode = 1;
+            return;
+        }
+        if (process.argv.includes('--lending-only')) {
+            // just the free-skates file (the City's lending van schedule + the other confirmed options)
+            const out = await fetchLending({ force: true });
+            if (out) out.van.stops.slice(0, 12).forEach(x => console.log(`     ${x.date} ${x.from}-${x.to}  ${x.place}${x.rink ? ` [rink ${x.rink}]` : ' [no rink of ours]'}`));
             return;
         }
         if (process.argv.includes('--facts-only')) {
@@ -3656,6 +3847,9 @@ async function main() {
             console.warn(`   ⚠️ venue facts failed: ${e.message} — keeping previous ${FACTS_FILE}`);
         }
 
+        // Step 7: free skates (the City's lending van schedule + other confirmed free options)
+        await fetchLending({ rinks });
+
         // (locations.json / facilities.json are no longer written — the UI
         //  never loaded them; program records carry the joined location
         //  fields and rinks.json covers the locator. The city locations
@@ -3674,7 +3868,7 @@ async function main() {
 }
 
 if (require.main === module) main();
-module.exports = { llmParseSchedule, parseScheduleText, fetchLiveCheck, EXTERNAL_SOURCES, parseTimeRange, parseSeasonRange, parseDateList, parseWeekdayGridText, parseWeekdayLinesText, favouriteId, writeIcsFiles, dedupePrograms, sessionIdentity, titleCaseIfShouty,
+module.exports = { parseLendingPage, parseLendingTime, parseLendingDate, lendingRinkKey, fetchLending, LENDING_ALSO, LENDING_URL, llmParseSchedule, parseScheduleText, fetchLiveCheck, EXTERNAL_SOURCES, parseTimeRange, parseSeasonRange, parseDateList, parseWeekdayGridText, parseWeekdayLinesText, favouriteId, writeIcsFiles, dedupePrograms, sessionIdentity, titleCaseIfShouty,
     // alert reader + rink kinds (skate/tests/unit)
     verifyReading, readAlerts, fetchAlerts, readerKey, readerWants, readerUserMessage, readerCreds, readerTiers, readerErrorKind, readerScrub, READER_SCHEMA, READER_VERSION, inferKinds, inOutdoorLull };
 

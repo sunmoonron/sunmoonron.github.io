@@ -38,6 +38,7 @@ window.SkateApp = (() => {
     const S = {
         programs: [], filtered: [], limit: 30, paidMatching: 0,
         facts: null,   // v3.7 venue-facts.json (rentals / admission / helmets per rink key)
+        lending: null, // v3.11 lending.json (free skates: the City's lending van + other confirmed options)
         search: '', showPast: false, age: null, savedOnly: false,
         // v3.2 filters. Persisted: types {cat: 'all' | [subtype…]} ({} = every
         // type), cities ([] = everywhere), paidVisible, rinkScope, sort.
@@ -197,6 +198,74 @@ window.SkateApp = (() => {
         }
         return bits;
     }
+    /* ---------- Free skates (v3.11) ----------
+     * lending.json from the pipeline: the City's Skate Lending Library van
+     * (one rink a day, free skates, helmets and skating aids) plus a few other
+     * free options read on their own pages. Indexed once per load, so a card,
+     * a day heading and a rink row each cost one Map lookup. */
+    let lendIx = null;
+    function setLending(data) {
+        S.lending = data || null;
+        lendIx = null;
+        if (!data || !data.van) return;
+        // only well-formed entries get in: this file is read from the network
+        const byDay = new Map(), byRink = new Map();
+        const YMD = /^\d{4}-\d{2}-\d{2}$/, HM = /^\d{2}:\d{2}$/;
+        const ok = (s) => s && typeof s === 'object' && YMD.test(s.date || '') && HM.test(s.from || '') && HM.test(s.to || '') && typeof s.place === 'string';
+        const stops = (Array.isArray(data.van.stops) ? data.van.stops : []).filter(ok).sort((a, b) => (a.date + a.from < b.date + b.from ? -1 : 1));
+        for (const s of stops) {
+            if (!byDay.has(s.date)) byDay.set(s.date, []);
+            byDay.get(s.date).push(s);
+            if (s.rink) { if (!byRink.has(s.rink)) byRink.set(s.rink, []); byRink.get(s.rink).push(s); }
+        }
+        const okAlso = (a) => a && typeof a === 'object' && typeof a.place === 'string' && typeof a.what === 'string' && YMD.test(a.start || '') && YMD.test(a.end || '') &&
+            (a.date === undefined || YMD.test(a.date)) && (a.days === undefined || (Array.isArray(a.days) && a.days.every(d => Number.isInteger(d) && d >= 0 && d <= 6))) &&
+            (a.from === undefined || (HM.test(a.from) && HM.test(a.to || '')));
+        lendIx = { stops, byDay, byRink, also: (Array.isArray(data.also) ? data.also : []).filter(okAlso) };
+    }
+    /** "4–8 PM", "10 AM–4 PM", or "16:00–20:00" on a 24-hour clock. */
+    function lendHours(from, to) {
+        if (SkateSettings.get('timeFormat') === '24h') return `${from}–${to}`;
+        const part = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); return { n: `${h % 12 === 0 ? 12 : h % 12}${m ? ':' + String(m).padStart(2, '0') : ''}`, half: h >= 12 ? 'PM' : 'AM' }; };
+        const a = part(from), b = part(to);
+        return a.half === b.half ? `${a.n}–${b.n} ${b.half}` : `${a.n} ${a.half}–${b.n} ${b.half}`;
+    }
+    const lendWeekday = (day) => { const [y, m, d] = day.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)).getUTCDay(); };
+    const lendDate = (day) => parseLocalDate(day).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
+    const lendShort = (day) => parseLocalDate(day).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
+    /** Is one of the "also free" entries on, that day? */
+    function lendAlsoOn(a, day) {
+        if (day < a.start || day > a.end) return false;
+        if (a.date) return a.date === day;
+        return !a.days || a.days.includes(lendWeekday(day));
+    }
+    /** Free skates during THIS session at ITS rink, or null. */
+    function lendFor(p) {
+        if (!lendIx) return null;
+        const key = P.locKey(p), day = P.dateStr(p).slice(0, 10), st = p['Start Time'] || '', en = p['End Time'] || '';
+        const during = (from, to) => !st || !en || !from || !to || (from < en && st < to);
+        const stop = (lendIx.byDay.get(day) || []).find(s => s.rink === key && during(s.from, s.to));
+        if (stop) return { text: `Free skates ${lendHours(stop.from, stop.to)}`, title: `The City's Skate Lending Library van is at this rink ${lendHours(stop.from, stop.to)}: free skates, helmets and skating aids. No reservation.` };
+        const also = lendIx.also.find(a => a.rink === key && lendAlsoOn(a, day) && during(a.from, a.to));
+        return also ? { text: 'Free skates', title: `${also.what}.` } : null;
+    }
+    /** Everything free on a given day, van first: [{ place, hours }]. */
+    function lendOn(day) {
+        if (!lendIx) return [];
+        const out = (lendIx.byDay.get(day) || []).map(s => ({ place: s.place, hours: lendHours(s.from, s.to) }));
+        for (const a of lendIx.also) if (a.days && lendAlsoOn(a, day)) out.push({ place: a.place, hours: a.from && a.to ? lendHours(a.from, a.to) : '' });
+        for (const a of lendIx.also) if (a.date && lendAlsoOn(a, day)) out.push({ place: a.place, hours: a.from && a.to ? lendHours(a.from, a.to) : '' });
+        return out;
+    }
+    /** For a rink's row: its next lending visit, as words. */
+    function lendNextAt(key, today = SkateTime.todayKey()) {
+        if (!lendIx) return null;
+        const next = (lendIx.byRink.get(key) || []).find(s => s.date >= today);
+        if (next) return `Free skates ${next.date === today ? 'today' : lendDate(next.date)}, ${lendHours(next.from, next.to)}`;
+        const also = lendIx.also.find(a => a.rink === key && a.end >= today && !a.date);
+        return also ? 'Free skates to borrow' : null;
+    }
+
     function factsTitle(f, field) {
         let host = ''; try { host = new URL(f.url).hostname.replace(/^www\./, ''); } catch { /* no url */ }
         const when = f.checkedAt ? new Date(f.checkedAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) : '';
@@ -913,7 +982,11 @@ window.SkateApp = (() => {
                 lastDay = d;
                 const dt = d ? parseLocalDate(d).toLocaleDateString('en-CA', { weekday: 'long', month: 'short', day: 'numeric' }) : 'Undated';
                 const rel = d === todayKey ? 'Today' : d === tomorrowKey ? 'Tomorrow' : '';
-                html += `<li class="day-head${d === todayKey ? ' today' : ''}"><span>${rel ? `<strong>${rel}</strong> · ` : ''}${escapeHtml(dt)}</span></li>`;
+                // v3.11: where skates can be borrowed free that day
+                const free = d ? lendOn(d) : [];
+                const freeLine = free.length
+                    ? `<button type="button" class="day-lend" data-lending="1" title="Where to borrow skates free that day">⛸ Free skates: ${escapeHtml(free.slice(0, 2).map(f => f.place + (f.hours ? ' ' + f.hours : '')).join(' · '))}${free.length > 2 ? ` +${free.length - 2}` : ''}</button>` : '';
+                html += `<li class="day-head${d === todayKey ? ' today' : ''}"><span>${rel ? `<strong>${rel}</strong> · ` : ''}${escapeHtml(dt)}</span>${freeLine}</li>`;
             }
             html += Render.programRow(p, i, chatState, now);
         });
@@ -1072,6 +1145,9 @@ window.SkateApp = (() => {
             : (facts && facts.rentals && facts.rentals.available === 'no')
                 ? `<span class="facts-badge no" title="${escapeHtml(factsTitle(facts, 'rentals'))}">No rentals</span>`
                 : '';
+        // v3.11: free skates at this rink during this session (the City's lending van, or another confirmed free option)
+        const lend = lendFor(p);
+        const lendBadge = lend ? `<button type="button" class="facts-badge lend" data-lending="1" title="${escapeHtml(lend.title)}">⛸ ${escapeHtml(lend.text)}</button>` : '';
         // Venues without online booking (PDF/HTML towns) link their schedule page instead.
         const registerLink = (p.Paid && p.RegistrationUrl)
             ? (p.RegistrationUrl === p.InfoUrl
@@ -1149,7 +1225,7 @@ window.SkateApp = (() => {
                 </div>
                 ${alertHtml}${unverifiedHtml}
                 <div class="program-footer">
-                    <div class="program-badges">${P.tagFor(p)}${P.ageBadge(p)}${price}${padsBadge}${factsBadge}${spotsBadge}</div>
+                    <div class="program-badges">${P.tagFor(p)}${P.ageBadge(p)}${price}${padsBadge}${factsBadge}${lendBadge}${spotsBadge}</div>
                     <div class="program-actions">${actionHtml}</div>
                     <div class="program-links">${registerLink}</div>
                     ${noteBadge ? `<div class="program-note">${noteBadge}</div>` : ''}
@@ -1607,6 +1683,7 @@ window.SkateApp = (() => {
                 r.address || null,
                 (r.kinds || []).map(k => k === 'indoor' ? 'indoor' : 'outdoor').join(' + ') || null,
                 r.paid ? 'paid' : null,
+                lendNextAt(key),                                      // v3.11: the lending van's next visit here
                 ...(factsFor(key) ? factsBits(factsFor(key)) : [])   // v3.7: rentals / admission / helmets from the rink's site
             ].filter(Boolean).join(' · ');
             const label = sessions ? `${sessions} session${sessions === 1 ? '' : 's'}` : (sp.paid ? `${sp.paid} paid` : 'No sessions');
@@ -2423,7 +2500,7 @@ window.SkateApp = (() => {
      * projects/js/gate.js is fetched only for the #hq link, or on a device that
      * has been let in before. An ordinary visit never downloads it and never
      * contacts the members' server. */
-    const GATE_SCRIPT = 'projects/js/gate.js?v=1';
+    const GATE_SCRIPT = 'projects/js/gate.js?v=2';
     /** Let in before, with the key now on this device? Reads two localStorage entries, nothing else. */
     function gateKnown() {
         try {
@@ -2667,6 +2744,42 @@ window.SkateApp = (() => {
             </span>
         </div>`;
     }
+
+    /* ---------- Free skates page (v3.11) ---------- */
+    const LEND_DAYS = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
+    Render.lending = function () {
+        const box = $('lending-body'), L = S.lending, today = SkateTime.todayKey();
+        if (!L || !L.van) { box.innerHTML = '<p class="settings-hint">This could not be loaded right now. Try again in a moment.</p>'; return; }
+        const v = L.van, link = (url, text) => httpOnly(url) ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${text} ↗</a>` : '';
+        const upcoming = (lendIx ? lendIx.stops : []).filter(s => s.date >= today).slice(0, 40);
+        let html = `<p class="lend-lead"><strong>${escapeHtml(v.name || 'Skate Lending Library')}</strong> · ${escapeHtml(v.by || '')}. A van brings free ${escapeHtml(v.lends || 'skates')} to one rink a day. ${escapeHtml(v.terms || '')}</p>`;
+        if (upcoming.length) {
+            html += '<ul class="lend-list">' + upcoming.map(s => `<li${s.date === today ? ' class="today"' : ''}><span class="lend-when">${s.date === today ? 'Today' : escapeHtml(lendDate(s.date))} · ${escapeHtml(lendHours(s.from, s.to))}</span><span class="lend-where">${escapeHtml(s.place || '')}${s.address ? `<em>${escapeHtml(s.address)}</em>` : ''}${s.note ? `<em>${escapeHtml(s.note)}</em>` : ''}</span></li>`).join('') + '</ul>';
+        } else if (v.status === 'soon' || (v.startsOn && v.startsOn > today)) {
+            html += `<p class="lend-note">${v.startsOn ? `The van starts on ${escapeHtml(lendDate(v.startsOn))}. ` : ''}The City has not posted this winter's stops yet. They will appear here, and on the sessions at each rink, as soon as it does.</p>`;
+        } else {
+            html += '<p class="lend-note">No upcoming stops are posted right now.</p>';
+        }
+        html += `<p class="lend-source">${link(v.url, 'The City\'s schedule page')}</p>`;
+        const also = (lendIx ? lendIx.also : []).filter(a => a.end >= today);
+        if (also.length) {
+            html += '<h4>Also free</h4><ul class="lend-list also">' + also.map((a) => {
+                const hours = a.from && a.to ? ` ${lendHours(a.from, a.to)}` : '';
+                const when = a.date ? `${lendDate(a.date)}${hours ? ' ·' + hours : ''}`
+                    : a.days ? `${a.days.map(d => LEND_DAYS[d]).join(', ')}${hours}, ${a.start > today ? `${lendShort(a.start)} to ${lendShort(a.end)}` : `until ${lendShort(a.end)}`}`
+                    : 'All season';
+                return `<li><span class="lend-where">${escapeHtml(a.place)}${a.address ? `<em>${escapeHtml(a.address)}</em>` : ''}</span><span class="lend-what">${escapeHtml(a.what || '')}. <span class="lend-when">${escapeHtml(when)}.</span> ${link(a.url, 'Details')}</span></li>`;
+            }).join('') + '</ul>';
+        }
+        const checked = L.checkedAt ? new Date(L.checkedAt) : null;
+        html += `<p class="settings-hint">Stops move with the weather and the ice: check the linked page before you go.${checked && !isNaN(checked) ? ` Last checked ${escapeHtml(checked.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }))}.` : ''}</p>`;
+        box.innerHTML = html;
+    };
+    Actions.openLending = async function () {
+        if (!S.lending) { try { setLending(await SkateAPI.getLending()); } catch {} }
+        Render.lending();
+        Modal.open('lending-modal');
+    };
 
     Actions.openWhatsNew = function () {
         Render.whatsNew();
@@ -3038,6 +3151,7 @@ window.SkateApp = (() => {
         SkateAlerts.load(true);             // force (still ≥60s-gapped internally)
         SkateLive.load(S.programs, true);
         S.facts = await SkateAPI.getVenueFacts(true);
+        setLending(await SkateAPI.getLending(true));
         Actions.applyFilters(true);
     };
 
@@ -3348,6 +3462,15 @@ window.SkateApp = (() => {
         };
         $('btn-whatsnew').onclick = () => { Modal.close('settings-modal'); Actions.openWhatsNew(); };
         $('btn-whatsnew-close').onclick = () => Modal.close('whatsnew-modal');
+        // v3.11: free skates. The chip on a session, the line under a day heading and the
+        // link in Rinks & map all carry data-lending; caught first so the card behind stays shut.
+        $('btn-lending-close').onclick = () => Modal.close('lending-modal');
+        document.addEventListener('click', (e) => {
+            const hit = e.target.closest && e.target.closest('[data-lending]');
+            if (!hit) return;
+            e.preventDefault(); e.stopPropagation();
+            Actions.openLending();
+        }, true);
         $('btn-show-qr').onclick = () => Actions.openQr();
         $('btn-qr-close').onclick = () => Modal.close('qr-modal');
         const copySite = () => copyText(CFG.siteUrl, 'Site link copied. Send it anywhere.');
@@ -3658,6 +3781,8 @@ window.SkateApp = (() => {
             SkateLive.load(S.programs);   // live venue spots (TTL-throttled)
             // v3.7: rentals / helmets per rink; never delays the schedule
             SkateAPI.getVenueFacts().then(f => { S.facts = f; if (S.programs.length) Render.programs(); });
+            // v3.11: free skates; like the facts, it never delays the schedule
+            SkateAPI.getLending().then(l => { setLending(l); if (l && S.programs.length) Render.programs(); }).catch(() => {});
             if (S.pendingProgramFocus) { Actions.focusProgram(S.pendingProgramFocus); S.pendingProgramFocus = null; }
             // Brand-new visitor: the spotlight tour, Skip front and centre.
             if (freshInstall && !SkateSettings.get('tourDone')) setTimeout(() => SkateTour.play(), 700);

@@ -1710,3 +1710,34 @@ body.dark-mode .devchat-thread.active { background: color-mix(in srgb, var(--acc
 .gate-error { color: var(--alert-red); min-height: 18px; }
 .gate-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .gate-actions button { min-height: 38px; }
+
+
+/* ============================================================
+   v3.11: free skates (the City's lending van + other free options)
+   ============================================================ */
+.facts-badge.lend { color: #fff; background: var(--live, #1a9c4b); border-color: transparent; cursor: pointer; font-family: inherit; }
+body.dark-mode .facts-badge.lend { color: #06210f; background: var(--live, #4ee08a); border-color: transparent; }
+.facts-badge.lend:hover, .facts-badge.lend:focus-visible { filter: brightness(1.08); text-decoration: none; }
+.day-head { flex-wrap: wrap; }
+.day-lend { display: block; flex: 1 0 100%; margin: 2px 0 0; padding: 2px 0; border: 0; background: none; text-align: left; font: inherit; font-size: 12px; font-weight: 600; color: var(--live, #1a9c4b); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; letter-spacing: 0; }
+.day-lend:hover, .day-lend:focus-visible { text-decoration: underline; }
+.rinks-lending { display: block; margin: 0 0 4px; padding-left: 0; padding-right: 0; text-align: left; color: var(--live, #1a9c4b); font-weight: 600; }
+/* opened from the Rinks & map sheet too, so it has to sit above another open sheet */
+#lending-modal { z-index: 1300; }
+.lending-box { max-width: 560px; }
+.lending-body { padding: 4px 16px 16px; overflow-y: auto; font-size: 14px; line-height: 1.45; }
+.lending-body h4 { margin: 18px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); }
+.lend-lead { margin: 8px 0 10px; }
+.lend-note { margin: 0 0 10px; padding: 10px 12px; border-radius: var(--radius); background: var(--bg); border: 1px solid var(--border); }
+.lend-source { margin: 8px 0 0; font-size: 13px; }
+.lend-list { list-style: none; margin: 0; padding: 0; }
+.lend-list li { display: flex; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); }
+.lend-list li.today .lend-when { color: var(--live, #1a9c4b); }
+.lend-when { font-weight: 700; white-space: nowrap; }
+.lend-list:not(.also) .lend-when { flex: 0 0 150px; }
+.lend-where { flex: 1; min-width: 0; font-weight: 600; }
+.lend-where em { display: block; font-style: normal; font-weight: 400; font-size: 12.5px; color: var(--text-muted); }
+.lend-list.also li { flex-direction: column; gap: 2px; }
+.lend-what { font-size: 13.5px; }
+.lend-list.also .lend-when { font-weight: 600; white-space: normal; }
+@media (max-width: 520px) { .lend-list:not(.also) li { flex-direction: column; gap: 0; } .lend-list:not(.also) .lend-when { flex: none; } }

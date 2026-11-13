@@ -231,6 +231,27 @@ const SkateAPI = {
         return this._venueFacts;
     },
 
+    /**
+     * v3.11: lending.json, where skates can be borrowed free (the City's lending
+     * van schedule and a few other confirmed options). Same origins and the
+     * same patience as the venue facts; a missing file is simply "nothing".
+     */
+    _lending: null,
+    async getLending(force = false) {
+        if (this._lending && !force) return this._lending;
+        const bust = force ? Date.now() : Math.floor(Date.now() / 600000);
+        const tries = [this.dataUrl('lending.json', bust), `${this.LOCAL_DATA_PATH}/lending.json?t=${bust}`];
+        for (const url of [...new Set(tries)]) {
+            try {
+                const r = await fetch(url);
+                if (!r.ok) continue;
+                const j = await r.json();
+                if (j && j.van && Array.isArray(j.van.stops)) { this._lending = j; return j; }
+            } catch { /* next origin */ }
+        }
+        return this._lending;
+    },
+
     getMetadata() {
         if (this._metadata) return this._metadata;
         try { return JSON.parse(localStorage.getItem('skate_meta_v1')); } catch { return null; }

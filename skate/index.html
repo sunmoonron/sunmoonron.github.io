@@ -17,7 +17,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=11">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=4">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=46">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=47">
 </head>
 <body>
     <div class="app" id="app">
@@ -234,6 +234,17 @@
         </div>
     </div>
 
+    <!-- v3.11: free skates -->
+    <div class="modal-overlay hidden" id="lending-modal">
+        <div class="modal lending-box">
+            <div class="modal-header">
+                <h3>Free skates</h3>
+                <button class="btn-icon" id="btn-lending-close" aria-label="Close">✕</button>
+            </div>
+            <div id="lending-body" class="lending-body"></div>
+        </div>
+    </div>
+
     <div class="modal-overlay hidden" id="whatsnew-modal">
         <div class="modal">
             <div class="modal-header">
@@ -365,6 +376,8 @@
                 <button id="btn-share-location" title="Distances from where you are right now">Near me</button>
             </div>
             <button class="rinks-from hidden" id="btn-locator-search"></button>
+            <!-- v3.11: where skates can be borrowed free (the City's lending van and other confirmed options) -->
+            <button class="flink rinks-lending" id="btn-lending" data-lending="1">⛸ No skates? Where to borrow them free</button>
             <p class="settings-hint locator-status"><span id="locator-status"></span><button class="flink hidden" id="btn-clear-location" title="Forget my saved location">Forget this spot</button></p>
             <div class="rinks-split">
                 <div id="map-canvas" class="map-canvas"><div class="loading">Loading map…</div></div>
@@ -449,10 +462,10 @@
          app.js loads it on demand (COMMUNITY_SCRIPTS) the first time a
          community section, invite link or the feedback sheet needs it, and
          the service worker keeps it cache-first from then on. -->
-    <script src="projects/js/config.js?v=50"></script>
+    <script src="projects/js/config.js?v=52"></script>
     <script src="projects/js/settings.js?v=9"></script>
     <script src="projects/js/favorites.js?v=1"></script>
-    <script src="projects/js/api.js?v=19"></script>
+    <script src="projects/js/api.js?v=20"></script>
     <script src="projects/js/time.js?v=2"></script>
     <script src="projects/js/geo.js?v=6"></script>
     <script src="projects/js/live.js?v=4"></script>
@@ -463,7 +476,7 @@
     <script src="projects/js/calendar2.js?v=5"></script>
     <script src="projects/js/map.js?v=7"></script>
     <script src="projects/js/tour.js?v=5"></script>
-    <script src="projects/js/app.js?v=52"></script>
+    <script src="projects/js/app.js?v=54"></script>
     <script src="projects/js/refresh.js?v=5"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)
