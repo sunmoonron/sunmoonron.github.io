@@ -150,7 +150,8 @@ test.describe('schedule', () => {
         await expect(frostToday.locator('.alert-banner.warning')).toContainText('Still marked closed for the season');
         await expect(frostToday).not.toHaveClass(/has-alert-closed/);
         await expect(frostLater).toHaveClass(/has-alert-note/);
-        await expect(frostLater.locator('.alert-banner.note')).toContainText('lifts it when the rink reopens');
+        await expect(frostLater.locator('.alert-banner.note')).toContainText('Closed-for-the-season notice still up');
+        await expect(frostLater.locator('.alert-banner.note')).toContainText('takes it down once the rink opens');
         await expect(frostLater.locator('.program-title')).toHaveCSS('text-decoration-line', 'none');
         await expect(card(page, 'Lobby Arena').locator('.alert-banner.note')).toContainText('Building notice, skating not affected');
         await expect(card(page, 'Zed Arena')).toHaveClass(/has-alert-closed/);

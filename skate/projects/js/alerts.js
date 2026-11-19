@@ -552,22 +552,37 @@ window.SkateAlerts = (() => {
         if (unknown.length) return make('warning', 'alert', 'Service alert at this rink', serious);
 
         if (season.length) {
-            // Last season's "closed for the season" notice: the rink has not been marked open again.
+            // A "closed for the season" notice from before this season's opening day.
             const a = season[0];
             const posted = postedDay(a);
             const when = posted ? ` on ${fmtDay(posted)}` : '';
-            const covers = coversLocation(season.map(alertKind), kindsHere);
+            const seasonKinds = season.map(alertKind);
+            const covers = coversLocation(seasonKinds, kindsHere);
             if (covers && isYmd(programDate) && programDate <= todayKey()) {
                 return make('warning', 'season-today', 'Still marked closed for the season', season, {
                     reason: '',
                     text: `The City posted that notice${when} and has not lifted it. If the rink has not reopened yet, this session will not run.`
                 });
             }
-            return make('note', 'season', 'Still marked closed for the season', season, {
+            if (covers) {
+                return make('note', 'season', 'Closed-for-the-season notice still up', season, {
+                    reason: '',
+                    text: `The City posted it${when}, before opening day, and takes it down once the rink opens. Opening day can move with the weather.`
+                });
+            }
+            // v3.11.1: the notice is about another kind of ice. The City posts one
+            // "Toronto and East York Outdoor Rinks" notice on every location in the
+            // district, indoor arenas included (2026-11-17): say plainly that only
+            // that ice is closed, so an open arena never reads as shut.
+            const which = seasonKinds.includes('outdoor') ? 'outdoor' : 'indoor';
+            const other = which === 'outdoor' ? 'indoor' : 'outdoor';
+            const here = !kindsHere || kindsHere.includes(which);
+            const names = season.map(x => x.AssetName).filter(Boolean).join(', ');
+            return make('note', 'season', here ? `Only the ${which} rink here is closed for the season` : `Only ${which} rinks are closed for the season`, season, {
                 reason: '',
-                text: covers
-                    ? `The City posted that notice${when}, before this season, and lifts it when the rink reopens. Opening day can move with the weather.`
-                    : `That notice${when} is for ${season.map(x => x.AssetName).filter(Boolean).join(', ') || 'another rink here'}, from before this season.`
+                text: here
+                    ? `Sessions on the ${other} ice are not affected.${posted ? ` The City posted the notice on ${fmtDay(posted)}.` : ''}`
+                    : `The City's notice${when} is for ${names || `${which} rinks`}. ${other === 'indoor' ? 'Indoor' : 'Outdoor'} skating here is not affected.`
             });
         }
         if (otherHours.length) {
@@ -600,7 +615,12 @@ window.SkateAlerts = (() => {
         const today = todayKey();
         const rink = window.SkateGeo ? window.SkateGeo.rinkByLocation(String(locId)) : null;
         const pads = rink && Number.isFinite(rink.pads) ? rink.pads : 1;
+        const kinds = rink && Array.isArray(rink.kinds) && rink.kinds.length ? rink.kinds : null;
         return (byLocation[String(locId)] || []).filter(a => {
+            // a notice about a kind of ice this place does not have (an outdoor-rinks
+            // notice posted on an indoor arena) does not flag it
+            const k = alertKind(a);
+            if (kinds && k !== 'any' && !kinds.includes(k)) return false;
             const R = readingFor(a, pads);
             if (R.skating === 'on') return false;
             const start = R.starts || postedDay(a);

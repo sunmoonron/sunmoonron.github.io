@@ -142,7 +142,7 @@ test.describe('"closed for the season" notices', () => {
     test('a notice from last winter cancels that winter and only notes the next one', () => {
         const a = notice('2026-03-09');
         expect(verdict(a, park, '2026-03-20').level).toBe('closed');
-        expect(verdict(a, park, '2026-11-28', { today: '2026-11-11' })).toMatchObject({ level: 'note', kind: 'season', lead: 'Still marked closed for the season' });
+        expect(verdict(a, park, '2026-11-28', { today: '2026-11-11' })).toMatchObject({ level: 'note', kind: 'season', lead: 'Closed-for-the-season notice still up' });
         expect(verdict(a, park, '2026-12-19', { today: '2026-11-11' }).level).toBe('note');
     });
     test('still posted on the day itself, it is a yellow warning, not a strike-through', () => {
@@ -181,6 +181,26 @@ test.describe('"closed for the season" notices', () => {
     test('an outdoor notice at a location with other ice never goes past a note', () => {
         const v = verdict(notice('2026-03-09'), { name: 'Test Centre', pads: 1, kinds: ['indoor'] }, '2026-11-28', { today: '2026-11-28' });
         expect(v).toMatchObject({ level: 'note', kind: 'season' });
+    });
+    test('the district\'s outdoor-rinks notice on an indoor arena says the arena is fine (Moss Park, 2026-11-17)', () => {
+        // the City posts one "Toronto and East York Outdoor Rinks" notice on every location in the district
+        const district = { LocationID: 3491, AssetID: 9, AssetName: 'Toronto and East York Outdoor Rinks', Type: 'outdoor rink', Status: 0,
+            Reason: 'Closed for the Season', Comments: '', PostedDate: '2026-11-17 06:17:17' };
+        const arena = { name: 'Moss Park Arena', pads: 1, kinds: ['indoor'] };
+        const v = verdict(district, arena, '2026-11-19', { today: '2026-11-19' });
+        expect(v).toMatchObject({ level: 'note', kind: 'season', lead: 'Only outdoor rinks are closed for the season' });
+        expect(v.text).toMatch(/^The City's notice on Tue, Nov 17(, 2026)? is for Toronto and East York Outdoor Rinks\. Indoor skating here is not affected\.$/);
+        expect(`${v.lead} ${v.text}`).not.toMatch(/still marked|before this season/i);
+        // and in Rinks & map it does not flag the arena at all
+        RINK = arena; TODAY = '2026-11-19';
+        H.index([district]);
+        expect(SA.forLocation('3491')).toEqual([]);
+        // a place with both kinds of ice is told which one is closed
+        const both = verdict(district, { name: 'Both Centre', pads: 2, kinds: ['indoor', 'outdoor'] }, '2026-11-26', { today: '2026-11-19' });
+        expect(both).toMatchObject({ level: 'note', lead: 'Only the outdoor rink here is closed for the season' });
+        expect(both.text).toMatch(/^Sessions on the indoor ice are not affected\. The City posted the notice on Tue, Nov 17(, 2026)?\.$/);
+        // the outdoor rinks themselves still get the warning on the day
+        expect(verdict(district, park, '2026-11-19', { today: '2026-11-19' })).toMatchObject({ level: 'warning', kind: 'season-today', lead: 'Still marked closed for the season' });
     });
     test('none of the 50-odd notices on file from last season strikes through opening day', () => {
         const old = corpus.filter(r => /season/i.test(`${r.alert.Reason} ${r.alert.Comments}`) && String(r.alert.PostedDate) < '2026-12-01');

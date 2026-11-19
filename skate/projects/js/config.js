@@ -28,7 +28,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.11',
+    version: '3.11.1',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -42,6 +42,12 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.11.1', date: '2026-11-19', items: [
+                'Clearer notes when the City marks outdoor rinks closed for the season. It posts one such notice on every location in a district, indoor arenas included, so an open arena\'s sessions read "Still marked closed for the season". They now say "Only outdoor rinks are closed for the season. Indoor skating here is not affected", and Rinks & map no longer flags those arenas.',
+                'At a place with both kinds of ice, the note names the one that is closed. At an outdoor rink before opening day it reads "Closed-for-the-season notice still up", which is what it is.',
+            ]
+        },
         {
             v: '3.11', date: '2026-11-13', items: [
                 'Free skates: the City\'s Skate Lending Library is in the app. It is a van, run with Desjardins, that brings free skates, helmets and skating aids to one outdoor rink a day. When it is at a rink, the sessions it overlaps carry a ⛸ Free skates chip with the hours, the day\'s heading says where the van is, and Rinks & map shows each rink\'s next visit.',
