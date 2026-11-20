@@ -1,15 +1,15 @@
 {
- "generatedAt": "2026-11-15T19:32:45.787Z",
- "checkedAt": "2026-11-15T19:32:45.787Z",
+ "generatedAt": "2026-11-20T18:24:30.687Z",
+ "checkedAt": "2026-11-20T18:24:30.687Z",
  "van": {
   "name": "Skate Lending Library",
   "by": "City of Toronto, with Desjardins",
   "url": "https://www.toronto.ca/explore-enjoy/parks-recreation/program-activities/ice-snow-activities/public-leisure-skating/skate-lending-library/",
   "lends": "skates, helmets and skating aids",
   "terms": "Free for all ages. No reservation: find the van at the rink.",
-  "status": "soon",
-  "startsOn": "2026-11-20",
-  "modified": "2026-09-25",
+  "status": "none",
+  "startsOn": null,
+  "modified": null,
   "stops": []
  },
  "also": [
