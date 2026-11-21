@@ -221,11 +221,13 @@ const SkateGate = (() => {
                     const s = state(); delete s.members[id.pk];
                     if (s.invited === id.pk) { s.refused = s.invite || ''; delete s.invited; delete s.invite; }
                     saveState(s); chip(0);
-                    if (!quiet) show('denied', id);
+                    if (!quiet || wantShow) show('denied', id);
                     return;
                 }
                 build = check(got.ev);
-                if (!build) { if (!quiet) show(got.ev ? 'tampered' : 'down', id); return; }
+                // `wantShow`: the reader asked for this part while a quiet start was already under way (a device
+                // that has been in before starts quietly at boot). They are told why nothing opened.
+                if (!build) { if (!quiet || wantShow) show(got.ev ? 'tampered' : 'down', id); return; }
                 ev = got.ev;
                 await keep(ev);
             }
@@ -233,7 +235,7 @@ const SkateGate = (() => {
             hide();
             if (wantShow) reveal();
         } catch (e) {
-            if (!quiet) show('offline', id);
+            if (!quiet || wantShow) show('offline', id);
         }
     }
 

@@ -2951,7 +2951,7 @@ window.SkateApp = (() => {
      * projects/js/gate.js is fetched only for the #hq link, or on a device that
      * has been let in before. An ordinary visit never downloads it and never
      * contacts the members' server. */
-    const GATE_SCRIPT = 'projects/js/gate.js?v=3';
+    const GATE_SCRIPT = 'projects/js/gate.js?v=4';
     /** Let in before, with the key now on this device? Reads two localStorage entries, nothing else. */
     function gateKnown() {
         try {
