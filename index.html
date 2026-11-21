@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src https: data:; connect-src wss: https:; base-uri 'none'; form-action 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NOSTR ORBIT — User Activity Timeline</title>
     <link rel="stylesheet" href="assets/css/style.css">
@@ -23,20 +24,20 @@
                         </div>
                     </div>
                     <div id="identity-logged-out">
-                        <button class="identity-btn login" onclick="loginWithExtension()">
+                        <button class="identity-btn login" data-action="login">
                             🔑 Connect with Extension
                         </button>
                     </div>
                     <div id="identity-logged-in" style="display:none;">
                         <div id="identity-actions">
-                            <button class="identity-btn small secondary" onclick="importFollows()">
+                            <button class="identity-btn small secondary" data-action="import-follows">
                                 👥 Import Follows
                             </button>
-                            <button class="identity-btn small secondary" onclick="addMeToList()">
+                            <button class="identity-btn small secondary" data-action="add-me">
                                 ➕ Add Me
                             </button>
                         </div>
-                        <button class="identity-btn small secondary" onclick="logout()" style="margin-top:6px;">
+                        <button class="identity-btn small secondary" data-action="logout" style="margin-top:6px;">
                             Disconnect
                         </button>
                     </div>
@@ -44,20 +45,20 @@
                 
                 <div id="add-user-form">
                     <input type="text" id="npub-input" placeholder="npub or hex pubkey...">
-                    <button onclick="addUserFromInput()">+</button>
+                    <button data-action="add-user">+</button>
                 </div>
                 <div class="sort-options">
-                    <button class="sort-btn active" data-sort="recent" onclick="sortUsers('recent')">Recent</button>
-                    <button class="sort-btn" data-sort="posts" onclick="sortUsers('posts')">Most Posts</button>
-                    <button class="sort-btn" data-sort="name" onclick="sortUsers('name')">A-Z</button>
+                    <button class="sort-btn active" data-sort="recent" data-action="sort">Recent</button>
+                    <button class="sort-btn" data-sort="posts" data-action="sort">Most Posts</button>
+                    <button class="sort-btn" data-sort="name" data-action="sort">A-Z</button>
                 </div>
                 <div id="time-range">
-                    <button class="time-btn" data-hours="6" onclick="setTimeRange(6)">6h</button>
-                    <button class="time-btn" data-hours="12" onclick="setTimeRange(12)">12h</button>
-                    <button class="time-btn active" data-hours="24" onclick="setTimeRange(24)">24h</button>
-                    <button class="time-btn" data-hours="48" onclick="setTimeRange(48)">48h</button>
-                    <button class="time-btn" data-hours="168" onclick="setTimeRange(168)">7d</button>
-                    <input type="number" id="custom-time-input" placeholder="hrs" min="1" max="720" onchange="setCustomTimeRange(this.value)">
+                    <button class="time-btn" data-hours="6" data-action="time-range">6h</button>
+                    <button class="time-btn" data-hours="12" data-action="time-range">12h</button>
+                    <button class="time-btn active" data-hours="24" data-action="time-range">24h</button>
+                    <button class="time-btn" data-hours="48" data-action="time-range">48h</button>
+                    <button class="time-btn" data-hours="168" data-action="time-range">7d</button>
+                    <input type="number" id="custom-time-input" placeholder="hrs" min="1" max="720" data-change="custom-time">
                 </div>
             </div>
             <div id="user-list">
@@ -76,17 +77,17 @@
             <div id="relay-bar"></div>
             
             <!-- Relay manager toggle -->
-            <button id="relay-toggle-btn" onclick="toggleRelayManager()">
+            <button id="relay-toggle-btn" data-action="toggle-relay-manager">
                 ⚡ Relays <span class="relay-count" id="relay-count">0/0</span>
             </button>
             
             <!-- Relay manager panel -->
             <div id="relay-manager">
-                <h4>Relay Manager <button class="close-btn" onclick="toggleRelayManager()">×</button></h4>
+                <h4>Relay Manager <button class="close-btn" data-action="toggle-relay-manager">×</button></h4>
                 <div class="relay-list" id="relay-list"></div>
                 <div id="add-relay-form">
                     <input type="text" id="new-relay-input" placeholder="wss://relay.example.com">
-                    <button onclick="addCustomRelay()">Add</button>
+                    <button data-action="add-relay">Add</button>
                 </div>
             </div>
             
@@ -111,22 +112,22 @@
             
             <!-- Timeline toolbar (consolidated controls) -->
             <div id="timeline-toolbar">
-                <button id="thread-toggle" onclick="toggleThreadLines()">
+                <button id="thread-toggle" data-action="toggle-threads">
                     🔗 Threads
                 </button>
                 
-                <button id="compare-toggle" onclick="toggleCompareMode()">
+                <button id="compare-toggle" data-action="toggle-compare">
                     📊 Compare
                 </button>
                 
                 <div id="playback-controls">
-                    <button class="playback-btn" onclick="resetPlayback()" title="Reset">⏮</button>
-                    <button class="playback-btn" id="play-btn" onclick="togglePlayback()" title="Play/Pause">▶️</button>
-                    <div id="playback-progress" onclick="seekPlayback(event)">
+                    <button class="playback-btn" data-action="playback-reset" title="Reset">⏮</button>
+                    <button class="playback-btn" id="play-btn" data-action="playback-toggle" title="Play/Pause">▶️</button>
+                    <div id="playback-progress" data-action="playback-seek">
                         <div id="playback-progress-bar"></div>
                     </div>
                     <span id="playback-time">0 / 0</span>
-                    <span id="playback-speed" onclick="cycleSpeed()" title="Click to change speed">1x</span>
+                    <span id="playback-speed" data-action="playback-speed" title="Click to change speed">1x</span>
                 </div>
             </div>
             
@@ -163,9 +164,9 @@
             <div class="panel">
                 <h3>📊 View Mode</h3>
                 <div id="view-toggle">
-                    <button class="toggle-btn" data-view="posts" onclick="setViewMode('posts')">Posts Only</button>
-                    <button class="toggle-btn" data-view="replies" onclick="setViewMode('replies')">Replies Only</button>
-                    <button class="toggle-btn active" data-view="all" onclick="setViewMode('all')">All Events</button>
+                    <button class="toggle-btn" data-view="posts" data-action="view-mode">Posts Only</button>
+                    <button class="toggle-btn" data-view="replies" data-action="view-mode">Replies Only</button>
+                    <button class="toggle-btn active" data-view="all" data-action="view-mode">All Events</button>
                 </div>
             </div>
             
