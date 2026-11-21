@@ -107,7 +107,9 @@ test.describe('lending van schedule', () => {
     });
 
     test('the other free options are complete entries that point at rinks the app knows', () => {
-        const known = new Set(rinks.map(x => String(x.locationid)));
+        // a rink the published list has, or one a configured source brings with it (v3.12: Harbourfront, The Bentway)
+        const { EXTERNAL_SOURCES } = require('../../../fetch-skate-data.js');
+        const known = new Set([...rinks.map(x => String(x.locationid)), ...Object.keys(EXTERNAL_SOURCES).map(k => `ext-${k}`)]);
         for (const a of LENDING_ALSO) {
             expect(a.id && a.place && a.what && /^https:\/\//.test(a.url)).toBeTruthy();
             expect(a.checked).toMatch(/^\d{4}-\d{2}-\d{2}$/);

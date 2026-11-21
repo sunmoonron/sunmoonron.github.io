@@ -17,7 +17,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=11">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=4">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=49">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=50">
 </head>
 <body>
     <div class="app" id="app">
@@ -63,16 +63,18 @@
                     <button id="btn-rinks" class="tb-btn" title="Map of every rink, distances from your spot, your rinks">Rinks &amp; map</button>
                     <div class="view-seg" id="view-seg" role="group" aria-label="List or calendar">
                         <button id="btn-list" class="active" title="Sessions as a list, grouped by day" aria-pressed="true">List</button>
-                        <button id="btn-cal" title="Sessions as a week grid" aria-pressed="false">Calendar</button>
+                        <button id="btn-cal" title="Sessions as a calendar" aria-pressed="false"><span class="cal-dot" aria-hidden="true"></span>Calendar</button>
+                        <button id="btn-cal-type" class="cal-type-btn" title="Choose the calendar: week grid, or a day by time of day, by rink or by distance" aria-label="Choose the calendar" aria-haspopup="menu">▾</button>
                     </div>
                 </div>
 
                 <!-- active filters as removable pills (generated) -->
                 <div class="pills" id="active-filters"></div>
 
-                <!-- one quiet line: count + data freshness (tap for details) + weather (tap to pick a spot) -->
+                <!-- one quiet line: count (tap for options) · when the data was checked (tap for the status of every source) · weather (tap to pick a spot) -->
                 <div class="status-line">
-                    <button class="status-btn" id="status-data" title="When the data was last checked. Tap for details.">Loading…</button>
+                    <button class="status-btn" id="status-data" title="How many sessions match. Tap for options.">Loading…</button>
+                    <button class="status-btn status-checked hidden" id="status-checked" title="When the data was last checked. Tap for the status of every source."></button>
                     <button class="status-btn weather-chip hidden" id="weather-chip" aria-label="Current weather. Tap to choose the spot."></button>
                 </div>
 
@@ -245,6 +247,28 @@
         </div>
     </div>
 
+    <!-- v3.12: the parks the City approved for volunteer-built natural ice. A list, with no hours and no open or closed. -->
+    <div class="modal-overlay hidden" id="natural-modal">
+        <div class="modal lending-box">
+            <div class="modal-header">
+                <h3>Natural ice</h3>
+                <button class="btn-icon" id="btn-natural-close" aria-label="Close">✕</button>
+            </div>
+            <div id="natural-body" class="lending-body"></div>
+        </div>
+    </div>
+
+    <!-- v3.12: when each source was last read, grouped, following the city filter -->
+    <div class="modal-overlay hidden" id="status-modal">
+        <div class="modal status-box">
+            <div class="modal-header">
+                <h3>Data status</h3>
+                <button class="btn-icon" id="btn-status-close" aria-label="Close">✕</button>
+            </div>
+            <div id="status-body" class="status-body"></div>
+        </div>
+    </div>
+
     <div class="modal-overlay hidden" id="whatsnew-modal">
         <div class="modal">
             <div class="modal-header">
@@ -274,8 +298,8 @@
                     <div class="seg-control" id="settings-theme"></div>
                 </div>
                 <div class="settings-field">
-                    <span>Calendar 2.0 (experimental)</span>
-                    <label class="fcheck"><input type="checkbox" id="set-cal2"><span class="fcheck-label">Try the new calendar: a day planner. Morning, afternoon and evening, one plain line per session, a heart to save it. Off = the classic week grid.</span></label>
+                    <span>Calendar</span>
+                    <label class="fcheck"><input type="checkbox" id="set-cal2"><span class="fcheck-label">Use the day planner as the calendar: one plain line per session, a heart to save it. Off = the week grid. The ▾ beside Calendar switches between them too, and picks by time of day, by rink or by distance.</span></label>
                 </div>
             </section>
 
@@ -378,6 +402,7 @@
             <button class="rinks-from hidden" id="btn-locator-search"></button>
             <!-- v3.11: where skates can be borrowed free (the City's lending van and other confirmed options) -->
             <button class="flink rinks-lending" id="btn-lending" data-lending="1">⛸ No skates? Where to borrow them free</button>
+            <button class="flink rinks-lending rinks-natural" id="btn-natural">❄ Natural ice: parks where neighbours make a rink</button>
             <p class="settings-hint locator-status"><span id="locator-status"></span><button class="flink hidden" id="btn-clear-location" title="Forget my saved location">Forget this spot</button></p>
             <div class="rinks-split">
                 <div id="map-canvas" class="map-canvas"><div class="loading">Loading map…</div></div>
@@ -462,21 +487,21 @@
          app.js loads it on demand (COMMUNITY_SCRIPTS) the first time a
          community section, invite link or the feedback sheet needs it, and
          the service worker keeps it cache-first from then on. -->
-    <script src="projects/js/config.js?v=54"></script>
+    <script src="projects/js/config.js?v=55"></script>
     <script src="projects/js/settings.js?v=9"></script>
     <script src="projects/js/favorites.js?v=1"></script>
-    <script src="projects/js/api.js?v=21"></script>
+    <script src="projects/js/api.js?v=22"></script>
     <script src="projects/js/time.js?v=2"></script>
-    <script src="projects/js/geo.js?v=6"></script>
+    <script src="projects/js/geo.js?v=7"></script>
     <script src="projects/js/live.js?v=4"></script>
     <script src="projects/js/weather.js?v=2"></script>
-    <script src="projects/js/alerts.js?v=10"></script>
-    <script src="projects/js/ui.js?v=7"></script>
+    <script src="projects/js/alerts.js?v=11"></script>
+    <script src="projects/js/ui.js?v=8"></script>
     <script src="projects/js/calendar.js?v=13"></script>
-    <script src="projects/js/calendar2.js?v=5"></script>
+    <script src="projects/js/calendar2.js?v=6"></script>
     <script src="projects/js/map.js?v=7"></script>
     <script src="projects/js/tour.js?v=5"></script>
-    <script src="projects/js/app.js?v=56"></script>
+    <script src="projects/js/app.js?v=57"></script>
     <script src="projects/js/refresh.js?v=5"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)

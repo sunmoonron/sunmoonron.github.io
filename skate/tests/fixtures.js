@@ -84,7 +84,7 @@ function buildData() {
     return {
         'skating-programs.json': { metadata: { lastUpdated: checkedAt, source: 'test', counts: { total: programs.length } }, programs },
         'meta.json': { lastUpdated: checkedAt, counts: { total: programs.length, duplicatesRemoved: 0 } },
-        'rinks.json': { generatedAt: checkedAt, rinks: RINKS },
+        'rinks.json': { generatedAt: checkedAt, rinks: JSON.parse(JSON.stringify(RINKS)) },   // a copy per test: a test that adds or edits a rink must not leak into the next one in the same worker
         'alerts.json': { fetchedAt: checkedAt, checkedAt, source: 'test', alerts },
         'live-check.json': { checkedAt, flags: { [`100|${T3}|09:00|leisureskateadult`]: { s: 'missing', t: 'Leisure Skate: Adult' } }, extra: [] },   // key: loc|date|start|title stripped to [a-z0-9]
         'venue-facts.json': { generatedAt: checkedAt, venues: {
@@ -99,7 +99,7 @@ function buildData() {
 }
 
 const DEFAULT_SETTINGS = {
-    setupDone: true, tourDone: true, heartHintDone: true, installSeen: true, lastSeenVersion: '3.11.2',
+    setupDone: true, tourDone: true, heartHintDone: true, installSeen: true, lastSeenVersion: '3.12',
     showGuides: false, showChats: false, timeFormat: '12h', freeOnly: false, rinkScope: 'all', myRinks: [], sort: 'time',
     cities: ['Toronto'], typeSel: { leisure: 'all', figure: 'all', other: 'all', adapted: 'all', ringette: 'all', speed: 'all' },
     invisible: false, dmsAllowed: true, notifyDesktop: false

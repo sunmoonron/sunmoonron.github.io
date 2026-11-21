@@ -1748,7 +1748,7 @@ body.dark-mode .facts-badge.lend { color: #06210f; background: var(--live, #4ee0
 
 
 /* ============================================================
-   v3.12
+   v3.11.2
    ============================================================ */
 /* A text input refuses to shrink below its default width (about 20 characters)
    unless told it may. On narrow phones, or with a larger text size, the search
@@ -1756,3 +1756,110 @@ body.dark-mode .facts-badge.lend { color: #06210f; background: var(--live, #4ee0
 .search-box input { min-width: 0; width: 100%; }
 .search-row .tb-filters { white-space: nowrap; }
 .search-row .search-box { flex: 1 1 0; }
+
+
+/* ============================================================
+   v3.12: the status line in two parts and its Data status sheet, the
+   calendar picker and its colours, the by-distance planner, Within N km,
+   other names of a rink, seasonal rinks
+   ============================================================ */
+:root { --cal-week: var(--acc-programs); --cal-time: #b56a0a; --cal-rink: #23804d; --cal-distance: #7355d6; }
+body.dark-mode { --cal-time: #f0b04a; --cal-rink: #5fd08f; --cal-distance: #b39cf5; }
+
+/* ---- status line: [count] [checked] [weather] ---- */
+.status-checked { white-space: nowrap; }
+.status-checked::after { content: ' ›'; opacity: .55; }   /* it opens something */
+.status-btn:focus-visible { outline: 2px solid var(--acc-programs); outline-offset: 2px; border-radius: 4px; }
+
+/* ---- Data status sheet ---- */
+/* the title and its ✕ stay put; the rows scroll under them */
+.status-box { max-width: 600px; display: flex; flex-direction: column; overflow: hidden; padding: 16px 0 0; }
+.status-box .modal-header { flex: 0 0 auto; padding: 0 16px; margin-bottom: 6px; }
+.status-body { flex: 1 1 auto; min-height: 0; padding: 0 16px 16px; overflow-y: auto; font-size: 14px; line-height: 1.45; }
+.status-body h4 { margin: 18px 0 6px; font-size: 12.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); }
+.st-lead, .st-scope { margin: 6px 0; font-size: 13px; color: var(--text-muted); }
+.st-scope strong { color: var(--text); }
+.st-sum.warn { margin: 10px 0 0; padding: 8px 10px; border-radius: var(--radius); font-size: 13px; background: color-mix(in srgb, var(--warning) 16%, var(--bg-white)); border: 1px solid color-mix(in srgb, var(--warning) 55%, var(--border)); }
+.st-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.st-row { display: flex; gap: 10px; padding: 9px 12px; background: var(--bg-white); }
+.st-row + .st-row { border-top: 1px solid var(--border); }
+.st-mark { flex: 0 0 16px; text-align: center; font-weight: 700; line-height: 1.45; }
+.st-ok .st-mark { color: var(--live, #1a9c4b); }
+.st-warn .st-mark { color: var(--warning); }
+.st-wait .st-mark, .st-off .st-mark { color: var(--text-muted); }
+.st-main { flex: 1 1 0; min-width: 0; }
+.st-top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 10px; }
+.st-top strong { font-weight: 600; overflow-wrap: anywhere; }
+.st-head { font-size: 12.5px; color: var(--text-muted); }
+.st-warn .st-head { color: var(--warning); font-weight: 600; }
+.st-line { font-size: 12.5px; color: var(--text-muted); overflow-wrap: anywhere; }
+.st-site { font-size: 11.5px; color: var(--text-muted); opacity: .75; }
+.st-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+body.dark-mode .st-warn .st-head, body.dark-mode .st-warn .st-mark { color: #ffce4d; }
+
+/* ---- [List | Calendar ▾]: the ▾ picks the calendar; each calendar has its colour ---- */
+.view-seg #btn-cal { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.view-seg .cal-type-btn { flex: 0 0 32px; padding: 0; font-size: 11px; overflow: visible; }
+.cal-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--cal-week); }
+.view-seg[data-cal="time"] .cal-dot { background: var(--cal-time); }
+.view-seg[data-cal="rink"] .cal-dot { background: var(--cal-rink); }
+.view-seg[data-cal="distance"] .cal-dot { background: var(--cal-distance); }
+.view-seg[data-cal="time"] #btn-cal.active, .view-seg[data-cal="time"] .cal-type-btn.active { background: var(--cal-time); }
+.view-seg[data-cal="rink"] #btn-cal.active, .view-seg[data-cal="rink"] .cal-type-btn.active { background: var(--cal-rink); }
+.view-seg[data-cal="distance"] #btn-cal.active, .view-seg[data-cal="distance"] .cal-type-btn.active { background: var(--cal-distance); }
+.view-seg #btn-cal.active .cal-dot { background: currentColor; opacity: .9; }
+.view-seg #btn-cal.active + .cal-type-btn { border-left-color: color-mix(in srgb, currentColor 35%, transparent); }
+/* a narrow phone has no room for the dot: the button's colour when it is on, and the menu, still say which calendar */
+@media (max-width: 370px) { .view-seg .cal-dot { display: none; } .view-seg .cal-type-btn { flex-basis: 28px; } .view-seg #btn-cal { padding: 0 3px; } }
+.popover-item.cal-t::before { content: ''; display: inline-block; width: 9px; height: 9px; margin-right: 8px; border-radius: 50%; background: var(--cal-week); vertical-align: 1px; }
+.popover-item.cal-t-time::before { background: var(--cal-time); }
+.popover-item.cal-t-rink::before { background: var(--cal-rink); }
+.popover-item.cal-t-distance::before { background: var(--cal-distance); }
+
+/* ---- the planner's own switch carries the same colours ---- */
+.c2-by button { box-shadow: inset 0 -3px 0 transparent; }
+.c2-by button.c2-by-time:not(.active) { box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--cal-time) 60%, transparent); }
+.c2-by button.c2-by-rink:not(.active) { box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--cal-rink) 60%, transparent); }
+.c2-by button.c2-by-distance:not(.active) { box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--cal-distance) 60%, transparent); }
+.c2-by button.c2-by-time.active { background: var(--cal-time); }
+.c2-by button.c2-by-rink.active { background: var(--cal-rink); }
+.c2-by button.c2-by-distance.active { background: var(--cal-distance); }
+body.dark-mode .c2-by button.active { color: #0d141b; }
+@media (max-width: 420px) { .c2-by button { font-size: 12.5px; padding: 0 2px; } }
+
+/* ---- by distance ---- */
+.c2-radius { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.c2-radius-chip { padding: 5px 11px; font-size: 12.5px; border-radius: 14px; border: 1px solid var(--border); background: var(--bg-white); color: var(--text); cursor: pointer; }
+.c2-radius-chip:hover { border-color: var(--cal-distance); }
+.c2-radius-chip.active { background: var(--cal-distance); border-color: var(--cal-distance); color: #fff; font-weight: 600; }
+body.dark-mode .c2-radius-chip { background: #1b2530; border-color: #38485a; }
+body.dark-mode .c2-radius-chip.active { background: var(--cal-distance); border-color: var(--cal-distance); color: #0d141b; }
+.c2-band .c2-part-head { font-size: 15px; }
+.c2-need-spot { padding: 20px 14px; border: 1px dashed var(--border); border-radius: var(--radius); text-align: center; color: var(--text-muted); }
+.c2-need-spot p { margin: 0; }
+.c2-need-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
+@media (min-width: 900px) {
+    .c2-day.by-distance:not(.needs-spot) { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); align-items: start; }
+}
+
+/* ---- Within N km: a pill that opens a picker, and its row in the Filters sheet ---- */
+.pill.radius { background: color-mix(in srgb, var(--cal-distance) 14%, var(--bg-white)); border-color: color-mix(in srgb, var(--cal-distance) 55%, var(--border)); font-weight: 600; }
+.pill.radius .pill-x { margin-left: 2px; padding: 2px 4px; border-radius: 8px; }
+.pill.radius .pill-x:hover { background: color-mix(in srgb, var(--cal-distance) 25%, transparent); opacity: 1; }
+body.dark-mode .pill.radius { background: color-mix(in srgb, var(--cal-distance) 22%, var(--bg-white)); }
+.fradius { align-items: center; }
+
+/* ---- natural ice: a second link in the rinks sheet and its list ---- */
+#natural-modal { z-index: 1300; }
+.rinks-natural { color: var(--acc-programs); margin-bottom: 6px; }
+.nat-list li { align-items: baseline; }
+.nat-links { flex: 0 0 auto; display: flex; gap: 10px; font-size: 12.5px; white-space: nowrap; }
+.nat-links a, #natural-body .lend-source a { color: var(--acc-programs); }
+.nat-last { padding: 8px 10px; border-radius: var(--radius); background: color-mix(in srgb, var(--warning) 14%, var(--bg-white)); border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--border)); }
+@media (max-width: 520px) { .nat-list li { flex-direction: column; gap: 2px; } }
+
+/* ---- other names of a rink, and a seasonal rink that is not open ---- */
+.where-aka { opacity: .82; }
+.rink-aka { font-weight: 400; color: var(--text-muted); }
+.rink-season { display: inline-block; margin-left: 6px; padding: 0 6px; font-size: 10.5px; font-weight: 600; line-height: 1.6; border-radius: 8px; background: color-mix(in srgb, var(--text-muted) 16%, transparent); color: var(--text-muted); vertical-align: 1px; white-space: nowrap; }
+.lend-shut { font-weight: 600; }

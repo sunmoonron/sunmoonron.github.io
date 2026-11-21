@@ -49,7 +49,10 @@ window.SkateApp = (() => {
         calRenderedWeek: null,         // to keep the grid's scroll position across the minute re-render
         heartHint: false,              // first card carries the one-time "tap ♡ to save" nudge (Render.programs decides)
         cal2Day: null,                 // Calendar 2.0's selected day (today until tapped)
-        cal2By: SkateSettings.get('cal2By') || 'time',   // Calendar 2.0 grouping: time of day | rink
+        cal2By: ['time', 'rink', 'distance'].includes(SkateSettings.get('cal2By')) ? SkateSettings.get('cal2By') : 'time',   // the day planner's grouping: time of day | rink | distance (v3.12)
+        radius: CFG.radiusOptions.includes(SkateSettings.get('radius')) ? SkateSettings.get('radius') : null,   // v3.12: only sessions within N km of the reader's spot (null = any distance)
+        radiusWanted: null,            // a radius picked before any spot was set: applied once one is
+        statusAll: false,              // Data status sheet: every city for one look, whatever the filter says
         cal2ShowEnded: false,          // Calendar 2.0: today's ended sessions unfolded
         paidVisible: !SkateSettings.get('freeOnly'),   // everything shows with its price unless Free only is on
         rinkScope: SkateSettings.get('rinkScope') || 'all',
@@ -236,6 +239,7 @@ window.SkateApp = (() => {
     /** Is one of the "also free" entries on, that day? */
     function lendAlsoOn(a, day) {
         if (day < a.start || day > a.end) return false;
+        if (a.rink && rinkShut(a.rink)) return false;   // v3.12: Harbourfront's free Saturdays wait for Harbourfront to open
         if (a.date) return a.date === day;
         return !a.days || a.days.includes(lendWeekday(day));
     }
@@ -263,7 +267,7 @@ window.SkateApp = (() => {
         const next = (lendIx.byRink.get(key) || []).find(s => s.date >= today);
         if (next) return `Free skates ${next.date === today ? 'today' : lendDate(next.date)}, ${lendHours(next.from, next.to)}`;
         const also = lendIx.also.find(a => a.rink === key && a.end >= today && !a.date);
-        return also ? 'Free skates to borrow' : null;
+        return also && !rinkShut(key) ? 'Free skates to borrow' : null;   // v3.12: not while the rink itself is shut
     }
 
     function factsTitle(f, field) {
@@ -544,6 +548,36 @@ window.SkateApp = (() => {
         return rinkCounts(nowMs).get(key) || NO_SESSIONS;
     }
 
+    /* ---------- Other names of a rink (v3.12) ----------
+     * rinks.json carries `aka`: "College Park" is also the Barbara Ann Scott Ice
+     * Trail. Both find the rink in either search box; the first one is shown
+     * beside the name. One lowercase string per rink, built once per rink list. */
+    let akaSrc = null;
+    const akaCache = new Map();
+    function akaOf(key) {
+        if (akaSrc !== SkateGeo.rinks) { akaSrc = SkateGeo.rinks; akaCache.clear(); }
+        let hit = akaCache.get(key);
+        if (hit === undefined) {
+            const r = SkateGeo.rinkByLocation(key);
+            const list = r && Array.isArray(r.aka) ? r.aka.filter(x => typeof x === 'string' && x.trim()) : [];
+            hit = { first: list[0] || '', hay: list.join(' | ').toLowerCase() };
+            akaCache.set(key, hit);
+        }
+        return hit;
+    }
+    /** "Opens Dec 12" / "Not open yet" / "Closed for the season" for a seasonal rink that is not open, else ''. */
+    function seasonWord(r, today = SkateTime.todayKey()) {
+        const s = r && r.seasonal;
+        if (!s || typeof s !== 'object' || s.state === 'ok' || s.state === 'failed') return '';
+        if (s.state === 'pending') return (/^\d{4}-\d{2}-\d{2}$/.test(s.from || '') && s.from > today) ? `Opens ${parseLocalDate(s.from).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}` : 'Not open yet';
+        if (s.state === 'closed') return 'Closed for the season';
+        if (s.state === 'shut') return 'Closed right now';
+        if (s.state === 'dormant') return 'Out of season';
+        return '';
+    }
+    /** A rink that has a season and is not open right now (free-skate lines for it stay hidden). */
+    const rinkShut = (key) => !!seasonWord(SkateGeo.rinkByLocation(key));
+
     /* ---------- Active filters as removable pills ---------- */
     const SUB_LABEL = id => (CFG.subTypes.find(x => x.id === id) || {}).label || id;
     const CAT_LABEL = id => (CFG.programTypes.find(x => x.id === id) || {}).label || id;
@@ -571,6 +605,7 @@ window.SkateApp = (() => {
         if (S.showPast) pills.push({ key: 'past', label: 'Ended shown' });
         if (S.showDropped) pills.push({ key: 'dropped', label: 'Dropped shown' });
         if (S.sort === 'near') pills.push({ key: 'sort', label: 'Nearest first' });
+        if (S.radius && SkateGeo.getUserLocation()) pills.push({ key: 'radius', label: `Within ${S.radius} km`, menu: 'radius' });
         return pills;
     }
 
@@ -611,6 +646,15 @@ window.SkateApp = (() => {
                 ]));
                 return;
             }
+            if (pl.menu === 'radius') {
+                // v3.12: tap = pick another distance, x = any distance
+                wrap.appendChild(el('button', { class: 'pill radius', dataset: { pill: pl.key }, title: 'Tap to change the distance. The x shows every distance.' }, [
+                    el('span', { class: 'pill-label' }, [pl.label]),
+                    el('span', { class: 'pill-caret', 'aria-hidden': 'true' }, ['▾']),
+                    el('span', { class: 'pill-x', role: 'button', 'aria-label': 'Any distance', title: 'Any distance' }, ['✕'])
+                ]));
+                return;
+            }
             wrap.appendChild(el('button', { class: 'pill' + (pl.key === 'near' ? ' rink' : ''), dataset: { pill: pl.key }, title: 'Remove this filter' }, [
                 pl.label, el('span', { class: 'pill-x', 'aria-hidden': 'true' }, ['✕'])
             ]));
@@ -623,6 +667,11 @@ window.SkateApp = (() => {
         $('btn-list').setAttribute('aria-pressed', S.calMode ? 'false' : 'true');
         $('btn-cal').classList.toggle('active', S.calMode);
         $('btn-cal').setAttribute('aria-pressed', S.calMode ? 'true' : 'false');
+        // v3.12: which calendar the button opens, as a colour (the ▾ beside it switches)
+        const ct = calType();
+        $('view-seg').dataset.cal = ct;
+        $('btn-cal').title = `Calendar: ${(CFG.calTypes.find(t => t.id === ct) || {}).label || 'week grid'}. The ▾ switches calendars.`;
+        $('btn-cal-type').classList.toggle('active', S.calMode);
         $('btn-free').classList.toggle('active', !S.paidVisible);
         $('btn-free').setAttribute('aria-pressed', S.paidVisible ? 'false' : 'true');
         $('btn-free').title = S.paidVisible ? 'Showing everything with prices. Tap for free sessions only.' : 'Showing free sessions only. Tap to show paid ones too.';
@@ -755,10 +804,10 @@ window.SkateApp = (() => {
         where.appendChild(check(`Free sessions only${f.paid ? ` (hides ${f.paid} paid)` : ''}`, !S.paidVisible, { flag: 'free' }));
 
         // MORE: ended, saved-only, dropped, order (folded unless something in it is set)
-        const inUse = S.showPast || S.savedOnly || S.showDropped || S.sort !== 'time';
+        const inUse = S.showPast || S.savedOnly || S.showDropped || S.sort !== 'time' || !!S.radius;
         const openMore = S.moreFilters || inUse;
         const m = section('');
-        m.appendChild(foldBtn('__filters', openMore, `${openMore ? 'Fewer' : 'More'} options: ended sessions, saved, order`));
+        m.appendChild(foldBtn('__filters', openMore, `${openMore ? 'Fewer' : 'More'} options: ended sessions, saved, order, distance`));
         const mbody = el('div', { class: 'fmore' + (openMore ? '' : ' hidden') });
         mbody.appendChild(check('Include sessions that already ended', S.showPast, { flag: 'past' }));
         mbody.appendChild(check('Only sessions I saved', S.savedOnly, { flag: 'saved' }));
@@ -768,6 +817,12 @@ window.SkateApp = (() => {
         CFG.sortOptions.forEach(x => ord.appendChild(chip(x.label, S.sort === x.id, { sort: x.id })));
         mbody.appendChild(ord);
         if (S.sort === 'near' && !SkateGeo.getUserLocation()) mbody.appendChild(el('p', { class: 'settings-hint' }, ['Nearest needs your location. Set it under Rinks and map.']));
+        // v3.12: only what is within N km of your spot (a filter, unlike Nearest, which only reorders)
+        const far = el('div', { class: 'fchips fradius' }, [el('span', { class: 'flabel' }, ['Distance'])]);
+        const hasSpot = !!SkateGeo.getUserLocation();
+        far.appendChild(chip('Any', !S.radius || !hasSpot, { radius: '' }));
+        CFG.radiusOptions.forEach(km => far.appendChild(chip(`${km} km`, hasSpot && S.radius === km, { radius: String(km) })));
+        mbody.appendChild(far);
         m.appendChild(mbody);
 
         Render.filtersCount();
@@ -924,14 +979,8 @@ window.SkateApp = (() => {
             }
         }
 
-        Object.entries(metadata.sources || {}).forEach(([key, s]) => {
-            if (s.ok !== false) return;
-            const label = CFG.sourceInfo[key]?.label || key;
-            wrap.innerHTML += `<div class="alert-banner warning">
-                <strong>The ${escapeHtml(label)} feed failed at the last update.</strong>
-                Its sessions may be missing or stale${s.count ? ` (showing ${s.count} kept from the previous run)` : ''}.
-            </div>`;
-        });
+        // v3.12: a source that could not be read no longer gets a banner each. The "checked"
+        // part of the status line turns to ⚠️ with a count, and its sheet names every source.
     };
 
     Render.programs = function () {
@@ -994,22 +1043,224 @@ window.SkateApp = (() => {
         Render.showMore(filtered.length - items.length);
     };
 
-    /** One quiet line: count · freshness (✓ or ⚠️ + time). Tap → details + refresh. */
+    /**
+     * One quiet line in two parts (v3.12): the count (tap → options) and
+     * "✓ checked 9:14 PM" (tap → the Data status sheet). The second part turns
+     * to ⚠️ when the checks are late or a source in the chosen cities could not
+     * be read, with how many.
+     */
     Render.status = function () {
-        const btn = $('status-data');
         const now = Date.now();
         const meta = SkateAPI.getMetadata();
         const n = S.filtered.length;
         let txt = `${n} session${n === 1 ? '' : 's'}`;
         if (!S.paidVisible && S.paidMatching) txt += ` · ${S.paidMatching} paid hidden`;
+        $('status-data').textContent = txt;
+
+        const chk = $('status-checked');
         const stamps = [SkateAlerts.checkedAt, SkateAlerts.liveCheckedAt].filter(Boolean).map(x => new Date(x).getTime());
         const stale = (SkateAlerts.checkedAt && now - new Date(SkateAlerts.checkedAt) > ALERTS_STALE_MS) ||
                       (SkateAlerts.liveCheckedAt && now - new Date(SkateAlerts.liveCheckedAt) > LIVE_STALE_MS) ||
                       (meta?.lastUpdated && (now - new Date(meta.lastUpdated)) / 86400000 > 7);
-        if (stamps.length) txt += ` · ${stale ? '⚠️' : '✓'} checked ${SkateSettings.formatTime(Math.max(...stamps))}`;
-        else if (meta?.lastUpdated) txt += ` · updated ${new Date(meta.lastUpdated).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}`;
-        btn.textContent = txt;
-        btn.classList.toggle('stale', !!stale);
+        const behind = sourcesBehind();
+        let c = '';
+        if (stamps.length) c = `${stale || behind ? '⚠️' : '✓'} checked ${SkateSettings.formatTime(Math.max(...stamps))}`;
+        else if (meta?.lastUpdated) c = `${behind ? '⚠️ ' : ''}updated ${new Date(meta.lastUpdated).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}`;
+        if (c && behind) c += ` · ${behind} source${behind === 1 ? '' : 's'} behind`;
+        chk.textContent = c;
+        chk.classList.toggle('hidden', !c);
+        chk.classList.toggle('stale', !!(stale || behind));
+        if (!$('status-modal').classList.contains('hidden')) Render.dataStatus();   // the open sheet follows the minute tick
+    };
+
+    /* ---------- Data status (v3.12) ----------
+     * Every source the app reads, as rows: what it is, how its last read went,
+     * when. Grouped (the City, Toronto's board-run arenas, other Toronto rinks,
+     * then each other city) and narrowed to the cities in the Where filter.
+     * meta.json carries a state per source (see the pipeline): older files
+     * only say ok or not, which still reads correctly here.
+     */
+    const stDayKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' });
+    const stWhen = (iso) => {
+        const d = new Date(iso);
+        if (!iso || isNaN(d)) return '';
+        const sameDay = stDayKey.format(d) === SkateTime.todayKey();
+        const day = sameDay ? '' : d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric', timeZone: 'America/Toronto' }) + ', ';
+        return day + SkateSettings.formatTime(d.getTime());
+    };
+    const stDay = (ymd) => (/^\d{4}-\d{2}-\d{2}$/.test(ymd || '') ? parseLocalDate(ymd).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', ...(ymd.slice(0, 4) !== SkateTime.todayKey().slice(0, 4) ? { year: 'numeric' } : {}) }) : '');
+    const ST_RANK = { failed: 7, changed: 6, new: 5, pending: 4, closed: 3, dormant: 2, none: 1, ok: 0 };
+    const plural = (n, word) => `${Number(n).toLocaleString('en-CA')} ${word}${n === 1 ? '' : 's'}`;
+    const endDot = (s) => (/[.!?]$/.test(s) ? s : s + '.');   // "…11:00 a.m." already ends in a full stop
+
+    /** How a source's last read went, from a file of any age: its own state, else ok / failed. */
+    const stateOf = (s) => (!s || typeof s !== 'object') ? 'new' : (typeof s.state === 'string' && s.state in ST_RANK) ? s.state : (s.ok === false ? 'failed' : 'ok');
+    /** For the status line: how many rows of the sheet need attention in the chosen cities. One pass, no rows built. */
+    function sourcesBehind() {
+        const sources = (SkateAPI.getMetadata() || {}).sources;
+        if (!sources || typeof sources !== 'object') return 0;
+        const rows = new Set();
+        for (const key of Object.keys(sources)) {
+            const state = stateOf(sources[key]);
+            // a page that is only watched (no skating there) changing its wording hides nothing: not "behind"
+            if (state !== 'failed' && !(state === 'changed' && sources[key].manual)) continue;
+            const city = (CFG.sourceInfo[key] || {}).city || 'Toronto';
+            if (S.cities.length && !S.cities.includes(city)) continue;
+            rows.add(CFG.sourceRows[key] || key);
+        }
+        return rows.size;
+    }
+
+    /** One source (or several that are one place) → a row. */
+    function sourceRow(keys, sources, fallbackAt, today) {
+        const infos = keys.map(k => CFG.sourceInfo[k] || {});
+        const info = infos[0];
+        const parts = keys.map(k => {
+            const s = sources[k];
+            const state = stateOf(s);
+            if (state === 'new') return { state, count: 0 };
+            return { ...s, state, count: Number.isFinite(s.count) ? s.count : 0, at: s.at || fallbackAt };
+        });
+        const worst = parts.slice().sort((a, b) => ST_RANK[b.state] - ST_RANK[a.state])[0];
+        const count = parts.reduce((n, x) => n + x.count, 0);
+        const at = parts.map(x => x.at).filter(Boolean).sort().pop() || '';
+        const str = (x, max = 220) => (typeof x === 'string' ? x.slice(0, max) : '');
+        const quote = str(worst.quote, 170), note = str(worst.note, 320);
+        const says = quote ? `Its page says: “${quote}”` : note;
+        const lines = [];
+        let tone = 'ok', head = '';
+        switch (worst.state) {
+            case 'failed':
+                tone = 'warn';
+                head = worst.okAt ? `not read since ${stWhen(worst.okAt)}` : 'could not be read';
+                lines.push(count ? `Showing the ${plural(count, 'session')} from the last good read.` : 'Nothing from it is listed until it reads again.');
+                if (worst.error) lines.push(`Last try ${stWhen(worst.at)}: ${str(worst.error, 140)}`);
+                break;
+            case 'changed':
+                // hand-entered hours are hidden until they are checked again (sessions missing: a warning);
+                // a place with no public skating whose page changed its wording hides nothing (a note)
+                tone = worst.manual ? 'warn' : 'wait'; head = 'its page changed';
+                lines.push(note || 'Its page no longer says what it did. It needs a look.');
+                break;
+            case 'new':
+                tone = 'wait'; head = 'not read yet';
+                lines.push('New in the app. The next data update reads it.');
+                break;
+            case 'pending': {
+                tone = 'wait';
+                const from = worst.season && worst.season.from;
+                head = from && from > today ? `opens ${stDay(from)}` : 'not open yet';
+                if (says) lines.push(says);
+                if (count) lines.push(`${plural(count, 'session')} already listed.`);
+                break;
+            }
+            case 'closed':
+                tone = 'off'; head = 'closed for the season';
+                if (says) lines.push(says);
+                break;
+            case 'dormant':
+                tone = 'off'; head = 'out of season';
+                lines.push(worst.resumes ? `Not read again until ${stDay(worst.resumes)}, a few weeks before it usually opens.` : 'Not read until a few weeks before it usually opens.');
+                break;
+            case 'none':
+                tone = 'off'; head = 'no public skating';
+                if (quote) lines.push(`Its site says: “${quote}”`);
+                break;
+            default:
+                head = `read ${stWhen(at)}`;
+                lines.push(count ? plural(count, 'session') : 'No sessions listed right now.');
+                if (note) lines.push(note);
+        }
+        if (worst.manual && worst.state !== 'changed') lines.push(`Hours entered by hand on ${stDay(str(worst.manual, 10))} (its site does not allow them to be read automatically). Its page is still checked each time.`);
+        infos.forEach(i => { if (i.status && !lines.includes(i.status)) lines.push(i.status); });
+        if (tone !== 'ok' && tone !== 'warn' && at && worst.state !== 'new' && worst.state !== 'dormant') lines.push(endDot(`Checked ${stWhen(at)}`));
+        return { kind: 'source', id: keys.join('+'), city: info.city || 'Toronto', name: info.place || info.label || keys[0], site: info.site || '', tone, head, lines, state: worst.state };
+    }
+
+    /** Every row the Data status sheet can show, in order, each tagged with its group and city. */
+    function statusRows(nowMs = Date.now(), { all = false } = {}) {
+        const meta = SkateAPI.getMetadata() || {};
+        const sources = (meta.sources && typeof meta.sources === 'object') ? meta.sources : {};
+        const today = SkateTime.todayKey();
+        const rows = [];
+        const add = (group, groupLabel, row) => rows.push({ ...row, group, groupLabel });
+
+        // -- the City of Toronto: its open data, its closure notices, its live schedule, its lending van
+        if (meta.lastUpdated) {
+            const old = (nowMs - new Date(meta.lastUpdated)) / 86400000 > 7;
+            const cityCount = meta.counts && Number.isFinite(meta.counts.cityPrograms) ? meta.counts.cityPrograms : null;
+            const lines = [cityCount != null ? `${plural(cityCount, 'session')} in the City's weekly file.` : ''];
+            if (meta.city && meta.city.modified) lines.push(endDot(`The City last refreshed that file ${stWhen(meta.city.modified)}`));
+            add('city', 'City of Toronto', { kind: 'city', id: 'city-schedule', city: 'Toronto', name: 'Drop-in schedule', site: 'toronto.ca open data', tone: old ? 'warn' : 'ok', head: `read ${stWhen(meta.lastUpdated)}`, lines: lines.filter(Boolean) });
+        }
+        if (SkateAlerts.loaded && SkateAlerts.checkedAt) {
+            const st = SkateAlerts.stats(nowMs);
+            const lines = [`${plural(st.total, 'notice')} on file${st.recent ? `, ${st.recent} posted in the last day` : ''}. Each is shown with the City's own words and the day it was posted.`];
+            if (SkateAlerts.reader) lines.push(alertReaderLine(SkateAlerts.reader));
+            add('city', 'City of Toronto', { kind: 'city', id: 'city-alerts', city: 'Toronto', name: 'Rink closures and notices', site: 'toronto.ca', tone: nowMs - new Date(SkateAlerts.checkedAt) > ALERTS_STALE_MS ? 'warn' : 'ok', head: `checked ${stWhen(SkateAlerts.checkedAt)}`, lines });
+        }
+        if (SkateAlerts.loaded && SkateAlerts.liveCheckedAt) {
+            const ls = SkateAlerts.liveStats;
+            add('city', 'City of Toronto', { kind: 'city', id: 'city-live', city: 'Toronto', name: 'Live schedule cross-check', site: 'toronto.ca', tone: nowMs - new Date(SkateAlerts.liveCheckedAt) > LIVE_STALE_MS ? 'warn' : 'ok', head: `checked ${stWhen(SkateAlerts.liveCheckedAt)}`,
+                lines: [ls ? `${plural(ls.missing, 'session')} hidden because toronto.ca no longer lists ${ls.missing === 1 ? 'it' : 'them'}, ${ls.extra} added from it.` : 'Each City session in the next two weeks is checked against the rink\'s own page.'] });
+        }
+        if (S.lending && S.lending.van && S.lending.checkedAt) {
+            const stops = lendIx ? lendIx.stops.filter(x => x.date >= today).length : 0;
+            add('city', 'City of Toronto', { kind: 'city', id: 'city-lending', city: 'Toronto', name: 'Free skates van', site: 'toronto.ca', tone: stops ? 'ok' : 'wait', head: `checked ${stWhen(S.lending.checkedAt)}`,
+                lines: [stops ? `${plural(stops, 'upcoming stop')} posted.` : 'The City has not posted this winter\'s stops yet.'] });
+        }
+
+        // -- everything else: Toronto's two groups in their set order, then one group per city
+        const rowKeys = (keys) => {                       // keys → [[k, k, …], …] merged by CFG.sourceRows, order kept
+            const seen = new Map();
+            keys.forEach(k => { const id = CFG.sourceRows[k] || k; if (!seen.has(id)) seen.set(id, []); seen.get(id).push(k); });
+            return [...seen.values()];
+        };
+        const known = new Set(), placed = new Set();
+        Object.keys(CFG.sourceInfo).forEach(k => { if (k !== 'city') known.add(k); });
+        Object.keys(sources).forEach(k => known.add(k));
+        CFG.sourceGroups.forEach(g => rowKeys(g.keys.filter(k => known.has(k))).forEach(keys => {
+            keys.forEach(k => placed.add(k));
+            add(g.id, g.label, sourceRow(keys, sources, meta.lastUpdated, today));
+        }));
+        const rest = rowKeys([...known].filter(k => !placed.has(k))).map(keys => sourceRow(keys, sources, meta.lastUpdated, today));
+        rest.sort((a, b) => a.city.localeCompare(b.city) || a.name.localeCompare(b.name));
+        rest.forEach(r => add(`city:${r.city}`, r.city, r));
+
+        return (all || !S.cities.length) ? rows : rows.filter(r => S.cities.includes(r.city));
+    }
+
+    Render.dataStatus = function () {
+        const box = $('status-body');
+        const keep = box.scrollTop;
+        const rows = statusRows(Date.now(), { all: S.statusAll });
+        const mark = { ok: '✓', warn: '⚠', wait: '◌', off: '–' };
+        const scoped = S.cities.length && !S.statusAll;
+        let html = '<p class="st-lead">Sources are re-read every 30 minutes, and the City\'s closure notices every 10. Each row is one place the schedule comes from.</p>';
+        if (S.cities.length) {
+            html += scoped
+                ? `<p class="st-scope">Showing your cities: <strong>${escapeHtml(S.cities.join(', '))}</strong>. <button type="button" class="flink" data-st-all="1">Show every city</button></p>`
+                : `<p class="st-scope">Showing every city. <button type="button" class="flink" data-st-all="0">Only ${escapeHtml(cityPillLabel())}</button></p>`;
+        }
+        const warn = rows.filter(r => r.tone === 'warn').length;
+        if (warn) html += `<p class="st-sum warn">${warn === 1 ? 'One source needs' : `${warn} sources need`} attention. Their sessions may be missing or out of date.</p>`;
+        let group = null;
+        rows.forEach(r => {
+            if (r.group !== group) {
+                if (group !== null) html += '</ul>';
+                group = r.group;
+                html += `<h4>${escapeHtml(r.groupLabel)}</h4><ul class="st-list">`;
+            }
+            html += `<li class="st-row st-${r.tone}" data-st="${escapeHtml(r.id)}"><span class="st-mark" aria-hidden="true">${mark[r.tone] || '·'}</span><div class="st-main">` +
+                `<div class="st-top"><strong>${escapeHtml(r.name)}</strong><span class="st-head">${escapeHtml(r.head)}</span></div>` +
+                r.lines.map(l => `<div class="st-line">${escapeHtml(l)}</div>`).join('') +
+                (r.site ? `<div class="st-site">${escapeHtml(r.site)}</div>` : '') + '</div></li>';
+        });
+        if (group !== null) html += '</ul>';
+        if (!rows.length) html += '<p class="settings-hint">Nothing to show yet: the schedule is still loading.</p>';
+        html += '<div class="st-actions"><button type="button" class="btn-secondary btn-small" data-st-refresh="1">Refresh now</button><button type="button" class="btn-secondary btn-small" data-st-city="1">Ask for a fresh pull from the City</button></div>';
+        box.innerHTML = html;
+        box.scrollTop = keep;
     };
 
     Render.showMore = function (left) {
@@ -1020,8 +1271,10 @@ window.SkateApp = (() => {
             : '';
     };
 
-    /** Settings → Display → Calendar 2.0 (the experimental day planner). */
+    /** Settings → Display → Calendar 2.0 (the day planner), or any planner view picked from the ▾ beside Calendar. */
     const cal2Active = () => SkateSettings.get('cal2') === true;
+    /** v3.12: which calendar the Calendar button shows: 'week' (the grid) | 'time' | 'rink' | 'distance' (the planner's three views). */
+    const calType = () => (cal2Active() ? S.cal2By : 'week');
 
     function setCalNav(dayMode) {
         $('btn-cal-prev').textContent = dayMode ? '‹ Day' : '‹ Week';
@@ -1066,6 +1319,7 @@ window.SkateApp = (() => {
         const mine = new Set(SkateSettings.get('myRinks') || []);
         const res = SkateCalendar2.render(view, S.filtered, {
             day: S.cal2Day, todayKey, nowMinutes, by: S.cal2By, showEnded: S.cal2ShowEnded,
+            hasLocation: !!SkateGeo.getUserLocation(), radius: S.radius, radiusOptions: CFG.radiusOptions, bands: CFG.radiusOptions,
             fmtClock, fmtKm: SkateGeo.fmtKm, fmtMins: SkateTime.fmtMins, fmtPrice, ageText,
             kindLabel: p => { const cls = P.typeCls(p); return (CFG.activityTags.find(t => t.cls === cls) || {}).label || 'Skate'; },
             distanceFor: p => SkateGeo.distanceForProgram(p),
@@ -1126,7 +1380,9 @@ window.SkateApp = (() => {
         }
 
         // Schedules read from a PDF or website have no live feed: say so, calmly.
-        const unverifiedHtml = p.Unverified ? `<div class="alert-banner unverified"><strong>Unverified.</strong> Read from ${escapeHtml(site)}, no live feed. Check before you go${p.InfoUrl ? `: <a href="${escapeHtml(p.InfoUrl)}" target="_blank" rel="noopener">${escapeHtml(site)} ↗</a>` : '.'}</div>` : '';
+        // v3.12: an outdoor rink's own hours are as official as it gets; what they cannot know is tomorrow's weather.
+        const outdoorSrc = !!CFG.sourceInfo[p.Source]?.outdoor;
+        const unverifiedHtml = p.Unverified ? `<div class="alert-banner unverified"><strong>${outdoorSrc ? 'Outdoor ice' : 'Unverified'}.</strong> ${outdoorSrc ? `Hours read from ${escapeHtml(site)}. It closes in warm, wet or very cold weather. Check before you go` : `Read from ${escapeHtml(site)}, no live feed. Check before you go`}${p.InfoUrl ? `: <a href="${escapeHtml(p.InfoUrl)}" target="_blank" rel="noopener">${escapeHtml(site)} ↗</a>` : '.'}</div>` : '';
 
         // Price as a price tag; notes (residents-only, age tiers) as a wrapping line
         const srcInfo = CFG.sourceInfo[p.Source];
@@ -1200,8 +1456,9 @@ window.SkateApp = (() => {
         const cityTag = city !== 'Toronto' ? `<span class="city-tag">${escapeHtml(city)}</span>` : '';
         // Rink line: the name is the directions link (📍 … ↗) and the ℹ️ beside
         // it opens the official page, so a card is two lines, not four.
+        const aka = akaOf(P.locKey(p)).first;   // v3.12: "College Park (Barbara Ann Scott Ice Trail)"
         const whereHtml = location
-            ? `<a class="where-link" href="${mapsUrl(location, city)}" target="_blank" rel="noopener" title="Directions in Google Maps">📍 ${escapeHtml(location)} ↗</a>`
+            ? `<a class="where-link" href="${mapsUrl(location, city)}" target="_blank" rel="noopener" title="Directions in Google Maps">📍 ${escapeHtml(location)}${aka ? ` <span class="where-aka">(${escapeHtml(aka)})</span>` : ''} ↗</a>`
             : '';
         const infoLink = off
             ? `<a class="where-info" href="${escapeHtml(off)}" target="_blank" rel="noopener" title="Official page on ${escapeHtml(site)}: the schedule the staff go by. Verify there before you go."><span class="where-info-site">${escapeHtml(site)}</span><svg class=\"where-glyph\" viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"8\" r=\"6.4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.4\"/><path d=\"M1.6 8h12.8M8 1.6c2.3 2.1 2.3 10.7 0 12.8M8 1.6c-2.3 2.1-2.3 10.7 0 12.8M2.8 4.6h10.4M2.8 11.4h10.4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.1\"/></svg></a>`
@@ -1624,7 +1881,7 @@ window.SkateApp = (() => {
     function rinkMatchesQuery(r, q) {
         if (!q) return true;
         let hay = rinkHay.get(r);
-        if (!hay) rinkHay.set(r, hay = `${foldText(`${r.name} ${r.district || ''} ${rinkCity(r)} ${r.address || ''} ${r.postal || ''}`)} ${foldText(r.postal).replace(/ /g, '')}`);
+        if (!hay) rinkHay.set(r, hay = `${foldText(`${r.name} ${Array.isArray(r.aka) ? r.aka.join(' ') : ''} ${r.district || ''} ${rinkCity(r)} ${r.address || ''} ${r.postal || ''}`)} ${foldText(r.postal).replace(/ /g, '')}`);
         return q.split(' ').every(word => hay.includes(word));
     }
     const rinksQuery = () => foldText($('rinks-search').value);
@@ -1678,6 +1935,8 @@ window.SkateApp = (() => {
             const sessions = S.paidVisible ? sp.free + sp.paid : sp.free;
             const alerts = SkateAlerts.forLocation(key);
             const starred = mine.has(key);
+            const season = seasonWord(r);                              // v3.12: a seasonal rink that is not open right now
+            const also = Array.isArray(r.aka) && typeof r.aka[0] === 'string' ? r.aka[0] : '';
             const meta = [
                 r.km != null ? SkateGeo.fmtKm(r.km) : null,
                 r.address || null,
@@ -1698,6 +1957,8 @@ window.SkateApp = (() => {
             };
             node.appendChild(el('div', { class: 'rink-info' }, [
                 el('strong', {}, [r.name,
+                    ...(also ? [el('span', { class: 'rink-aka', title: Array.isArray(r.aka) && r.aka.length > 1 ? `Also known as ${r.aka.join(', ')}` : `Also known as ${also}` }, [` (${also})`])] : []),
+                    ...(season ? [el('span', { class: 'rink-season', title: (r.seasonal && typeof r.seasonal.quote === 'string' && r.seasonal.quote) ? `Its page says: “${r.seasonal.quote.slice(0, 170)}”` : season }, [season])] : []),
                     ...(alerts.length ? [el('span', { class: 'rink-alert', title: 'Service alert: ' + alerts.map(a => a.Reason).join(', ') }, ['alert'])] : [])]),
                 el('span', { class: 'rink-meta' }, [meta])
             ]));
@@ -1961,16 +2222,28 @@ window.SkateApp = (() => {
             const meta = SkateAPI.getMetadata();
             const fmt = x => x ? new Date(x).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'never';
             const st = SkateAlerts.liveStats;
+            // v3.12: when each source was read lives on its own sheet (the "checked" part of the line)
             const items = [
-                { label: `Schedule data: ${fmt(meta?.lastUpdated)}${meta?.counts?.duplicatesRemoved ? ` · ${meta.counts.duplicatesRemoved} duplicate row${meta.counts.duplicatesRemoved === 1 ? '' : 's'} merged` : ''}`, onClick: () => {} },
-                { label: `Rink alerts checked: ${fmt(SkateAlerts.checkedAt)}`, onClick: () => {} },
-                ...(SkateAlerts.reader ? [{ label: alertReaderLine(SkateAlerts.reader), onClick: () => {} }] : []),
-                { label: `toronto.ca cross-check: ${fmt(SkateAlerts.liveCheckedAt)}${st ? ` (${st.missing} hidden as no longer listed, ${st.extra} added)` : ''}`, onClick: () => {} }
+                { label: `Schedule data: ${fmt(meta?.lastUpdated)}${meta?.counts?.duplicatesRemoved ? ` · ${meta.counts.duplicatesRemoved} duplicate row${meta.counts.duplicatesRemoved === 1 ? '' : 's'} merged` : ''}`, onClick: () => Actions.openStatus() },
+                { label: 'Data status: every source, when it was read', onClick: () => Actions.openStatus() }
             ];
             if (st?.missing) items.push({ label: S.showDropped ? 'Hide the sessions toronto.ca no longer lists' : `Show the ${st.missing} session${st.missing === 1 ? '' : 's'} toronto.ca no longer lists`, onClick: () => Actions.setFlag('dropped', !S.showDropped) });
             items.push({ label: 'Refresh now', onClick: () => Actions.refreshPrograms() });
             items.push({ label: 'Ask for a fresh pull from the City', onClick: () => Actions.requestCityRefresh() });
             if (!S.paidVisible && S.paidMatching) items.push({ label: `Show ${S.paidMatching} paid sessions`, onClick: () => Actions.setFlag('free', false) });
+            return items;
+        },
+
+        /** v3.12: the ▾ beside Calendar. Four calendars, each with its own colour. */
+        calTypes() {
+            const cur = S.calMode ? calType() : null;
+            return CFG.calTypes.map(t => ({ label: `${cur === t.id ? '✓ ' : '\u2007\u2007 '}${t.label}`, cls: `cal-t cal-t-${t.id}`, onClick: () => Actions.setCalType(t.id) }));
+        },
+
+        /** v3.12: the Within N km pill. */
+        radius() {
+            const items = [{ label: `${S.radius ? '\u2007\u2007 ' : '✓ '}Any distance`, onClick: () => Actions.setRadius(null) }];
+            CFG.radiusOptions.forEach(km => items.push({ label: `${S.radius === km ? '✓ ' : '\u2007\u2007 '}Within ${km} km`, onClick: () => Actions.setRadius(km) }));
             return items;
         },
 
@@ -2063,6 +2336,15 @@ window.SkateApp = (() => {
         const term = S.search.toLowerCase();
         const postalTerm = term.replace(/\s+/g, '');   // "M5A3S5" finds "M5A 3S5"
         const dayIsRel = ['today', 'tomorrow', 'weekend'].includes(S.day);
+        // v3.12: only what is within N km of the reader's spot. One distance per rink, not per session.
+        const radius = S.radius && SkateGeo.getUserLocation() ? S.radius : null;
+        const kmByRink = new Map();
+        const kmOf = (p) => {
+            const k = P.locKey(p);
+            let d = kmByRink.get(k);
+            if (d === undefined) { d = SkateGeo.distanceForProgram(p); kmByRink.set(k, d); }
+            return d;
+        };
 
         let result = S.programs.filter(p => {
             if (!S.showDropped && SkateAlerts.isDropped(p)) return false;   // toronto.ca is the ground truth
@@ -2071,9 +2353,11 @@ window.SkateApp = (() => {
             if (S.cities.length && !S.cities.includes(P.city(p))) return false;
             if (S.rinkScope === 'mine' && mine.size && !mine.has(P.locKey(p))) return false;
             if (S.nearRink && P.locKey(p) !== S.nearRink.key) return false;
+            if (radius != null) { const d = kmOf(p); if (d == null || d > radius) return false; }
             if (term && !(
                 P.activity(p).toLowerCase().includes(term) ||
                 P.location(p).toLowerCase().includes(term) ||
+                akaOf(P.locKey(p)).hay.includes(term) ||               // v3.12: "Barbara Ann Scott" finds College Park
                 (p.Address || '').toLowerCase().includes(term) ||
                 (p.District || '').toLowerCase().includes(term) ||
                 P.city(p).toLowerCase().includes(term) ||
@@ -2130,6 +2414,7 @@ window.SkateApp = (() => {
         SkateSettings.set('freeOnly', !S.paidVisible);
         SkateSettings.set('rinkScope', S.rinkScope);
         SkateSettings.set('sort', S.sort);
+        SkateSettings.set('radius', S.radius);
     }
     /** Re-render after a filter change: sheet (if open) + list. */
     function filtersChanged() {
@@ -2183,6 +2468,26 @@ window.SkateApp = (() => {
         }
         filtersChanged();
     };
+    /** v3.12: the Data status sheet (the "checked" part of the status line). */
+    Actions.openStatus = function () {
+        S.statusAll = false;
+        Render.dataStatus();
+        $('status-body').scrollTop = 0;
+        Modal.open('status-modal');
+    };
+    /** v3.12: only sessions within `km` of the reader's spot (null = any distance). Needs a spot: asks for one first. */
+    Actions.setRadius = function (km) {
+        const v = CFG.radiusOptions.includes(km) ? km : null;
+        if (v && !SkateGeo.getUserLocation()) {
+            S.radiusWanted = v;
+            Modal.close('filters-modal');
+            SkateUI.toast(`Within ${v} km needs a starting point. Set it here and the filter applies.`, 'info', 4000);
+            Actions.openRinks();
+            return;
+        }
+        S.radius = v; S.radiusWanted = null;
+        filtersChanged();
+    };
     /** saved / past / mine / paid switches (Filters sheet + status popover + pills). */
     Actions.setFlag = function (flag, on) {
         if (flag === 'saved') S.savedOnly = !!on;
@@ -2205,7 +2510,7 @@ window.SkateApp = (() => {
     Actions.resetFilters = function () {
         S.types = {}; S.cities = []; S.day = ''; S.age = null; S.savedOnly = false;
         S.showPast = false; S.nearRink = null; S.rinkScope = 'all'; S.sort = 'time'; S.paidVisible = true;
-        S.showDropped = false; S.moreFilters = false; S.expandedCats = {};
+        S.showDropped = false; S.moreFilters = false; S.expandedCats = {}; S.radius = null; S.radiusWanted = null;
         filtersChanged();
     };
     /** Tapping a pill removes that one filter (or toggles ⭐ My rinks). */
@@ -2223,11 +2528,23 @@ window.SkateApp = (() => {
         else if (key === 'dropped') S.showDropped = false;
         else if (key === 'cities') S.cities = [];
         else if (key === 'sort') S.sort = 'time';
+        else if (key === 'radius') S.radius = null;
         filtersChanged();
     };
     Actions.setCalMode = function (on) {
         S.calMode = !!on;
         SkateSettings.set('calMode', S.calMode);
+        Render.programs();
+    };
+    /** v3.12: pick a calendar from the ▾ beside Calendar (and show it). 'week' is the grid; the rest are the day planner's views. */
+    Actions.setCalType = function (type) {
+        if (!CFG.calTypes.some(t => t.id === type)) return;
+        SkateSettings.set('cal2', type !== 'week');
+        if (type !== 'week') { S.cal2By = type; SkateSettings.set('cal2By', type); }
+        const box = $('set-cal2');
+        if (box) box.checked = type !== 'week';
+        S.calMode = true;
+        SkateSettings.set('calMode', true);
         Render.programs();
     };
 
@@ -2239,7 +2556,7 @@ window.SkateApp = (() => {
 
     /** Calendar 2.0: group by time of day or by rink (remembered). */
     Actions.cal2SetBy = function (by) {
-        S.cal2By = by === 'rink' ? 'rink' : 'time';
+        S.cal2By = by === 'rink' || by === 'distance' ? by : 'time';
         SkateSettings.set('cal2By', S.cal2By);
         Render.calendar();
     };
@@ -2345,6 +2662,9 @@ window.SkateApp = (() => {
 
     /** After the user's point changes: distances everywhere, map dot, list order. */
     function locationChanged() {
+        // v3.12: a radius picked before there was a spot starts counting now; no spot, no radius
+        if (SkateGeo.getUserLocation()) { if (S.radiusWanted) { S.radius = S.radiusWanted; S.radiusWanted = null; SkateSettings.set('radius', S.radius); } }
+        else if (S.radius) { S.radius = null; SkateSettings.set('radius', null); }
         SkateWeather.load(true);
         Render.rinks();
         SkateMap.refresh();
@@ -2777,7 +3097,8 @@ window.SkateApp = (() => {
                 const when = a.date ? `${lendDate(a.date)}${hours ? ' ·' + hours : ''}`
                     : a.days ? `${a.days.map(d => LEND_DAYS[d]).join(', ')}${hours}, ${a.start > today ? `${lendShort(a.start)} to ${lendShort(a.end)}` : `until ${lendShort(a.end)}`}`
                     : 'All season';
-                return `<li><span class="lend-where">${escapeHtml(a.place)}${a.address ? `<em>${escapeHtml(a.address)}</em>` : ''}</span><span class="lend-what">${escapeHtml(a.what || '')}. <span class="lend-when">${escapeHtml(when)}.</span> ${link(a.url, 'Details')}</span></li>`;
+                const shut = a.rink ? seasonWord(SkateGeo.rinkByLocation(a.rink)) : '';   // v3.12
+                return `<li><span class="lend-where">${escapeHtml(a.place)}${a.address ? `<em>${escapeHtml(a.address)}</em>` : ''}</span><span class="lend-what">${escapeHtml(a.what || '')}. <span class="lend-when">${escapeHtml(when)}.</span>${shut ? ` <strong class="lend-shut">The rink: ${escapeHtml(shut.toLowerCase())}.</strong>` : ''} ${link(a.url, 'Details')}</span></li>`;
             }).join('') + '</ul>';
         }
         const checked = L.checkedAt ? new Date(L.checkedAt) : null;
@@ -2788,6 +3109,42 @@ window.SkateApp = (() => {
         if (!S.lending) { try { setLending(await SkateAPI.getLending()); } catch {} }
         Render.lending();
         Modal.open('lending-modal');
+    };
+
+    /* ---------- Natural ice (v3.12) ----------
+     * natural-ice.json: the parks the City approved for rinks that neighbours
+     * flood and shovel themselves. A plain list, nearest first when a spot is
+     * set. No hours and no open or closed: nobody reports either, and a status
+     * nobody keeps would be wrong most days. */
+    Render.natural = function (data) {
+        const box = $('natural-body');
+        const num = (x) => typeof x === 'number' && Number.isFinite(x);
+        const ok = (p) => p && typeof p === 'object' && typeof p.name === 'string' && p.name.trim() && /^\d{1,6}$/.test(String(p.id ?? ''));
+        const parks = data && Array.isArray(data.parks) ? data.parks.filter(ok).slice(0, 400) : [];
+        if (!parks.length) { box.innerHTML = '<p class="settings-hint">This could not be loaded right now. Try again in a moment.</p>'; return; }
+        const user = SkateGeo.getUserLocation();
+        const rows = parks.map(p => ({ id: String(p.id), name: p.name, address: typeof p.address === 'string' ? p.address : '',
+            km: user && num(p.lat) && num(p.lng) ? SkateGeo.distanceKm(user, { lat: p.lat, lng: p.lng }) : null }));
+        rows.sort((a, b) => ((a.km ?? Infinity) - (b.km ?? Infinity)) || a.name.localeCompare(b.name));
+        const season = typeof data.season === 'string' && /^\d{4}\/\d{4}$/.test(data.season) ? data.season : '';
+        let html = `<p class="lend-lead"><strong>${rows.length} parks</strong> where neighbours flood and shovel a rink when it stays cold. The City approves the spot and lends the hoses; volunteers do the rest. No staff, no boards, no change room.</p>`;
+        html += '<p class="lend-note">Nobody reports whether there is ice, so this list has no hours and no open or closed. The City\'s guide says a rink needs about five days at −4 °C or colder and then a week of flooding, and a thaw undoes it. Go by the weather, and look before you lace up.</p>';
+        if (season && data.current === false) html += `<p class="lend-note nat-last"><strong>This is last winter's list (${escapeHtml(season)}).</strong> ${typeof data.next === 'string' && data.next ? escapeHtml(data.next.slice(0, 200)) + ' ' : ''}The new list replaces this one here by itself.</p>`;
+        else if (season) html += `<p class="lend-note">Approved by the City for ${escapeHtml(season)}.</p>`;
+        html += `<p class="settings-hint">${user ? `Nearest to ${escapeHtml(user.label || 'your spot')} first.` : 'In A to Z order. Set a spot under Rinks and map to see the nearest first.'}</p>`;
+        html += '<ul class="lend-list nat-list">' + rows.map(p => `<li><span class="lend-where">${escapeHtml(p.name)}<em>${escapeHtml(p.address)}${p.km != null ? `${p.address ? ' · ' : ''}${SkateGeo.fmtKm(p.km)}` : ''}</em></span>` +
+            `<span class="nat-links"><a href="${mapsUrl(`${p.name}${p.address ? ', ' + p.address : ''}`, 'Toronto')}" target="_blank" rel="noopener">Map ↗</a>` +
+            `<a href="${TORONTO_LOC_URL}${encodeURIComponent(p.id)}" target="_blank" rel="noopener">Park page ↗</a></span></li>`).join('') + '</ul>';
+        const checked = data.checkedAt ? new Date(data.checkedAt) : null;
+        html += `<p class="lend-source">${httpOnly(data.url) ? `<a href="${escapeHtml(data.url)}" target="_blank" rel="noopener">The City's natural ice rinks page ↗</a>` : ''}${checked && !isNaN(checked) ? ` Read ${escapeHtml(checked.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }))}.` : ''}</p>`;
+        box.innerHTML = html;
+    };
+    Actions.openNatural = async function () {
+        $('natural-body').innerHTML = '<p class="settings-hint">Loading…</p>';
+        Modal.open('natural-modal');
+        let data = null;
+        try { data = await SkateAPI.getNaturalIce(); } catch { /* the sheet says so */ }
+        Render.natural(data);
     };
 
     Actions.openWhatsNew = function () {
@@ -3259,6 +3616,7 @@ window.SkateApp = (() => {
         $('btn-rinks').onclick = () => Actions.openRinks();
         $('btn-list').onclick = () => Actions.setCalMode(false);
         $('btn-cal').onclick = () => Actions.setCalMode(true);
+        $('btn-cal-type').onclick = (e) => { e.stopPropagation(); Popover.open($('btn-cal-type'), Menus.calTypes(), 'Which calendar'); };
         $('btn-refresh').onclick = () => Actions.refreshPrograms();
         $('btn-free').onclick = () => Actions.setFlag('free', S.paidVisible);
 
@@ -3268,11 +3626,21 @@ window.SkateApp = (() => {
             ['.pill.city', (b, e) => { e.stopPropagation(); Popover.open(b, Menus.cities(), 'Cities'); }],
             ['.pill.type .pill-x', (x, e) => { e.stopPropagation(); Actions.removePill(x.closest('.pill').dataset.pill); }],
             ['.pill.type', (b, e) => { e.stopPropagation(); const cat = b.dataset.pill.slice(5); Popover.open(b, cat === OTHER_KEY ? Menus.otherTypes() : Menus.subTypes(cat), cat === OTHER_KEY ? 'Other kinds' : `${CAT_LABEL(cat)}: age groups`); }],
+            ['.pill.radius .pill-x', (x, e) => { e.stopPropagation(); Actions.setRadius(null); }],
+            ['.pill.radius', (b, e) => { e.stopPropagation(); Popover.open(b, Menus.radius(), 'How far from your spot'); }],
             ['.pill', (b) => Actions.removePill(b.dataset.pill)]
         ]);
 
         // ---- Status line + weather ----
-        $('status-data').onclick = (e) => { e.stopPropagation(); Popover.open($('status-data'), Menus.status(), 'Data status'); };
+        $('status-data').onclick = (e) => { e.stopPropagation(); Popover.open($('status-data'), Menus.status(), 'Sessions shown'); };
+        // v3.12: the "checked" part opens the status of every source
+        $('status-checked').onclick = () => Actions.openStatus();
+        $('btn-status-close').onclick = () => Modal.close('status-modal');
+        delegate($('status-body'), [
+            ['[data-st-all]', (b) => { S.statusAll = b.dataset.stAll === '1'; Render.dataStatus(); }],
+            ['[data-st-refresh]', () => { Modal.close('status-modal'); Actions.refreshPrograms(); }],
+            ['[data-st-city]', () => { Modal.close('status-modal'); Actions.requestCityRefresh(); }]
+        ]);
         $('weather-chip').onclick = (e) => { e.stopPropagation(); Popover.open($('weather-chip'), Menus.weather(), 'Weather'); };
         delegate($('saved-next'), [['.saved-row', (b) => Actions.focusProgram(b.dataset.pid)]]);
 
@@ -3306,6 +3674,7 @@ window.SkateApp = (() => {
             ['.fchip[data-day]', (b) => Actions.setDay(b.dataset.day)],
             ['.fchip[data-city]', (b) => (b.dataset.city ? Actions.toggleCity(b.dataset.city) : Actions.setCities([]))],
             ['.fchip[data-sort]', (b) => Actions.setSort(b.dataset.sort)],
+            ['.fchip[data-radius]', (b) => Actions.setRadius(b.dataset.radius ? Number(b.dataset.radius) : null)],
             ['.flink[data-open]', () => { Modal.close('filters-modal'); Actions.openRinks(); }]
         ]);
 
@@ -3320,6 +3689,13 @@ window.SkateApp = (() => {
         $('btn-cal-today').onclick = () => { S.calWeekOffset = 0; S.cal2Day = SkateTime.todayKey(); Render.calendar(); };
         delegate($('calendar-view'), [
             ['[data-cal2-by]', (b) => Actions.cal2SetBy(b.dataset.cal2By)],
+            ['[data-cal2-radius]', (b) => Actions.setRadius(b.dataset.cal2Radius ? Number(b.dataset.cal2Radius) : null)],
+            ['[data-cal2-locate]', async (b) => {
+                b.disabled = true; b.textContent = 'Locating…';
+                try { SkateGeo.setUserLocation(await SkateGeo.locateMe()); locationChanged(); }
+                catch (e) { SkateUI.toast(`${e.message} Type a place instead.`, 'info', 4500); Actions.openRinks(); }
+            }],
+            ['[data-cal2-place]', () => { SkateUI.toast('Type a place or a postal code, then tap the line under the box.', 'info', 4500); Actions.openRinks(); }],
             ['[data-cal2-ended]', (b, e) => { e.stopPropagation(); Actions.cal2ToggleEnded(); }],
             ['[data-cal2-fav]', (b, e) => { e.stopPropagation(); const p = S.filtered.find(x => P.id(x) === b.dataset.cal2Fav); if (p) Actions.toggleSaved(p); }],
             ['[data-cal2-day]', (b) => Actions.cal2SetDay(b.dataset.cal2Day)],
@@ -3467,13 +3843,16 @@ window.SkateApp = (() => {
             Modal.close('settings-modal');
             Actions.switchView('programs');
             Render.programs();
-            SkateUI.toast(cal2.checked ? 'Calendar 2.0 is on: the day planner in the Calendar tab.' : 'Back to the classic week grid.', 'info', 3500);
+            SkateUI.toast(cal2.checked ? 'The day planner is on. The ▾ beside Calendar picks by time of day, by rink or by distance.' : 'Back to the week grid.', 'info', 3500);
         };
         $('btn-whatsnew').onclick = () => { Modal.close('settings-modal'); Actions.openWhatsNew(); };
         $('btn-whatsnew-close').onclick = () => Modal.close('whatsnew-modal');
         // v3.11: free skates. The chip on a session, the line under a day heading and the
         // link in Rinks & map all carry data-lending; caught first so the card behind stays shut.
         $('btn-lending-close').onclick = () => Modal.close('lending-modal');
+        // v3.12: natural ice, the second link in Rinks & map
+        $('btn-natural').onclick = () => Actions.openNatural();
+        $('btn-natural-close').onclick = () => Modal.close('natural-modal');
         document.addEventListener('click', (e) => {
             const hit = e.target.closest && e.target.closest('[data-lending]');
             if (!hit) return;

@@ -196,6 +196,7 @@ window.SkateAlerts = (() => {
             .replace(/<[^>]+>/g, ' ')
             .replace(/&nbsp;/gi, ' ')
             .replace(/\s+/g, ' ')
+            .replace(/ ([.,;:!?])(?= |$)/g, '$1')   // a link stripped from the end of a sentence leaves "improvements ."
             .trim();
     }
 
@@ -508,8 +509,11 @@ window.SkateAlerts = (() => {
         const programDate = (p['Start Date Time'] || p['Start Date'] || '').slice(0, 10);
         const kindsHere = kindsOn(locationKinds, programDate);
 
-        const off = [], padOff = [], reduced = [], unknown = [], season = [], building = [], otherHours = [], ended = [];
+        const off = [], padOff = [], reduced = [], unknown = [], season = [], building = [], otherHours = [], ended = [], outlived = [];
         alerts.forEach(a => {
+            // v3.12: the arena's own site lists skating again, and this City notice is from before
+            // it reopened (George Bell's "Under Construction", 2025): a note, never a cancellation
+            if (a.Superseded && typeof a.Superseded === 'object') { outlived.push(a); return; }
             const R = readingFor(a, pads);
             const ph = phaseOf(R, a, programDate, p);
             if (ph.phase === 'before') return;                       // not in force yet on that day
@@ -585,6 +589,16 @@ window.SkateAlerts = (() => {
                     : `The City's notice${when} is for ${names || `${which} rinks`}. ${other === 'indoor' ? 'Indoor' : 'Outdoor'} skating here is not affected.`
             });
         }
+        if (outlived.length) {
+            const a = outlived[0];
+            const posted = postedDay(a);
+            const on = isYmd(a.Superseded.on) ? ` on ${fmtDay(a.Superseded.on)}` : '';
+            const who = typeof a.Superseded.by === 'string' && a.Superseded.by ? a.Superseded.by : 'The arena\'s own site';
+            return make('note', 'outlived', 'The City\'s page still shows an old notice', outlived, {
+                reason: '',
+                text: `“${cleanComment(a.Comments) || a.Reason || 'Closed'}”${posted ? `, posted ${fmtDay(posted)}` : ''}. ${who} says the arena reopened${on} and lists this skate.`
+            });
+        }
         if (otherHours.length) {
             return make('note', 'other-hours', 'Heads-up', otherHours, {
                 text: `An alert here covers other hours that day: “${otherHours.map(a => cleanComment(a.Comments) || a.Reason || '').join(' • ')}”`
@@ -617,6 +631,7 @@ window.SkateAlerts = (() => {
         const pads = rink && Number.isFinite(rink.pads) ? rink.pads : 1;
         const kinds = rink && Array.isArray(rink.kinds) && rink.kinds.length ? rink.kinds : null;
         return (byLocation[String(locId)] || []).filter(a => {
+            if (a.Superseded) return false;   // v3.12: outlived by the arena's own reopening
             // a notice about a kind of ice this place does not have (an outdoor-rinks
             // notice posted on an indoor arena) does not flag it
             const k = alertKind(a);
@@ -631,6 +646,16 @@ window.SkateAlerts = (() => {
     return {
         dateWindows,   // exposed for tests
         load, onUpdate, forProgram, forLocation, liveFor, isDropped,
+        /** v3.12, for the Data status page: how many notices are on file, and how many were posted in the last day. */
+        stats(nowMs = Date.now()) {
+            let total = 0, recent = 0;
+            Object.values(byLocation).forEach(list => list.forEach(a => {
+                total++;
+                const t = Date.parse(String(a.PostedDate || '').replace(' ', 'T'));
+                if (Number.isFinite(t) && nowMs - t < 86400000 && nowMs >= t) recent++;
+            }));
+            return { total, recent };
+        },
         get loaded() { return loaded; },
         get fetchedAt() { return fetchedAt; },
         get checkedAt() { return checkedAt; },

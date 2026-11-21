@@ -22,13 +22,15 @@ const LEISURE_WORDS = [
     // Stouffville "Adult/Senior Free Skate", Ajax/Oshawa "Adult Skate" / "Parent & Tot", Pickering "Parent & Child Skate"
     'free skate', 'adult skate', 'parent & tot', 'parent and tot', 'parent & child skate',
     // Toronto's board-run arenas (v3.7): Grossman "Pleasure Skate", Leaside "Community Skate", Bolton "Adults Only Skate"
-    'pleasure skat', 'community skat', 'adults only skat'
+    'pleasure skat', 'community skat', 'adults only skat',
+    // v3.12: McCormick's "Adult Skating"
+    'adult skating'
 ];
 
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.11.2',
+    version: '3.12',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -42,6 +44,19 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.12', date: '2026-11-21', items: [
+                'Data status. The line under the filters is now two buttons. Tap "✓ checked" for a page listing every place the schedule comes from, when it was last read and how that went: the City\'s weekly file, its closure notices and live check, each board-run arena, the other Toronto rinks, then every other city. It follows your cities: with only Toronto picked you see Toronto\'s sources, with all cities you see everything, group by group. A source that could not be read no longer puts a banner on the schedule: the line turns to ⚠️ and says how many are behind.',
+                'Winter-only rinks, each read from its own page and listed only once that page says so: Harbourfront Centre, The Bentway, Evergreen Brick Works, Mattamy Athletic Centre\'s community skates, YZD\'s Hangar Skate, Mississauga\'s Celebration Square and Brampton\'s sixteen outdoor rinks. Until they open they read "Not open yet" or "Opens Dec 12" in Rinks & map and on the status page, in the venue\'s own words. Out of season they are not read at all, so nothing fails all summer.',
+                'All eight of Toronto\'s board-run arenas are accounted for. George Bell Arena\'s free weekly skates are in. McCormick is closed for renovations (its board is planning on September 2027), and Ted Reeve and North Toronto Memorial offer no public skating on their indoor ice. The status page says so for each, and their pages are re-read in case that changes.',
+                'Other names. College Park is also the Barbara Ann Scott Ice Trail, Toronto Metropolitan University Square is Lake Devo, Alexandra Park is the Harry Gairey rink, and so on for about twenty-five places. Either name finds the rink in both search boxes, and the other name shows in brackets beside it.',
+                'Eleven outdoor rinks were listed twice: the City files the rink and its park under separate numbers, a short walk apart, and only one of the two ever had sessions. Each is one rink now, so "No sessions" twins are gone from Rinks & map.',
+                'Within 2, 5, 10 or 20 km. A new filter under Filters, More options: only sessions that close to your spot, with a pill you can tap to change or clear. Nearest first only reorders the list; this one narrows it. If no spot is set yet it asks for one and then applies by itself.',
+                'A calendar picker. The ▾ beside Calendar chooses between the week grid and three day views: by time of day, by rink, and the new by distance, which sorts the day into bands around you (within 2 km, 2 to 5, 5 to 10, 10 to 20, farther). Each calendar has its own colour on the button, so you can tell which one you are in.',
+                'Natural ice. Rinks & map has a new link listing the 48 parks where neighbours flood and shovel a rink in cold spells, nearest first once you set a spot. It has no hours and no open or closed on purpose: nobody reports either. The City still shows last winter\'s approved list and posts this winter\'s in December; the page here says which one it is and switches by itself.',
+                'Two notices that were wrong on the page. Harbourfront\'s free-rental Saturdays showed under each Saturday before its rink had opened: they now wait for the rink. And George Bell\'s sessions would have read "Likely cancelled" because the City\'s page still carries its 2025 "Under construction" notice: since the arena\'s own site lists skating again, that notice shows as a grey note with both sides stated.',
+            ]
+        },
         {
             v: '3.11.2', date: '2026-11-21', items: [
                 'The search box and the Filters button no longer run into each other on narrow phones or with large text (it showed up in Brave).',
@@ -472,7 +487,7 @@ window.SkateConfig = {
                          note: 'Official Burlington booking data. Flat $3.50 per skate; pass holders $0.' },
         'mississauga': { city: 'Mississauga', label: 'City of Mississauga', verified: true, site: 'mississauga.ca',
                          note: 'Official Mississauga drop-in calendar. Adult $5.21, child, youth and 55 plus $4.17 including tax (by-law rates, tickets at the door 30 minutes before); residents 65 and over and kids 3 and under free.' },
-        'mosspark':    { city: 'Toronto', label: 'mossparkarena.com', verified: false, site: 'mossparkarena.com',
+        'mosspark':    { city: 'Toronto', label: 'mossparkarena.com', place: 'Moss Park Arena', verified: false, site: 'mossparkarena.com',
                          note: 'Schedule read from their website. There is no live feed for this arena.' },
         // v3.7: the other board-run City arenas, each read from its own site (no live feed)
         'grossman':    { city: 'Toronto', label: 'Larry Grossman Forest Hill Memorial Arena', verified: false, site: 'larrygrossmanforesthillarena.com',
@@ -496,8 +511,53 @@ window.SkateConfig = {
         'oshawa':      { city: 'Oshawa', label: 'City of Oshawa', verified: true, site: 'oshawa.ca',
                          note: 'Official Oshawa booking data (activeOshawa). Adult $5.25 skate, $8.50 shinny, child and youth $3.50, family $10.75; pay at the desk, drop in only.' },
         'pickering':   { city: 'Pickering', label: 'City of Pickering', verified: false, site: 'pickering.ca',
-                         note: 'Weekly schedule read from pickering.ca, no live feed. Public skating is free at both arenas; the cancellation dates the City lists are already removed.' }
+                         note: 'Weekly schedule read from pickering.ca, no live feed. Public skating is free at both arenas; the cancellation dates the City lists are already removed.' },
+        // v3.12: the other four board-run arenas. `status` is a standing line for the Data status page.
+        'georgebell':  { city: 'Toronto', label: 'George Bell Arena', verified: false, site: 'georgebellarena.com',
+                         note: 'Schedule read from the arena board\'s website, no live feed. Free public skating; day-use lockers.' },
+        'mccormick':   { city: 'Toronto', label: 'McCormick Arena', verified: false, site: 'mccormickarena.com',
+                         note: 'Schedule read from the arena board\'s website, no live feed.',
+                         status: 'Closed for renovations. The board is planning on a September 2027 reopening (its minutes of September 23, 2026). Its schedule page is read, so sessions return here by themselves.' },
+        'northtoronto': { city: 'Toronto', label: 'North Toronto Memorial Arena', verified: false, site: 'ntarena.ca',
+                         status: 'The indoor pad has no public skating. The outdoor rink beside it, in Eglinton Park, is in the City\'s schedule as North Toronto Memorial Community Centre.' },
+        'tedreeve':    { city: 'Toronto', label: 'Ted Reeve Community Arena', verified: false, site: 'tedreevearena.com' },
+        // v3.12: seasonal rinks that publish their own hours. `outdoor` softens the card's caution to a weather note.
+        'harbourfront': { city: 'Toronto', label: 'Harbourfront Centre Rink', verified: false, site: 'harbourfrontcentre.com', outdoor: true,
+                         note: 'Hours read from Harbourfront Centre\'s own page. Free; skate rentals on site.' },
+        'bentway':     { city: 'Toronto', label: 'The Bentway Skate Trail', verified: false, site: 'thebentway.ca', outdoor: true,
+                         note: 'Hours read from The Bentway\'s own page. Free, no reservation; skate rentals on site.' },
+        'evergreen':   { city: 'Toronto', label: 'Evergreen Brick Works', verified: false, site: 'evergreen.ca', outdoor: true,
+                         note: 'Dates and hours read from Evergreen\'s own page. Free; skate rentals on site.' },
+        'mattamy':     { city: 'Toronto', label: 'Mattamy Athletic Centre', verified: false, site: 'mattamyathleticcentre.ca',
+                         note: 'Dates read from the arena\'s own page. Free community skates, no skate rentals; CSA helmets required under 6; the first 200 skaters.' },
+        'yzd':         { city: 'Toronto', label: 'YZD Hangar Skate', verified: false, site: 'yzd.ca', outdoor: true,
+                         note: 'Hours entered by hand from yzd.ca, which does not allow them to be read automatically. Free.' },
+        'mississauga-square': { city: 'Mississauga', label: 'Celebration Square Rink', verified: false, site: 'mississauga.ca', outdoor: true,
+                         note: 'Hours read from the City of Mississauga\'s venue page. Free; skate rentals on site.' },
+        'brampton-outdoor': { city: 'Brampton', label: 'Brampton outdoor rinks', verified: false, site: 'brampton.ca', outdoor: true,
+                         note: 'Hours and each rink\'s open or closed status read from the City of Brampton\'s outdoor skating page. Free, no registration.' }
     },
+
+    // v3.12: where a source sits on the Data status page. Toronto has three groups (the
+    // City itself is built in); every other source is listed under its city. `sourceRows`
+    // merges sources that are one place read three ways.
+    sourceGroups: [
+        { id: 'boards', label: 'Toronto arenas run by their own boards',
+          keys: ['mosspark', 'grossman', 'leaside-public', 'leaside-community', 'leaside-pickuphub', 'bolton-public', 'bolton-adult', 'bolton-tots', 'georgebell', 'mccormick', 'northtoronto', 'tedreeve'] },
+        { id: 'more', label: 'Other Toronto rinks',
+          keys: ['harbourfront', 'bentway', 'evergreen', 'mattamy', 'yzd', 'canlan-york', 'canlan-etobicoke', 'canlan-scarborough'] }
+    ],
+    sourceRows: { 'leaside-public': 'leaside', 'leaside-community': 'leaside', 'bolton-public': 'bolton', 'bolton-adult': 'bolton', 'bolton-tots': 'bolton' },
+
+    // v3.12: "Within N km" (a radius around your spot) and the bands of the by-distance calendar
+    radiusOptions: [2, 5, 10, 20],
+    // v3.12: the calendars behind the ▾ beside Calendar. Each has its own colour (style-v3.css).
+    calTypes: [
+        { id: 'week',     label: 'Week grid' },
+        { id: 'time',     label: 'Day, by time of day' },
+        { id: 'rink',     label: 'Day, by rink' },
+        { id: 'distance', label: 'Day, by distance' }
+    ],
 
     // Per-program action buttons, in render order. Share lives inside the
     // 📋 popover now (and only when Chats are enabled) — one less mystery

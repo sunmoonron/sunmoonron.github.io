@@ -42,7 +42,8 @@ const crypto = require('crypto');
 const PACKAGE_ID ='1a5be46a-4039-48cd-a2d2-8e702abf9516';
 const BASE_URL = 'https://ckan0.cf.opendata.inter.prod-toronto.ca/api/3/action';
 // Script lives at the repo root, but the app reads from skate/projects/data/
-const OUTPUT_DIR = path.join(__dirname, 'skate', 'projects', 'data');
+// (SKATE_OUTPUT_DIR: a rehearsal run into a scratch copy of the data folder, nothing published.)
+const OUTPUT_DIR = process.env.SKATE_OUTPUT_DIR || path.join(__dirname, 'skate', 'projects', 'data');
 
 const ALERTS_ONLY = process.argv.includes('--alerts-only');
 // Dev: `--only=stouffville,ajax` runs just those external sources and writes nothing.
@@ -383,7 +384,7 @@ const EXTERNAL_SOURCES = {
         locationId: 3489,
         address: '340 Chaplin Cres', district: 'Toronto and East York', postalCode: 'M5P 1A9',
         lat: 43.7042503753, lng: -79.4201852796,
-        season: { from: '10-01', to: '04-30' },
+        season: { from: '10-01', to: '04-30', lead: 45 },
         paid: true, price: 3, priceNote: '$3 per person, pay at the door',
         unverified: true,
         infoUrl: 'https://larrygrossmanforesthillarena.com/recreational-skating-hours/'
@@ -471,6 +472,198 @@ const EXTERNAL_SOURCES = {
         lat: 43.6711959361, lng: -79.4152061268,
         paid: false, unverified: true,
         infoUrl: 'https://www.billboltonarena.ca/public-skating'
+    },
+    /* ---- v3.12: the remaining board-run arenas -------------------------------------------
+     * All eight boards are now represented. Four publish no schedule to read:
+     *   - George Bell: weekly free skates on its own site (read below).
+     *   - McCormick: closed for renovations; its schedule page is read so the sessions
+     *     come back by themselves when the board posts a season again.
+     *   - Ted Reeve, North Toronto: no public skating on the indoor pad. kind 'watch'
+     *     re-reads the sentence that says so, and flags the page if it changes.
+     */
+    'georgebell': {
+        kind: 'venue', reader: 'georgeBell',
+        url: 'https://georgebellarena.com/public-skating',
+        daysAhead: 28,
+        activity: 'Public Skating',
+        locationName: 'George Bell Arena',
+        locationId: 3488,
+        address: '215 Ryding Ave', district: 'Etobicoke York', postalCode: 'M6N 1H6',
+        lat: 43.6684431016, lng: -79.4773579435,
+        // The page gives weekly hours and no season. Its older layout dated its season September 3 to March 27,
+        // so outside September to mid-April the hours are not taken at their word: the source sleeps.
+        season: { from: '09-01', to: '04-15', lead: 21 },
+        paid: false, unverified: true,
+        infoUrl: 'https://georgebellarena.com/public-skating',
+        // The City's rink page still carries its 2025 "Under Construction" notice, while the
+        // board's own site says the arena reopened on October 10 (2026) and lists weekly skates.
+        // While that sentence is on the board's home page, a City notice of that kind posted
+        // before the reopening is shown as a grey note instead of cancelling every session.
+        reopened: { on: '2026-10-10', url: 'https://georgebellarena.com/', says: /opened for regular activities\s+October\s+10/i, notice: /construction|improvements/i }
+    },
+    'mccormick': {
+        kind: 'venue', reader: 'mccormick',
+        url: 'https://www.mccormickarena.com/page2.html',
+        daysAhead: 28,
+        activity: 'Public Skating',
+        locationName: 'McCormick Arena',
+        locationId: 3490,
+        address: '179 Brock Ave', district: 'Toronto and East York', postalCode: 'M6K 2L7',
+        lat: 43.6472384221, lng: -79.4339412246,
+        paid: false, unverified: true,
+        infoUrl: 'http://www.mccormickarena.com/'
+    },
+    'tedreeve': {
+        kind: 'watch',
+        url: 'https://tedreevearena.com/',
+        says: /Ted Reeve does not offer Pleasure Skating/i,
+        locationName: 'Ted Reeve Community Arena', locationId: 3494,
+        infoUrl: 'https://tedreevearena.com/'
+    },
+    'northtoronto': {
+        kind: 'watch',
+        url: 'https://www.ntarena.ca/',
+        says: /Public Skating\s+(?:on|is offered at|offered at)\s+the Eglinton Park Outdoor Rink/i,
+        locationName: 'North Toronto Memorial Arena', locationId: 3492,
+        infoUrl: 'https://www.ntarena.ca/'
+    },
+
+    /* ---- v3.12: seasonal rinks that publish their own hours -------------------------------
+     * kind 'venue': the page is fetched here and read by a pure function in skate-venues.js,
+     * which answers open / pending / closed / unknown and only then lists sessions. Each has
+     * a `season` (month-day bounds plus a lead-in): outside it the page is not fetched at all
+     * and the source reads "out of season" instead of failing. Outdoor ice is tagged outdoor.
+     */
+    'harbourfront': {
+        kind: 'venue', reader: 'harbourfront',
+        url: 'https://harbourfrontcentre.com/program/skate/',
+        daysAhead: 14,
+        activity: 'Public Skating (Free)',
+        locationName: 'Harbourfront Centre Rink',
+        address: '235 Queens Quay W', district: 'Toronto and East York', postalCode: 'M5J 2G8',
+        lat: 43.639392, lng: -79.382026,
+        kinds: ['outdoor'],
+        season: { from: '11-15', to: '03-31', lead: 30 },
+        paid: false, unverified: true,
+        priceNote: 'Outdoor ice, weather permitting. Resurfacing breaks through the day',
+        infoUrl: 'https://harbourfrontcentre.com/program/skate/'
+    },
+    'bentway': {
+        kind: 'venue', reader: 'bentway',
+        url: 'https://thebentway.ca/wp-json/wp/v2/event?slug=winter-skating',
+        daysAhead: 28,
+        activity: 'Public Skating (Free)',
+        locationName: 'The Bentway Skate Trail',
+        address: '250 Fort York Blvd', district: 'Toronto and East York', postalCode: 'M5V 3K9',
+        lat: 43.637793, lng: -79.406306,
+        kinds: ['outdoor'],
+        season: { from: '12-01', to: '03-15', lead: 45 },
+        paid: false, unverified: true,
+        priceNote: 'Outdoor trail, weather permitting',
+        infoUrl: 'https://thebentway.ca/event/winter-skating/'
+    },
+    'evergreen': {
+        kind: 'venue', reader: 'evergreen',
+        url: 'https://www.evergreen.ca/evergreen-brick-work/activities/free-public-skate/',
+        daysAhead: 28,
+        activity: 'Public Skating (Free)',
+        locationName: 'Evergreen Brick Works',
+        address: '550 Bayview Ave', district: 'Toronto and East York', postalCode: 'M4W 3X8',
+        lat: 43.684335, lng: -79.367288,
+        kinds: ['outdoor'],
+        season: { from: '12-01', to: '03-15', lead: 45 },
+        paid: false, unverified: true,
+        priceNote: 'Outdoor ice under an open roof, weather permitting',
+        infoUrl: 'https://www.evergreen.ca/evergreen-brick-work/activities/free-public-skate/'
+    },
+    'mattamy': {
+        kind: 'venue', reader: 'mattamy',
+        url: 'https://www.mattamyathleticcentre.ca/venue-info/community-skates',
+        daysAhead: 150,              // four dated skates a winter: list them all as soon as they are posted
+        activity: 'Community Skate (Free)',
+        locationName: 'Mattamy Athletic Centre',
+        address: '50 Carlton St', district: 'Toronto and East York', postalCode: 'M5B 1J2',
+        lat: 43.661820, lng: -79.380310,
+        season: { from: '12-01', to: '04-15', lead: 75 },
+        paid: false, unverified: true,
+        priceNote: 'No skate rentals. Helmets required under 6. First 200 skaters',
+        infoUrl: 'https://www.mattamyathleticcentre.ca/venue-info/community-skates'
+    },
+    'yzd': {
+        kind: 'manual',
+        // yzd.ca keeps the hours behind /api/, which its robots.txt disallows, so they are
+        // entered here by hand from the page as a visitor sees it (read 2026-11-21, the page
+        // was last edited 2026-11-20). The public page is still fetched every run: if it goes
+        // away or stops being about Hangar Skate, the status page says so.
+        enteredOn: '2026-11-21',
+        watch: { url: 'https://www.yzd.ca/event/hangar-skate', says: /<title>[^<]*Hangar Skate/i },
+        dates: { from: '2026-12-19', to: '2027-02-15' },
+        rules: [
+            { from: '2026-12-19', to: '2027-01-03', days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Saturday', 'Sunday'], start: '12:00', end: '17:00' },
+            { from: '2026-12-19', to: '2027-01-03', days: ['Friday'], start: '18:00', end: '22:00' },
+            { from: '2027-01-08', to: '2027-02-15', days: ['Saturday', 'Sunday'], start: '12:00', end: '17:00' },
+            { from: '2027-01-08', to: '2027-02-15', days: ['Friday'], start: '18:00', end: '22:00' }
+        ],
+        closedOn: ['2026-12-25'],
+        daysAhead: 28,
+        activity: 'Public Skating (Free)',
+        locationName: 'YZD Hangar Skate',
+        address: '34 Hanover Rd', district: 'North York', postalCode: '',
+        lat: 43.7375239, lng: -79.4695391,
+        kinds: ['outdoor'],
+        season: { from: '12-10', to: '02-28', lead: 45 },
+        paid: false, unverified: true,
+        priceNote: 'Outdoor ice, weather permitting. Hours entered by hand from yzd.ca',
+        infoUrl: 'https://www.yzd.ca/event/hangar-skate'
+    },
+    'mississauga-square': {
+        kind: 'venue', reader: 'mississaugaSquare',
+        url: 'https://www.mississauga.ca/arts-and-culture/locations/celebration-square/venue-info/',
+        daysAhead: 14,
+        activity: 'Public Skating (Free)',
+        locationName: 'Celebration Square Rink',
+        address: '300 City Centre Dr', district: 'Mississauga', postalCode: 'L5B 3C9',
+        lat: 43.588945, lng: -79.644618,
+        kinds: ['outdoor'],
+        season: { from: '11-15', to: '03-31', lead: 30 },
+        paid: false, unverified: true,
+        priceNote: 'Outdoor ice, weather permitting',
+        infoUrl: 'https://www.mississauga.ca/arts-and-culture/locations/celebration-square/venue-info/'
+    },
+    'brampton-outdoor': {
+        kind: 'venue', reader: 'bramptonOutdoor',
+        url: 'https://www.brampton.ca/EN/residents/Recreation/Programs-Activities/Pages/Outdoor-Skating.aspx',
+        // Gore Meadows keeps a program schedule on its own page; the table only says "see schedule".
+        also: [{ reader: 'bramptonGoreMeadows', venue: 'Gore Meadows Covered Outdoor Rink',
+                 url: 'https://www.brampton.ca/EN/residents/Recreation/Programs-Activities/Pages/outdoor-skating-Gore-Meadows-Covered-Outdoor-Skating-Rink.aspx' }],
+        daysAhead: 14,
+        activity: 'Public Skating',
+        // One row of the City's table per rink. `match` finds the row whatever suffix the page
+        // gives the name this year ("… Outdoor Skating Rink", "… Skating Recreational Trail").
+        venueList: [
+            { name: 'Gore Meadows Covered Outdoor Rink', match: /gore meadows/i,        address: '10150 The Gore Rd',       lat: 43.7942581, lng: -79.6950445 },
+            { name: 'Gage Park Skating Trail',           match: /gage park/i,           address: 'Main St S at Wellington St W', lat: 43.683244,  lng: -79.7573186 },
+            { name: 'Chinguacousy Park Skating Trail',   match: /chinguacousy/i,        address: '9050 Bramalea Rd',        lat: 43.725873,  lng: -79.722135 },
+            { name: 'Mount Pleasant Outdoor Rink',       match: /mount pleasant/i,      address: '100 Commuter Dr',         lat: 43.6768591, lng: -79.8240277 },
+            { name: 'Sandalwood Park Outdoor Rinks',     match: /sandalwood/i,          address: '130 Conestoga Dr',        lat: 43.724326,  lng: -79.795886 },
+            { name: 'Flower City Community Campus Outdoor Rink', match: /flower city/i, address: '8850 McLaughlin Rd',      lat: 43.672733,  lng: -79.770307 },
+            { name: 'Boreham Park Rink',                 match: /boreham/i,             address: '350 Conservation Dr',     lat: 43.734163,  lng: -79.806960 },
+            { name: 'Bovaird House Rink',                match: /bovaird house/i,       address: '563 Bovaird Dr E',        lat: 43.716642,  lng: -79.775074 },
+            { name: 'Amore Italian Park Rink',           match: /amore/i,               address: '70 Halliford Pl',         lat: 43.757126,  lng: -79.687361 },
+            { name: 'Carabram Park Rink',                match: /carabram/i,            address: '79 Eagleridge Dr',        lat: 43.762572,  lng: -79.737937 },
+            { name: 'Duggan Park Rink',                  match: /duggan/i,              address: '75 Vodden St E',          lat: 43.6964015, lng: -79.7650896 },
+            { name: 'Major William Sharpe Park Rink',    match: /william sharpe/i,      address: 'Phelps Dr',               lat: 43.673313,  lng: -79.783677 },
+            { name: 'Monkton Circle Park Rink',          match: /monkton/i,             address: '16 Beechmont Dr',         lat: 43.659823,  lng: -79.785662 },
+            { name: 'Sesquicentennial Park Rink',        match: /sesquicentennial/i,    address: '11475 Bramalea Rd',       lat: 43.768718,  lng: -79.771098 },
+            { name: 'Treleaven Park Rink',               match: /treleaven/i,           address: '58 Harold St',            lat: 43.676153,  lng: -79.756129 },
+            { name: 'Peel Village Park Rink',            match: /peel village/i,        address: '47 Watson Cres',          lat: 43.676461,  lng: -79.735036 }
+        ],
+        defaultDistrict: 'Brampton',
+        kinds: ['outdoor'],
+        season: { from: '11-01', to: '03-31', lead: 30 },
+        paid: false, unverified: true,
+        priceNote: 'Outdoor ice, weather permitting. Free, no registration',
+        infoUrl: 'https://www.brampton.ca/EN/residents/Recreation/Programs-Activities/Pages/Outdoor-Skating.aspx'
     },
     /* ---- York & Durham cities without an API (see skate/docs/data-sources/york-durham.md) ---- */
     'stouffville': {
@@ -735,6 +928,12 @@ function httpPostJSONBody(url, obj, headers = {}) {
 
 const TORONTO_TZ = 'America/Toronto';
 
+/** CKAN stamps are UTC without a zone ("2026-11-21T11:03:39.123456"): make them ISO, or null. */
+function ckanStamp(s) {
+    const m = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/.exec(String(s || ''));
+    return m ? `${m[1]}Z` : null;
+}
+
 /** 'YYYY-MM-DD' for a Date, in Toronto local time. */
 function torontoDateStr(d = new Date()) {
     return new Intl.DateTimeFormat('en-CA', { timeZone: TORONTO_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
@@ -900,8 +1099,35 @@ function inferKinds({ locationType, feedKinds = [], lullSession = false, kindsSe
     return { kinds, kindsSeen: remembered };
 }
 
-async function fetchRinkInventory(programs = []) {
+/**
+ * What a seasonal source's last read says about one of its rinks, for rinks.json:
+ * { state: 'ok' | 'pending' | 'closed' | 'shut' | 'dormant' | 'failed', from?, to?, opens?, quote? }, or null for a
+ * year-round source. On a multi-rink page each rink follows its own row. Pure.
+ */
+function rinkSeasonal(cfg, s, venueKeyName = null) {
+    if (!cfg || !cfg.season || !s) return null;
+    const out = { state: s.state };
+    if (s.season && s.season.from) out.from = s.season.from;
+    if (s.season && s.season.to) out.to = s.season.to;
+    if (s.opens) out.opens = s.opens;
+    if (s.quote) out.quote = s.quote;
+    if (venueKeyName && Array.isArray(s.venues)) {
+        const row = s.venues.find(v => v.key === venueKeyName);
+        if (row) {
+            // open; shut for now ("Ice conditions"); or out for the season, which before opening day reads "not open yet"
+            const seasonal = /season/i.test(row.reason || '');
+            const soon = /\bopen(?:ing|s)?\b[^.]*\bsoon\b|\bwill\s+(?:re-?)?open\b/i.test(s.quote || '');
+            out.state = rowIsOpen(row) ? 'ok' : !seasonal ? 'shut' : (soon || s.state === 'pending') ? 'pending' : 'closed';
+            out.quote = [row.status, row.reason].filter(x => x && !/^[\s\u200b-]*$/.test(x)).join(': ');
+        }
+    }
+    return out;
+}
+
+async function fetchRinkInventory(programs = [], external = null) {
     const byLocation = {};
+    // v3.12: how a seasonal source's last read went, for the rink list ("opens Dec 12", "closed for the season")
+    const seasonalOf = (key, cfg, venueKeyName) => rinkSeasonal(cfg, external && external[key], venueKeyName);
 
     for (const pkg of RINK_PACKAGES) {
         const packageData = await fetchJSON(`${BASE_URL}/package_show?id=${pkg.id}`);
@@ -931,6 +1157,7 @@ async function fetchRinkInventory(programs = []) {
                 source: 'city'
             };
             entry.pads += 1;
+            (entry.padsBy ||= {})[pkg.kind] = (entry.padsBy[pkg.kind] || 0) + 1;
             if (!entry.kinds.includes(pkg.kind)) entry.kinds.push(pkg.kind);
             if (entry.lat == null && lat != null) { entry.lat = lat; entry.lng = lng; }
         });
@@ -938,12 +1165,21 @@ async function fetchRinkInventory(programs = []) {
 
     // External sources join the same universe (locator + calendar need them).
     Object.entries(EXTERNAL_SOURCES).forEach(([key, cfg]) => {
-        // Multi-venue sources (PerfectMind calendars) emit ONE entry per
-        // configured venue, keyed like the program records' ExtLocationKey.
-        if (cfg.venues) {
-            const all = { ...(discoveredVenues[key] || {}), ...cfg.venues };
-            Object.entries(all).forEach(([name, v]) => {
+        // A page that is only watched (no public skating there) adds nothing but the arena's own site.
+        if (cfg.kind === 'watch') {
+            const existing = cfg.locationId ? byLocation[String(cfg.locationId)] : null;
+            if (existing && !existing.website) existing.website = cfg.infoUrl;
+            return;
+        }
+        // Multi-venue sources (PerfectMind calendars, Brampton's outdoor table) emit ONE entry
+        // per configured venue, keyed like the program records' ExtLocationKey.
+        const venueTable = cfg.venues
+            ? { ...(discoveredVenues[key] || {}), ...cfg.venues }
+            : cfg.venueList ? Object.fromEntries(cfg.venueList.map(v => [v.name, v])) : null;
+        if (venueTable) {
+            Object.entries(venueTable).forEach(([name, v]) => {
                 const locId = venueKey(key, name);
+                const seasonal = seasonalOf(key, cfg, locId);
                 byLocation[locId] = {
                     locationid: locId,
                     name,
@@ -951,13 +1187,16 @@ async function fetchRinkInventory(programs = []) {
                     postal: v.postalCode || '',
                     district: v.district || cfg.defaultDistrict || '',
                     lat: v.lat ?? null, lng: v.lng ?? null,
-                    kinds: ['indoor'],
+                    kinds: [...(cfg.kinds || ['indoor'])],
                     pads: 1,
                     operator: 'External',
                     source: 'external',
                     externalSource: key,
                     website: cfg.infoUrl,
-                    paid: !!cfg.paid
+                    paid: !!cfg.paid,
+                    // one page describes sixteen rinks, and says rentals are at two of them: not a page to read rink facts from
+                    ...(cfg.venueList ? { noFacts: true } : {}),
+                    ...(seasonal ? { seasonal } : {})
                 };
             });
             return;
@@ -965,11 +1204,13 @@ async function fetchRinkInventory(programs = []) {
 
         const locId = cfg.locationId ? String(cfg.locationId) : `ext-${key}`;
         const existing = byLocation[locId];
+        const seasonal = seasonalOf(key, cfg, null);
         if (existing) {
             // City already lists it (e.g. Moss Park) — just mark the external link.
             existing.website = cfg.infoUrl;
             existing.externalSource = key;
             if (cfg.paid) existing.paid = true;
+            if (seasonal) existing.seasonal = seasonal;
         } else {
             byLocation[locId] = {
                 locationid: locId,
@@ -978,13 +1219,14 @@ async function fetchRinkInventory(programs = []) {
                 postal: cfg.postalCode || '',
                 district: cfg.district || '',
                 lat: cfg.lat, lng: cfg.lng,
-                kinds: ['indoor'],
+                kinds: [...(cfg.kinds || ['indoor'])],
                 pads: cfg.resourceIds ? cfg.resourceIds.length : 1,
                 operator: 'External',
                 source: 'external',
                 externalSource: key,
                 website: cfg.infoUrl,
-                paid: !!cfg.paid
+                paid: !!cfg.paid,
+                ...(seasonal ? { seasonal } : {})
             };
         }
     });
@@ -1043,7 +1285,10 @@ async function fetchRinkInventory(programs = []) {
         console.log(`   📍 added ${p.LocationName} (${id}) from the program rows as ${ice.kinds.join(' + ')}${geo ? '' : ' (no coordinates yet)'}`);
     }
 
-    return Object.values(byLocation).sort((a, b) => a.name.localeCompare(b.name));
+    const before = Object.keys(byLocation).length;
+    const folded = foldTwinRinks(Object.values(byLocation), programs);
+    if (folded.length !== before) console.log(`   🧩 ${before - folded.length} rink${before - folded.length === 1 ? '' : 's'} the City lists twice folded into the entry its sessions use`);
+    return folded.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /* ================= Service alerts → alerts.json ================= */
@@ -1563,7 +1808,7 @@ async function readerSelfTest() {
     return allOk;
 }
 
-async function fetchAlerts(programs = null, rinks = null) {
+async function fetchAlerts(programs = null, rinks = null, external = null) {
     console.log('\n🚨 Fetching skate service alerts...');
     const raw = await fetchJSON(ALERTS_URL);
     const all = [];
@@ -1607,6 +1852,10 @@ async function fetchAlerts(programs = null, rinks = null) {
     let reader = null;
     try { reader = await readAlerts(all, rinks); }
     catch (e) { console.warn(`   ⚠️ alert reader skipped: ${e.message} — the app's word rules decide`); }
+
+    // v3.12: a board arena whose own site lists skating again, under a City notice from before it reopened
+    const outlived = markSuperseded(all, reopenedNow(external));
+    if (outlived) console.log(`   🏗️ ${outlived} City notice${outlived === 1 ? '' : 's'} outlived by the arena's own reopening (shown as a note)`);
 
     const alertsFile = path.join(OUTPUT_DIR, 'alerts.json');
     let previous = null;
@@ -1848,10 +2097,10 @@ async function fetchLiveCheck(programs) {
  * ExtLocationKey — the client's locKey uses it so two Markham venues
  * don't collapse into one "location" in scopes/locator/map.
  */
-function externalRecord(cfg, sourceKey, { activity, date, startTime, endTime, price, externalId, venue, ageMin, ageMax, registrationUrl }) {
+function externalRecord(cfg, sourceKey, { activity, date, startTime, endTime, price, externalId, venue, ageMin, ageMax, registrationUrl, idKey }) {
     const v = venue || {};
     return {
-        _id: `${sourceKey}-${externalId || `${date}-${startTime}`}`,
+        _id: `${sourceKey}-${externalId || idKey || `${date}-${startTime}`}`,
         'Location ID': cfg.locationId || null,
         'Course Title': activity,
         Section: 'Skating - Drop-In',
@@ -2349,7 +2598,7 @@ async function fetchScraped(sourceKey, cfg) {
     // and all-ages skates under one heading): keep the lines this source owns.
     if (cfg.only) rules = rules.filter(r => cfg.only.test(r.text || ''));
     if (cfg.skip) rules = rules.filter(r => !cfg.skip.test(r.text || ''));
-    if (!rules.length) throw new Error('no schedule rules parsed from page');
+    if (!rules.length) { const e = new Error('no schedule rules parsed from page'); e.code = 'EMPTY'; throw e; }
     console.log(`   📋 rules: ${rules.map(r => `${r.weekday} ${r.start}-${r.end}${r.from || r.to ? ` (${r.from ? `from ${r.from}` : ''}${r.to ? ` to ${r.to}` : ''})` : ''}`).join(', ')}`);
 
     const today = torontoDateStr();
@@ -3055,22 +3304,495 @@ async function refreshLiveSpots() {
     writeLiveSpots();
 }
 
-const FETCHERS = { daysmart: fetchDaySmart, perfectmind: fetchPerfectMind, activenet: fetchActiveNet, scrape: fetchScraped, pdf: fetchPdfSchedule, intelligenz: fetchIntelligenz, 'html-grid': fetchHtmlGrid, pickuphub: fetchPickupHub };
+const FETCHERS = { daysmart: fetchDaySmart, perfectmind: fetchPerfectMind, activenet: fetchActiveNet, scrape: fetchScraped, pdf: fetchPdfSchedule, intelligenz: fetchIntelligenz, 'html-grid': fetchHtmlGrid, pickuphub: fetchPickupHub,
+    venue: fetchVenue, watch: fetchWatch, manual: fetchManual };
+
+/* ================= Seasons, venue pages and source states (v3.12) =================
+ *
+ * A source used to be either "ok" or "failed", and a rink that only exists in
+ * winter failed all summer. Each source now ends a run in one of these states,
+ * written to meta.json for the app's status page:
+ *   ok       read, sessions listed
+ *   pending  read; the venue is not open yet (or has not posted the season)
+ *   closed   read; the venue's own page says closed for the season
+ *   none     read; the venue's own page says it offers no public skating
+ *   changed  read; a page that is only watched no longer says what it did
+ *   dormant  out of season: the page is not fetched at all
+ *   failed   could not be read or understood; recent sessions are kept
+ */
+
+/** 'MM-DD' inside [from, to], bounds that may wrap the new year. */
+function mdInRange(md, from, to) { return from <= to ? (md >= from && md <= to) : (md >= from || md <= to); }
+
+/**
+ * Where a day falls against a source's season ({ from: 'MM-DD', to: 'MM-DD', lead: days }):
+ *   null                             year-round source
+ *   { phase: 'in' }                  inside the season
+ *   { phase: 'lead', opens }         in the lead-in before it (venues post early, so the page is read)
+ *   { phase: 'out', opens, resumes } out of season; `resumes` is the day reading starts again
+ */
+function seasonPhase(cfg, today) {
+    const s = cfg && cfg.season;
+    if (!s) return null;
+    if (mdInRange(today.slice(5), s.from, s.to)) return { phase: 'in' };
+    const y = +today.slice(0, 4);
+    let opens = `${y}-${s.from}`;
+    if (opens < today) opens = `${y + 1}-${s.from}`;
+    const resumes = addDays(opens, -(s.lead ?? 30));
+    return today >= resumes ? { phase: 'lead', opens } : { phase: 'out', opens, resumes };
+}
+
+const isYmdStr = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
+const isHmStr = (s) => /^([01]\d|2[0-3]):[0-5]\d$/.test(s || '');
+const slugOf = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+/** The sentence of `text` that starts at position `at` (to its full stop), at most `max` characters. */
+function sentenceFrom(text, at, max = 160) {
+    let b = at;
+    while (b < text.length && !/[.!?]/.test(text[b]) && b - at < max) b++;
+    return text.slice(at, Math.min(text.length, b + 1)).replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+/** A row of a multi-rink page: is that rink open? The reader says so (`open`); its status text is the fallback. */
+const rowIsOpen = (v) => (v && typeof v.open === 'boolean' ? v.open : /^open\b/i.test(String((v && v.status) || '').trim()));
+/** A multi-venue page (Brampton's table): the configured rink a row of the page is about. */
+function venueFor(cfg, sourceKey, rowName) {
+    const v = (cfg.venueList || []).find(x => x.match.test(rowName || ''));
+    return v ? { name: v.name, address: v.address, district: cfg.defaultDistrict || '', postalCode: v.postalCode || '', lat: v.lat, lng: v.lng, extKey: venueKey(sourceKey, v.name) } : null;
+}
+
+/**
+ * Reading (from skate-venues.js) → program records, for one source. Pure, so the
+ * tests can run it. A session with a bad date or time, a duplicate, or (on a
+ * multi-venue page) a rink the config does not know is dropped; unknown rinks
+ * are returned by name so the run can say so.
+ */
+function venueRecords(sourceKey, cfg, sessions) {
+    const records = [], unknown = new Set(), seen = new Set();
+    (sessions || []).forEach(s => {
+        if (!s || !isYmdStr(s.date) || !isHmStr(s.start) || !isHmStr(s.end) || s.end <= s.start) return;
+        let venue = null;
+        if (cfg.venueList) {
+            venue = venueFor(cfg, sourceKey, s.venue);
+            if (!venue) { unknown.add(String(s.venue || '?')); return; }
+        }
+        const activity = String(s.activity || cfg.activity || 'Public Skating');
+        const k = `${venue ? venue.name : ''}|${s.date}|${s.start}|${s.end}|${activity}`;
+        if (seen.has(k)) return;
+        seen.add(k);
+        // ages a page writes into the program's name ("Shinny Drop-In – Ages 18+", "… Ages 17 and Under")
+        const plus = /\bages?\s+(\d{1,2})\s*\+/i.exec(activity), under = /\bages?\s+(\d{1,2})\s+and\s+under\b/i.exec(activity);
+        const rec = externalRecord(cfg, sourceKey, {
+            activity, date: s.date, startTime: s.start, endTime: s.end, venue, idKey: slugOf(k),
+            ageMin: s.ageMin ?? (plus ? Number(plus[1]) : cfg.ageMin), ageMax: s.ageMax ?? (under ? Number(under[1]) : cfg.ageMax), price: cfg.price
+        });
+        if (s.note) rec.PriceNote = [String(s.note).replace(/[.\s]+$/, ''), rec.PriceNote].filter(Boolean).join('. ');
+        records.push(rec);
+    });
+    records.sort((a, b) => (a['Start Date'] + a['Start Time']).localeCompare(b['Start Date'] + b['Start Time']) || a.LocationName.localeCompare(b.LocationName));
+    return { records, unknown: [...unknown] };
+}
+
+/**
+ * A reader takes apart a page from someone else's server with regular expressions.
+ * It runs on a worker thread with a time limit: a page that makes a pattern crawl
+ * (by accident or on purpose), or a plain bug, then costs one source one run
+ * instead of hanging the whole refresh. The largest of these pages is about 200 KB;
+ * anything over 2 MB is not read at all.
+ */
+const READER_LIMIT_MS = 15000;
+const READER_MAX_CHARS = 2 * 1024 * 1024;
+function runReader(name, body, ctx, { ms = READER_LIMIT_MS, modulePath = path.join(__dirname, 'skate-venues.js') } = {}) {
+    return new Promise((resolve, reject) => {
+        if (typeof body !== 'string' || body.length > READER_MAX_CHARS) return reject(new Error(`page too large to read (${typeof body === 'string' ? body.length : typeof body})`));
+        const { Worker } = require('worker_threads');
+        const worker = new Worker(
+            `const { parentPort, workerData } = require('worker_threads');
+             const read = require(workerData.modulePath).READERS[workerData.name];
+             parentPort.postMessage(read ? { ok: true, reading: read(workerData.body, workerData.ctx) } : { ok: false, error: "no reader '" + workerData.name + "' in skate-venues.js" });`,
+            { eval: true, workerData: { modulePath, name, body, ctx } });
+        let done = false;
+        const finish = (fn, value) => { if (done) return; done = true; clearTimeout(timer); worker.terminate(); fn(value); };
+        const timer = setTimeout(() => finish(reject, Object.assign(new Error(`the page reader '${name}' ran past ${ms / 1000} s and was stopped`), { code: 'SLOW' })), ms);
+        worker.once('message', (m) => (m && m.ok ? finish(resolve, m.reading) : finish(reject, new Error((m && m.error) || 'the page reader sent nothing back'))));
+        worker.once('error', (e) => finish(reject, e));
+        worker.once('exit', (code) => finish(reject, new Error(`the page reader '${name}' stopped early (exit ${code})`)));
+    });
+}
+
+/** kind 'venue': fetch the page(s); a pure reader in skate-venues.js says what they mean. (`get` and `reader` are swapped out by the tests.) */
+async function fetchVenue(sourceKey, cfg, { get = httpGetText, reader = runReader, today = torontoDateStr() } = {}) {
+    const ctx = { today, daysAhead: cfg.daysAhead || 14 };
+    // One more try after a pause when a page does not arrive or does not read: these sites now and
+    // then answer one request with an error page (seen on 2026-11-21: one bad answer in five from
+    // one of them, fine a second later). A page that has really changed fails both times.
+    const once = async (name, url) => {
+        const reading = await reader(name, await get(url), ctx);
+        if (!reading || reading.state === 'unknown') {
+            const e = new Error(`page not understood: ${(reading && reading.note) || 'no reading'}`);
+            e.code = 'LAYOUT';
+            throw e;
+        }
+        return reading;
+    };
+    const read = async (name, url) => {
+        try { return await once(name, url); }
+        catch (e) {
+            if (e && e.code === 'SLOW') throw e;                      // a reader that ran out of time is not asked twice
+            console.warn(`   ↻ ${sourceKey}: ${e.message}; trying once more`);
+            await sleep(cfg.retryMs ?? 3000);
+            return once(name, url);
+        }
+    };
+    const main = await read(cfg.reader, cfg.url);
+    const sessions = [...(main.sessions || [])];
+    const notes = [];
+    // One rink of a multi-rink page can keep its timetable on a page of its own (Gore Meadows):
+    // read it only while the main table says that rink is open.
+    for (const extra of cfg.also || []) {
+        const row = (main.venues || []).find(v => { const c = venueFor(cfg, sourceKey, v.name); return c && c.name === extra.venue; });
+        if (row && !rowIsOpen(row)) continue;
+        try {
+            const r = await read(extra.reader, extra.url);
+            (r.sessions || []).forEach(s => sessions.push({ ...s, venue: s.venue || extra.venue }));
+            if (r.state !== 'open' && r.note) notes.push(`${extra.venue}: ${r.note}`);
+        } catch (e) {
+            console.warn(`   ⚠️ ${sourceKey}: ${extra.venue} timetable skipped (${e.message})`);
+            notes.push(`${extra.venue}: its timetable page could not be read this time.`);
+        }
+    }
+    const { records, unknown } = venueRecords(sourceKey, cfg, sessions);
+    if (unknown.length) {
+        console.warn(`   ⚠️ ${sourceKey}: rink(s) on the page the app does not know yet: ${unknown.join(', ')}`);
+        notes.push(`New on its page, not in the app yet: ${unknown.join(', ')}.`);
+    }
+    const venues = (main.venues || []).map(v => { const c = venueFor(cfg, sourceKey, v.name); return c ? { key: c.extKey, name: c.name, open: rowIsOpen(v), status: String(v.status || '').slice(0, 60), reason: String(v.reason || '').slice(0, 80) } : null; }).filter(Boolean);
+    console.log(`   ✅ ${sourceKey}: ${main.state}, ${records.length} sessions${main.quote ? ` · page says: "${main.quote}"` : ''}`);
+    return {
+        records,
+        state: main.state === 'open' ? 'ok' : main.state,          // 'pending' | 'closed' pass through
+        note: [main.note, ...notes].filter(Boolean).join(' ').slice(0, 300),
+        quote: main.quote ? String(main.quote).slice(0, 160) : '',
+        season: main.season || null,
+        venues
+    };
+}
+
+/** kind 'watch': a place with no public skating. Re-read the sentence that says so. */
+async function fetchWatch(sourceKey, cfg) {
+    const text = stripHtml(await httpGetText(cfg.url));
+    const m = cfg.says.exec(text);
+    if (!m) {
+        console.warn(`   ⚠️ ${sourceKey}: the sentence this page is watched for is gone`);
+        return { records: [], state: 'changed', note: 'Its page no longer says what it did when it was last looked at. It needs a look.' };
+    }
+    const quote = sentenceFrom(text, m.index);
+    console.log(`   ✅ ${sourceKey}: still says "${quote}"`);
+    return { records: [], state: 'none', quote };
+}
+
+/** Hand-entered hours (`rules`, `dates`, `closedOn`) → dated sessions for [today, today + daysAhead]. Pure. */
+function manualRecords(sourceKey, cfg, today) {
+    const records = [];
+    for (let i = 0; i <= (cfg.daysAhead || 14); i++) {
+        const date = addDays(today, i), wd = weekdayOf(date);
+        if (date < cfg.dates.from || date > cfg.dates.to || (cfg.closedOn || []).includes(date)) continue;
+        cfg.rules.forEach(r => {
+            if (date < r.from || date > r.to || !r.days.includes(wd)) return;
+            records.push(externalRecord(cfg, sourceKey, { activity: cfg.activity, date, startTime: r.start, endTime: r.end, ageMin: cfg.ageMin, ageMax: cfg.ageMax, price: cfg.price }));
+        });
+    }
+    return records;
+}
+
+/**
+ * kind 'manual': hours entered by hand because the venue's site does not allow
+ * automated reading of them. The public page is still fetched (`watch`): if it is
+ * gone or about something else, nothing is listed and the status page says why.
+ */
+async function fetchManual(sourceKey, cfg) {
+    if (cfg.watch) {
+        const html = await httpGetText(cfg.watch.url);
+        if (!cfg.watch.says.test(html)) {
+            console.warn(`   ⚠️ ${sourceKey}: its page changed since the hours were entered by hand`);
+            return { records: [], state: 'changed', manual: cfg.enteredOn, season: cfg.dates, note: 'Its page changed since the hours were entered by hand. Nothing is listed until they are checked again.' };
+        }
+    }
+    const today = torontoDateStr();
+    const records = manualRecords(sourceKey, cfg, today);
+    const state = today > cfg.dates.to ? 'closed' : today < cfg.dates.from ? 'pending' : 'ok';
+    console.log(`   ✅ ${sourceKey}: ${state}, ${records.length} sessions from hours entered by hand on ${cfg.enteredOn}`);
+    return { records, state, manual: cfg.enteredOn, season: cfg.dates };
+}
+
+/** What the last full run recorded per source (meta.json). */
+function previousSources() {
+    try { return JSON.parse(fs.readFileSync(path.join(OUTPUT_DIR, 'meta.json'), 'utf8')).sources || {}; } catch { return {}; }
+}
+
+/**
+ * One source, one run → { ok, state, records, at, okAt, … }. Never throws.
+ * `fetcher` and `salvage` are injectable for the tests.
+ */
+async function readSource(key, cfg, was = {}, today = torontoDateStr(), { fetcher = FETCHERS[cfg.kind], salvage = salvageExisting, nowMs = Date.now() } = {}) {
+    const now = new Date(nowMs).toISOString();
+    const base = { at: now, okAt: was.okAt || null };
+    const phase = seasonPhase(cfg, today);
+    if (phase && phase.phase === 'out') {
+        console.log(`   💤 out of season: not fetched (reading resumes ${phase.resumes})`);
+        return { ...base, ok: true, state: 'dormant', records: [], opens: phase.opens, resumes: phase.resumes };
+    }
+    try {
+        if (!fetcher) throw new Error(`unknown source kind '${cfg.kind}'`);
+        const out = await fetcher(key, cfg);
+        const res = Array.isArray(out) ? { records: out } : (out || { records: [] });
+        const keep = {};
+        ['note', 'quote', 'season', 'venues', 'manual'].forEach(k => { if (res[k] && (!Array.isArray(res[k]) || res[k].length)) keep[k] = res[k]; });
+        return { ...base, okAt: now, ok: true, state: res.state || 'ok', records: res.records || [], ...keep };
+    } catch (e) {
+        // In the weeks before a season, a page with no schedule on it yet is "not posted", not a failure.
+        if (phase && phase.phase === 'lead' && e && e.code === 'EMPTY') {
+            console.log(`   ⏳ nothing posted yet for the season that starts around ${phase.opens}`);
+            return { ...base, okAt: now, ok: true, state: 'pending', records: [], note: 'Nothing is posted for the new season yet.' };
+        }
+        const message = (e && (e.message || e.code)) || String(e);
+        console.warn(`   ⚠️ ${key} failed: ${message}`);
+        // A rink that publishes its own hours can close overnight: its last good sessions are
+        // only kept for two days. Feeds with dated bookings keep theirs until they pass.
+        const hours = cfg.salvageHours ?? ((cfg.kind === 'venue' || cfg.kind === 'manual') ? 48 : null);
+        const fresh = hours == null || (was.okAt && (nowMs - new Date(was.okAt).getTime()) <= hours * 3600000);
+        return { ...base, ok: false, state: 'failed', error: String(message).slice(0, 200), records: fresh ? salvage(key) : [] };
+    }
+}
+
+/** What meta.json keeps about one source's run (the app's status page reads this). */
+function sourceMeta(v) {
+    const out = { ok: v.ok, state: v.state, count: v.records.length, at: v.at };
+    ['okAt', 'error', 'note', 'quote', 'season', 'opens', 'resumes', 'manual'].forEach(k => { if (v[k]) out[k] = v[k]; });
+    return out;
+}
+
+/**
+ * Board arenas whose own site lists public skating again while an older City
+ * notice still says "under construction": location id → { on, notice, by }.
+ * `external` = this run's results; on the light pass, the last full run's meta.json.
+ */
+function reopenedNow(external = null) {
+    const out = {};
+    let prev = null;
+    Object.entries(EXTERNAL_SOURCES).forEach(([key, cfg]) => {
+        if (!cfg.reopened || !cfg.locationId) return;
+        let listed;
+        if (external) listed = !!(external[key] && external[key].records && external[key].records.length);
+        else { prev = prev || previousSources(); listed = !!(prev[key] && prev[key].count > 0); }
+        if (!listed) return;
+        let by = '';
+        try { by = new URL(cfg.infoUrl).hostname.replace(/^www\./, ''); } catch { /* no site */ }
+        out[String(cfg.locationId)] = { on: cfg.reopened.on, notice: cfg.reopened.notice, by };
+    });
+    return out;
+}
+/** Mark the City notices a reopened arena has outlived (the app shows them as a note, not a closure). */
+function markSuperseded(alerts, reopened) {
+    let n = 0;
+    (alerts || []).forEach(a => {
+        delete a.Superseded;
+        const r = reopened[String(a.LocationID)];
+        if (!r) return;
+        const posted = String(a.PostedDate || '').slice(0, 10);
+        if (isYmdStr(posted) && posted < r.on && r.notice.test(`${a.Reason || ''} ${a.Comments || ''}`)) { a.Superseded = { on: r.on, by: r.by }; n++; }
+    });
+    return n;
+}
+
+/* ================= Rinks the City lists twice, and other names =================
+ *
+ * The City files some outdoor rinks twice: once as a rink asset in its rink
+ * inventory (808 "West Mall Rink") and once as the park its sessions and alerts
+ * are filed under (2642 "Dennis Flynn Park"). The app then listed two rinks a
+ * short walk apart, one of which never had a session. foldTwinRinks() folds the
+ * asset entry into the park entry: the park's id stays (sessions, alerts and
+ * saved rinks use it), the pad's own coordinates and pad count win, the asset's
+ * id is remembered in `alsoIds`, and its name becomes an alias.
+ */
+const RINK_TWINS = { '808': '2642', '1068': '514' };            // asset id → the location its sessions are filed under (different names)
+const RINK_OUTDOOR_AT = { '3492': '189' };                      // the outdoor pads filed under an arena belong to the place next door
+const RINK_NAME = { '196': 'Christie Pits Park' };              // the rink inventory misspells it; the sessions do not
+/**
+ * Other names people use, by location id. Searchable in the app; the first is
+ * shown beside the rink's name. Sources: the City's own rink names in its open
+ * data, cityrinks.ca's list, and the venues' own sites.
+ */
+const RINK_AKA = {
+    '223':  ['Barbara Ann Scott Ice Trail', 'Barbara Ann Scott Skate Trail'],
+    '240':  ['Lake Devo', 'Ryerson Rink', 'Devonian Square'],
+    '1089': ['City Hall Rink'],
+    '956':  ['North York Civic Centre Rink'],
+    '2155': ['Scarborough Civic Centre Rink'],
+    '31':   ['Harry Gairey Rink', 'Scadding Rink'],
+    '196':  ['Sid Smith Rink', 'Christie Pits'],
+    '87':   ['Dufferin Rink'],
+    '189':  ['Eglinton Park Rink'],
+    '514':  ['Giovanni Caboto Rink', 'J.J.P. Rink'],
+    '2642': ['West Mall Rink'],
+    '770':  ['Pleasantview Rink'],
+    '873':  ['Martingrove Rink'],
+    '1860': ['Paul Quarrington Ice Rink'],
+    '419':  ['Regent Park South Rink'],
+    '466':  ['Colonel Sam Smith Skating Trail'],
+    '678':  ['Ledbury Park Rink'],
+    '3489': ['Forest Hill Arena'],
+    '3495': ['Bill Bolton Arena'],
+    '789':  ['Leaside Gardens', 'Leaside Arena'],
+    'ext-harbourfront':       ['Skate by the Lake', 'Natrel Rink'],
+    'ext-bentway':            ['Under the Gardiner'],
+    'ext-evergreen':          ['Brick Works', 'Don Valley Brick Works'],
+    'ext-mattamy':            ['Maple Leaf Gardens'],
+    'ext-yzd':                ['Downsview', 'The Hangar'],
+    'ext-mississauga-square': ['Mississauga City Hall Rink', 'The Rink at Celebration Square']
+};
+
+const rinkNameKey = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+function metresBetween(a, b) {
+    if (a.lat == null || b.lat == null) return Infinity;
+    const R = 6371000, toRad = (x) => x * Math.PI / 180;
+    const dLat = toRad(b.lat - a.lat), dLng = toRad(b.lng - a.lng);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+/** rinks (as built) + the sessions → rinks with the City's doubles folded together. Pure. */
+function foldTwinRinks(rinks, programs = []) {
+    const sessions = new Map();
+    programs.forEach(p => { if (!p.Source || p.Source === 'city') { const id = String(p['Location ID']); sessions.set(id, (sessions.get(id) || 0) + 1); } });
+    const byId = new Map(rinks.map(r => [String(r.locationid), r]));
+    const gone = new Set();
+    const aka = (r, name) => { if (name && rinkNameKey(name) !== rinkNameKey(r.name)) r.aka = [...new Set([...(r.aka || []), name])]; };
+
+    // outdoor pads the inventory files under an arena, skated at the place next door
+    Object.entries(RINK_OUTDOOR_AT).forEach(([arenaId, parkId]) => {
+        const arena = byId.get(arenaId), park = byId.get(parkId);
+        if (!arena || !park || !(arena.kinds || []).includes('outdoor') || (arena.kinds || []).length < 2) return;
+        const moved = (arena.padsBy && arena.padsBy.outdoor) || 1;
+        arena.kinds = arena.kinds.filter(k => k !== 'outdoor');
+        arena.pads = Math.max(1, (arena.pads || 1) - moved);
+        if (arena.kindsSeen) arena.kindsSeen = arena.kindsSeen.filter(k => k !== 'outdoor');
+        if (!(park.kinds || []).includes('outdoor')) park.kinds = [...(park.kinds || []), 'outdoor'];
+        park.pads = Math.max(park.pads || 1, moved);
+    });
+
+    rinks.forEach(asset => {
+        const id = String(asset.locationid);
+        if (asset.source !== 'city' || asset.fromPrograms || sessions.get(id) || gone.has(id)) return;
+        let park = RINK_TWINS[id] ? byId.get(RINK_TWINS[id]) : null;
+        if (!park) {
+            park = rinks.find(r => r !== asset && r.source === 'city' && r.fromPrograms && !gone.has(String(r.locationid))
+                && rinkNameKey(r.name) === rinkNameKey(asset.name)
+                && (r.kinds || []).every(k => (asset.kinds || []).includes(k))
+                && metresBetween(r, asset) < 600) || null;      // same name, same kind of ice, a short walk apart
+        }
+        if (!park || gone.has(String(park.locationid))) return;
+        park.alsoIds = [...new Set([...(park.alsoIds || []), id])];
+        (asset.kinds || []).forEach(k => { if (!park.kinds.includes(k)) park.kinds.push(k); });
+        park.pads = Math.max(park.pads || 1, asset.pads || 1);
+        if (asset.lat != null) { park.lat = asset.lat; park.lng = asset.lng; }     // the pad itself, not the park's mailing address
+        if (!park.postal && asset.postal) park.postal = asset.postal;
+        if (!RINK_AKA[String(park.locationid)]) aka(park, asset.name);
+        gone.add(id);
+    });
+
+    const out = rinks.filter(r => !gone.has(String(r.locationid)));
+    out.forEach(r => {
+        const id = String(r.locationid);
+        if (RINK_NAME[id]) r.name = RINK_NAME[id];
+        (RINK_AKA[id] || []).forEach(name => aka(r, name));
+        delete r.padsBy;
+    });
+    return out;
+}
 
 async function fetchExternalSources() {
     const bySource = {};
+    const prev = previousSources();
+    const today = torontoDateStr();
     for (const [key, cfg] of Object.entries(EXTERNAL_SOURCES)) {
         console.log(`\n🌐 External source: ${key}`);
-        try {
-            const fetcher = FETCHERS[cfg.kind];
-            if (!fetcher) throw new Error(`unknown source kind '${cfg.kind}'`);
-            bySource[key] = { ok: true, records: await fetcher(key, cfg) };
-        } catch (e) {
-            console.warn(`   ⚠️ ${key} failed: ${e.message}`);
-            bySource[key] = { ok: false, error: e.message, records: salvageExisting(key) };
-        }
+        bySource[key] = await readSource(key, cfg, prev[key] || {}, today);
     }
     return bySource;
+}
+
+/* ================= Natural ice rinks → natural-ice.json (v3.12) =================
+ *
+ * Volunteers flood and shovel these on City parkland in cold spells. The City
+ * publishes one table a winter, the parks it approved, and nothing about
+ * whether there is ice (2017, CityNews: its own outdoor-rink page had 24 of 52
+ * rinks wrongly marked closed; a status nobody keeps is worse than none). So
+ * this stage reads that table and says which winter it is for, and the app
+ * lists the parks with no hours and no open or closed. Each autumn the page
+ * still shows last winter's list until the new one is posted (December): the
+ * file then says `current: false` and the app says so in words.
+ */
+const NATURAL_ICE_URL = 'https://www.toronto.ca/explore-enjoy/parks-recreation/program-activities/ice-snow-activities/public-leisure-skating/natural-ice-rinks/';
+const NATURAL_ICE_FILE = 'natural-ice.json';
+/** The winter a day belongs to: July 2026 to June 2027 is "2026/2027". */
+const winterOf = (today) => { const y = +today.slice(0, 4), m = +today.slice(5, 7); return m >= 7 ? `${y}/${y + 1}` : `${y - 1}/${y}`; };
+/**
+ * The City's page → { season: '2025/2026', current, next, parks: [{ id, name, address }] }.
+ * `current`: the list on the page is for the winter `today` falls in. Throws when there is no list. Pure.
+ */
+function parseNaturalIcePage(html, today) {
+    const src = String(html || '').replace(/<!--[\s\S]*?-->/g, ' ');
+    const m = /(\d{4})\s*\/\s*(\d{4}|\d{2})\s+Approved\s+Locations\b[\s\S]{0,400}?<table\b[^<>]*>([\s\S]*?)<\/table>/i.exec(src);
+    if (!m) throw new Error('no approved-locations table on the page');
+    const y1 = +m[1], y2 = m[2].length === 2 ? Math.floor(y1 / 100) * 100 + +m[2] : +m[2];
+    if (y2 !== y1 + 1) throw new Error(`odd season on the page: ${m[1]}/${m[2]}`);
+    const parks = [], seen = new Set();
+    for (const row of m[3].matchAll(/<tr\b[^<>]*>\s*<td\b[^<>]*>([\s\S]*?)<\/td>\s*<td\b[^<>]*>([\s\S]*?)<\/td>\s*<\/tr>/gi)) {
+        const id = (/[?&](?:amp;)?id=(\d{1,6})\b/.exec(row[1]) || [])[1];       // the City's location id, also inside a web-archive link
+        const name = lendingPlain(row[1]), address = lendingPlain(row[2]);
+        if (!id || !name || seen.has(id)) continue;
+        seen.add(id);
+        parks.push({ id, name: name.slice(0, 80), address: address.slice(0, 80) });
+    }
+    if (parks.length < 5) throw new Error(`only ${parks.length} parks read from the table`);
+    const season = `${y1}/${y2}`;
+    const next = (/Approved rinks for [^<]{0,160}?\./i.exec(src) || [''])[0];
+    return { season, current: season === winterOf(today), next: lendingPlain(next), parks };
+}
+/** Fetch the page (at most twice a day unless forced), place new parks on the map, write natural-ice.json. Never throws. */
+async function fetchNaturalIce({ force = false } = {}) {
+    const file = path.join(OUTPUT_DIR, NATURAL_ICE_FILE);
+    let prev = null;
+    try { prev = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* first run */ }
+    if (!force && prev && Array.isArray(prev.parks) && Date.now() - Date.parse(prev.checkedAt || 0) < 12 * 3600 * 1000) {
+        console.log(`   ❄️ natural ice: checked ${Math.round((Date.now() - Date.parse(prev.checkedAt)) / 3600000)} h ago (${prev.parks.length} parks, ${prev.season})`);
+        return prev;
+    }
+    try {
+        const parsed = parseNaturalIcePage(await httpGetText(NATURAL_ICE_URL), lendingToday());
+        const known = new Map(((prev && prev.parks) || []).map(p => [String(p.id), p]));
+        let lookups = 60;                       // new addresses a run may look up (the geocoder takes one a second)
+        for (const p of parsed.parks) {
+            const was = known.get(p.id);
+            if (was && was.address === p.address && typeof was.lat === 'number') { p.lat = was.lat; p.lng = was.lng; continue; }
+            if (lookups-- <= 0) continue;
+            try {
+                // the street address first; a park the geocoder cannot find by address is tried by its name
+                const inToronto = (g) => g && g.lat > 43.55 && g.lat < 43.90 && g.lng > -79.70 && g.lng < -79.05;   // elsewhere = a wrong match: better no distance than a wrong one
+                let g = await geocodeAddress(`${p.address}, Toronto, ON`);
+                if (!inToronto(g)) g = await geocodeAddress(`${p.name}, Toronto, ON`);
+                if (inToronto(g)) { p.lat = g.lat; p.lng = g.lng; }
+            } catch (e) { console.warn(`   📍 natural ice: no coordinates for ${p.name} (${e.message})`); }
+        }
+        const now = new Date().toISOString();
+        const out = { generatedAt: now, checkedAt: now, url: NATURAL_ICE_URL, ...parsed };
+        fs.writeFileSync(file, JSON.stringify(out));
+        console.log(`   ✅ ${NATURAL_ICE_FILE}: ${out.parks.length} parks approved for ${out.season}${out.current ? '' : ' (last winter\'s list; this winter\'s is not posted yet)'}, ${out.parks.filter(p => p.lat != null).length} placed`);
+        return out;
+    } catch (e) {
+        console.warn(`   ⚠️ natural ice: ${e.message} — keeping the previous file`);
+        return prev;
+    }
 }
 
 /* ================= Main ================= */
@@ -3336,7 +4058,7 @@ async function fetchVenueFacts(rinks, { all = false } = {}) {
     const now = Date.now();
     // one extraction per page: a city's skating page serves every rink of that city
     const groups = new Map();
-    rinks.filter(r => r.website).forEach(r => {
+    rinks.filter(r => r.website && !r.noFacts).forEach(r => {
         const url = String(r.website).trim();
         if (!groups.has(url)) groups.set(url, []);
         groups.get(url).push({ key: String(r.locationid), name: r.name, kinds: r.kinds || [] });
@@ -3432,8 +4154,8 @@ const LENDING_MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 
 const LENDING_DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 /* Other free ways to get on skates, each confirmed on the page named (checked = the day it was read). */
 const LENDING_ALSO = [
-    { id: 'harbourfront-saturdays', place: 'Harbourfront Centre rink', address: '235 Queens Quay W, Toronto', what: 'Free skate rentals every Saturday, while quantities last', days: [6], start: '2026-11-21', end: '2027-02-27', url: 'https://harbourfrontcentre.com/program/skate/', checked: '2026-11-12' },
-    { id: 'bentway-thursdays', place: 'The Bentway skate trail', address: '250 Fort York Blvd, Toronto', what: 'Free skate rentals on Thursdays. Bring government ID; a waiver is signed on site', days: [4], from: '17:00', to: '20:00', start: '2027-01-07', end: '2027-02-25', url: 'https://thebentway.ca/event/billy-bishop-free-rental-thursdays-2/', checked: '2026-11-12' },
+    { id: 'harbourfront-saturdays', place: 'Harbourfront Centre rink', address: '235 Queens Quay W, Toronto', what: 'Free skate rentals every Saturday, while quantities last', rink: 'ext-harbourfront', days: [6], start: '2026-11-21', end: '2027-02-27', url: 'https://harbourfrontcentre.com/program/skate/', checked: '2026-11-12' },
+    { id: 'bentway-thursdays', place: 'The Bentway skate trail', address: '250 Fort York Blvd, Toronto', what: 'Free skate rentals on Thursdays. Bring government ID; a waiver is signed on site', rink: 'ext-bentway', days: [4], from: '17:00', to: '20:00', start: '2027-01-07', end: '2027-02-25', url: 'https://thebentway.ca/event/billy-bishop-free-rental-thursdays-2/', checked: '2026-11-12' },
     { id: 'college-park-opening', place: 'College Park ice trail', address: '420 Yonge St, Toronto', what: 'Free skate lending at the opening event, while supplies last', rink: '223', date: '2026-12-05', from: '14:00', to: '18:00', start: '2026-12-05', end: '2026-12-05', url: 'https://downtownyonge.com/basit2025/', checked: '2026-11-12' },
     { id: 'burlington-skate-hub', place: 'Skate Hub, Appleby Ice Centre (Arena A)', address: '1201 Appleby Line, Burlington', what: 'Free skates to take: first come, first served, no sign-out, keep them as long as you need', rink: 'ext-burlington-appleby-ice-centre', start: '2026-11-01', end: '2027-04-30', url: 'https://www.burlington.ca/recreation/skating/', checked: '2026-11-12' }
 ];
@@ -3548,6 +4270,8 @@ const lendingAddrKey = (a) => String(a || '').toLowerCase().replace(/[.,]/g, '')
 function lendingRinkKey(stop, rinks) {
     const list = Array.isArray(rinks) ? rinks : [];
     if (stop.id && list.some(r => String(r.locationid) === String(stop.id))) return String(stop.id);
+    const twin = stop.id ? list.find(r => (r.alsoIds || []).includes(String(stop.id))) : null;   // v3.12: the City's second id for the same rink
+    if (twin) return String(twin.locationid);
     const want = lendingAddrKey(stop.address);
     if (!/^\d+ \S/.test(want)) return null;
     const hit = list.filter(r => lendingAddrKey(r.address) === want);
@@ -3603,7 +4327,10 @@ async function main() {
                 if (!cfg) { console.warn(`⚠️ unknown source '${key}' (known: ${Object.keys(EXTERNAL_SOURCES).join(', ')})`); continue; }
                 console.log(`\n🌐 External source: ${key} (dry run)`);
                 try {
-                    const rows = await FETCHERS[cfg.kind](key, cfg);
+                    const res = await readSource(key, cfg, {}, torontoDateStr(), { salvage: () => [] });
+                    const rows = res.records;
+                    console.log(`   state: ${res.state}${res.error ? ` (${res.error})` : ''}${res.quote ? ` · page says: "${res.quote}"` : ''}${res.note ? ` · ${res.note}` : ''}${res.season ? ` · season ${res.season.from || '?'} to ${res.season.to || '?'}` : ''}${res.opens ? ` · opens ${res.opens}` : ''}`);
+                    (res.venues || []).forEach(v => console.log(`     · ${v.name}: ${v.status}${v.reason ? ` (${v.reason})` : ''}`));
                     rows.slice(0, 10).forEach(r => console.log(`     ${r['Start Date']} ${r['Day of Week'].slice(0, 3)} ${r['Start Time']}–${r['End Time']}  ${r.Activity}  @ ${r.LocationName}` +
                         `${r.Paid ? `  $${r.Price}` : '  free'}${r['Age Min'] != null || r['Age Max'] != null ? `  ages ${r['Age Min'] ?? ''}–${r['Age Max'] ?? ''}` : ''}`));
                     if (rows.length > 10) console.log(`     … ${rows.length - 10} more`);
@@ -3622,6 +4349,12 @@ async function main() {
             // just the free-skates file (the City's lending van schedule + the other confirmed options)
             const out = await fetchLending({ force: true });
             if (out) out.van.stops.slice(0, 12).forEach(x => console.log(`     ${x.date} ${x.from}-${x.to}  ${x.place}${x.rink ? ` [rink ${x.rink}]` : ' [no rink of ours]'}`));
+            return;
+        }
+        if (process.argv.includes('--natural-only')) {
+            // just the natural ice list (the City's approved parks for the winter)
+            const out = await fetchNaturalIce({ force: true });
+            if (out) out.parks.slice(0, 8).forEach(x => console.log(`     ${x.id.padStart(5)}  ${x.name}, ${x.address}${x.lat != null ? `  (${x.lat.toFixed(4)}, ${x.lng.toFixed(4)})` : '  (not placed)'}`));
             return;
         }
         if (process.argv.includes('--facts-only')) {
@@ -3714,8 +4447,8 @@ async function main() {
                 }
                 address += ' ';
             }
-            if (location['Street Name']) address += location['Street Name'] + ' ';
-            if (location['Street Type']) address += location['Street Type'] + ' ';
+            if (location['Street Name'] && location['Street Name'] !== 'None') address += location['Street Name'] + ' ';
+            if (location['Street Type'] && location['Street Type'] !== 'None') address += location['Street Type'] + ' ';
             if (location['Street Direction'] && location['Street Direction'] !== 'None') {
                 address += location['Street Direction'];
             }
@@ -3763,7 +4496,7 @@ async function main() {
         let rinks = [];
         let rinksOk = true;
         try {
-            rinks = await fetchRinkInventory(allPrograms);
+            rinks = await fetchRinkInventory(allPrograms, external);
             rinks.forEach(r => { if (!r.website && ARENA_SITES[String(r.locationid)]) r.website = ARENA_SITES[String(r.locationid)]; });
             console.log(`   ✅ ${rinks.length} rink locations`);
         } catch (e) {
@@ -3774,7 +4507,7 @@ async function main() {
         // Step 3d: Service alerts snapshot
         let alertsInfo = { changed: false, count: 0 };
         try {
-            alertsInfo = await fetchAlerts(allPrograms, rinksOk ? rinks : null);
+            alertsInfo = await fetchAlerts(allPrograms, rinksOk ? rinks : null, external);
         } catch (e) {
             console.warn(`   ⚠️ alerts fetch failed: ${e.message} — keeping previous alerts.json`);
         }
@@ -3794,8 +4527,9 @@ async function main() {
                 rinks: rinks.length,
                 alerts: alertsInfo.count
             },
-            sources: Object.fromEntries(Object.entries(external).map(([k, v]) =>
-                [k, { ok: v.ok, count: v.records.length, ...(v.error ? { error: v.error } : {}) }]))
+            // v3.12: when the City last refreshed its own drop-in file (the status page shows it)
+            city: { modified: ckanStamp(resourceMap.dropin && (resourceMap.dropin.last_modified || resourceMap.dropin.metadata_modified)) },
+            sources: Object.fromEntries(Object.entries(external).map(([k, v]) => [k, sourceMeta(v)]))
         };
 
         // Save skating programs (the main file we need) — compact JSON:
@@ -3850,6 +4584,9 @@ async function main() {
         // Step 7: free skates (the City's lending van schedule + other confirmed free options)
         await fetchLending({ rinks });
 
+        // Step 8: natural ice (the parks the City approved for volunteer-built rinks this winter)
+        await fetchNaturalIce();
+
         // (locations.json / facilities.json are no longer written — the UI
         //  never loaded them; program records carry the joined location
         //  fields and rinks.json covers the locator. The city locations
@@ -3870,5 +4607,8 @@ async function main() {
 if (require.main === module) main();
 module.exports = { parseLendingPage, parseLendingTime, parseLendingDate, lendingRinkKey, fetchLending, LENDING_ALSO, LENDING_URL, llmParseSchedule, parseScheduleText, fetchLiveCheck, EXTERNAL_SOURCES, parseTimeRange, parseSeasonRange, parseDateList, parseWeekdayGridText, parseWeekdayLinesText, favouriteId, writeIcsFiles, dedupePrograms, sessionIdentity, titleCaseIfShouty,
     // alert reader + rink kinds (skate/tests/unit)
+    // v3.12: seasons, source states, venue pages, the City's doubles (skate/tests/unit/sources.spec.js)
+    parseNaturalIcePage, winterOf, fetchNaturalIce, fetchVenue,
+    seasonPhase, readSource, sourceMeta, venueRecords, manualRecords, runReader, foldTwinRinks, markSuperseded, sentenceFrom, rinkSeasonal, RINK_AKA, RINK_TWINS,
     verifyReading, readAlerts, fetchAlerts, readerKey, readerWants, readerUserMessage, readerCreds, readerTiers, readerErrorKind, readerScrub, READER_SCHEMA, READER_VERSION, inferKinds, inOutdoorLull };
 

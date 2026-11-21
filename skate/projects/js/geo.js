@@ -47,6 +47,8 @@ window.SkateGeo = (() => {
                 byLocation[String(r.locationid)] = r;
                 byName[normName(r.name)] = r;
             });
+            // v3.12: a rink the City files under two ids is one entry; the other id still finds it
+            rinks.forEach(r => (Array.isArray(r.alsoIds) ? r.alsoIds : []).forEach(id => { if (!byLocation[String(id)]) byLocation[String(id)] = r; }));
             loaded = true;
             listeners.forEach(cb => { try { cb(); } catch {} });
         } catch (e) {

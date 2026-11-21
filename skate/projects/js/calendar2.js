@@ -7,15 +7,18 @@
  * ages · price, with a heart to save it. No bars, no grid, no cursor —
  * the way a timetable is pinned up in a community-centre lobby. "By rink"
  * groups the same lines under each rink instead (your rinks first, the
- * nearest next). On wide screens the three parts of the day sit side by
- * side. Today's ended sessions fold away behind "Show N ended" so the
- * reader lands on what is next.
+ * nearest next). "By distance" (v3.12) groups them into bands around the
+ * reader's spot: within 2 km, 2 to 5, 5 to 10, 10 to 20, farther; a row of
+ * chips above it sets the "Within N km" filter. On wide screens the parts
+ * of the day, or the bands, sit side by side. Today's ended sessions fold
+ * away behind "Show N ended" so the reader lands on what is next.
  *
  * Pure renderer with the same contract as SkateCalendar. Clicks are
  * delegated in app.js: `.cal-block[data-pid]` opens the popover, and
  * `data-cal2-day`, `data-cal2-by`, `data-cal2-ended`, `data-cal2-fav`
- * carry the day strip, the By time / By rink switch, the ended fold and
- * the heart.
+ * carry the day strip, the By time / By rink / By distance switch, the
+ * ended fold and the heart; `data-cal2-radius`, `data-cal2-locate` and
+ * `data-cal2-place` belong to the by-distance view.
  */
 window.SkateCalendar2 = (() => {
     'use strict';
@@ -191,9 +194,66 @@ window.SkateCalendar2 = (() => {
         return wrap;
     }
 
+    /* ---- by distance: the nearest band first, each band in time order ---- */
+    const bandLabel = (from, to) => from === 0 ? `Within ${to} km` : to === Infinity ? `Over ${from} km` : `${from} to ${to} km`;
+    function renderByDistance(list, opts, isToday) {
+        const wrap = el('div', { class: 'c2-day by-distance' });
+        if (!opts.hasLocation) {
+            // no spot to measure from yet: say so, with the two ways to set one
+            wrap.classList.add('needs-spot');
+            wrap.appendChild(el('div', { class: 'c2-need-spot' }, [
+                el('p', {}, ['Distances need a starting point. It stays on this device.']),
+                el('div', { class: 'c2-need-actions' }, [
+                    el('button', { class: 'btn-primary btn-small', dataset: { cal2Locate: '1' } }, ['Use my location']),
+                    el('button', { class: 'btn-secondary btn-small', dataset: { cal2Place: '1' } }, ['Type a place or postal code'])
+                ])
+            ]));
+            return wrap;
+        }
+        const edges = (opts.bands && opts.bands.length ? opts.bands : [2, 5, 10, 20]).slice().sort((a, b) => a - b);
+        const bands = edges.map((to, i) => ({ from: i ? edges[i - 1] : 0, to, items: [] }));
+        bands.push({ from: edges[edges.length - 1], to: Infinity, items: [] });
+        const unknown = { label: 'Distance unknown', items: [] };
+        const km = new Map();
+        list.forEach(p => {
+            const d = opts.distanceFor(p);
+            km.set(p, d);
+            (d == null ? unknown : bands.find(b => d < b.to)).items.push(p);
+        });
+        const byTimeThenNear = (x, y) => ((mins(x['Start Time']) ?? 0) - (mins(y['Start Time']) ?? 0)) || ((km.get(x) ?? 1e9) - (km.get(y) ?? 1e9)) || (x.LocationName || '').localeCompare(y.LocationName || '');
+        [...bands.map(b => ({ label: bandLabel(b.from, b.to), items: b.items })), unknown].forEach(g => {
+            if (!g.items.length) return;
+            g.items.sort(byTimeThenNear);
+            const ended = isToday ? g.items.filter(p => opts.statusFor(p).phase === 'ended') : [];
+            const shown = opts.showEnded ? g.items : g.items.filter(p => !ended.includes(p));
+            const sec = el('section', { class: 'c2-part c2-band' });
+            sec.appendChild(el('h4', { class: 'c2-part-head' }, [
+                g.label + ' ',
+                el('span', { class: 'c2-part-n' }, [`${g.items.length} session${g.items.length === 1 ? '' : 's'}`])
+            ]));
+            if (ended.length) sec.appendChild(foldBtn(ended.length, opts.showEnded));
+            shown.forEach(p => sec.appendChild(line(p, opts, true)));
+            wrap.appendChild(sec);
+        });
+        return wrap;
+    }
+
+    /** "Any distance · 2 km · 5 km …": the same Within N km filter as the pill and the Filters sheet. */
+    function radiusRow(opts) {
+        const row = el('div', { class: 'c2-radius', role: 'group', 'aria-label': 'How far from your spot' });
+        const chip = (label, km) => el('button', {
+            class: 'c2-radius-chip' + ((opts.radius || null) === km ? ' active' : ''), dataset: { cal2Radius: km == null ? '' : String(km) },
+            'aria-pressed': (opts.radius || null) === km ? 'true' : 'false'
+        }, [label]);
+        row.appendChild(chip('Any distance', null));
+        (opts.radiusOptions || []).forEach(km => row.appendChild(chip(`${km} km`, km)));
+        return row;
+    }
+
     /**
      * Render into `container`.
-     * opts: { day, todayKey, nowMinutes (Toronto), by ('time' | 'rink'), showEnded,
+     * opts: { day, todayKey, nowMinutes (Toronto), by ('time' | 'rink' | 'distance'), showEnded,
+     *         hasLocation, radius (km | null), radiusOptions, bands,   (by distance)
      *         fmtClock(t), fmtMins(n), fmtPrice(n), fmtKm(km), ageText(p), kindLabel(p),
      *         idFor(p), isSaved(p), alertFor(p), statusFor(p), typeFor(p),
      *         distanceFor(p), rinkKey(p), rinkInfo(key, p) → { mine, dist } }
@@ -209,21 +269,27 @@ window.SkateCalendar2 = (() => {
         const counts = {};
         inWeek.forEach(p => { const d = dateKeyOf(p); counts[d] = (counts[d] || 0) + 1; });
         const onDay = inWeek.filter(p => dateKeyOf(p) === dayKey);
-        const by = opts.by === 'rink' ? 'rink' : 'time';
+        const by = opts.by === 'rink' || opts.by === 'distance' ? opts.by : 'time';
 
         container.innerHTML = '';
         container.appendChild(dayStrip(weekStartKey, counts, dayKey, todayKey));
+        const byBtn = (id, text) => el('button', { class: `c2-by-${id}` + (by === id ? ' active' : ''), dataset: { cal2By: id }, 'aria-pressed': by === id ? 'true' : 'false' }, [text]);
         container.appendChild(el('div', { class: 'c2-by', role: 'group', 'aria-label': 'Group sessions' }, [
-            el('button', { class: by === 'time' ? 'active' : '', dataset: { cal2By: 'time' }, 'aria-pressed': by === 'time' ? 'true' : 'false' }, ['By time of day']),
-            el('button', { class: by === 'rink' ? 'active' : '', dataset: { cal2By: 'rink' }, 'aria-pressed': by === 'rink' ? 'true' : 'false' }, ['By rink'])
+            byBtn('time', 'By time of day'), byBtn('rink', 'By rink'), byBtn('distance', 'By distance')
         ]));
+        if (by === 'distance' && opts.hasLocation) container.appendChild(radiusRow(opts));
         const label = longDate(dayKey);
         const { types, states } = collect(onDay, opts);
+        if (by === 'distance' && !opts.hasLocation) {
+            container.appendChild(renderByDistance(onDay, opts, isToday));
+            return { label, total: onDay.length, types, states };
+        }
         if (!onDay.length) {
-            container.appendChild(el('div', { class: 'cal-empty c2-empty' }, ['Nothing this day with these filters.']));
+            container.appendChild(el('div', { class: 'cal-empty c2-empty' }, [
+                by === 'distance' && opts.radius ? `Nothing within ${opts.radius} km this day with these filters.` : 'Nothing this day with these filters.']));
             return { label, total: 0, types, states };
         }
-        container.appendChild(by === 'rink' ? renderByRink(onDay, opts, isToday) : renderByTime(onDay, opts, isToday));
+        container.appendChild(by === 'rink' ? renderByRink(onDay, opts, isToday) : by === 'distance' ? renderByDistance(onDay, opts, isToday) : renderByTime(onDay, opts, isToday));
         return { label, total: onDay.length, types, states };
     }
 

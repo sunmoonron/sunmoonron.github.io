@@ -238,6 +238,23 @@ const SkateAPI = {
      * van schedule and a few other confirmed options). Same origins and the
      * same patience as the venue facts; a missing file is simply "nothing".
      */
+    /** v3.12: the parks the City approved for volunteer-built natural ice (natural-ice.json), or null. Same two origins as lending. */
+    _natural: null,
+    async getNaturalIce(force = false) {
+        if (this._natural && !force) return this._natural;
+        const bust = force ? Date.now() : Math.floor(Date.now() / 600000);
+        const tries = [this.dataUrl('natural-ice.json', bust), `${this.LOCAL_DATA_PATH}/natural-ice.json?t=${bust}`];
+        for (const url of [...new Set(tries)]) {
+            try {
+                const r = await fetch(url);
+                if (!r.ok) continue;
+                const j = await r.json();
+                if (j && Array.isArray(j.parks)) { this._natural = j; return j; }
+            } catch { /* next origin */ }
+        }
+        return this._natural;
+    },
+
     _lending: null,
     async getLending(force = false) {
         if (this._lending && !force) return this._lending;

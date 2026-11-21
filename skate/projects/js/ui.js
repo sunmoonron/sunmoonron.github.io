@@ -156,7 +156,7 @@ window.SkateUI = (() => {
             p.classList.add('hidden');
             p.innerHTML = '';
         },
-        /** items: [{label, danger?, onClick}] — built with textContent, never innerHTML.
+        /** items: [{label, danger?, cls?, onClick}] — built with textContent, never innerHTML.
          *  title: what the menu is about (a session, a person, a room) — it heads the
          *  menu beside the ✕, so the close button is not a lone glyph in space. */
         open(anchor, items, title = '') {
@@ -178,7 +178,7 @@ window.SkateUI = (() => {
                     return;
                 }
                 p.appendChild(el('button', {
-                    class: 'popover-item' + (it.danger ? ' danger' : ''),
+                    class: 'popover-item' + (it.danger ? ' danger' : '') + (it.cls ? ' ' + it.cls : ''),
                     onclick: (e) => { e.stopPropagation(); Popover.close(); it.onClick(); }
                 }, [it.label]));
             });

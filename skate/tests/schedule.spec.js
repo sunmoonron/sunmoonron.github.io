@@ -177,9 +177,9 @@ test.describe('schedule', () => {
         await expect(card(page, 'Zed Arena')).toHaveClass(/has-alert-closed/);
         await expect(card(page, 'Zed Arena').locator('.alert-banner.closed')).toContainText('Likely cancelled');
 
-        await page.click('#status-data');                                           // the freshness menu names the reader
-        await expect(page.locator('#popover')).toContainText('Alert reading: claude-haiku-5-5');
-        await page.keyboard.press('Escape');
+        await page.click('#status-checked');                                        // v3.12: the Data status sheet names the reader
+        await expect(page.locator('#status-body')).toContainText('Alert reading: claude-haiku-5-5');
+        await page.click('#btn-status-close');
         await app.noErrors();
     });
 
