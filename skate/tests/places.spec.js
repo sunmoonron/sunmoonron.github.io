@@ -161,6 +161,19 @@ test.describe('places', () => {
         await app.noErrors();
     });
 
+    test('free rentals on some days are not a rental price of $0', async ({ page, app }) => {
+        const at = new Date(app.NOW_ISO).toISOString();
+        app.data['venue-facts.json'].venues['200'] = { name: 'Beta Park Rink', url: 'https://example.org/beta', checkedAt: at, verified: true, factsVersion: 2,
+            rentals: { available: 'yes', price: 0, unit: 'per session', quote: 'Every Saturday, enjoy FREE skate rentals', url: 'https://example.org/beta' } };
+        await app.open();
+        await page.click('#btn-rinks');
+        const meta = rinkRow(page, 'Beta Park Rink').locator('.rink-meta');
+        await expect(meta).toContainText('Skate rentals');
+        await expect(meta).not.toContainText('$0');
+        await expect(rinkRow(page, 'Larry Grossman Forest Hill Memorial Arena').locator('.rink-meta')).toContainText('Skate rentals $6 per pair');   // a real price still shows
+        await app.noErrors();
+    });
+
     test('an outdoor rink that posts its own hours carries a weather note, not "Unverified"', async ({ page, app }) => {
         app.data['skating-programs.json'].programs.push(
             row({ id: 'bw1', loc: null, rink: 'The Bentway Skate Trail', activity: 'Public Skating (Free)', date: dayPlus(0), start: '17:00', end: '21:00', source: 'bentway', unverified: true,

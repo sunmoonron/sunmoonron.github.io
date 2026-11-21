@@ -190,7 +190,8 @@ window.SkateApp = (() => {
         const bits = [];
         const unit = (u) => (u && u !== 'unknown') ? ` ${u}` : '';
         if (f.rentals) {
-            if (f.rentals.available === 'yes') bits.push(`Skate rentals${f.rentals.price != null ? ` $${fmtPrice(f.rentals.price)}${unit(f.rentals.unit)}` : ''}`);
+            // a "price" of 0 is a free day or a condition, never the price of a rental: say rentals exist, not "$0"
+            if (f.rentals.available === 'yes') bits.push(`Skate rentals${f.rentals.price > 0 ? ` $${fmtPrice(f.rentals.price)}${unit(f.rentals.unit)}` : ''}`);
             else if (f.rentals.available === 'no') bits.push('No skate rentals');
         }
         if (f.admission) bits.push(f.admission.unit === 'free' ? 'Free skating' : `Skating $${fmtPrice(f.admission.price)}${unit(f.admission.unit)}`);

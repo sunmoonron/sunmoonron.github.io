@@ -3,7 +3,7 @@
 // twice, other names, and a City notice a reopened arena has outlived. Plain Node.
 const { test, expect } = require('@playwright/test');
 const P = require('../../../fetch-skate-data.js');
-const { seasonPhase, readSource, sourceMeta, venueRecords, manualRecords, runReader, fetchVenue, foldTwinRinks, markSuperseded, sentenceFrom, rinkSeasonal, EXTERNAL_SOURCES, RINK_AKA } = P;
+const { seasonPhase, readSource, sourceMeta, venueRecords, manualRecords, runReader, fetchVenue, stripHtml, foldTwinRinks, markSuperseded, sentenceFrom, rinkSeasonal, EXTERNAL_SOURCES, RINK_AKA } = P;
 
 const NOW = Date.parse('2026-11-21T15:00:00Z');
 const quiet = async (fn) => { const { log, warn } = console; console.log = console.warn = () => {}; try { return await fn(); } finally { console.log = log; console.warn = warn; } };
@@ -371,6 +371,12 @@ test.describe('what a seasonal rink says in the rink list', () => {
         expect(rinkSeasonal(seasonal, spring, 'b')).toMatchObject({ state: 'closed' });
         expect(rinkSeasonal(seasonal, before, 'zzz')).toMatchObject({ state: 'ok' });               // no row for it: the page's own state
     });
+});
+
+test('page text never includes what is commented out', () => {
+    const html = '<div><!-- <div id="header-tix">Free admission every day!</div> --><div id="header-tix"><strong>The Rink will open when cooler weather permits.</strong></div><!-- Tuesdays: 3pm-4pm --><p>Thursdays: 4pm&ndash;5pm</p></div>';
+    expect(stripHtml(html)).toBe('The Rink will open when cooler weather permits. Thursdays: 4pm–5pm');
+    expect(stripHtml('<p>kept</p><!-- a comment that never closes: nothing before it is lost')).toContain('kept');
 });
 
 test('a quoted sentence starts where the match does and stops at its full stop', () => {

@@ -2395,6 +2395,7 @@ async function fetchActiveNet(sourceKey, cfg) {
 
 function stripHtml(html) {
     return html
+        .replace(/<!--[\s\S]*?-->/g, ' ')          // v3.12: a commented-out line is not on the page (Harbourfront keeps old status lines in comments)
         .replace(/<script[\s\S]*?<\/script>/gi, ' ')
         .replace(/<style[\s\S]*?<\/style>/gi, ' ')
         .replace(/<[^>]+>/g, ' ')
@@ -4109,6 +4110,9 @@ async function fetchVenueFacts(rinks, { all = false } = {}) {
                 // the quote outranks the model's yes/no: a plain "we do not offer skate rentals" is a no
                 if (NO_RENTALS_RE.test(rentals.quote)) { rentals.available = 'no'; rentals.price = null; rentals.unit = 'unknown'; }
                 else if (rentals.available === 'unknown' && YES_RENTALS_RE.test(rentals.quote)) rentals.available = 'yes';
+                // "Every Saturday, enjoy FREE skate rentals" is not a price of $0: free rentals come with a day or a
+                // condition, and the rest of the week costs money. Rentals yes, price not stated.
+                if (rentals.price === 0) { rentals.price = null; rentals.unit = 'unknown'; }
             }
             // sanity: a per-hour or $40+ 'rental' is the ice, not a pair of skates
             if (rentals && rentals.available !== 'unknown' && rentals.unit !== 'per hour' && !(rentals.price > 20)) rec.rentals = { available: rentals.available, price: rentals.price, unit: rentals.unit, quote: cleanQuote(rentals.quote), url: urlFor(rentals.quote) };
@@ -4608,7 +4612,7 @@ if (require.main === module) main();
 module.exports = { parseLendingPage, parseLendingTime, parseLendingDate, lendingRinkKey, fetchLending, LENDING_ALSO, LENDING_URL, llmParseSchedule, parseScheduleText, fetchLiveCheck, EXTERNAL_SOURCES, parseTimeRange, parseSeasonRange, parseDateList, parseWeekdayGridText, parseWeekdayLinesText, favouriteId, writeIcsFiles, dedupePrograms, sessionIdentity, titleCaseIfShouty,
     // alert reader + rink kinds (skate/tests/unit)
     // v3.12: seasons, source states, venue pages, the City's doubles (skate/tests/unit/sources.spec.js)
-    parseNaturalIcePage, winterOf, fetchNaturalIce, fetchVenue,
+    parseNaturalIcePage, winterOf, fetchNaturalIce, fetchVenue, stripHtml,
     seasonPhase, readSource, sourceMeta, venueRecords, manualRecords, runReader, foldTwinRinks, markSuperseded, sentenceFrom, rinkSeasonal, RINK_AKA, RINK_TWINS,
     verifyReading, readAlerts, fetchAlerts, readerKey, readerWants, readerUserMessage, readerCreds, readerTiers, readerErrorKind, readerScrub, READER_SCHEMA, READER_VERSION, inferKinds, inOutdoorLull };
 
