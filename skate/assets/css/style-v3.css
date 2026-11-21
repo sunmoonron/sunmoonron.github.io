@@ -1863,3 +1863,42 @@ body.dark-mode .pill.radius { background: color-mix(in srgb, var(--cal-distance)
 .rink-aka { font-weight: 400; color: var(--text-muted); }
 .rink-season { display: inline-block; margin-left: 6px; padding: 0 6px; font-size: 10.5px; font-weight: 600; line-height: 1.6; border-radius: 8px; background: color-mix(in srgb, var(--text-muted) 16%, transparent); color: var(--text-muted); vertical-align: 1px; white-space: nowrap; }
 .lend-shut { font-weight: 600; }
+
+
+/* ============================================================
+   v3.12.1: the rinks search, and three iPhone habits
+   ============================================================ */
+/* A row that is not on screen is not laid out or painted until it scrolls in: the rink list
+   holds up to 80 rows and only six or seven are ever visible. (Browsers without this skip it.) */
+.rink-row { content-visibility: auto; contain-intrinsic-size: auto 62px; }
+
+/* iOS zooms the whole page into any field whose text is under 16px, and does not zoom back
+   out. The v2.7 rule covered narrow screens only and lost to more specific rules: the rink
+   search (14px), the age box (15px) and the feedback box (14px) still zoomed, and so did
+   every field with the phone held sideways. On any touch screen every field is 16px. */
+@media (pointer: coarse) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), select, textarea { font-size: 16px !important; }
+}
+
+/* A quick second tap (two hearts in a row, a day chip twice) made iOS zoom the page in, with the
+   same no-way-back as the field zoom. Taps are taps here; pinching to zoom still works. */
+html { touch-action: manipulation; }
+
+/* A phone held sideways is wide but only about 390px tall. It took the desktop layout of the
+   rinks sheet, whose map is at least 420px high: the map ran off the bottom and the list was
+   left one row. Sideways the sheet fills the screen: map on the left, list on the right. */
+@media (min-width: 600px) and (max-height: 520px) {
+    #rinks-modal { padding: 0; }
+    .rinks-box {
+        width: 100vw; max-width: none; height: 100dvh; max-height: none; border-radius: 0;
+        padding: 8px max(12px, env(safe-area-inset-right, 0px)) 8px max(12px, env(safe-area-inset-left, 0px));
+    }
+    .rinks-box .modal-header { margin-bottom: 6px; }
+    .rinks-box .rinks-lending { display: inline-block; margin: 0 14px 2px 0; }
+    .rinks-box .locator-status { margin: 0 0 4px; min-height: 0; }
+    .rinks-split { flex-direction: row; gap: 10px; }
+    .rinks-box .map-canvas { flex: 1.2; height: auto; min-height: 0; }
+    .rinks-list-wrap { flex: 1; min-width: 260px; }
+    .rinks-list { max-height: none; flex: 1; }
+    .rinks-hint { display: none; }
+}

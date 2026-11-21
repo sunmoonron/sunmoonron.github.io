@@ -30,7 +30,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.12',
+    version: '3.12.1',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -44,6 +44,16 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.12.1', date: '2026-11-21', items: [
+                'Searching in Rinks & map puts the best match first. Type "scarborough" and the rinks named for it lead (Scarborough Arena Gardens, Scarborough Village), then rinks with it elsewhere in the name, then a rink known by that name, then the rest of the area. It used to open on whichever rink in the district came first in the alphabet. Inside each group the nearest is first once you have set a spot.',
+                'Typing there is much lighter. Rows are kept and moved, not rebuilt on every letter; the map waits until you pause, then adds or removes only the pins that changed and jumps there without the slow glide. A list longer than 80 rinks says so and asks for another letter.',
+                'On an iPhone, tapping a search box or any other field no longer zooms the page in and leaves it there. Every field is now large enough that iOS has no reason to zoom, upright or sideways. A quick double tap on a button no longer zooms either; pinching still does.',
+                'After the phone is turned sideways and back, or the keyboard closes, the app puts the page back in place by itself. And with the phone held sideways, Rinks & map shows the map and the list side by side: the list used to get a sliver under the map.',
+                'Fewer false alarms on the Data status page. The server that reads the schedules is on Wi-Fi, and a few seconds without it in the middle of an update used to mark every remaining source as behind until the next update. It now waits for the connection, reads the source again, and gives any source that failed a second try before saying so.',
+                'YZD\'s Hangar Skate hours are typed in by hand, because its site does not allow them to be read. The app now notices when YZD edits that page afterwards and says "its page was edited" on the Data status page until the hours have been checked again.',
+            ]
+        },
         {
             v: '3.12', date: '2026-11-21', items: [
                 'Data status. The line under the filters is now two buttons. Tap "✓ checked" for a page listing every place the schedule comes from, when it was last read and how that went: the City\'s weekly file, its closure notices and live check, each board-run arena, the other Toronto rinks, then every other city. It follows your cities: with only Toronto picked you see Toronto\'s sources, with all cities you see everything, group by group. A source that could not be read no longer puts a banner on the schedule: the line turns to ⚠️ and says how many are behind.',

@@ -25,7 +25,10 @@ window.SkateMap = (() => {
     let map = null;
     let pinLayer = null;
     let userMarker = null;
-    let markersByKey = {};     // String(locationid) → marker, for focusRink()
+    let markersByKey = {};     // String(locationid) → marker now on the map, for focusRink() and fitPins()
+    let allMarkers = new Map(); // v3.12.1: String(locationid) → marker, built once and kept while the rink list is the same
+    let markersFor = null;     // the rink list those markers were built from
+    let lastFit = '';          // which pins the map was last framed around
     let lastUserKey = null;    // "lat,lng" of the user point last drawn (a change flies the map there)
     let filter = 'all';        // 'all' | 'indoor' | 'outdoor'
     let hooks = {};            // { popupHtml(rink), onOpen(), userPoint(), rinkFilter(rink) }
@@ -72,21 +75,46 @@ window.SkateMap = (() => {
 
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-    function renderPins() {
+    /**
+     * Put the right pins on the map. v3.12.1: a pin is built once and kept; a change of
+     * filter or search only adds and removes the pins that differ (typing a rink's name
+     * used to throw away and rebuild every pin at each pause). `fresh` rebuilds them all,
+     * which also closes an open popup: used after an action inside a popup.
+     */
+    function renderPins(fresh = false) {
         if (!map) return;
-        pinLayer.clearLayers();
-        markersByKey = {};
-        const rinks = (window.SkateGeo?.rinks || []).filter(r => r.lat != null && rinkMatchesFilter(r) && (!hooks.rinkFilter || hooks.rinkFilter(r)));
-        rinks.forEach(r => {
-            const marker = L.marker([r.lat, r.lng], { title: r.name });
-            marker.bindPopup(() => (hooks.popupHtml ? hooks.popupHtml(r) : r.name), { maxWidth: 260 });
-            pinLayer.addLayer(marker);
-            markersByKey[String(r.locationid)] = marker;
+        const all = window.SkateGeo?.rinks || [];
+        if (fresh || markersFor !== all) {
+            pinLayer.clearLayers();
+            allMarkers = new Map();
+            markersByKey = {};
+            markersFor = all;
+        }
+        const want = new Map();
+        all.forEach(r => { if (r.lat != null && rinkMatchesFilter(r) && (!hooks.rinkFilter || hooks.rinkFilter(r))) want.set(String(r.locationid), r); });
+        Object.keys(markersByKey).forEach(key => {
+            if (want.has(key)) return;
+            pinLayer.removeLayer(markersByKey[key]);
+            delete markersByKey[key];
         });
+        want.forEach((r, key) => {
+            if (markersByKey[key]) return;
+            let marker = allMarkers.get(key);
+            if (!marker) {
+                marker = L.marker([r.lat, r.lng], { title: r.name });
+                marker.bindPopup(() => (hooks.popupHtml ? hooks.popupHtml(r) : r.name), { maxWidth: 260 });
+                allMarkers.set(key, marker);
+            }
+            pinLayer.addLayer(marker);
+            markersByKey[key] = marker;
+        });
+        const rinks = { length: want.size };
 
         // The saved 📍 point: a pulsing ring, a dot and a "You" pill (the old
         // 8 px circle vanished among the pins). A changed point flies the map there.
         const u = hooks.userPoint ? hooks.userPoint() : null;
+        const uKey = (u && typeof u.lat === 'number') ? `${u.lat},${u.lng},${u.label || ''}` : 'none';
+        if (userMarker && userMarker._skateKey === uKey) return rinks.length;      // the same spot as before: leave its marker alone
         if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
         if (u && typeof u.lat === 'number') {
             const icon = L.divIcon({
@@ -96,6 +124,7 @@ window.SkateMap = (() => {
             });
             userMarker = L.marker([u.lat, u.lng], { icon, zIndexOffset: 1000, title: u.label || 'Your location' })
                 .addTo(map).bindPopup(esc(u.label || 'Your location'));
+            userMarker._skateKey = uKey;
             const key = `${u.lat},${u.lng}`;
             // a new point, including the very first one granted while the map is open, flies there
             if (lastUserKey !== null && key !== lastUserKey) map.flyTo([u.lat, u.lng], Math.max(map.getZoom(), 12), { duration: 0.8 });
@@ -113,6 +142,7 @@ window.SkateMap = (() => {
     function focusRink(key) {
         if (!map) return false;
         key = String(key);
+        lastFit = '';       // the view is about to leave the framed pins
         if (!markersByKey[key] && filter !== 'all') setFilter('all');
         const m = markersByKey[key];
         const r = (window.SkateGeo?.rinks || []).find(x => String(x.locationid) === key);
@@ -133,15 +163,19 @@ window.SkateMap = (() => {
         return true;
     }
 
+    function retitle(n) {
+        const title = document.getElementById('rinks-title');
+        if (title) title.textContent = `Rinks${filter === 'all' ? '' : `: ${filter}`}${n != null ? ` (${n})` : ''}`;
+    }
     function setFilter(f) {
         filter = f;
         document.querySelectorAll('#map-filter-seg button').forEach(b =>
             b.classList.toggle('active', b.dataset.mapfilter === f));
-        const n = renderPins();
-        const title = document.getElementById('rinks-title');
-        if (title) title.textContent = `Rinks${f === 'all' ? '' : `: ${f}`}${n != null ? ` (${n})` : ''}`;
+        retitle(renderPins());
         if (hooks.onFilter) { try { hooks.onFilter(f); } catch {} }   // the list beside the map follows
     }
+    /** v3.12.1: the pins follow the search without redrawing the list a second time (setFilter does that for the All / Indoor / Outdoor buttons). */
+    function syncPins() { retitle(renderPins()); }
 
     /**
      * Open the map modal. opts: { filter, center:[lat,lng], zoom }
@@ -156,6 +190,7 @@ window.SkateMap = (() => {
             throw e;
         }
         initMap();
+        lastFit = '';       // a newly opened sheet may frame the same pins again
         // With a saved location the map opens around it (rinks near you), else Toronto-wide.
         const u = hooks.userPoint ? hooks.userPoint() : null;
         if (opts.center) map.setView(opts.center, opts.zoom || 13);
@@ -173,23 +208,32 @@ window.SkateMap = (() => {
     }
 
     /** Re-render pins in place (e.g. after starring a rink from a popup). */
-    function refresh() { if (map) renderPins(); }
+    function refresh() { if (map) retitle(renderPins(true)); }
 
     /**
      * Frame the pins currently on the map (v3.10.2: the rink search calls this as
      * its matches change, so typing "scarborough" shows Scarborough, not all of Toronto).
      */
-    function fitPins() {
+    function fitPins({ animate = true } = {}) {
         if (!map) return false;
-        const pts = Object.values(markersByKey).map(m => m.getLatLng());
-        if (!pts.length) return false;
+        const keys = Object.keys(markersByKey);
+        if (!keys.length) return false;
+        // the same pins as the last time the map was framed: it is already there (typing more
+        // letters of a name that keeps matching the same rinks must not move the map again)
+        const sig = keys.sort().join(',');
+        if (sig === lastFit) return true;
+        lastFit = sig;
+        const pts = keys.map(k => markersByKey[k].getLatLng());
         map.invalidateSize();
-        if (pts.length === 1) map.flyTo(pts[0], Math.max(map.getZoom(), 14), { duration: 0.5 });
-        else map.flyToBounds(L.latLngBounds(pts), { padding: [28, 28], maxZoom: 14, duration: 0.5 });
+        // while someone is typing the map jumps (animate: false): a half-second flight redraws
+        // the map for thirty frames under the keyboard
+        if (pts.length === 1) { if (animate) map.flyTo(pts[0], Math.max(map.getZoom(), 14), { duration: 0.5 }); else map.setView(pts[0], Math.max(map.getZoom(), 14), { animate: false }); }
+        else if (animate) map.flyToBounds(L.latLngBounds(pts), { padding: [28, 28], maxZoom: 14, duration: 0.5 });
+        else map.fitBounds(L.latLngBounds(pts), { padding: [28, 28], maxZoom: 14, animate: false });
         return true;
     }
 
-    return { configure, open, close, setFilter, refresh, focusRink, fitPins, get filter() { return filter; }, get isOpen() { return !document.getElementById('rinks-modal').classList.contains('hidden'); } };
+    return { configure, open, close, setFilter, syncPins, refresh, focusRink, fitPins, get filter() { return filter; }, get isOpen() { return !document.getElementById('rinks-modal').classList.contains('hidden'); } };
 })();
 
 if (typeof module !== 'undefined') module.exports = window.SkateMap;

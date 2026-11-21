@@ -1103,14 +1103,18 @@ window.SkateApp = (() => {
         const rows = new Set();
         for (const key of Object.keys(sources)) {
             const state = stateOf(sources[key]);
-            // a page that is only watched (no skating there) changing its wording hides nothing: not "behind"
-            if (state !== 'failed' && !(state === 'changed' && sources[key].manual)) continue;
+            // a page that is only watched (no skating there) changing its wording hides nothing: not "behind".
+            // v3.12.1: hours typed in by hand whose page was edited afterwards are behind until looked at again.
+            if (state !== 'failed' && !(state === 'changed' && sources[key].manual) && !editedOn(sources[key])) continue;
             const city = (CFG.sourceInfo[key] || {}).city || 'Toronto';
             if (S.cities.length && !S.cities.includes(city)) continue;
             rows.add(CFG.sourceRows[key] || key);
         }
         return rows.size;
     }
+
+    /** v3.12.1: the day a hand-entered source's page was edited after its hours were typed in ('' when it was not). */
+    const editedOn = (s) => (s && typeof s.edited === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s.edited)) ? s.edited : '';
 
     /** One source (or several that are one place) → a row. */
     function sourceRow(keys, sources, fallbackAt, today) {
@@ -1171,6 +1175,12 @@ window.SkateApp = (() => {
                 head = `read ${stWhen(at)}`;
                 lines.push(count ? plural(count, 'session') : 'No sessions listed right now.');
                 if (note) lines.push(note);
+        }
+        // v3.12.1: the site's own page list says the page was edited after the hours were typed in
+        const edited = worst.state === 'failed' || worst.state === 'changed' ? '' : editedOn(worst);
+        if (edited) {
+            tone = 'warn'; head = 'its page was edited';
+            lines.unshift(`Its page was edited on ${stDay(edited)}, after the hours here were entered. They may have changed: confirm on its site before going.`);
         }
         if (worst.manual && worst.state !== 'changed') lines.push(`Hours entered by hand on ${stDay(str(worst.manual, 10))} (its site does not allow them to be read automatically). Its page is still checked each time.`);
         infos.forEach(i => { if (i.status && !lines.includes(i.status)) lines.push(i.status); });
@@ -1889,101 +1899,209 @@ window.SkateApp = (() => {
     /** What the map and the list both show: in scope for the chosen cities and matching the search. */
     const rinkShown = (r) => rinkInScope(r) && rinkMatchesQuery(r, rinksQuery());
 
+    /**
+     * v3.12.1: how well a rink answers the search, lower first. A rink whose NAME holds the
+     * words comes before one that is merely in that area: typing "scarborough" used to open
+     * on Agincourt Recreation Centre (A to Z inside the district) with Scarborough Arena
+     * Gardens further down. Assumes rinkMatchesQuery(r, q) is already true.
+     */
+    function rinkRank(r, q) {
+        if (!q) return 0;
+        const words = q.split(' ');
+        const name = foldText(r.name);
+        if (name === q) return 0;
+        if (name.startsWith(q)) return 1;
+        if (words.every(w => name.includes(w))) return name.split(' ').some(part => part.startsWith(words[0])) ? 2 : 3;
+        const aka = Array.isArray(r.aka) ? foldText(r.aka.join(' ')) : '';
+        if (aka && words.every(w => aka.includes(w))) return 4;                    // its other name
+        const area = foldText(`${r.district || ''} ${rinkCity(r)}`);
+        if (words.every(w => area.includes(w))) return 5;                          // in that district or city
+        return 6;                                                                  // its street, its postal code, or words spread over several of these
+    }
+
+    /* v3.12.1: rows are built once and kept. A keystroke in the search only decides which rows
+       show and in what order, then moves the existing nodes; a row is rebuilt only when what
+       it says has changed (its signature). Before, every letter rebuilt up to 80 rows. */
+    const rinkRowCache = new Map();    // rink key → { sig, node }
+    let rinkRowsFor = null;            // the rink list the cache belongs to
+    let rinkScopeSig = '', rinkListQuery = null;
+    let rinkListSig = null;            // what the list shows now, in order: unchanged → the DOM is not touched
+    let rinkRowBuilds = 0;             // rows (re)built so far: a rebuilt row means the DOM must take it
+    function rinkRowNode(r, mine) {
+        const key = String(r.locationid);
+        const sp = upcomingSplit(key);
+        const sessions = S.paidVisible ? sp.free + sp.paid : sp.free;
+        const alerts = SkateAlerts.forLocation(key);
+        const starred = mine.has(key);
+        const season = seasonWord(r);                              // v3.12: a seasonal rink that is not open right now
+        const also = Array.isArray(r.aka) && typeof r.aka[0] === 'string' ? r.aka[0] : '';
+        const meta = [
+            r.km != null ? SkateGeo.fmtKm(r.km) : null,
+            r.address || null,
+            (r.kinds || []).map(k => k === 'indoor' ? 'indoor' : 'outdoor').join(' + ') || null,
+            r.paid ? 'paid' : null,
+            lendNextAt(key),                                      // v3.11: the lending van's next visit here
+            ...(factsFor(key) ? factsBits(factsFor(key)) : [])   // v3.7: rentals / admission / helmets from the rink's site
+        ].filter(Boolean).join(' · ');
+        const label = sessions ? `${sessions} session${sessions === 1 ? '' : 's'}` : (sp.paid ? `${sp.paid} paid` : 'No sessions');
+        const seasonTitle = season ? ((r.seasonal && typeof r.seasonal.quote === 'string' && r.seasonal.quote) ? `Its page says: “${r.seasonal.quote.slice(0, 170)}”` : season) : '';
+        const akaTitle = also ? (r.aka.length > 1 ? `Also known as ${r.aka.join(', ')}` : `Also known as ${also}`) : '';
+        const alertTitle = alerts.length ? 'Service alert: ' + alerts.map(a => a.Reason).join(', ') : '';
+        const dead = !sessions && !sp.paid;
+        const sig = [r.name, also, akaTitle, season, seasonTitle, meta, label, dead ? 1 : 0, starred ? 1 : 0, alertTitle].join('\u0001');
+        const hit = rinkRowCache.get(key);
+        if (hit && hit.sig === sig) return hit.node;
+
+        // The whole row shows the rink on the map (the delegate lets the
+        // sessions and star buttons win first); Enter/Space does the same.
+        const node = el('div', { class: 'rink-row' + (starred ? ' starred' : '') + (alerts.length ? ' has-alert' : ''), dataset: { mapFocus: key }, role: 'button', tabindex: '0', title: 'Show on the map' });
+        node.onkeydown = (e) => {
+            if (e.target !== node || (e.key !== 'Enter' && e.key !== ' ')) return;
+            e.preventDefault();
+            SkateMap.focusRink(key);
+            node.classList.add('focused'); setTimeout(() => node.classList.remove('focused'), 1600);
+        };
+        node.appendChild(el('div', { class: 'rink-info' }, [
+            el('strong', {}, [r.name,
+                ...(also ? [el('span', { class: 'rink-aka', title: akaTitle }, [` (${also})`])] : []),
+                ...(season ? [el('span', { class: 'rink-season', title: seasonTitle }, [season])] : []),
+                ...(alerts.length ? [el('span', { class: 'rink-alert', title: alertTitle }, ['alert'])] : [])]),
+            el('span', { class: 'rink-meta' }, [meta])
+        ]));
+        const sessionsBtn = el('button', {
+            class: 'btn-small rink-sessions', dataset: { locFilter: key, locName: r.name },
+            title: dead ? 'No drop-in sessions listed for this rink' : 'Show only this rink\'s sessions'
+        }, [label]);
+        if (dead) sessionsBtn.disabled = true;
+        node.appendChild(el('div', { class: 'rink-actions' }, [
+            sessionsBtn,
+            el('button', { class: 'btn-small star' + (starred ? ' starred' : ''), dataset: { locStar: key }, title: starred ? 'Remove from my rinks' : 'Add to my rinks', 'aria-label': starred ? 'Remove from my rinks' : 'Add to my rinks' }, [starred ? '★' : '☆'])
+        ]));
+        rinkRowCache.set(key, { sig, node });
+        rinkRowBuilds++;
+        return node;
+    }
+    /**
+     * Build, a few milliseconds at a time, the rows the list has not had to show yet, so that
+     * the first letter typed (which can bring in a hundred rinks from further down) finds
+     * them ready. Stops when the sheet closes or the data changes.
+     */
+    let rinkWarmTimer = 0;
+    function warmRinkRows() {
+        clearTimeout(rinkWarmTimer);
+        const rinks = SkateGeo.rinks;
+        let i = 0;
+        const step = () => {
+            if ($('rinks-modal').classList.contains('hidden') || rinks !== SkateGeo.rinks) return;
+            const user = SkateGeo.getUserLocation(), mine = new Set(SkateSettings.get('myRinks') || []);
+            const t0 = performance.now();
+            while (i < rinks.length && performance.now() - t0 < 6) {
+                const r = rinks[i++];
+                if (rinkRowCache.has(String(r.locationid))) continue;
+                rinkRowNode({ ...r, km: user && r.lat != null ? SkateGeo.distanceKm(user, { lat: r.lat, lng: r.lng }) : null }, mine);
+            }
+            if (i < rinks.length) rinkWarmTimer = setTimeout(step, 80);
+        };
+        rinkWarmTimer = setTimeout(step, 500);
+    }
+
     Render.rinks = function () {
         const user = SkateGeo.getUserLocation();
         $('locator-status').textContent = user ? `Distances from ${user.label}` : 'Type a rink, an area or your postal code. Near me sorts by distance.';
         const wrap = $('rinks-list');
         const scope = $('rinks-scope');
-        wrap.innerHTML = '';
-        scope.innerHTML = '';
         if (!SkateGeo.loaded || !SkateGeo.rinks.length) {
+            wrap.innerHTML = '';
+            scope.innerHTML = '';
+            rinkScopeSig = ''; rinkListSig = null;
             wrap.appendChild(el('p', { class: 'settings-hint' }, ['Rink list still loading, one second.']));
             return;
         }
+        if (rinkRowsFor !== SkateGeo.rinks) { rinkRowsFor = SkateGeo.rinks; rinkRowCache.clear(); }   // new data: nothing kept
         const q = rinksQuery();
         const mine = new Set(SkateSettings.get('myRinks') || []);
         const kind = SkateMap.filter;   // All / Indoor / Outdoor from the sheet's header
         const rows = SkateGeo.rinks
             .filter(r => rinkInScope(r) && rinkMatchesQuery(r, q))
             .filter(r => kind === 'all' || (r.kinds || []).includes(kind))
-            .map(r => ({ ...r, city: rinkCity(r), km: user && r.lat != null ? SkateGeo.distanceKm(user, { lat: r.lat, lng: r.lng }) : null }));
-        rows.sort((a, b) =>
-            (mine.has(String(b.locationid)) - mine.has(String(a.locationid))) ||   // yours first
-            ((a.km ?? Infinity) - (b.km ?? Infinity)) ||                            // then nearest
-            a.name.localeCompare(b.name));                                          // then A–Z
+            .map(r => ({ ...r, city: rinkCity(r), km: user && r.lat != null ? SkateGeo.distanceKm(user, { lat: r.lat, lng: r.lng }) : null, rank: rinkRank(r, q) }));
+        rows.sort(q
+            ? (a, b) => (a.rank - b.rank) ||                                           // searching: the best match first,
+                ((a.km ?? Infinity) - (b.km ?? Infinity)) || a.name.localeCompare(b.name)   // then nearest, then A–Z
+            : (a, b) =>
+                (mine.has(String(b.locationid)) - mine.has(String(a.locationid))) ||   // browsing: yours first
+                ((a.km ?? Infinity) - (b.km ?? Infinity)) ||                            // then nearest
+                a.name.localeCompare(b.name));                                          // then A–Z
 
         // Scope line: which cities the list follows, with a one-tap way out.
         // v3.9: a city picker (the old "show every city" link could not pick one city), and the
-        // count here is the same count as the map's title: both follow the city and the kind
-        scope.appendChild(el('span', {}, [`${rows.length} rink${rows.length === 1 ? '' : 's'}${kind !== 'all' ? ` (${kind})` : ''}`]));
-        const counts = {};
-        SkateGeo.rinks.forEach(r => { const c = rinkCity(r); counts[c] = (counts[c] || 0) + 1; });
-        const sel = el('select', { id: 'rinks-city', class: 'rinks-city', 'aria-label': 'Which city' });
-        if (S.cities.length > 1) sel.appendChild(el('option', { value: '' }, [`Your cities (${S.cities.length})`]));
-        sel.appendChild(el('option', { value: 'all' }, [`Every city (${SkateGeo.rinks.length})`]));
-        Object.entries(counts).sort((a, b) => b[1] - a[1]).forEach(([c, n]) => sel.appendChild(el('option', { value: c }, [`${c} (${n})`])));
-        sel.value = S.rinksCity || (S.cities.length === 1 ? S.cities[0] : (S.cities.length > 1 ? '' : 'all'));
-        sel.onchange = () => {
-            S.rinksCity = sel.value || null;
-            S.rinksAllCities = sel.value === 'all';
-            SkateMap.setFilter(SkateMap.filter);   // re-pins + retitles; the hook re-renders this list
-        };
-        scope.appendChild(sel);
-
-        const row = (r) => {
-            const key = String(r.locationid);
-            const sp = upcomingSplit(key);
-            const sessions = S.paidVisible ? sp.free + sp.paid : sp.free;
-            const alerts = SkateAlerts.forLocation(key);
-            const starred = mine.has(key);
-            const season = seasonWord(r);                              // v3.12: a seasonal rink that is not open right now
-            const also = Array.isArray(r.aka) && typeof r.aka[0] === 'string' ? r.aka[0] : '';
-            const meta = [
-                r.km != null ? SkateGeo.fmtKm(r.km) : null,
-                r.address || null,
-                (r.kinds || []).map(k => k === 'indoor' ? 'indoor' : 'outdoor').join(' + ') || null,
-                r.paid ? 'paid' : null,
-                lendNextAt(key),                                      // v3.11: the lending van's next visit here
-                ...(factsFor(key) ? factsBits(factsFor(key)) : [])   // v3.7: rentals / admission / helmets from the rink's site
-            ].filter(Boolean).join(' · ');
-            const label = sessions ? `${sessions} session${sessions === 1 ? '' : 's'}` : (sp.paid ? `${sp.paid} paid` : 'No sessions');
-            // The whole row shows the rink on the map (the delegate lets the
-            // sessions and star buttons win first); Enter/Space does the same.
-            const node = el('div', { class: 'rink-row' + (starred ? ' starred' : '') + (alerts.length ? ' has-alert' : ''), dataset: { mapFocus: key }, role: 'button', tabindex: '0', title: 'Show on the map' });
-            node.onkeydown = (e) => {
-                if (e.target !== node || (e.key !== 'Enter' && e.key !== ' ')) return;
-                e.preventDefault();
-                SkateMap.focusRink(key);
-                node.classList.add('focused'); setTimeout(() => node.classList.remove('focused'), 1600);
+        // count here is the same count as the map's title: both follow the city and the kind.
+        // (Rebuilt only when what it says changes: a <select> recreated on every letter is wasted work.)
+        const selValue = S.rinksCity || (S.cities.length === 1 ? S.cities[0] : (S.cities.length > 1 ? '' : 'all'));
+        const scopeSig = [rows.length, kind, S.cities.join('|'), selValue, SkateGeo.rinks.length].join('\u0001');
+        if (scopeSig !== rinkScopeSig || !scope.firstChild) {
+            rinkScopeSig = scopeSig;
+            scope.innerHTML = '';
+            scope.appendChild(el('span', {}, [`${rows.length} rink${rows.length === 1 ? '' : 's'}${kind !== 'all' ? ` (${kind})` : ''}`]));
+            const counts = {};
+            SkateGeo.rinks.forEach(r => { const c = rinkCity(r); counts[c] = (counts[c] || 0) + 1; });
+            const sel = el('select', { id: 'rinks-city', class: 'rinks-city', 'aria-label': 'Which city' });
+            if (S.cities.length > 1) sel.appendChild(el('option', { value: '' }, [`Your cities (${S.cities.length})`]));
+            sel.appendChild(el('option', { value: 'all' }, [`Every city (${SkateGeo.rinks.length})`]));
+            Object.entries(counts).sort((a, b) => b[1] - a[1]).forEach(([c, n]) => sel.appendChild(el('option', { value: c }, [`${c} (${n})`])));
+            sel.value = selValue;
+            sel.onchange = () => {
+                S.rinksCity = sel.value || null;
+                S.rinksAllCities = sel.value === 'all';
+                SkateMap.setFilter(SkateMap.filter);   // re-pins + retitles; the hook re-renders this list
             };
-            node.appendChild(el('div', { class: 'rink-info' }, [
-                el('strong', {}, [r.name,
-                    ...(also ? [el('span', { class: 'rink-aka', title: Array.isArray(r.aka) && r.aka.length > 1 ? `Also known as ${r.aka.join(', ')}` : `Also known as ${also}` }, [` (${also})`])] : []),
-                    ...(season ? [el('span', { class: 'rink-season', title: (r.seasonal && typeof r.seasonal.quote === 'string' && r.seasonal.quote) ? `Its page says: “${r.seasonal.quote.slice(0, 170)}”` : season }, [season])] : []),
-                    ...(alerts.length ? [el('span', { class: 'rink-alert', title: 'Service alert: ' + alerts.map(a => a.Reason).join(', ') }, ['alert'])] : [])]),
-                el('span', { class: 'rink-meta' }, [meta])
-            ]));
-            const sessionsBtn = el('button', {
-                class: 'btn-small rink-sessions', dataset: { locFilter: key, locName: r.name },
-                title: (sessions || sp.paid) ? 'Show only this rink\'s sessions' : 'No drop-in sessions listed for this rink'
-            }, [label]);
-            if (!sessions && !sp.paid) sessionsBtn.disabled = true;
-            node.appendChild(el('div', { class: 'rink-actions' }, [
-                sessionsBtn,
-                el('button', { class: 'btn-small star' + (starred ? ' starred' : ''), dataset: { locStar: key }, title: starred ? 'Remove from my rinks' : 'Add to my rinks', 'aria-label': starred ? 'Remove from my rinks' : 'Add to my rinks' }, [starred ? '★' : '☆'])
-            ]));
-            return node;
-        };
-        const yours = rows.filter(r => mine.has(String(r.locationid)));
-        const others = rows.filter(r => !mine.has(String(r.locationid)));
-        if (yours.length) {
-            wrap.appendChild(el('div', { class: 'rinks-head' }, [`Your rinks (${yours.length})`]));
-            yours.forEach(r => wrap.appendChild(row(r)));
-            if (others.length) wrap.appendChild(el('div', { class: 'rinks-head' }, ['Other rinks']));
+            scope.appendChild(sel);
         }
-        others.slice(0, 80).forEach(r => wrap.appendChild(row(r)));
-        if (!rows.length) wrap.appendChild(el('p', { class: 'settings-hint' }, [q ? 'No rink matches that. If it is an address or a postal code, use the line above to measure distances from it.' : 'No rink matches that.']));
+
+        // What the list shows, in order: rows (kept nodes) and two small headings.
+        const built = rinkRowBuilds;
+        const parts = [];
+        const yours = q ? [] : rows.filter(r => mine.has(String(r.locationid)));   // a search is one list, best match first
+        const others = q ? rows : rows.filter(r => !mine.has(String(r.locationid)));
+        if (yours.length) {
+            parts.push({ head: `Your rinks (${yours.length})` });
+            yours.forEach(r => parts.push({ key: String(r.locationid), node: rinkRowNode(r, mine) }));
+            if (others.length) parts.push({ head: 'Other rinks' });
+        }
+        others.slice(0, RINK_ROWS_MAX).forEach(r => parts.push({ key: String(r.locationid), node: rinkRowNode(r, mine) }));
+        if (others.length > RINK_ROWS_MAX) parts.push({ hint: `${q ? 'The best' : 'The first'} ${RINK_ROWS_MAX} of ${others.length}. ${q ? 'Keep typing' : 'Type a name or an area'} to narrow it down.` });
+        if (!rows.length) parts.push({ hint: q ? 'No rink matches that. If it is an address or a postal code, use the line above to measure distances from it.' : 'No rink matches that.' });
+        // Another letter of a word that still matches the same rinks in the same order changes
+        // nothing on screen: then nothing is moved, and the browser has no layout to redo.
+        const listSig = parts.map(x => x.key || x.head || x.hint).join('\u0001');
+        if (listSig !== rinkListSig || built !== rinkRowBuilds || !wrap.firstChild) {
+            rinkListSig = listSig;
+            fillRinkList(wrap, parts);
+        }
+        if (q !== rinkListQuery) { rinkListQuery = q; wrap.scrollTop = 0; }   // a new search starts at its best match
     };
+    const RINK_ROWS_MAX = 80;
+    /**
+     * Put the list on screen in two steps: the rows that fit a phone's list now, the rest a
+     * moment later in small batches. A keystroke that swaps eighty rows for eighty others
+     * then paints sixteen before the next letter, not eighty. A newer list cancels an older fill.
+     */
+    let rinkFillTimer = 0;
+    function fillRinkList(wrap, parts) {
+        clearTimeout(rinkFillTimer);
+        const nodeOf = (x) => x.node || (x.head ? el('div', { class: 'rinks-head' }, [x.head]) : el('p', { class: 'settings-hint' }, [x.hint]));
+        const put = (from, to) => { const f = document.createDocumentFragment(); for (let i = from; i < Math.min(to, parts.length); i++) f.appendChild(nodeOf(parts[i])); return f; };
+        const FIRST = 16, BATCH = 32;
+        wrap.textContent = '';              // the kept rows are only moved, never rebuilt
+        wrap.appendChild(put(0, FIRST));
+        let at = FIRST;
+        const more = () => {
+            wrap.appendChild(put(at, at + BATCH));
+            at += BATCH;
+            if (at < parts.length) rinkFillTimer = setTimeout(more, 50);
+        };
+        if (at < parts.length) rinkFillTimer = setTimeout(more, 140);
+    }
 
     /* ---------- What's new ---------- */
     Render.whatsNew = function () {
@@ -2630,13 +2748,19 @@ window.SkateApp = (() => {
         from.classList.toggle('hidden', raw.length < 3);
         from.textContent = raw.length >= 3 ? `📍 Measure distances from “${raw.length > 30 ? raw.slice(0, 29) + '…' : raw}”` : '';
     }
-    let rinkMapTimer = 0;
-    /** Typing in the rink search: the list at once (cheap), the map a beat later so it never fights the keyboard. */
+    let rinkMapTimer = 0, rinkListFrame = 0;
+    /**
+     * Typing in the rink search. The list follows on the next frame (several letters inside one
+     * frame cost one pass, and rows are moved, not rebuilt); the map waits for a pause, then
+     * only adds or removes the pins that changed and jumps to them without an animation, so
+     * it never fights the keyboard (v3.12.1: it used to rebuild every pin, redraw the list a
+     * second time and fly there, at every pause).
+     */
     Actions.rinkSearchTyped = function () {
         syncRinkSearch();
-        Render.rinks();
+        if (!rinkListFrame) rinkListFrame = requestAnimationFrame(() => { rinkListFrame = 0; Render.rinks(); });
         clearTimeout(rinkMapTimer);
-        rinkMapTimer = setTimeout(() => { SkateMap.setFilter(SkateMap.filter); SkateMap.fitPins(); }, 220);
+        rinkMapTimer = setTimeout(() => { SkateMap.syncPins(); SkateMap.fitPins({ animate: false }); }, 300);
     };
     Actions.clearRinkSearch = function (focus = true) {
         $('rinks-search').value = '';
@@ -2653,6 +2777,7 @@ window.SkateApp = (() => {
         $('rinks-search').value = carry ? carried : '';
         syncRinkSearch();
         Render.rinks();
+        warmRinkRows();     // v3.12.1: the rest of the rows, built while nobody is typing
         try {
             await SkateMap.open(opts);   // shows #rinks-modal, lazy-loads Leaflet
         } catch (e) {
@@ -4120,10 +4245,56 @@ window.SkateApp = (() => {
         return true;
     }
 
+    /* ---------- iPhone: put the page back where it belongs (v3.12.1) ----------
+     * The app is a fixed shell: the page itself never scrolls, only the panels in it.
+     * iOS Safari leaves the page scrolled all the same in two cases: after the phone is
+     * turned sideways and back (its toolbars return and the page stays shifted up), and
+     * after the keyboard closes. It can also scroll one of the shell's own boxes to bring
+     * a field into view. With nothing to scroll, the reader cannot drag any of it back.
+     * So whenever the viewport changes and nobody is typing, the page and the shell's
+     * boxes go back to zero. Left alone: a field under the keyboard (there iOS scrolled
+     * on purpose) and a page the reader has pinched into (that view is theirs).
+     */
+    const SHELL_BOXES = ['html', 'body', '.app', '.main-content'];      // these never scroll; the panels inside them do
+    function settleViewport() {
+        const a = document.activeElement;
+        const typing = !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable);
+        const vv = window.visualViewport;
+        if (vv && vv.scale > 1.02) return false;                                    // pinched in
+        if (typing && vv && vv.height < window.innerHeight - 80) return false;      // the keyboard is up
+        let moved = false;
+        for (const sel of SHELL_BOXES) {
+            const box = document.querySelector(sel);
+            if (box && (box.scrollTop || box.scrollLeft)) { box.scrollTop = 0; box.scrollLeft = 0; moved = true; }
+        }
+        if (window.scrollX || window.scrollY || (vv && (vv.offsetTop > 0.5 || vv.offsetLeft > 0.5))) { window.scrollTo(0, 0); moved = true; }
+        return moved;
+    }
+    /** After the phone is turned: make WebKit lay the page out again against the viewport it has now. */
+    function nudgeLayout() {
+        if (!window.matchMedia || !matchMedia('(pointer: coarse)').matches) return;
+        const de = document.documentElement;
+        de.style.height = '100.01%';        // nothing to see: a tenth of a pixel, for one frame
+        requestAnimationFrame(() => { de.style.height = ''; settleViewport(); });
+    }
+    function watchViewport() {
+        let timers = [], nudge = 0;
+        // iOS reports the new size before it has finished moving its toolbars: look again a few times
+        const soon = () => { timers.forEach(clearTimeout); timers = [50, 250, 600, 1200].map(ms => setTimeout(settleViewport, ms)); };
+        const turned = () => { soon(); clearTimeout(nudge); nudge = setTimeout(nudgeLayout, 350); };
+        window.addEventListener('orientationchange', turned);
+        if (window.screen && screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', turned);
+        window.addEventListener('resize', soon);
+        window.addEventListener('pageshow', soon);
+        if (window.visualViewport) window.visualViewport.addEventListener('resize', soon);
+        document.addEventListener('focusout', () => setTimeout(settleViewport, 150));   // the keyboard went away
+    }
+
     /* ================= Boot ================= */
     async function init() {
         Render.bootstrap();
         Actions.applyTheme();
+        watchViewport();
         // installed iPhone/iPad copies only: the bar's content starts below iOS 26's
         // status-bar band (see the CSS). A Mac web app also reports standalone, and an
         // iPad reports itself as a Mac, so touch capability is the tie-breaker.
@@ -4222,7 +4393,7 @@ window.SkateApp = (() => {
         window.addEventListener('hashchange', Actions.route);
     }
 
-    return { init, S, Render, Actions, officialUrl, officialSite, rinkCity };
+    return { init, S, Render, Actions, officialUrl, officialSite, rinkCity, settleViewport };
 })();
 
 SkateApp.init();

@@ -594,9 +594,24 @@ const EXTERNAL_SOURCES = {
         // yzd.ca keeps the hours behind /api/, which its robots.txt disallows, so they are
         // entered here by hand from the page as a visitor sees it (read 2026-11-21, the page
         // was last edited 2026-11-20). The public page is still fetched every run: if it goes
-        // away or stops being about Hangar Skate, the status page says so.
+        // away or stops being about Hangar Skate, the status page says so. And the site's page
+        // list (sitemap.xml, which robots.txt allows) says when the page was last edited: an
+        // edit after `seen` shows on the status page as "its page was edited", so the hours
+        // get a second look.
+        //
+        // TO ENTER NEW HOURS (a new winter, or after an edit):
+        //   1. Read the hours on https://www.yzd.ca/event/hangar-skate as a visitor.
+        //   2. Set `dates` (first and last day), `rules` (one line per run of weekdays with the
+        //      same hours), `closedOn` (dates with no skating), and `enteredOn` (today).
+        //   3. Set `watch.seen` to the page's edit time: `node fetch-skate-data.js --only=yzd`
+        //      prints it ("its page was last edited …").
+        //   4. Run that command again: it lists the sessions it will publish. Compare with the page.
+        //   5. In skate/tests/unit/sources.spec.js, update the two "hours entered by hand (YZD)"
+        //      tests to the new dates, then `npx playwright test --project=unit`.
+        //   6. Commit fetch-skate-data.js and the test, push. The next run (30 min) publishes them.
         enteredOn: '2026-11-21',
-        watch: { url: 'https://www.yzd.ca/event/hangar-skate', says: /<title>[^<]*Hangar Skate/i },
+        watch: { url: 'https://www.yzd.ca/event/hangar-skate', says: /<title>[^<]*Hangar Skate/i,
+                 sitemap: 'https://www.yzd.ca/sitemap.xml', seen: '2026-11-20T16:31:10Z' },
         dates: { from: '2026-12-19', to: '2027-02-15' },
         rules: [
             { from: '2026-12-19', to: '2027-01-03', days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Saturday', 'Sunday'], start: '12:00', end: '17:00' },
@@ -807,6 +822,106 @@ const LIVE_REQUEST_GAP_MS = 80;      // be a polite guest on toronto.ca
 // Ensure output directory exists
 if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+}
+
+/* ================= Our own network (v3.12.1) =================
+ *
+ * This runs on a home server on Wi-Fi, and that Wi-Fi goes away for a few seconds
+ * several times a day (the access point changes channel, or the box's own watchdog
+ * rejoins it). A run that was in the middle of its sources then failed every one
+ * that was left within a second ("getaddrinfo ENOTFOUND" for seventeen hosts in a
+ * row, twice in three weeks), and the app said seventeen sources were behind until
+ * the next run. None of those sites had a problem: this machine did.
+ *
+ * So a failed read first asks whether this machine can get out at all. If it cannot,
+ * the run waits for the network (two minutes at most, five minutes a run) and reads
+ * the source again. A source that failed while the network was fine gets a second
+ * try at the end of the run: most failures are one slow answer. And if several
+ * unrelated sites still never answered, that is this machine again: what their last
+ * read said stands, for up to three hours.
+ */
+const NET_ROUTE = [['1.1.1.1', 443], ['9.9.9.9', 443], ['8.8.8.8', 443]];   // by address: is there a way out (no name lookup involved)
+const NET_NAMES = ['www.toronto.ca', 'github.com'];                         // by name: can names be looked up
+const NET_WAIT_MS = 120000, NET_STEP_MS = 5000;
+const NET_BUDGET = { leftMs: 5 * 60000 };          // the most one run may spend waiting for the network
+const OFFLINE_KEEP_MS = 3 * 3600000;               // how long a last read may stand in for one this machine could not make
+const SECOND_TRY_GAP_MS = 30000;                   // a failed read is tried again no sooner than this
+const OURS_MIN_SOURCES = 4, OURS_MIN_SITES = 3;    // this many sources on this many unrelated sites, all silent: it is us
+const NET_CODES = new Set(['ENOTFOUND', 'EAI_AGAIN', 'ENETUNREACH', 'EHOSTUNREACH', 'ENETDOWN', 'ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'EPIPE', 'EADDRNOTAVAIL', 'ECONNABORTED']);
+const pause = (ms) => new Promise(r => setTimeout(r, ms));
+
+/** Does a TCP connection to host:port open within `ms`? Never throws. */
+function tcpOpens(host, port, ms = 4000) {
+    return new Promise((resolve) => {
+        const s = require('net').connect({ host, port });
+        const done = (ok) => { s.destroy(); resolve(ok); };
+        s.setTimeout(ms, () => done(false));
+        s.once('connect', () => done(true));
+        s.once('error', () => done(false));
+    });
+}
+/** True as soon as one of the promises is true; false when none is (a rejection counts as false). */
+const anyTrue = (promises) => new Promise((resolve) => {
+    let left = promises.length;
+    if (!left) return resolve(false);
+    const no = () => { if (--left === 0) resolve(false); };
+    promises.forEach(p => Promise.resolve(p).then(ok => (ok ? resolve(true) : no()), no));
+});
+/** Can this machine reach the internet: a route out (by address) and working name lookups. */
+async function networkUp({ connect = tcpOpens, lookup = (name) => require('dns').promises.lookup(name) } = {}) {
+    if (!(await anyTrue(NET_ROUTE.map(([h, p]) => connect(h, p))))) return false;
+    return anyTrue(NET_NAMES.map(n => Promise.resolve().then(() => lookup(n)).then(() => true)));
+}
+/** Wait for the network to come back, checking every few seconds. → true when it did, false when the wait ran out. */
+async function waitForNetwork({ up = networkUp, sleep = pause, now = Date.now, maxMs = NET_WAIT_MS, stepMs = NET_STEP_MS, budget = NET_BUDGET } = {}) {
+    const t0 = now(), limit = Math.min(maxMs, budget.leftMs);
+    let back = false;
+    while (!back && now() - t0 < limit) {
+        await sleep(stepMs);
+        back = await up();
+    }
+    const waited = now() - t0;
+    budget.leftMs = Math.max(0, budget.leftMs - waited);
+    console.log(back ? `   📶 the network is back after about ${Math.round(waited / 1000)} s` : `   📡 still offline after ${Math.round(waited / 1000)} s`);
+    return back;
+}
+/** Before a stage that needs the network: if this machine is offline, give it a moment to come back. */
+async function settleNetwork(label, { up = networkUp, wait = waitForNetwork } = {}) {
+    if (await up()) return true;
+    console.warn(`📡 offline before ${label}: waiting for the network`);
+    return wait();
+}
+/** What went wrong, in words. Node's "tried every address" error has no message of its own, only a code and a list. */
+function errorText(e) {
+    if (!e) return 'unknown error';
+    if (typeof e === 'string') return e;
+    if (e.message) return e.message;
+    const inner = Array.isArray(e.errors) ? e.errors.map(x => x && (x.message || x.code)).filter(Boolean) : [];
+    return [e.code, ...new Set(inner)].filter(Boolean).join(': ') || String(e);
+}
+/** Did the request never get an answer (a network matter, ours or theirs), as opposed to an answer that was no use? */
+function neverAnswered(e) {
+    if (!e || typeof e !== 'object') return false;
+    const codes = [e.code, ...(Array.isArray(e.errors) ? e.errors.map(x => x && x.code) : [])];
+    return codes.some(c => NET_CODES.has(c)) || /^Timeout for /.test(e.message || '');
+}
+/** The site a source lives on, as its last two name parts ("vaughan.perfectmind.com" → "perfectmind.com"): one service counts once. */
+function sourceSite(cfg, message = '') {
+    const m = /https?:\/\/([^/\s:?#]+)/.exec(message) || /getaddrinfo \S+ ([^\s:]+)/.exec(message);
+    let host = m ? m[1] : '';
+    if (!host) {
+        for (const v of Object.values(cfg || {})) {
+            if (typeof v !== 'string' || !/^https?:\/\//.test(v)) continue;
+            try { host = new URL(v).hostname; break; } catch { /* not a URL after all */ }
+        }
+    }
+    return host.toLowerCase().split('.').slice(-2).join('.');
+}
+/** A source this machine could not reach: what its last read recorded, with the rows that are still ahead. */
+function keptResult(was, failed) {
+    const out = { records: failed.records || [], kept: true, ok: was.ok !== false, state: was.state || (was.ok === false ? 'failed' : 'ok'), at: was.at };
+    ['okAt', 'error', 'note', 'quote', 'season', 'opens', 'resumes', 'manual', 'edited'].forEach(k => { if (was[k]) out[k] = was[k]; });
+    return out;
 }
 
 /* ================= HTTP helpers ================= */
@@ -1127,7 +1242,18 @@ function rinkSeasonal(cfg, s, venueKeyName = null) {
 async function fetchRinkInventory(programs = [], external = null) {
     const byLocation = {};
     // v3.12: how a seasonal source's last read went, for the rink list ("opens Dec 12", "closed for the season")
-    const seasonalOf = (key, cfg, venueKeyName) => rinkSeasonal(cfg, external && external[key], venueKeyName);
+    let wasSeasonal = null;      // rink id → what the last rink list said, read only if a source was not reached this run
+    const seasonalOf = (key, cfg, venueKeyName, locId) => {
+        const s = external && external[key];
+        if (s && s.kept && cfg && cfg.season) {
+            if (!wasSeasonal) {
+                wasSeasonal = new Map();
+                try { (JSON.parse(fs.readFileSync(path.join(OUTPUT_DIR, 'rinks.json'), 'utf8')).rinks || []).forEach(r => { if (r.seasonal) wasSeasonal.set(String(r.locationid), r.seasonal); }); } catch { /* no earlier list */ }
+            }
+            if (wasSeasonal.has(String(locId))) return wasSeasonal.get(String(locId));
+        }
+        return rinkSeasonal(cfg, s, venueKeyName);
+    };
 
     for (const pkg of RINK_PACKAGES) {
         const packageData = await fetchJSON(`${BASE_URL}/package_show?id=${pkg.id}`);
@@ -1179,7 +1305,7 @@ async function fetchRinkInventory(programs = [], external = null) {
         if (venueTable) {
             Object.entries(venueTable).forEach(([name, v]) => {
                 const locId = venueKey(key, name);
-                const seasonal = seasonalOf(key, cfg, locId);
+                const seasonal = seasonalOf(key, cfg, locId, locId);
                 byLocation[locId] = {
                     locationid: locId,
                     name,
@@ -1204,7 +1330,7 @@ async function fetchRinkInventory(programs = [], external = null) {
 
         const locId = cfg.locationId ? String(cfg.locationId) : `ext-${key}`;
         const existing = byLocation[locId];
-        const seasonal = seasonalOf(key, cfg, null);
+        const seasonal = seasonalOf(key, cfg, null, locId);
         if (existing) {
             // City already lists it (e.g. Moss Park) — just mark the external link.
             existing.website = cfg.infoUrl;
@@ -3510,19 +3636,75 @@ function manualRecords(sourceKey, cfg, today) {
  * automated reading of them. The public page is still fetched (`watch`): if it is
  * gone or about something else, nothing is listed and the status page says why.
  */
-async function fetchManual(sourceKey, cfg) {
+async function fetchManual(sourceKey, cfg, { get = httpGetText, today = torontoDateStr() } = {}) {
+    let edited = null, republished = null, pageEdit = '';
     if (cfg.watch) {
-        const html = await httpGetText(cfg.watch.url);
+        const html = await get(cfg.watch.url);
         if (!cfg.watch.says.test(html)) {
             console.warn(`   ⚠️ ${sourceKey}: its page changed since the hours were entered by hand`);
             return { records: [], state: 'changed', manual: cfg.enteredOn, season: cfg.dates, note: 'Its page changed since the hours were entered by hand. Nothing is listed until they are checked again.' };
         }
+        if (cfg.watch.sitemap) {
+            // The hours cannot be read, but the site's own page list says when the page was last edited.
+            // A failure here is not a failure of the source: the page itself was just read.
+            try {
+                const entry = sitemapLastmod(await get(cfg.watch.sitemap), cfg.watch.url);
+                const seen = Date.parse(cfg.watch.seen);
+                if (!entry || entry.at == null) console.warn(`   ⚠️ ${sourceKey}: its page is not in the site's page list (or has no edit time there), so an edit cannot be noticed`);
+                else pageEdit = new Date(entry.at).toISOString().replace('.000Z', 'Z');
+                if (pageEdit && entry.at > seen) {
+                    const stamp = pageEdit;
+                    const day = torontoDateStr(new Date(entry.at));
+                    // the same moment on many pages is the whole site being republished, not this page being edited
+                    if (entry.shared >= SITEMAP_BULK) { republished = day; console.log(`   · ${sourceKey}: the whole site was republished ${stamp} (${entry.shared} other pages carry that time)`); }
+                    else { edited = day; console.warn(`   ⚠️ ${sourceKey}: its page was edited ${stamp}, after the hours were entered (the edit seen then: ${cfg.watch.seen})`); }
+                }
+            } catch (e) {
+                console.warn(`   ⚠️ ${sourceKey}: the site's page list could not be read (${errorText(e)}), so an edit cannot be noticed this run`);
+            }
+        }
     }
-    const today = torontoDateStr();
+    const flags = edited ? { edited } : {};
+    // The hours on file are for a winter that is over, and the next one is near or here.
+    if (today > cfg.dates.to && winterOf(today) !== winterOf(cfg.dates.to)) {
+        console.log(`   ⏳ ${sourceKey}: the hours on file are last winter's; this winter's have not been entered`);
+        return { records: [], state: 'pending', note: 'This winter\'s hours have not been entered yet. They are typed in by hand once its site posts them.', ...flags };
+    }
     const records = manualRecords(sourceKey, cfg, today);
     const state = today > cfg.dates.to ? 'closed' : today < cfg.dates.from ? 'pending' : 'ok';
-    console.log(`   ✅ ${sourceKey}: ${state}, ${records.length} sessions from hours entered by hand on ${cfg.enteredOn}`);
-    return { records, state, manual: cfg.enteredOn, season: cfg.dates };
+    console.log(`   ✅ ${sourceKey}: ${state}, ${records.length} sessions from hours entered by hand on ${cfg.enteredOn}${pageEdit ? ` · its page was last edited ${pageEdit}` : ''}`);
+    const note = republished ? `Its whole site was republished on ${monthDay(republished)}, after these hours were entered.` : '';
+    return { records, state, manual: cfg.enteredOn, season: cfg.dates, ...flags, ...(note ? { note } : {}) };
+}
+const SITEMAP_BULK = 4;      // this many other pages with the same edit time: a republish of the site, not an edit of the page
+const monthDay = (ymd) => new Date(`${ymd}T12:00:00Z`).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+/**
+ * A sitemap → { at, shared } for the page `loc`: when it was last modified (ms), and how many
+ * other pages carry that same moment, give or take two seconds. null when the page is not
+ * listed; `at` null when it is listed without a time. Plain scanning, no backtracking. Pure.
+ */
+function sitemapLastmod(xml, loc) {
+    const src = String(xml || '');
+    if (src.length > 3000000) return null;
+    const norm = (u) => String(u).replace(/&amp;/g, '&').replace(/\/+$/, '').toLowerCase();
+    const want = norm(loc);
+    const others = [];
+    let found = false, mine = null, i = 0;
+    for (;;) {
+        const a = src.indexOf('<url>', i);
+        if (a < 0) break;
+        const b = src.indexOf('</url>', a);
+        if (b < 0) break;
+        const block = src.slice(a + 5, b);
+        i = b + 6;
+        const l = /<loc>\s*([^<\s]+)\s*<\/loc>/i.exec(block), d = /<lastmod>\s*([^<\s]+)\s*<\/lastmod>/i.exec(block);
+        if (!l) continue;
+        const t = d ? Date.parse(d[1]) : NaN;
+        if (norm(l[1]) === want) { found = true; mine = Number.isFinite(t) ? t : null; }
+        else if (Number.isFinite(t)) others.push(t);
+    }
+    if (!found) return null;
+    return { at: mine, shared: mine == null ? 0 : others.filter(t => Math.abs(t - mine) <= 2000).length };
 }
 
 /** What the last full run recorded per source (meta.json). */
@@ -3547,7 +3729,7 @@ async function readSource(key, cfg, was = {}, today = torontoDateStr(), { fetche
         const out = await fetcher(key, cfg);
         const res = Array.isArray(out) ? { records: out } : (out || { records: [] });
         const keep = {};
-        ['note', 'quote', 'season', 'venues', 'manual'].forEach(k => { if (res[k] && (!Array.isArray(res[k]) || res[k].length)) keep[k] = res[k]; });
+        ['note', 'quote', 'season', 'venues', 'manual', 'edited'].forEach(k => { if (res[k] && (!Array.isArray(res[k]) || res[k].length)) keep[k] = res[k]; });
         return { ...base, okAt: now, ok: true, state: res.state || 'ok', records: res.records || [], ...keep };
     } catch (e) {
         // In the weeks before a season, a page with no schedule on it yet is "not posted", not a failure.
@@ -3555,20 +3737,20 @@ async function readSource(key, cfg, was = {}, today = torontoDateStr(), { fetche
             console.log(`   ⏳ nothing posted yet for the season that starts around ${phase.opens}`);
             return { ...base, okAt: now, ok: true, state: 'pending', records: [], note: 'Nothing is posted for the new season yet.' };
         }
-        const message = (e && (e.message || e.code)) || String(e);
+        const message = errorText(e);
         console.warn(`   ⚠️ ${key} failed: ${message}`);
         // A rink that publishes its own hours can close overnight: its last good sessions are
         // only kept for two days. Feeds with dated bookings keep theirs until they pass.
         const hours = cfg.salvageHours ?? ((cfg.kind === 'venue' || cfg.kind === 'manual') ? 48 : null);
         const fresh = hours == null || (was.okAt && (nowMs - new Date(was.okAt).getTime()) <= hours * 3600000);
-        return { ...base, ok: false, state: 'failed', error: String(message).slice(0, 200), records: fresh ? salvage(key) : [] };
+        return { ...base, ok: false, state: 'failed', error: String(message).slice(0, 200), records: fresh ? salvage(key) : [], unanswered: neverAnswered(e) };
     }
 }
 
 /** What meta.json keeps about one source's run (the app's status page reads this). */
 function sourceMeta(v) {
     const out = { ok: v.ok, state: v.state, count: v.records.length, at: v.at };
-    ['okAt', 'error', 'note', 'quote', 'season', 'opens', 'resumes', 'manual'].forEach(k => { if (v[k]) out[k] = v[k]; });
+    ['okAt', 'error', 'note', 'quote', 'season', 'opens', 'resumes', 'manual', 'edited'].forEach(k => { if (v[k]) out[k] = v[k]; });
     return out;
 }
 
@@ -3711,14 +3893,54 @@ function foldTwinRinks(rinks, programs = []) {
     return out;
 }
 
-async function fetchExternalSources() {
-    const bySource = {};
-    const prev = previousSources();
-    const today = torontoDateStr();
-    for (const [key, cfg] of Object.entries(EXTERNAL_SOURCES)) {
+/**
+ * Every external source, one after the other → { key: result }. A failure is looked at
+ * before it is believed (see "Our own network" near the top): wait out an outage of
+ * our own, try a second time at the end, and let a last read stand when it was this
+ * machine that could not get out. Everything it touches is injectable for the tests.
+ */
+async function fetchExternalSources({ sources = EXTERNAL_SOURCES, prev = previousSources(), today = torontoDateStr(), read = readSource,
+    up = networkUp, wait = waitForNetwork, sleep = pause, now = Date.now } = {}) {
+    const bySource = {}, failedAt = {};
+    const readIt = (key) => read(key, sources[key], prev[key] || {}, today);
+    const attempt = async (key) => {
+        let r = await readIt(key);
+        if (r.state === 'failed' && !(await up())) {
+            console.warn('   📡 this machine is offline: waiting for the network, then reading it again');
+            if (await wait()) r = await readIt(key);
+            else r.offline = true;
+        }
+        return r;
+    };
+    for (const key of Object.keys(sources)) {
         console.log(`\n🌐 External source: ${key}`);
-        bySource[key] = await readSource(key, cfg, prev[key] || {}, today);
+        const r = await attempt(key);
+        if (r.state === 'failed') failedAt[key] = now();
+        bySource[key] = r;
     }
+    // A second try for what failed while the network was fine: one slow answer, one dropped connection.
+    for (const key of Object.keys(failedAt)) {
+        if (bySource[key].offline) continue;
+        const gap = SECOND_TRY_GAP_MS - (now() - failedAt[key]);
+        if (gap > 0) await sleep(gap);
+        console.log(`\n🔁 Second try: ${key}`);
+        bySource[key] = await attempt(key);
+    }
+    // Still failing. Several unrelated sites that never answered is this machine, not them.
+    const failed = Object.keys(bySource).filter(k => bySource[k].state === 'failed');
+    const silent = failed.filter(k => bySource[k].offline || bySource[k].unanswered);
+    const sites = new Set(silent.map(k => sourceSite(sources[k], bySource[k].error)));
+    const ours = new Set(failed.filter(k => bySource[k].offline));
+    if (silent.length >= OURS_MIN_SOURCES && sites.size >= OURS_MIN_SITES) silent.forEach(k => ours.add(k));
+    const kept = [];
+    for (const key of ours) {
+        const was = prev[key];
+        const lastRead = was && was.at ? new Date(was.at).getTime() : NaN;
+        if (!(now() - lastRead <= OFFLINE_KEEP_MS)) continue;      // never read, or too long ago to stand in: it shows as failed
+        bySource[key] = keptResult(was, bySource[key]);
+        kept.push(key);
+    }
+    if (kept.length) console.warn(`\n📡 this machine could not get out for ${kept.length} source(s): ${kept.join(', ')}. What their last read said stands.`);
     return bySource;
 }
 
@@ -4370,6 +4592,7 @@ async function main() {
             return;
         }
         if (ALERTS_ONLY) {
+            await settleNetwork('the light pass');
             let prevPrograms = [];
             try { prevPrograms = JSON.parse(fs.readFileSync(path.join(OUTPUT_DIR, 'skating-programs.json'), 'utf8')).programs || []; } catch {}
             await fetchAlerts(prevPrograms);
@@ -4384,6 +4607,7 @@ async function main() {
         }
 
         // Step 1: Get package info to find resource IDs
+        await settleNetwork('the City\'s open data');
         console.log('📋 Fetching package metadata...');
         const packageData = await fetchJSON(`${BASE_URL}/package_show?id=${PACKAGE_ID}`);
 
@@ -4511,6 +4735,7 @@ async function main() {
         // Step 3d: Service alerts snapshot
         let alertsInfo = { changed: false, count: 0 };
         try {
+            await settleNetwork('the City\'s notices');
             alertsInfo = await fetchAlerts(allPrograms, rinksOk ? rinks : null, external);
         } catch (e) {
             console.warn(`   ⚠️ alerts fetch failed: ${e.message} — keeping previous alerts.json`);
@@ -4570,6 +4795,7 @@ async function main() {
         // Step 5: cross-check the fresh city rows against toronto.ca's live
         // per-location schedules (the export lags the live system by days)
         try {
+            await settleNetwork('the live schedule check');
             await fetchLiveCheck(allPrograms);
         } catch (e) {
             console.warn(`   ⚠️ live check failed: ${e.message} — keeping previous live-check.json`);
@@ -4613,6 +4839,7 @@ module.exports = { parseLendingPage, parseLendingTime, parseLendingDate, lending
     // alert reader + rink kinds (skate/tests/unit)
     // v3.12: seasons, source states, venue pages, the City's doubles (skate/tests/unit/sources.spec.js)
     parseNaturalIcePage, winterOf, fetchNaturalIce, fetchVenue, stripHtml,
+    fetchExternalSources, networkUp, waitForNetwork, settleNetwork, errorText, neverAnswered, sourceSite, keptResult, fetchManual, sitemapLastmod,
     seasonPhase, readSource, sourceMeta, venueRecords, manualRecords, runReader, foldTwinRinks, markSuperseded, sentenceFrom, rinkSeasonal, RINK_AKA, RINK_TWINS,
     verifyReading, readAlerts, fetchAlerts, readerKey, readerWants, readerUserMessage, readerCreds, readerTiers, readerErrorKind, readerScrub, READER_SCHEMA, READER_VERSION, inferKinds, inOutdoorLull };
 

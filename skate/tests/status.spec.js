@@ -155,6 +155,37 @@ test.describe('data status', () => {
         await app.noErrors();
     });
 
+    test('hand-entered hours whose page was edited afterwards: still listed, flagged, and counted as behind', async ({ page, app }) => {
+        withSources(app, {
+            mosspark: { ok: true, state: 'ok', count: 8, at, okAt: at },
+            yzd: { ok: true, state: 'ok', count: 9, at, okAt: at, manual: '2026-11-21', season: { from: '2026-12-19', to: '2027-02-15' }, edited: '2026-12-01' }
+        });
+        await app.open();
+        await expect(page.locator('#status-checked')).toContainText('1 source behind');
+        await page.click('#status-checked');
+        const y = row(page, 'YZD Hangar Skate');
+        await expect(y).toHaveClass(/st-warn/);
+        await expect(y.locator('.st-head')).toHaveText('its page was edited');
+        await expect(y).toContainText('Its page was edited on Dec 1, after the hours here were entered. They may have changed: confirm on its site before going.');
+        await expect(y).toContainText('9 sessions');
+        await expect(y).toContainText('Hours entered by hand on Nov 21');
+        await app.noErrors();
+    });
+
+    test('an edit flag that is not a date is ignored; a republished site is a note, not a warning', async ({ page, app }) => {
+        withSources(app, {
+            yzd: { ok: true, state: 'ok', count: 9, at, okAt: at, manual: '2026-11-21', edited: '<img src=x onerror=alert(1)>', note: 'Its whole site was republished on Dec 2, after these hours were entered.' }
+        });
+        await app.open();
+        await expect(page.locator('#status-checked')).not.toContainText('behind');
+        await page.click('#status-checked');
+        const y = row(page, 'YZD Hangar Skate');
+        await expect(y).toHaveClass(/st-ok/);
+        await expect(y).toContainText('Its whole site was republished on Dec 2, after these hours were entered.');
+        await expect(y).not.toContainText('its page was edited');
+        await app.noErrors();
+    });
+
     test('a file from before v3.12 (only ok and a count per source) still reads correctly', async ({ page, app }) => {
         withSources(app, { mosspark: { ok: true, count: 8 }, grossman: { ok: false, count: 5, error: 'HTTP 500' } });
         await app.open();

@@ -3,7 +3,7 @@
 // twice, other names, and a City notice a reopened arena has outlived. Plain Node.
 const { test, expect } = require('@playwright/test');
 const P = require('../../../fetch-skate-data.js');
-const { seasonPhase, readSource, sourceMeta, venueRecords, manualRecords, runReader, fetchVenue, stripHtml, foldTwinRinks, markSuperseded, sentenceFrom, rinkSeasonal, EXTERNAL_SOURCES, RINK_AKA } = P;
+const { seasonPhase, readSource, sourceMeta, venueRecords, manualRecords, fetchManual, sitemapLastmod, runReader, fetchVenue, stripHtml, foldTwinRinks, markSuperseded, sentenceFrom, rinkSeasonal, EXTERNAL_SOURCES, RINK_AKA } = P;
 
 const NOW = Date.parse('2026-11-21T15:00:00Z');
 const quiet = async (fn) => { const { log, warn } = console; console.log = console.warn = () => {}; try { return await fn(); } finally { console.log = log; console.warn = warn; } };
@@ -180,6 +180,72 @@ test.describe('hours entered by hand (YZD)', () => {
         expect(day(r, '2027-02-15')).toEqual([]);                 // Family Day: the page gives no hours, so none are listed
         expect(r[r.length - 1]['Start Date']).toBe('2027-02-14');
         expect(r.every(x => x.LocationName === 'YZD Hangar Skate' && x.Paid === false && x.Unverified === true)).toBe(true);
+    });
+
+    // v3.12.1: the hours cannot be read, but the site's page list says when the page was last edited
+    const PAGE = '<html><head><title>Hangar Skate | YZD</title></head><body></body></html>';
+    const url = (loc, lastmod) => `<url><loc>${loc}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}</url>`;
+    const sitemap = (mine, others = []) => `<?xml version="1.0" encoding="UTF-8"?><urlset>${url('https://www.yzd.ca/about', '2026-01-05T10:00:00Z')}${mine == null ? '' : url('https://www.yzd.ca/event/hangar-skate', mine)}${others.map((t, i) => url(`https://www.yzd.ca/news/n${i}`, t)).join('')}</urlset>`;
+    const site = (map) => async (u) => { if (u === cfg.watch.sitemap) { if (map instanceof Error) throw map; return map; } return PAGE; };
+    const run = (map, today = '2026-11-28') => quiet(() => fetchManual('yzd', cfg, { get: site(map), today }));
+
+    test('its sitemap is where the site says it is, and the edit seen at entry is a real moment', () => {
+        expect(cfg.watch.sitemap).toBe('https://www.yzd.ca/sitemap.xml');
+        expect(Number.isFinite(Date.parse(cfg.watch.seen))).toBe(true);
+        expect(cfg.watch.seen.slice(0, 10) <= cfg.enteredOn).toBe(true);      // seen when the hours were typed in, not after
+    });
+    test('the page not edited since the hours were entered: nothing to say', async () => {
+        const r = await run(sitemap(cfg.watch.seen));
+        expect(r).toMatchObject({ state: 'pending', manual: '2026-11-21', season: cfg.dates });
+        expect(r.edited).toBeUndefined(); expect(r.note).toBeUndefined();
+    });
+    test('the page edited afterwards: the sessions stay, and the day of the edit is recorded (Toronto time)', async () => {
+        const r = await run(sitemap('2026-12-02T03:10:00Z'), '2026-12-20');
+        expect(r.edited).toBe('2026-12-01');                                  // 10:10 pm on Dec 1 in Toronto
+        expect(r.state).toBe('ok');
+        expect(r.records.length).toBeGreaterThan(0);
+        const meta = sourceMeta({ ...r, ok: true, at: 'x' });
+        expect(meta.edited).toBe('2026-12-01');
+    });
+    test('the same moment on many pages is the site being republished, not this page being edited', async () => {
+        const t = '2026-12-02T15:00:00Z';
+        const r = await run(sitemap(t, [t, '2026-12-02T15:00:01Z', t, '2026-12-02T14:59:59Z']));
+        expect(r.edited).toBeUndefined();
+        expect(r.note).toBe('Its whole site was republished on Dec 2, after these hours were entered.');
+        const three = await run(sitemap(t, [t, t, t]));                       // three others: still read as an edit
+        expect(three.edited).toBe('2026-12-02');
+    });
+    test('a page list that cannot be read, or no longer lists the page, never fails the source', async () => {
+        for (const map of [new Error('HTTP 503 for https://www.yzd.ca/sitemap.xml'), sitemap(null), sitemap(''), 'not xml at all', '']) {
+            const r = await run(map);
+            expect(r.state).toBe('pending');
+            expect(r.edited).toBeUndefined();
+        }
+    });
+    test('the page gone or about something else still hides the hours, as before', async () => {
+        const r = await quiet(() => fetchManual('yzd', cfg, { get: async () => '<title>Page not found | YZD</title>', today: '2026-12-20' }));
+        expect(r).toMatchObject({ state: 'changed', records: [], manual: '2026-11-21' });
+    });
+    test('after the last entered day it is closed; when the next winter comes its hours are "not entered yet"', async () => {
+        expect((await run(sitemap(cfg.watch.seen), '2027-02-20')).state).toBe('closed');
+        const next = await run(sitemap(cfg.watch.seen), '2027-11-05');
+        expect(next).toEqual({ records: [], state: 'pending', note: 'This winter\'s hours have not been entered yet. They are typed in by hand once its site posts them.' });
+        const posted = await run(sitemap('2027-11-02T15:00:00Z'), '2027-11-05');      // and the page has been edited: time to enter them
+        expect(posted).toMatchObject({ state: 'pending', edited: '2027-11-02', records: [] });
+    });
+    test('the page list reader: exact page, trailing slash and case, no time, hostile input', () => {
+        const map = sitemap('2026-11-20T16:31:10Z', ['2026-11-20T16:31:11Z', '2026-11-10T00:00:00Z']);
+        expect(sitemapLastmod(map, 'https://www.yzd.ca/event/hangar-skate')).toEqual({ at: Date.parse('2026-11-20T16:31:10Z'), shared: 1 });
+        expect(sitemapLastmod(map, 'https://www.YZD.ca/event/hangar-skate/')).toEqual({ at: Date.parse('2026-11-20T16:31:10Z'), shared: 1 });
+        expect(sitemapLastmod(map, 'https://www.yzd.ca/event/hangar-skate-recap')).toBeNull();     // a longer address is another page
+        expect(sitemapLastmod(sitemap(''), cfg.watch.url)).toEqual({ at: null, shared: 0 });
+        expect(sitemapLastmod(sitemap('not a date'), cfg.watch.url)).toEqual({ at: null, shared: 0 });
+        expect(sitemapLastmod(null, cfg.watch.url)).toBeNull();
+        const t0 = Date.now();
+        expect(sitemapLastmod('<url>'.repeat(200000), cfg.watch.url)).toBeNull();                  // no closing tag: one pass, then stop
+        expect(sitemapLastmod('<url><loc>'.repeat(100000) + '</url>', cfg.watch.url)).toBeNull();
+        expect(sitemapLastmod('x'.repeat(3000001), cfg.watch.url)).toBeNull();                     // past the size limit: not read
+        expect(Date.now() - t0).toBeLessThan(1500);
     });
 });
 
