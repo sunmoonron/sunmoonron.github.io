@@ -57,7 +57,7 @@ async function relay(context, world) {
     });
 }
 /** point the page at the stand-in relay and release key at the moment config.js defines SkateConfig */
-async function arrange(context, { identity } = {}) {
+async function arrange(context, { identity, admins } = {}) {
     const world = { members: new Set([memberPk]), served: build(7), connects: 0, proved: [] };
     await relay(context, world);
     await context.addInitScript(([gate, id]) => {
@@ -67,7 +67,7 @@ async function arrange(context, { identity } = {}) {
             get() { return undefined; },
             set(v) { v.gate = gate; Object.defineProperty(window, 'SkateConfig', { value: v, writable: true, configurable: true, enumerable: true }); }
         });
-    }, [{ url: GATE_URL, key: releasePk }, identity ? JSON.stringify({ sk: hex(identity), pk: N.getPublicKey(identity), name: 'Tester' }) : null]);
+    }, [Object.assign({ url: GATE_URL, key: releasePk }, admins ? { admins } : {}), identity ? JSON.stringify({ sk: hex(identity), pk: N.getPublicKey(identity), name: 'Tester' }) : null]);
     return world;
 }
 const kept = (page) => page.evaluate(() => new Promise((res) => {
@@ -76,7 +76,7 @@ const kept = (page) => page.evaluate(() => new Promise((res) => {
     r.onsuccess = () => { const g = r.result.transaction('kv').objectStore('kv').get('app'); g.onsuccess = () => { r.result.close(); res(g.result ? Number(g.result.tags.find(t => t[0] === 'v')[1]) : null); }; };
     r.onerror = () => res(null);
 }));
-const gateState = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('skate_gate_v1') || '{"members":{},"min":0}'));
+const gateState = (page) => page.evaluate(() => Object.assign({ members: {}, min: 0 }, JSON.parse(localStorage.getItem('skate_gate_v1') || '{}')));
 
 test.describe('members\' entrance', () => {
     test('an ordinary visit does not load it, show it, or connect anywhere for it', async ({ page, context, app }) => {
@@ -221,6 +221,68 @@ test.describe('members\' entrance', () => {
         expect(await kept(page)).toBe(null);
         expect((await gateState(page)).members).toEqual({});
         await expect(page.locator('#btn-gate')).toBeHidden();
+    });
+
+    test('the site owner\'s key has the button on any device, and goes straight in', async ({ page, context, app }) => {
+        const world = await arrange(context, { identity: memberSk, admins: [memberPk] });
+        await app.open();
+        await expect(page.locator('#btn-gate')).toBeVisible();                     // never signed in here before
+        await page.locator('#btn-gate').click();
+        await expect(page.locator('#members-app')).toBeVisible();
+        await expect(page.locator('.gate-card')).toHaveCount(0);                   // no "Members only" card for the owner
+        expect(world.proved).toContain(memberPk);
+        expect(await page.evaluate(() => window.__gate.superadmins)).toEqual([memberPk]);
+    });
+
+    test('an invitation from the owner puts the button on the invited device; an empty one is forgotten', async ({ page, context, app }) => {
+        const guestSk = N.generateSecretKey(), guestPk = N.getPublicKey(guestSk);
+        const world = await arrange(context, { identity: guestSk });
+        await app.open();
+        await expect(page.locator('#btn-gate')).toBeHidden();
+        await page.evaluate(() => SkateApp.Actions.bootCommunity());
+        await page.waitForFunction(() => window.SkateChat && SkateChat.getIdentity().pk, null, { timeout: 20000 });
+        const invite = (id) => page.evaluate((mid) => {
+            const dev = SkateConfig.devPubkey, th = SkateChat.getState().dmThreads;
+            th[dev] = th[dev] || { name: 'The dev', lastReadTs: 0, messages: [] };
+            th[dev].messages.push({ id: mid, type: 'chat', mine: false, ts: Date.now(), status: 'sent', from: 'The dev',
+                text: 'You have been added to the members\' area. Open it with the button below.', data: { hq: 1 } });
+            SkateDev.open();
+        }, id);
+        // the owner sent the invitation before adding the key: the server says no, and that message is not believed again
+        await invite('evt-one');
+        await expect(page.locator('#devchat-messages .devchat-invite')).toHaveCount(1);
+        expect(await page.evaluate(() => !document.getElementById('btn-gate').classList.contains('hidden'))).toBe(true);
+        await page.locator('#devchat-messages .devchat-invite').click();
+        await expect(page.locator('.gate-card h2')).toHaveText('Not on the list');
+        await expect(page.locator('#btn-gate')).toBeHidden();
+        expect((await gateState(page)).refused).toBe('evt-one');
+        await page.locator('.gate-card').getByRole('button', { name: 'Close' }).click();
+        await page.evaluate(() => SkateDev.open());
+        expect(await page.evaluate(() => document.getElementById('btn-gate').classList.contains('hidden'))).toBe(true);
+        await page.evaluate(() => SkateUI.Modal.close('devchat-modal'));
+        // now the key is on the list and a fresh invitation arrives: one tap, no card
+        world.members.add(guestPk);
+        await invite('evt-two');
+        await page.locator('#devchat-messages .devchat-invite').last().click();
+        await expect(page.locator('#members-app')).toBeVisible();
+        expect(await gateState(page)).toMatchObject({ members: { [guestPk]: 1 } });
+        await page.locator('#members-close').click();
+        await expect(page.locator('#btn-gate')).toBeVisible();
+    });
+
+    test('an invitation counts only from the owner\'s own thread', async ({ page, context, app }) => {
+        await arrange(context, { identity: N.generateSecretKey() });
+        await app.open();
+        await page.evaluate(() => SkateApp.Actions.bootCommunity());
+        await page.waitForFunction(() => window.SkateChat && SkateChat.getIdentity().pk, null, { timeout: 20000 });
+        await page.evaluate(() => {
+            // somebody else sends the same kind of message in a direct chat
+            SkateChat.getState().dmThreads['ab'.repeat(32)] = { name: 'Mallory', lastReadTs: 0, messages: [{ id: 'evt-x', type: 'chat', mine: false, ts: Date.now(), status: 'sent', text: 'You have been added', data: { hq: 1 } }] };
+            SkateDev.open();
+        });
+        await expect(page.locator('#devchat-messages .devchat-invite')).toHaveCount(0);
+        expect(await page.evaluate(() => document.getElementById('btn-gate').classList.contains('hidden'))).toBe(true);
+        expect((await gateState(page)).invited).toBeUndefined();
     });
 
     test('"Use another key" switches the device to an invited key', async ({ page, context, app }) => {

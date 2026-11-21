@@ -28,7 +28,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.11.1',
+    version: '3.11.2',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -42,6 +42,13 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.11.2', date: '2026-11-21', items: [
+                'The search box and the Filters button no longer run into each other on narrow phones or with large text (it showed up in Brave).',
+                'A place typed in the schedule search, such as Scarborough, a street or a rink, carries over when you open Rinks & map: the list and the map open already narrowed to it.',
+                'If the home server sends back a broken file, the app now falls back to the published copy by itself.',
+            ]
+        },
         {
             v: '3.11.1', date: '2026-11-19', items: [
                 'Clearer notes when the City marks outdoor rinks closed for the season. It posts one such notice on every location in a district, indoor arenas included, so an open arena\'s sessions read "Still marked closed for the season". They now say "Only outdoor rinks are closed for the season. Indoor skating here is not affected", and Rinks & map no longer flags those arenas.',

@@ -69,6 +69,7 @@ window.SkateDev = (() => {
     /* ---------- rendering ---------- */
     function render() {
         if (!isOpen()) return;
+        noteInvite();
         const st = SkateChat.getState();
         const owner = isOwner();
         $('devchat-title').textContent = owner ? 'Dev inbox' : 'Report a bug or send feedback';
@@ -105,6 +106,19 @@ window.SkateDev = (() => {
             copy.type = 'button';
             copy.onclick = async () => { try { await navigator.clipboard.writeText(npub); copy.textContent = 'Copied'; } catch { copy.textContent = 'Select the key to copy'; } };
             sub.append(`${thread.name || 'Skater'}: `, code, ' ', copy);
+            // After adding this key under People in the members' area: tell their device, so the 🏠 button appears there.
+            if (window.SkateConfig.gate && !thread.messages.some(m => m.mine && m.data && m.data.hq)) {
+                const invite = el('button', { class: 'flink devchat-copy' }, ['Send members\' invite']);
+                invite.type = 'button';
+                invite.title = 'Sends a message with a button that opens the members\' area on their device. Add their key under People first.';
+                invite.onclick = async () => {
+                    invite.disabled = true;
+                    const ok = await SkateChat.sendDmTo(target, { type: 'chat', text: INVITE_TEXT, fromName: SkateChat.getIdentity().name, toName: thread.name || 'Skater', data: { hq: 1 } }, INVITE_TEXT);
+                    SkateUI.toast(ok ? 'Invite sent. Add their key under People in the members\' area if you have not yet.' : 'Could not reach the relay. Try again.', ok ? 'success' : 'error', 5000);
+                    render();
+                };
+                sub.append(' ', invite);
+            }
         }
         const msgs = thread ? thread.messages : [];
         if (!msgs.length) {
@@ -123,6 +137,13 @@ window.SkateDev = (() => {
             const row = el('div', { class: 'devchat-msg' + (m.mine ? ' mine' : '') + (m.status === 'failed' ? ' failed' : '') });
             if (m.type === 'image' && m.data?.src) row.appendChild(el('img', { class: 'devchat-img', src: m.data.src, alt: 'photo', loading: 'lazy' }));
             else row.appendChild(el('div', { class: 'devchat-text' }, [m.text || '']));
+            // the owner's invitation, on the invited person's device: one button, straight in
+            if (!owner && !m.mine && m.data && m.data.hq && target === DEV()) {
+                const go = el('button', { class: 'btn-primary btn-small devchat-invite' }, ['Open the members\' area']);
+                go.type = 'button';
+                go.onclick = () => { Modal.close('devchat-modal'); window.SkateApp?.Actions?.openGate?.(); };
+                row.appendChild(go);
+            }
             if (owner && m.data?.ctx) row.appendChild(el('div', { class: 'devchat-ctx' }, [m.data.ctx]));
             row.appendChild(el('div', { class: 'devchat-when' }, [
                 new Date(m.ts).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
@@ -246,7 +267,29 @@ window.SkateDev = (() => {
     // pill, a tap-to-open toast, a one-time nudge to switch Notify on); the
     // visitor's device says so when the dev replies. Both only when the count grows.
     let lastInbox = -1, lastReply = -1, nudged = false;
+    const INVITE_TEXT = 'You have been added to the members\' area. Open it with the button below, or with the 🏠 button at the top of the page.';
+    /**
+     * An invitation counts only when it came from the owner's key, in the owner's own
+     * thread. It makes the 🏠 button appear on this device; whether the key really is
+     * on the list is still decided by the members' server at sign-in.
+     */
+    function noteInvite() {
+        if (isOwner() || !window.SkateConfig.gate) return;
+        const t = threadFor(DEV());
+        const m = t && t.messages.slice().reverse().find(x => !x.mine && x.data && x.data.hq && x.id);
+        if (!m) return;
+        const pk = SkateChat.getIdentity().pk;
+        try {
+            const st = JSON.parse(localStorage.getItem('skate_gate_v1') || '{}') || {};
+            if (st.refused === m.id || st.invited === pk || (st.members && st.members[pk])) return;
+            st.members = st.members || {}; st.invited = pk; st.invite = m.id;
+            localStorage.setItem('skate_gate_v1', JSON.stringify(st));
+            const btn = document.getElementById('btn-gate');
+            if (btn) btn.classList.remove('hidden');
+        } catch { /* private mode: the button in the message still works */ }
+    }
     function onChatUpdate() {
+        noteInvite();
         if (isOpen()) { render(); return; }
         if (isOwner()) {
             const th = SkateChat.getState().dmThreads;

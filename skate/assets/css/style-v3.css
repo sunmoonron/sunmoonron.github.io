@@ -1745,3 +1745,14 @@ body.dark-mode .facts-badge.lend { color: #06210f; background: var(--live, #4ee0
 /* Dev inbox, owner side: the open thread's public key */
 .devchat-npub { font-size: 11px; word-break: break-all; user-select: all; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 4px; }
 .devchat-copy { margin-left: 0; white-space: nowrap; }
+
+
+/* ============================================================
+   v3.12
+   ============================================================ */
+/* A text input refuses to shrink below its default width (about 20 characters)
+   unless told it may. On narrow phones, or with a larger text size, the search
+   field then spilled out of its box and under the Filters button. */
+.search-box input { min-width: 0; width: 100%; }
+.search-row .tb-filters { white-space: nowrap; }
+.search-row .search-box { flex: 1 1 0; }

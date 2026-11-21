@@ -35,6 +35,26 @@ test.describe('schedule', () => {
         await app.noErrors();
     });
 
+    test('the search box and the Filters button never overlap, however narrow the screen or large the text', async ({ page, app }) => {
+        await app.open();
+        const gap = () => page.evaluate(() => {
+            const box = document.querySelector('.search-row .search-box').getBoundingClientRect();
+            const input = document.getElementById('search-input').getBoundingClientRect();
+            const filters = document.getElementById('btn-filters').getBoundingClientRect();
+            const row = document.querySelector('.search-row').getBoundingClientRect();
+            return { inputInsideBox: input.right <= box.right + 0.5, clear: filters.left - input.right, filtersInsideRow: filters.right <= row.right + 0.5, inputWidth: Math.round(input.width) };
+        });
+        for (const [width, fontPx] of [[412, 16], [360, 16], [320, 16], [320, 22], [280, 20]]) {
+            await page.setViewportSize({ width, height: 700 });
+            await page.evaluate((px) => { document.getElementById('search-input').style.fontSize = px + 'px'; }, fontPx);
+            const g = await gap();
+            expect(g.inputInsideBox, `${width}px at ${fontPx}px text`).toBe(true);
+            expect(g.clear, `${width}px at ${fontPx}px text`).toBeGreaterThanOrEqual(4);
+            expect(g.filtersInsideRow, `${width}px at ${fontPx}px text`).toBe(true);
+            expect(g.inputWidth).toBeGreaterThan(90);
+        }
+    });
+
     test('filters sheet: kinds, day chips, pills', async ({ page, app }) => {
         await app.open();
         await page.click('#btn-filters');

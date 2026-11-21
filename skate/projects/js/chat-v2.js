@@ -884,7 +884,7 @@ const SkateChat = (() => {
         const text = String(payload.text || echoText || '').slice(0, 2000);
         const body = { ...payload, text };
         const localId = 'local_' + Crypto.randomHex(6);
-        thread.messages.push({ id: localId, localId, type: 'chat', text, from: state.myName, mine: true, ts: Date.now(), status: 'pending', payload: body, data: body.ctx ? { ctx: body.ctx } : undefined });
+        thread.messages.push({ id: localId, localId, type: 'chat', text, from: state.myName, mine: true, ts: Date.now(), status: 'pending', payload: body, data: body.ctx ? { ...(body.data || {}), ctx: body.ctx } : body.data });
         notifyUpdate();
         const { ok, event } = await publishDm(toPubkey, body);
         settle(thread.messages.find(x => x.id === localId), ok, event);

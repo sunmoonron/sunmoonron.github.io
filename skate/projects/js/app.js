@@ -2327,7 +2327,12 @@ window.SkateApp = (() => {
     };
 
     Actions.openRinks = async function (opts = {}) {
-        $('rinks-search').value = '';
+        // What is typed in the schedule's search box carries over when it names a place
+        // ("Scarborough", a street, a rink): the map opens already narrowed to it.
+        // (read from the box itself: the schedule search is debounced, so S.search can lag a fast tap)
+        const carried = ($('search-input').value || '').trim();
+        const carry = carried && SkateGeo.rinks.some(r => rinkMatchesQuery(r, foldText(carried)));
+        $('rinks-search').value = carry ? carried : '';
         syncRinkSearch();
         Render.rinks();
         try {
@@ -2451,8 +2456,8 @@ window.SkateApp = (() => {
         '../assets/js/nostr.bundle.js?v=1',
         'projects/js/moderation.js?v=7',
         'projects/js/nostr-core.js?v=5',
-        'projects/js/chat-v2.js?v=18',
-        'projects/js/devchat.js?v=8',
+        'projects/js/chat-v2.js?v=19',
+        'projects/js/devchat.js?v=9',
         'projects/js/guides.js?v=6',
         'projects/js/profanity-list.js?v=1'
     ];
@@ -2500,13 +2505,17 @@ window.SkateApp = (() => {
      * projects/js/gate.js is fetched only for the #hq link, or on a device that
      * has been let in before. An ordinary visit never downloads it and never
      * contacts the members' server. */
-    const GATE_SCRIPT = 'projects/js/gate.js?v=2';
+    const GATE_SCRIPT = 'projects/js/gate.js?v=3';
     /** Let in before, with the key now on this device? Reads two localStorage entries, nothing else. */
     function gateKnown() {
         try {
             const id = JSON.parse(localStorage.getItem('skate_identity_v1') || 'null');
+            if (!id || !id.pk) return false;
+            // the site owner's own key(s): always, on any device that holds one
+            const admins = (CFG.gate && Array.isArray(CFG.gate.admins) && CFG.gate.admins.length) ? CFG.gate.admins : [CFG.devPubkey];
+            if (admins.includes(id.pk)) return true;
             const st = JSON.parse(localStorage.getItem('skate_gate_v1') || 'null');
-            return !!(id && id.pk && st && st.members && st.members[id.pk]);
+            return !!(st && ((st.members && st.members[id.pk]) || st.invited === id.pk));
         } catch { return false; }
     }
     Actions.openGate = async function (opts) {

@@ -135,23 +135,25 @@ const SkateAPI = {
         let url = this.dataUrl(filename, bust);
         console.log(`[SkateAPI] Loading: ${url}`);
 
-        let response;
-        try {
-            response = await fetch(url);
+        // The body is read inside the try: a large file can start arriving (status
+        // 200) and then break part-way, and that must fall back like any other failure.
+        const read = async (u) => {
+            const response = await fetch(u);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.json();
+        };
+        try {
+            return await read(url);
         } catch (e) {
-            // remote origin down/CORS-blocked → retry the committed copy once
+            // remote origin down, CORS-blocked or cut off mid-download → the committed copy, once
             if (this._dataBase && !this._remoteBroken) {
                 this._fallbackLocal(e.message);
                 url = this.dataUrl(filename, bust);
-                response = await fetch(url);
-                if (!response.ok) throw new Error(`Failed to load ${filename}: ${response.status}`);
-            } else {
-                throw new Error(`Failed to load ${filename}: ${e.message}`);
+                try { return await read(url); }
+                catch (e2) { throw new Error(`Failed to load ${filename}: ${e2.message}`); }
             }
+            throw new Error(`Failed to load ${filename}: ${e.message}`);
         }
-
-        return response.json();
     },
 
     /**

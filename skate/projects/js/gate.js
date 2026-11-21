@@ -36,9 +36,17 @@ const SkateGate = (() => {
     function state() {
         try {
             const s = JSON.parse(localStorage.getItem(STATE_KEY) || '{}');
-            return { members: (s && typeof s.members === 'object' && s.members) || {}, min: Number.isSafeInteger(s && s.min) ? s.min : 0 };
+            const out = { members: (s && typeof s.members === 'object' && s.members) || {}, min: Number.isSafeInteger(s && s.min) ? s.min : 0 };
+            // an invitation from the site owner (see devchat.js): which key it was for, which message carried it,
+            // and the message that turned out not to be backed by the list, so it is not believed twice
+            for (const k of ['invited', 'invite', 'refused']) if (s && typeof s[k] === 'string') out[k] = s[k];
+            return out;
         } catch { return { members: {}, min: 0 }; }
     }
+    /** The site owner's own key(s), pinned in the page. */
+    const ownerKeys = () => (Array.isArray(cfg().admins) && cfg().admins.length ? cfg().admins : [window.SkateConfig.devPubkey]);
+    /** May this key skip the "Members only" card? Let in before, invited by the owner, or the owner. */
+    const expected = (pk) => { const s = state(); return !!(s.members[pk] || s.invited === pk || ownerKeys().includes(pk)); };
     function saveState(s) { try { localStorage.setItem(STATE_KEY, JSON.stringify(s)); } catch {} }
 
     /** The key this device signs with. Same record the chat uses; made here if the chat never ran. */
@@ -55,7 +63,7 @@ const SkateGate = (() => {
     function known() {
         try {
             const p = JSON.parse(localStorage.getItem(IDENTITY_KEY) || 'null');
-            return !!(p && p.pk && state().members[p.pk]);
+            return !!(p && p.pk && expected(p.pk));
         } catch { return false; }
     }
     function useKey(text) {
@@ -164,7 +172,7 @@ const SkateGate = (() => {
         app = mod.mount({
             N: NostrTools, identity: { pk: id.pk, sk: id.sk }, url, relay: url,
             // who the members' app treats as superadmin is pinned here, in the public page, never taken from the server
-            superadmins: Array.isArray(cfg().admins) && cfg().admins.length ? cfg().admins.slice() : [window.SkateConfig.devPubkey],
+            superadmins: ownerKeys().slice(),
             idb: window.indexedDB, host: document.body, win: window,
             onUnread: (n) => chip(n),
             onHide: () => unmark(),
@@ -184,6 +192,7 @@ const SkateGate = (() => {
         if (was) { try { wasOpen = await was.destroy(true); } catch {} }
         const s = state();
         if (pk) delete s.members[pk];
+        if (pk && s.invited === pk) { s.refused = s.invite || ''; delete s.invited; delete s.invite; }
         saveState(s);
         if (!Object.keys(s.members).length) await keep(null);
         chip(0);
@@ -208,7 +217,10 @@ const SkateGate = (() => {
             if (!ev) {
                 const got = await fetchBuild(id);
                 if (got.denied) {
-                    const s = state(); delete s.members[id.pk]; saveState(s); chip(0);
+                    // not on the list: forget any invitation that claimed otherwise, and do not believe that message again
+                    const s = state(); delete s.members[id.pk];
+                    if (s.invited === id.pk) { s.refused = s.invite || ''; delete s.invited; delete s.invite; }
+                    saveState(s); chip(0);
                     if (!quiet) show('denied', id);
                     return;
                 }
@@ -247,8 +259,8 @@ const SkateGate = (() => {
         if (app) { if (!quiet) reveal(); return; }
         if (!quiet) wantShow = true;
         if (mounting) return mounting;
-        if (quiet && !state().members[id.pk]) return;
-        if (!quiet && !state().members[id.pk]) { show('ask', id); return; }
+        if (quiet && !expected(id.pk)) return;
+        if (!quiet && !expected(id.pk)) { show('ask', id); return; }
         mounting = start(id, quiet).finally(() => { mounting = null; });
         return mounting;
     }
@@ -318,7 +330,20 @@ const SkateGate = (() => {
         if (first && mode !== 'key') first.focus();
     }
 
-    return { open, known, chip, get mounted() { return !!app; } };
+    /**
+     * The owner's invitation arrived in the dev chat (devchat.js checks who sent it).
+     * Remember it for this key, unless that very message already proved empty.
+     */
+    function invited(pk, messageId) {
+        const s = state();
+        if (!pk || !messageId || s.refused === messageId || s.members[pk] || s.invited === pk) return false;
+        s.invited = pk; s.invite = messageId;
+        saveState(s);
+        chip();
+        return true;
+    }
+
+    return { open, known, chip, invited, get mounted() { return !!app; } };
 })();
 
 if (typeof window !== 'undefined') window.SkateGate = SkateGate;

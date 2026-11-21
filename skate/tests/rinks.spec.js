@@ -117,6 +117,21 @@ test.describe('rinks & map', () => {
         await app.noErrors();
     });
 
+    test('a place typed in the schedule search carries over to the map; a session word does not', async ({ page, app }) => {
+        await app.open();
+        await page.fill('#search-input', 'Scarborough');
+        await page.click('#btn-rinks');
+        await expect(page.locator('#rinks-search')).toHaveValue('Scarborough');
+        await expect(page.locator('#rinks-list .rink-row')).toHaveCount(1);          // Warning Arena, the one rink in that district
+        await expect(page.locator('#rinks-list .rink-row')).toContainText('Warning Arena');
+        await expect(page.locator('.leaflet-marker-pane .leaflet-marker-icon:not(.you-pin-wrap)')).toHaveCount(1);
+        await page.click('#btn-rinks-close');
+        await page.fill('#search-input', 'leisure');                                   // matches sessions, not rinks
+        await page.click('#btn-rinks');
+        await expect(page.locator('#rinks-search')).toHaveValue('');
+        expect(await page.locator('#rinks-list .rink-row').count()).toBeGreaterThan(3);
+    });
+
     test('Show sessions from a rink turns into a green pill', async ({ page, app }) => {
         await app.open();
         await page.click('#btn-rinks');

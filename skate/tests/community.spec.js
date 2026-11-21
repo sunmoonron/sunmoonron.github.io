@@ -77,6 +77,12 @@ test.describe('community', () => {
         await chips.nth(1).click();                                                 // and it still switches threads
         await expect(chips.nth(1)).toHaveClass(/active/);
         await expect(page.locator('#devchat-messages .devchat-msg')).toHaveCount(3);
+        // the owner sees the open thread's key, and can send that person the members' invite once
+        await expect(page.locator('#devchat-sub code')).toHaveText(/^npub1[a-z0-9]{58}$/);
+        await page.locator('#devchat-sub').getByRole('button', { name: 'Send members\' invite' }).click();
+        await expect(page.locator('#devchat-messages .devchat-msg').last()).toContainText('You have been added to the members\' area');
+        await expect(page.locator('#devchat-sub').getByRole('button', { name: 'Send members\' invite' })).toHaveCount(0);
+        await expect(page.locator('#devchat-messages .devchat-invite')).toHaveCount(0);  // the button is for the invited person, not the sender
     });
 
     test('the feedback sheet sends a message to the dev', async ({ page, app }) => {
