@@ -73,5 +73,15 @@
   "lat": 43.6652401,
   "lng": -79.5208845,
   "label": "Anglesey Boulevard, Edenbridge-Humber Valley, Etobicoke Centre, Etobicoke, Toronto, Ontario, M9A 3V3, Canada"
+ },
+ "175 the westway, toronto, on": {
+  "lat": 43.68866,
+  "lng": -79.54172,
+  "label": "175, The Westway, Willowridge-Martingrove-Richview, Etobicoke Centre, Etobicoke, Toronto, Ontario, M9P 2C3, Canada"
+ },
+ "370 the west mall, toronto, on": {
+  "lat": 43.6421446,
+  "lng": -79.5661263,
+  "label": "370, The West Mall, Etobicoke West Mall, Etobicoke Centre, Etobicoke, Toronto, Ontario, M9C 2P7, Canada"
  }
 }
