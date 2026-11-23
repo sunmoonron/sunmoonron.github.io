@@ -619,8 +619,11 @@ const EXTERNAL_SOURCES = {
             { from: '2027-01-08', to: '2027-02-15', days: ['Saturday', 'Sunday'], start: '12:00', end: '17:00' },
             { from: '2027-01-08', to: '2027-02-15', days: ['Friday'], start: '18:00', end: '22:00' }
         ],
-        closedOn: ['2026-12-25'],
-        daysAhead: 28,
+        // Read again 2026-11-23: the page names no Christmas Day closure (its only closure is
+        // Jan 4 to 7, between the two rule sets), and its Friday DJ skates run "Jan. 8 – Feb. 15".
+        // The whole season is listed: these hours are known in full, not a feed with a horizon.
+        closedOn: [],
+        daysAhead: 90,
         activity: 'Public Skating (Free)',
         locationName: 'YZD Hangar Skate',
         address: '34 Hanover Rd', district: 'North York', postalCode: '',

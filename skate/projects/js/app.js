@@ -34,6 +34,13 @@ window.SkateApp = (() => {
         });
         return out;
     }
+    /** v3.12.2: persisted hockey kinds → null (every kind) or a list of known kind ids. */
+    function sanitizeKinds(raw) {
+        if (!Array.isArray(raw)) return null;
+        const known = new Set(CFG.hockeyKinds.map(k => k.id));
+        const v = [...new Set(raw.filter(x => known.has(x)))];
+        return v.length ? v : null;
+    }
 
     const S = {
         programs: [], filtered: [], limit: 30, paidMatching: 0,
@@ -44,6 +51,7 @@ window.SkateApp = (() => {
         // type), cities ([] = everywhere), paidVisible, rinkScope, sort.
         // Session-only: day, age, savedOnly, showPast, nearRink.
         types: sanitizeTypes(SkateSettings.get('typeSel')),
+        kinds: sanitizeKinds(SkateSettings.get('hockeyKinds')),   // v3.12.2: null = every kind of hockey
         cities: Array.isArray(SkateSettings.get('cities')) ? SkateSettings.get('cities').filter(c => typeof c === 'string') : [],
         day: '',                       // '' | 'today' | 'tomorrow' | 'weekend' | weekday name
         calRenderedWeek: null,         // to keep the grid's scroll position across the minute re-render
@@ -130,11 +138,21 @@ window.SkateApp = (() => {
         city(p) { return CFG.sourceInfo[p.Source || 'city']?.city || p.District || 'Toronto'; },
 
         /** Type filter: {} = everything; per category 'all' or a list of sub-types. */
-        matchesTypes(p, types = S.types) {
+        matchesTypes(p, types = S.types, kinds = S.kinds) {
             if (!Object.keys(types).length) return true;
-            const sel = types[P.category(p)];
+            const cat = P.category(p), sel = types[cat];
             if (!sel) return false;
-            return sel === 'all' || sel.includes(P.subType(p));
+            if (sel !== 'all' && !sel.includes(P.subType(p))) return false;
+            // v3.12.2: hockey can also be narrowed by kind, together with the ages
+            return !(cat === 'hockey' && Array.isArray(kinds) && kinds.length && !kinds.includes(P.hockeyKind(p)));
+        },
+
+        /** v3.12.2: hockey by kind, from the title: 'stickpuck' | 'pickup' | 'other'. */
+        hockeyKind(p) {
+            const a = P.activity(p).toLowerCase();
+            if (/stick\W*(?:and|n)?\W*puck/.test(a)) return 'stickpuck';      // "Stick & Puck", "stick and puck", "stick 'n' puck"
+            if (/shinny|pick\W?up|drop\W?in hockey/.test(a)) return 'pickup';
+            return 'other';
         },
 
         /** Config-driven activity badge (first keyword table hit wins). */
@@ -589,8 +607,10 @@ window.SkateApp = (() => {
         const pills = [];
         Object.entries(S.types).forEach(([cat, sel]) => {
             if (OTHER_GROUP.includes(cat)) return;   // folded into the one Other pill below
-            const subs = sel === 'all' ? '' : sel.length === 1 ? `: ${SUB_LABEL(sel[0])}` : `: ${SUB_LABEL(sel[0])} +${sel.length - 1}`;
-            pills.push({ key: `type:${cat}`, label: `${CAT_LABEL(cat)}${subs}`, ages: subsPresentFor(cat).length > 1 });
+            const parts = [];
+            if (cat === 'hockey' && Array.isArray(S.kinds) && S.kinds.length) parts.push(S.kinds.length === 1 ? KIND_OF(S.kinds[0]).short : `${KIND_OF(S.kinds[0]).short} +${S.kinds.length - 1}`);
+            if (sel !== 'all') parts.push(sel.length === 1 ? SUB_LABEL(sel[0]) : `${SUB_LABEL(sel[0])} +${sel.length - 1}`);
+            pills.push({ key: `type:${cat}`, label: `${CAT_LABEL(cat)}${parts.length ? ': ' + parts.join(', ') : ''}`, ages: subsPresentFor(cat).length > 1 || (cat === 'hockey' && kindsPresent().length > 1) });
         });
         const present = otherMembersPresent();
         const onMembers = present.filter(c => S.types[c]);
@@ -689,6 +709,7 @@ window.SkateApp = (() => {
             (cats[c] ||= { n: 0, subs: {} });
             cats[c].n++;
             cats[c].subs[st] = (cats[c].subs[st] || 0) + 1;
+            if (c === 'hockey') { const k = P.hockeyKind(p); (cats[c].kinds ||= {})[k] = (cats[c].kinds[k] || 0) + 1; }
             const city = P.city(p);
             cities[city] = (cities[city] || 0) + 1;
             if (p.Paid) paid++;
@@ -703,6 +724,10 @@ window.SkateApp = (() => {
         const f = filterFacets().cats[cat];
         return f ? CFG.subTypes.map(x => x.id).filter(id => f.subs[id]) : [];
     };
+    /* v3.12.2: the kinds of hockey in this dataset, in their set order */
+    const KIND_OF = (id) => CFG.hockeyKinds.find(k => k.id === id) || { id, label: id, short: id };
+    const kindsPresent = () => { const f = filterFacets().cats.hockey; return f && f.kinds ? CFG.hockeyKinds.map(k => k.id).filter(id => f.kinds[id]) : []; };
+    const subMenuTitle = (cat) => (cat === 'hockey' && kindsPresent().length > 1 ? 'Hockey: kind and age' : CAT_LABEL(cat) + ': age groups');
 
     // The everyday kinds sit first; everything else is one "Other" group
     // (its members stay separate categories in S.types, the group is just
@@ -732,18 +757,31 @@ window.SkateApp = (() => {
             if (!facet) return;                                     // not in this dataset
             const sel = S.types[cat.id];
             const subsPresent = CFG.subTypes.filter(x => facet.subs[x.id]);
-            const hasSubs = subsPresent.length > 1;
+            const kindsHere = cat.id === 'hockey' && facet.kinds ? CFG.hockeyKinds.filter(k => facet.kinds[k.id]) : [];   // v3.12.2
+            const hasKinds = kindsHere.length > 1, hasAges = subsPresent.length > 1;
+            const hasSubs = hasAges || hasKinds;
+            const what = hasKinds ? (hasAges ? 'Kinds & ages' : 'Kinds') : 'Ages';
             const pick = S.expandedCats[cat.id];   // undefined = auto, true/false = the reader's last tap
-            const open = hasSubs && (pick === true || (pick !== false && !!sel && sel !== 'all'));
+            const narrowed = !!sel && (sel !== 'all' || (hasKinds && Array.isArray(S.kinds)));
+            const open = hasSubs && (pick === true || (pick !== false && narrowed));
             const row = el('div', { class: `fcat type-${cat.id}` + (sel ? ' on' : '') });
             row.appendChild(check(cat.label, !!sel, { type: cat.id }, ' cat'));
             row.appendChild(count(facet.n));
-            if (hasSubs) row.appendChild(el('button', { class: 'fexpand' + (open ? ' open' : ''), dataset: { expand: cat.id }, title: open ? 'Hide the age groups' : 'Choose age groups', 'aria-expanded': open ? 'true' : 'false' }, ['Ages ', el('span', { class: 'caret', 'aria-hidden': 'true' }, ['▾'])]));
+            if (hasSubs) row.appendChild(el('button', { class: 'fexpand' + (open ? ' open' : ''), dataset: { expand: cat.id }, title: open ? `Hide the ${what.toLowerCase()}` : `Choose ${what.toLowerCase()}`, 'aria-expanded': open ? 'true' : 'false' }, [what + ' ', el('span', { class: 'caret', 'aria-hidden': 'true' }, ['▾'])]));
             else row.appendChild(el('span', { class: 'fexpand-spacer', 'aria-hidden': 'true' }));   // keeps the counts in one column
             host.appendChild(row);
             if (hasSubs) {
                 const subs = el('div', { class: 'fsubs' + (open ? '' : ' hidden') });
-                subsPresent.forEach(x => {
+                if (hasKinds) {
+                    subs.appendChild(el('div', { class: 'fsubs-head' }, ['Kind']));
+                    kindsHere.forEach(k => {
+                        const c = check(k.label, !!sel && (!Array.isArray(S.kinds) || S.kinds.includes(k.id)), { kind: k.id });
+                        c.appendChild(count(facet.kinds[k.id]));
+                        subs.appendChild(c);
+                    });
+                    if (hasAges) subs.appendChild(el('div', { class: 'fsubs-head' }, ['Ages']));
+                }
+                if (hasAges) subsPresent.forEach(x => {
                     const on = sel === 'all' || (Array.isArray(sel) && sel.includes(x.id));
                     const c = check(x.label, !!sel && on, { type: cat.id, sub: x.id });
                     c.appendChild(count(facet.subs[x.id]));
@@ -2007,7 +2045,9 @@ window.SkateApp = (() => {
 
     Render.rinks = function () {
         const user = SkateGeo.getUserLocation();
-        $('locator-status').textContent = user ? `Distances from ${user.label}` : 'Type a rink, an area or your postal code. Near me sorts by distance.';
+        const ask = !user && S.rinksAsk;      // v3.12.2: what a filter needs a spot for, said here and not in a toast over the box
+        $('locator-status').textContent = user ? `Distances from ${user.label}` : (ask || 'Type a rink, an area or your postal code. Near me sorts by distance.');
+        $('locator-status').classList.toggle('ask', !!ask);
         const wrap = $('rinks-list');
         const scope = $('rinks-scope');
         if (!SkateGeo.loaded || !SkateGeo.rinks.length) {
@@ -2371,8 +2411,15 @@ window.SkateApp = (() => {
             const f = filterFacets().cats[cat];
             if (!f) return [];
             const sel = S.types[cat];
-            const reopen = () => { const a = $('active-filters').querySelector(`.pill.type[data-pill="type:${cat}"]`); if (a) Popover.open(a, Menus.subTypes(cat), `${CAT_LABEL(cat)}: age groups`); };
-            const items = [{ label: `${sel === 'all' ? '✓ ' : '\u2007\u2007 '}Every age group · ${f.n}`, onClick: () => { Actions.setType(cat, null, true); reopen(); } }];
+            const reopen = () => { const a = $('active-filters').querySelector(`.pill.type[data-pill="type:${cat}"]`); if (a) Popover.open(a, Menus.subTypes(cat), subMenuTitle(cat)); };
+            const items = [];
+            const ks = cat === 'hockey' ? kindsPresent() : [];      // v3.12.2: the kinds first, then the ages
+            if (ks.length > 1) {
+                const every = !Array.isArray(S.kinds);
+                items.push({ label: `${every ? '✓ ' : '\u2007\u2007 '}Every kind · ${f.n}`, onClick: () => { S.kinds = null; filtersChanged(); reopen(); } });
+                ks.forEach(id => { const on = every || S.kinds.includes(id); items.push({ label: `${on ? '✓ ' : '\u2007\u2007 '}${KIND_OF(id).label} · ${f.kinds[id]}`, onClick: () => { Actions.setKind(id, !on); reopen(); } }); });
+            }
+            items.push({ label: `${sel === 'all' ? '✓ ' : '\u2007\u2007 '}Every age group · ${f.n}`, cls: ks.length > 1 ? 'popover-sep' : '', onClick: () => { Actions.setType(cat, null, true); reopen(); } });
             CFG.subTypes.filter(x => f.subs[x.id]).forEach(x => {
                 const on = sel === 'all' || (Array.isArray(sel) && sel.includes(x.id));
                 items.push({ label: `${on ? '✓ ' : '\u2007\u2007 '}${x.label} · ${f.subs[x.id]}`, onClick: () => { Actions.setType(cat, x.id, !on); reopen(); } });
@@ -2528,6 +2575,8 @@ window.SkateApp = (() => {
 
     /* ---------- Filters sheet + pills ---------- */
     function persistFilters() {
+        if (!S.types.hockey) S.kinds = null;                   // v3.12.2: a kind only ever narrows hockey
+        SkateSettings.set('hockeyKinds', S.kinds);
         SkateSettings.set('typeSel', S.types);
         SkateSettings.set('cities', S.cities);
         SkateSettings.set('freeOnly', !S.paidVisible);
@@ -2571,6 +2620,22 @@ window.SkateApp = (() => {
         if (sub) S.expandedCats[cat] = true;
         filtersChanged();
     };
+    /**
+     * v3.12.2: one kind of hockey on or off. Like an age group: from "every kind" a tap
+     * leaves the others; with Hockey off, the first kind picked turns Hockey on with just it.
+     */
+    Actions.setKind = function (kind, on) {
+        if (!CFG.hockeyKinds.some(k => k.id === kind)) return;
+        const present = kindsPresent();
+        let sel = !S.types.hockey ? [] : Array.isArray(S.kinds) ? [...S.kinds] : [...present];
+        sel = on ? [...new Set([...sel, kind])] : sel.filter(x => x !== kind);
+        const types = { ...S.types };
+        if (!sel.length) { delete types.hockey; S.kinds = null; }
+        else { if (!types.hockey) types.hockey = 'all'; S.kinds = present.every(x => sel.includes(x)) ? null : sel; }
+        S.types = types;
+        S.expandedCats.hockey = true;
+        filtersChanged();
+    };
     Actions.toggleCity = function (c) {
         S.cities = S.cities.includes(c) ? S.cities.filter(x => x !== c) : [...S.cities, c];
         filtersChanged();
@@ -2582,8 +2647,7 @@ window.SkateApp = (() => {
         S.sort = id;
         if (id === 'near' && !SkateGeo.getUserLocation()) {
             Modal.close('filters-modal');
-            SkateUI.toast('Nearest first needs your location. Set it here.', 'info', 3000);
-            Actions.openRinks();
+            Actions.openRinks({ ask: 'Nearest first needs a spot to measure from. Type a place or a postal code, or tap Near me.' });
         }
         filtersChanged();
     };
@@ -2600,8 +2664,7 @@ window.SkateApp = (() => {
         if (v && !SkateGeo.getUserLocation()) {
             S.radiusWanted = v;
             Modal.close('filters-modal');
-            SkateUI.toast(`Within ${v} km needs a starting point. Set it here and the filter applies.`, 'info', 4000);
-            Actions.openRinks();
+            Actions.openRinks({ ask: `Within ${v} km needs a starting point. Type a place or a postal code, or tap Near me: the filter applies as soon as it is set.` });
             return;
         }
         S.radius = v; S.radiusWanted = null;
@@ -2769,6 +2832,7 @@ window.SkateApp = (() => {
     };
 
     Actions.openRinks = async function (opts = {}) {
+        S.rinksAsk = typeof opts.ask === 'string' ? opts.ask : '';
         // What is typed in the schedule's search box carries over when it names a place
         // ("Scarborough", a street, a rink): the map opens already narrowed to it.
         // (read from the box itself: the schedule search is debounced, so S.search can lag a fast tap)
@@ -2780,6 +2844,7 @@ window.SkateApp = (() => {
         warmRinkRows();     // v3.12.1: the rest of the rows, built while nobody is typing
         try {
             await SkateMap.open(opts);   // shows #rinks-modal, lazy-loads Leaflet
+            if (S.rinksAsk && !(window.matchMedia && matchMedia('(pointer: coarse)').matches)) $('rinks-search').focus();   // a phone's keyboard opens on the reader's own tap
         } catch (e) {
             SkateUI.toast('The map could not load. The rink list still works.', 'error');
         }
@@ -2915,6 +2980,7 @@ window.SkateApp = (() => {
             const tag = document.createElement('script');
             tag.src = src;
             tag.async = false;   // dynamic scripts with async=false run in insertion order
+            tag.dataset.lazy = '1';   // v3.12.2: loaded by the app, not by index.html: not part of the release identity
             tag.onload = () => resolve();
             tag.onerror = () => { tag.remove(); loadedScripts.delete(src); reject(new Error(`could not load ${src.split('/').pop().split('?')[0]}`)); };
             document.head.appendChild(tag);
@@ -3672,11 +3738,15 @@ window.SkateApp = (() => {
      * index.html (never from any cache). On a mismatch the ↻ button reloads
      * the app; a page that has been open a while shows an Update bar instead,
      * so nobody keeps an old build just because they never closed the tab. */
-    const LAZY_BASENAMES = new Set(COMMUNITY_SCRIPTS.map(s => s.split('/').pop().split('?')[0]));
+    // v3.12.2: the members' entrance (gate.js) was missing here. A device that has been in
+    // loads it quietly a moment after start, so every check said "a newer version is ready".
+    // Anything the app adds later is also marked data-lazy and skipped, whatever its name.
+    const LAZY_BASENAMES = new Set([...COMMUNITY_SCRIPTS, GATE_SCRIPT].map(s => s.split('/').pop().split('?')[0]));
     const signatureOf = (html) => {
         const found = new Set();
-        for (const m of html.matchAll(/(?:src|href)="([^"]*\?v=\d+)"/g)) {
-            const base = m[1].split('/').pop();
+        for (const t of html.matchAll(/<[a-z][^>]*?\b(?:src|href)="[^"]*\?v=\d+"[^>]*>/gi)) {
+            if (/\sdata-lazy\b/i.test(t[0])) continue;
+            const base = /\b(?:src|href)="([^"]*\?v=\d+)"/i.exec(t[0])[1].split('/').pop();
             if (!LAZY_BASENAMES.has(base.split('?')[0])) found.add(base);
         }
         return [...found].sort().join('|');
@@ -3751,7 +3821,7 @@ window.SkateApp = (() => {
             ['.pill.city .pill-x', (x, e) => { e.stopPropagation(); Actions.setCities([]); }],
             ['.pill.city', (b, e) => { e.stopPropagation(); Popover.open(b, Menus.cities(), 'Cities'); }],
             ['.pill.type .pill-x', (x, e) => { e.stopPropagation(); Actions.removePill(x.closest('.pill').dataset.pill); }],
-            ['.pill.type', (b, e) => { e.stopPropagation(); const cat = b.dataset.pill.slice(5); Popover.open(b, cat === OTHER_KEY ? Menus.otherTypes() : Menus.subTypes(cat), cat === OTHER_KEY ? 'Other kinds' : `${CAT_LABEL(cat)}: age groups`); }],
+            ['.pill.type', (b, e) => { e.stopPropagation(); const cat = b.dataset.pill.slice(5); Popover.open(b, cat === OTHER_KEY ? Menus.otherTypes() : Menus.subTypes(cat), cat === OTHER_KEY ? 'Other kinds' : subMenuTitle(cat)); }],
             ['.pill.radius .pill-x', (x, e) => { e.stopPropagation(); Actions.setRadius(null); }],
             ['.pill.radius', (b, e) => { e.stopPropagation(); Popover.open(b, Menus.radius(), 'How far from your spot'); }],
             ['.pill', (b) => Actions.removePill(b.dataset.pill)]
@@ -3787,6 +3857,7 @@ window.SkateApp = (() => {
             sheetTap = null;
             if (t.id === 'f-age') return Actions.setAge(t.value);
             if (t.dataset.flag) return Actions.setFlag(t.dataset.flag, t.checked);
+            if (t.dataset.kind) return Actions.setKind(t.dataset.kind, t.checked);
             if (t.dataset.type) return Actions.setType(t.dataset.type, t.dataset.sub || null, t.checked);
         });
         delegate($('filters-body'), [
@@ -3819,9 +3890,9 @@ window.SkateApp = (() => {
             ['[data-cal2-locate]', async (b) => {
                 b.disabled = true; b.textContent = 'Locating…';
                 try { SkateGeo.setUserLocation(await SkateGeo.locateMe()); locationChanged(); }
-                catch (e) { SkateUI.toast(`${e.message} Type a place instead.`, 'info', 4500); Actions.openRinks(); }
+                catch (e) { Actions.openRinks({ ask: `${e.message} Type a place or a postal code instead.` }); }
             }],
-            ['[data-cal2-place]', () => { SkateUI.toast('Type a place or a postal code, then tap the line under the box.', 'info', 4500); Actions.openRinks(); }],
+            ['[data-cal2-place]', () => Actions.openRinks({ ask: 'Type a place or a postal code, then tap the line that appears under the box.' })],
             ['[data-cal2-ended]', (b, e) => { e.stopPropagation(); Actions.cal2ToggleEnded(); }],
             ['[data-cal2-fav]', (b, e) => { e.stopPropagation(); const p = S.filtered.find(x => P.id(x) === b.dataset.cal2Fav); if (p) Actions.toggleSaved(p); }],
             ['[data-cal2-day]', (b) => Actions.cal2SetDay(b.dataset.cal2Day)],

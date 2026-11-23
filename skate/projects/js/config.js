@@ -30,7 +30,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.12.1',
+    version: '3.12.2',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -44,6 +44,15 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.12.2', date: '2026-11-23', items: [
+                'Hockey now splits into Pickup (shinny) and Stick & puck. Under Filters, open Hockey to choose a kind, an age group or both ("Stick & puck, Youth"); the Hockey pill does the same. Your choice is remembered. Markham\'s Stick & Ring sessions are ringette, so they moved there.',
+                'The "A newer version of the app is ready" bar no longer comes back every time you return to the tab. A part of the site that loads later was being counted as a new version.',
+                'On Android phones in light mode, the button on the "Put Toronto Skating on your Home Screen" card was white text on a white button. It is a solid button now, readable in both themes.',
+                'When a filter or the by distance calendar needs a spot, the question now shows inside Rinks & map, above the list, instead of a notice that covered the search box for a few seconds.',
+                'YZD\'s Hangar Skate: its whole season is listed now (Dec 19 to Feb 15), not just the next four weeks. Its page gives no Christmas Day closure, so the Friday evening of Dec 25 is listed like the others. Outdoor ice, weather permitting: check its site before going.',
+            ]
+        },
         {
             v: '3.12.1', date: '2026-11-21', items: [
                 'Searching in Rinks & map puts the best match first. Type "scarborough" and the rinks named for it lead (Scarborough Arena Gardens, Scarborough Village), then rinks with it elsewhere in the name, then a rink known by that name, then the rest of the area. It used to open on whichever rink in the district came first in the alphabet. Inside each group the nearest is first once you have set a spot.',
@@ -410,6 +419,14 @@ window.SkateConfig = {
         { id: 'older', label: 'Older adult 55+' },
         { id: 'women', label: 'Women & girls' }
     ],
+    // v3.12.2: hockey also splits by kind, read from the session's title: stick & puck
+    // (practice with a stick and a puck, no game) or pickup (shinny, pick-up games).
+    // It combines with the age groups: "Stick & puck, Youth".
+    hockeyKinds: [
+        { id: 'pickup',    label: 'Pickup (shinny)', short: 'Pickup' },
+        { id: 'stickpuck', label: 'Stick & puck',    short: 'Stick & puck' },
+        { id: 'other',     label: 'Other hockey',    short: 'Other' }
+    ],
     // City order in the Filters sheet (anything else sorts after, A–Z).
     cityOrder: ['Toronto', 'Markham', 'Vaughan', 'Richmond Hill', 'Stouffville', 'Mississauga', 'Brampton', 'Oakville', 'Burlington', 'Pickering', 'Ajax', 'Oshawa'],
 
@@ -426,7 +443,7 @@ window.SkateConfig = {
         { id: 'figure',    label: 'Figure',    keywords: ['figure', 'ticket ice'] },
         { id: 'speed',     label: 'Speed',     keywords: ['speed'] },
         { id: 'adapted',   label: 'Adaptive',  keywords: ['adapted', 'adaptive', 'sensory', 'sledge'] },
-        { id: 'ringette',  label: 'Ringette',  keywords: ['ringette'] },
+        { id: 'ringette',  label: 'Ringette',  keywords: ['ringette', 'stick & ring', 'stick and ring'] },
         { id: 'other',     label: 'Ice Breakdancing', keywords: [] }   // everything that is none of the above
     ],
 
@@ -437,7 +454,7 @@ window.SkateConfig = {
     // are tested before leisure and hockey would claim them.
     activityTags: [
         { keywords: ['adapted', 'adaptive', 'sensory', 'sledge'], cls: 'adapted', label: 'Adaptive', emoji: '♿' },
-        { keywords: ['ringette'],                cls: 'ringette', label: 'Ringette', emoji: '🥏' },
+        { keywords: ['ringette', 'stick & ring', 'stick and ring'], cls: 'ringette', label: 'Ringette', emoji: '🥏' },
         { keywords: ['shinny', 'hockey', 'stick'], cls: 'hockey',  label: 'Hockey',   emoji: '🏒' },
         { keywords: ['figure', 'ticket ice'],    cls: 'figure',   label: 'Figure',   emoji: '⛸️' },
         { keywords: ['speed'],                   cls: 'speed',    label: 'Speed',    emoji: '⛸️' },

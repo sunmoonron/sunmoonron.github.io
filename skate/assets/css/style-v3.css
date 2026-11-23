@@ -1902,3 +1902,21 @@ html { touch-action: manipulation; }
     .rinks-list { max-height: none; flex: 1; }
     .rinks-hint { display: none; }
 }
+
+/* ============================================================
+   v3.12.2
+   ============================================================ */
+/* The install card's main button: `.install-btns button` set a white background after
+   `.btn-primary` set the teal one, so in light mode it was white text on white. A darker
+   teal than the other buttons, so the white text reads well (4.7:1) in both themes. */
+.install-btns .btn-primary, body.dark-mode .install-btns .btn-primary { background: #2c8072; border-color: transparent; color: #fff; }
+.install-btns .btn-primary:hover, body.dark-mode .install-btns .btn-primary:hover { background: #246a5e; }
+
+/* Hockey's kinds and ages, two small groups under its row in Filters */
+.fsubs-head { flex-basis: 100%; width: 100%; margin: 6px 0 2px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
+.fsubs-head:first-child { margin-top: 0; }
+/* the line between the kinds and the ages in the Hockey pill's menu */
+.popover-item.popover-sep { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 10px; }
+
+/* What a filter needs a spot for, said inside Rinks & map (it used to be a toast over the search box) */
+#locator-status.ask { color: var(--text); font-weight: 600; }

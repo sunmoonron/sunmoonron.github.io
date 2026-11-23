@@ -39,6 +39,7 @@ window.SkateMap = (() => {
         return new Promise((resolve, reject) => {
             const el = document.createElement(tag);
             Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+            el.setAttribute('data-lazy', '1');   // v3.12.2: not part of the release identity (app.js signatureOf)
             el.onload = resolve;
             el.onerror = () => reject(new Error(`failed to load ${attrs.href || attrs.src}`));
             document.head.appendChild(el);

@@ -160,13 +160,14 @@ test.describe('venue sessions → records', () => {
 test.describe('hours entered by hand (YZD)', () => {
     const cfg = EXTERNAL_SOURCES.yzd;
     const day = (records, d) => records.filter(r => r['Start Date'] === d).map(r => `${r['Start Time']}-${r['End Time']}`);
-    test('opening weeks: afternoons, Friday evenings, closed on Christmas Day', () => {
+    test('opening weeks: afternoons, Friday evenings (Christmas Day too: the page names no closure)', () => {
         const r = manualRecords('yzd', { ...cfg, daysAhead: 20 }, '2026-12-15');
         expect(r[0]['Start Date']).toBe('2026-12-19');            // nothing before opening day
         expect(day(r, '2026-12-19')).toEqual(['12:00-17:00']);    // Saturday
         expect(day(r, '2026-12-21')).toEqual(['12:00-17:00']);    // Monday
-        expect(day(r, '2026-12-25')).toEqual([]);                 // closed
+        expect(day(r, '2026-12-25')).toEqual(['18:00-22:00']);    // a Friday; the page lists no closure that day
         expect(day(r, '2027-01-01')).toEqual(['18:00-22:00']);    // Friday
+        expect(day(r, '2027-01-05')).toEqual([]);                 // the holiday closure, Jan 4 to 7
         expect(day(r, '2027-01-03')).toEqual(['12:00-17:00']);
         expect(day(r, '2027-01-04')).toEqual([]);                 // the January break
     });
