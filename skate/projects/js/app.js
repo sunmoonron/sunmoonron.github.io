@@ -22,24 +22,44 @@ window.SkateApp = (() => {
             el, copyText, flash, chips, fillSelect, Popover, Modal, delegate } = SkateUI;
     const CFG = window.SkateConfig;
 
-    /** Persisted type selection → sane shape ({cat: 'all' | [sub…]}). */
+    /** Persisted kinds of skating → { cat: 'all' } (v3.13: ages are one "Who's skating" choice for every kind). */
     function sanitizeTypes(raw) {
         const out = {};
-        if (!raw || typeof raw !== 'object') return out;
-        const cats = new Set(CFG.programTypes.map(t => t.id)), subs = new Set(CFG.subTypes.map(t => t.id));
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+        const cats = new Set(CFG.programTypes.map(t => t.id));
         Object.entries(raw).forEach(([cat, sel]) => {
-            if (!cats.has(cat)) return;
-            if (sel === 'all') out[cat] = 'all';
-            else if (Array.isArray(sel)) { const v = sel.filter(x => subs.has(x)); if (v.length) out[cat] = v; }
+            if (cats.has(cat) && (sel === 'all' || (Array.isArray(sel) && sel.length))) out[cat] = 'all';
         });
         return out;
     }
-    /** Persisted hockey kind → null (any kind) or [one kind] (v3.12.3: one at a time; "other" is never a choice). */
-    function sanitizeKinds(raw) {
-        if (!Array.isArray(raw)) return null;
-        const v = [...new Set(raw.filter(x => x !== 'other' && CFG.hockeyKinds.some(k => k.id === x)))];
-        return v.length === 1 ? v : null;
+    /** v3.13: who is skating → [] (everyone) or known age groups ('all' is not a group: it is everyone). */
+    function sanitizeWho(raw) {
+        if (!Array.isArray(raw)) return [];
+        return [...new Set(raw.filter(x => x !== 'all' && CFG.subTypes.some(t => t.id === x)))];
     }
+    /**
+     * Filters saved by v3.12.x → this version's, once. Hockey you had on becomes Shinny and
+     * Stick & puck (or the one kind you had picked); the age groups picked under any kind
+     * become "Who's skating".
+     */
+    (function migrateFilters() {
+        if (SkateSettings.get('filtersV') === 2) return;
+        const raw = SkateSettings.get('typeSel'), kinds = SkateSettings.get('hockeyKinds');
+        if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+            const t = { ...raw }, who = new Set();
+            Object.values(t).forEach(sel => { if (Array.isArray(sel)) sel.forEach(x => { if (x !== 'all') who.add(x); }); });
+            if (t.hockey) {
+                const k = Array.isArray(kinds) && kinds.length === 1 ? kinds[0] : null;
+                if (k === 'stickpuck') { t.stickpuck = t.hockey; delete t.hockey; }
+                else if (k !== 'pickup' && !t.stickpuck) t.stickpuck = t.hockey;
+            }
+            SkateSettings.set('typeSel', t);
+            if (who.size && !Array.isArray(SkateSettings.get('who'))) SkateSettings.set('who', [...who]);
+        }
+        SkateSettings.set('hockeyKinds', null);
+        SkateSettings.set('filtersV', 2);
+    })();
+    const STICK_PUCK = /stick\W*(?:and|n)?\W*puck/;      // "Stick & Puck", "stick and puck", "stick 'n' puck"
 
     const S = {
         programs: [], filtered: [], limit: 30, paidMatching: 0,
@@ -50,7 +70,7 @@ window.SkateApp = (() => {
         // type), cities ([] = everywhere), paidVisible, rinkScope, sort.
         // Session-only: day, age, savedOnly, showPast, nearRink.
         types: sanitizeTypes(SkateSettings.get('typeSel')),
-        kinds: sanitizeKinds(SkateSettings.get('hockeyKinds')),   // v3.12.2: null = every kind of hockey
+        who: sanitizeWho(SkateSettings.get('who')),             // v3.13: who is skating; [] = everyone
         cities: Array.isArray(SkateSettings.get('cities')) ? SkateSettings.get('cities').filter(c => typeof c === 'string') : [],
         day: '',                       // '' | 'today' | 'tomorrow' | 'weekend' | weekday name
         calRenderedWeek: null,         // to keep the grid's scroll position across the minute re-render
@@ -114,7 +134,8 @@ window.SkateApp = (() => {
         category(p) {
             const a = P.activity(p).toLowerCase();
             const hit = CFG.activityTags.find(t => t.keywords.some(k => a.includes(k)));
-            return hit ? hit.cls : 'other';
+            if (!hit) return 'other';
+            return hit.cls === 'hockey' && STICK_PUCK.test(a) ? 'stickpuck' : hit.cls;   // v3.13: a kind of its own in Filters (same red badge)
         },
 
         /**
@@ -137,21 +158,16 @@ window.SkateApp = (() => {
         city(p) { return CFG.sourceInfo[p.Source || 'city']?.city || p.District || 'Toronto'; },
 
         /** Type filter: {} = everything; per category 'all' or a list of sub-types. */
-        matchesTypes(p, types = S.types, kinds = S.kinds) {
+        matchesTypes(p, types = S.types) {
             if (!Object.keys(types).length) return true;
-            const cat = P.category(p), sel = types[cat];
-            if (!sel) return false;
-            if (sel !== 'all' && !sel.includes(P.subType(p))) return false;
-            // v3.12.2: hockey can also be narrowed by kind, together with the ages
-            return !(cat === 'hockey' && Array.isArray(kinds) && kinds.length && !kinds.includes(P.hockeyKind(p)));
+            return !!types[P.category(p)];
         },
 
-        /** v3.12.2: hockey by kind, from the title: 'stickpuck' | 'pickup' | 'other'. */
-        hockeyKind(p) {
-            const a = P.activity(p).toLowerCase();
-            if (/stick\W*(?:and|n)?\W*puck/.test(a)) return 'stickpuck';      // "Stick & Puck", "stick and puck", "stick 'n' puck"
-            if (/shinny|pick\W?up|drop\W?in hockey/.test(a)) return 'pickup';
-            return 'other';
+        /** v3.13: who is skating. A session open to all ages suits everyone. */
+        matchesWho(p, who = S.who) {
+            if (!who.length) return true;
+            const st = P.subType(p);
+            return st === 'all' || who.includes(st);
         },
 
         /** Config-driven activity badge (first keyword table hit wins). */
@@ -606,18 +622,16 @@ window.SkateApp = (() => {
         const pills = [];
         Object.entries(S.types).forEach(([cat, sel]) => {
             if (OTHER_GROUP.includes(cat)) return;   // folded into the one Other pill below
-            const parts = [];
-            if (cat === 'hockey' && Array.isArray(S.kinds) && S.kinds.length) parts.push(S.kinds.length === 1 ? KIND_OF(S.kinds[0]).short : `${KIND_OF(S.kinds[0]).short} +${S.kinds.length - 1}`);
-            if (sel !== 'all') parts.push(sel.length === 1 ? SUB_LABEL(sel[0]) : `${SUB_LABEL(sel[0])} +${sel.length - 1}`);
-            pills.push({ key: `type:${cat}`, label: `${CAT_LABEL(cat)}${parts.length ? ': ' + parts.join(', ') : ''}`, ages: subsPresentFor(cat).length > 1 || (cat === 'hockey' && kindsPresent().length > 1) });
+            pills.push({ key: `type:${cat}`, label: CAT_LABEL(cat) });
         });
-        const present = otherMembersPresent();
+        const present = otherMembersAll();
         const onMembers = present.filter(c => S.types[c]);
         if (onMembers.length) {
             const partial = onMembers.length < present.length;
             const label = !partial ? 'Other' : onMembers.length <= 2 ? `Other: ${onMembers.map(CAT_LABEL).join(', ')}` : `Other: ${onMembers.length} of ${present.length}`;
             pills.push({ key: `type:${OTHER_KEY}`, label, ages: present.length > 1 });
         }
+        if (S.who.length) pills.push({ key: 'who', label: S.who.length === 1 ? SUB_LABEL(S.who[0]) : `${SUB_LABEL(S.who[0])} +${S.who.length - 1}`, menu: 'who' });   // v3.13
         if (S.day) pills.push({ key: 'day', label: DAY_LABEL(S.day) });
         if (S.age !== null) pills.push({ key: 'age', label: `${S.age} years old` });
         if (S.savedOnly) pills.push({ key: 'saved', label: 'Saved only' });
@@ -658,11 +672,20 @@ window.SkateApp = (() => {
         const pills = activeFilterPills();
         pills.forEach(pl => {
             if (pl.ages) {
-                // type pill: tap = choose age groups, x = drop the type
-                wrap.appendChild(el('button', { class: 'pill type', dataset: { pill: pl.key }, title: 'Tap to choose age groups. The x removes this type.' }, [
+                // the Other pill: tap = choose its kinds, x = drop them all
+                wrap.appendChild(el('button', { class: 'pill type', dataset: { pill: pl.key }, title: 'Tap to choose the kinds. The x removes them.' }, [
                     el('span', { class: 'pill-label' }, [pl.label]),
                     el('span', { class: 'pill-caret', 'aria-hidden': 'true' }, ['▾']),
                     el('span', { class: 'pill-x', role: 'button', 'aria-label': `Remove ${pl.label}`, title: 'Remove this type' }, ['✕'])
+                ]));
+                return;
+            }
+            if (pl.menu === 'who') {
+                // v3.13: tap = change who is skating, x = everyone
+                wrap.appendChild(el('button', { class: 'pill who', dataset: { pill: 'who' }, title: 'Tap to change who is skating. The x shows everyone.' }, [
+                    el('span', { class: 'pill-label' }, [pl.label]),
+                    el('span', { class: 'pill-caret', 'aria-hidden': 'true' }, ['▾']),
+                    el('span', { class: 'pill-x', role: 'button', 'aria-label': 'Everyone', title: 'Everyone' }, ['✕'])
                 ]));
                 return;
             }
@@ -699,56 +722,59 @@ window.SkateApp = (() => {
 
     /* ---------- Filters sheet ---------- */
     /** Counts by category / sub-type / city over the dataset (dropped City sessions excluded unless shown). */
+    /**
+     * The Filters sheet's numbers (v3.13: faceted). Each choice counts what it would show with
+     * every OTHER filter as it is now: the kinds follow who, the cities, Free only, the day, the
+     * search, your rinks and the distance; who follows the kinds and the rest; the cities follow
+     * everything but the cities. `paid` is how many paid sessions Free only is hiding.
+     * Cached until a filter, the data or the minute changes.
+     */
+    let facetMemo = null;
+    const facetKey = () => [S.programs.length, S.programs.length ? S.programs[0]._id : '', JSON.stringify(S.types), S.who.join(','), S.cities.join(','),
+        S.day, S.age, S.savedOnly ? SkateFavorites.count() : '', S.rinkScope, (SkateSettings.get('myRinks') || []).join(','), S.nearRink ? S.nearRink.key : '',
+        S.radius, (SkateGeo.getUserLocation() || {}).ts, S.search, S.showPast, S.showDropped, S.paidVisible, SkateAlerts.checkedAt, Math.floor(Date.now() / 60000)].join('\u0001');
     function filterFacets() {
-        const cats = {}, cities = {};
+        const key = facetKey();
+        if (facetMemo && facetMemo.key === key) return facetMemo.f;
+        const c = filterChecks();
+        const cats = {}, cities = {}, who = {};
         let paid = 0;
-        S.programs.forEach(p => {
-            if (!S.showDropped && SkateAlerts.isDropped(p)) return;
-            const c = P.category(p), st = P.subType(p);
-            (cats[c] ||= { n: 0, subs: {} });
-            cats[c].n++;
-            cats[c].subs[st] = (cats[c].subs[st] || 0) + 1;
-            if (c === 'hockey') {
-                const k = P.hockeyKind(p);
-                (cats[c].kinds ||= {})[k] = (cats[c].kinds[k] || 0) + 1;
-                const by = ((cats[c].subsBy ||= {})[k] ||= {});           // v3.12.3: the ages inside each kind
-                by[st] = (by[st] || 0) + 1;
-            }
-            const city = P.city(p);
-            cities[city] = (cities[city] || 0) + 1;
-            if (p.Paid) paid++;
-        });
-        return { cats, cities, paid };
+        for (const p of S.programs) {
+            if (!c.rest(p)) continue;
+            const t = c.type(p), w = c.who(p), ci = c.city(p), pv = c.paid(p);
+            if (w && ci && pv) { const k = P.category(p); (cats[k] ||= { n: 0 }).n++; }
+            if (t && ci && pv) { const st = P.subType(p); who[st] = (who[st] || 0) + 1; }
+            if (t && w && pv) { const city = P.city(p); cities[city] = (cities[city] || 0) + 1; }
+            if (t && w && ci && p.Paid) paid++;
+        }
+        const f = { cats, cities, who, paid };
+        facetMemo = { key, f };
+        return f;
     }
+    /** Who's skating, as offered: the groups with sessions of their own (or picked), each counting what picking it shows. */
+    const whoGroups = (f) => CFG.subTypes.filter(t => t.id !== 'all' && ((f.who[t.id] || 0) > 0 || S.who.includes(t.id)))
+        .map(t => ({ id: t.id, label: t.label, n: (f.who[t.id] || 0) + (f.who.all || 0) }));
+    const whoTotal = (f) => Object.values(f.who).reduce((a, n) => a + n, 0);
+    /** Cities as offered: those with sessions under the other filters, and any already picked. */
+    const citiesShown = (f) => { const o = { ...f.cities }; S.cities.forEach(c => { if (!(c in o)) o[c] = 0; }); return o; };
     const cityKeys = (cities) => Object.keys(cities).sort((a, b) => {
         const ia = CFG.cityOrder.indexOf(a), ib = CFG.cityOrder.indexOf(b);
         return ((ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib)) || a.localeCompare(b);
     });
-    const subsPresentFor = (cat) => {
-        const f = filterFacets().cats[cat];
-        return f ? CFG.subTypes.map(x => x.id).filter(id => f.subs[id]) : [];
-    };
-    /* v3.12.2: the kinds of hockey in this dataset, in their set order */
-    const KIND_OF = (id) => CFG.hockeyKinds.find(k => k.id === id) || { id, label: id, short: id };
-    const kindsPresent = () => { const f = filterFacets().cats.hockey; return f && f.kinds ? CFG.hockeyKinds.map(k => k.id).filter(id => id !== 'other' && f.kinds[id]) : []; };
-    /** The one hockey kind picked, or '' for any (v3.12.3). */
-    const kindNow = () => (S.types.hockey && Array.isArray(S.kinds) && S.kinds.length === 1 ? S.kinds[0] : '');
-    /** A category's age counts: for hockey with a kind picked, the ages inside that kind. */
-    const ageCounts = (cat, facet) => (cat === 'hockey' && kindNow() && facet.subsBy ? (facet.subsBy[kindNow()] || {}) : facet.subs);
-    /** The age groups worth offering: those with sessions (in the kind picked), and any already picked. */
-    const agesShown = (cat, facet) => {
-        const n = ageCounts(cat, facet), sel = S.types[cat];
-        return CFG.subTypes.filter(x => n[x.id] || (Array.isArray(sel) && sel.includes(x.id)));
-    };
-    const subMenuTitle = (cat) => (cat === 'hockey' && kindsPresent().length > 1 ? 'Hockey: kind and age' : CAT_LABEL(cat) + ': age groups');
-
     // The everyday kinds sit first; everything else is one "Other" group
     // (its members stay separate categories in S.types, the group is just
     // how the sheet and the pill present them).
-    const MAIN_TYPES = ['leisure', 'figure', 'hockey'];
+    const MAIN_TYPES = ['leisure', 'figure', 'hockey', 'stickpuck'];
     const OTHER_GROUP = ['other', 'adapted', 'ringette', 'speed'];
     const OTHER_KEY = '__other';
     const otherMembersPresent = () => { const f = filterFacets().cats; return OTHER_GROUP.filter(c => f[c]); };
+    /* v3.13: the Other kinds in the data at all, whatever the other filters. Turning Other on or off
+       moves all of them, so a city picked later never finds half of Other switched off. */
+    let otherAllMemo = null;
+    const otherMembersAll = () => {
+        if (!otherAllMemo || otherAllMemo.of !== S.programs) { const seen = new Set(S.programs.map(p => P.category(p))); otherAllMemo = { of: S.programs, list: OTHER_GROUP.filter(c => seen.has(c)) }; }
+        return otherAllMemo.list;
+    };
 
     Render.filters = function () {
         const f = filterFacets();
@@ -764,53 +790,22 @@ window.SkateApp = (() => {
         const chip = (label, on, dataset) => el('button', { class: 'fchip' + (on ? ' active' : ''), dataset, 'aria-pressed': on ? 'true' : 'false' }, Array.isArray(label) ? label : [label]);
         const foldBtn = (key, open, label) => el('button', { class: 'ftoggle' + (open ? ' open' : ''), dataset: { expand: key }, 'aria-expanded': open ? 'true' : 'false' }, [label, el('span', { class: 'caret', 'aria-hidden': 'true' }, ['▾'])]);
 
-        /** One category row (+ its age groups) appended to `host`. */
+        /** One kind of skating (v3.13: nothing nested): a checkbox and what it would show. */
         const typeRow = (cat, host) => {
-            const facet = f.cats[cat.id];
-            if (!facet) return;                                     // not in this dataset
-            const sel = S.types[cat.id];
-            const subsPresent = agesShown(cat.id, facet);
-            const ageN = ageCounts(cat.id, facet);
-            const kindsHere = cat.id === 'hockey' && facet.kinds ? CFG.hockeyKinds.filter(k => k.id !== 'other' && facet.kinds[k.id]) : [];
-            const hasKinds = kindsHere.length > 1, hasAges = subsPresent.length > 1;
-            const hasSubs = hasAges || hasKinds;
-            const what = hasKinds ? (hasAges ? 'Kind & ages' : 'Kind') : 'Ages';
-            const pick = S.expandedCats[cat.id];   // undefined = auto, true/false = the reader's last tap
-            const narrowed = !!sel && (sel !== 'all' || (hasKinds && Array.isArray(S.kinds)));
-            const open = hasSubs && (pick === true || (pick !== false && narrowed));
+            const n = f.cats[cat.id] ? f.cats[cat.id].n : 0;
+            const sel = !!S.types[cat.id];
+            if (!n && !sel) return;                                  // nothing of it under your other filters
             const row = el('div', { class: `fcat type-${cat.id}` + (sel ? ' on' : '') });
-            row.appendChild(check(cat.label, !!sel, { type: cat.id }, ' cat'));
-            row.appendChild(count(facet.n));
-            if (hasSubs) row.appendChild(el('button', { class: 'fexpand' + (open ? ' open' : ''), dataset: { expand: cat.id }, title: open ? `Hide the ${what.toLowerCase()}` : `Choose ${what.toLowerCase()}`, 'aria-expanded': open ? 'true' : 'false' }, [what + ' ', el('span', { class: 'caret', 'aria-hidden': 'true' }, ['▾'])]));
-            else row.appendChild(el('span', { class: 'fexpand-spacer', 'aria-hidden': 'true' }));   // keeps the counts in one column
+            row.appendChild(check(cat.label, sel, { type: cat.id }, ' cat'));
+            row.appendChild(count(n));
+            row.appendChild(el('span', { class: 'fexpand-spacer', 'aria-hidden': 'true' }));   // keeps the counts in one column
             host.appendChild(row);
-            if (hasSubs) {
-                const subs = el('div', { class: 'fsubs' + (open ? '' : ' hidden') });
-                if (hasKinds) {
-                    // one tap picks the kind (v3.12.3): Any, Pickup (shinny), Stick & puck
-                    subs.appendChild(el('div', { class: 'fsubs-head' }, ['Kind']));
-                    const cur = !sel ? null : (kindNow() || 'any');
-                    const chipsRow = el('div', { class: 'fchips fkinds', role: 'group', 'aria-label': 'Kind of hockey' });
-                    const kchip = (id, label, n) => chip([label, el('span', { class: 'fchip-n' }, [String(n)])], cur === id, { kindChip: id });
-                    chipsRow.appendChild(kchip('any', 'Any', facet.n));
-                    kindsHere.forEach(k => chipsRow.appendChild(kchip(k.id, k.label, facet.kinds[k.id])));
-                    subs.appendChild(chipsRow);
-                    if (hasAges) subs.appendChild(el('div', { class: 'fsubs-head' }, [kindNow() ? `Ages in ${KIND_OF(kindNow()).label.toLowerCase()}` : 'Ages']));
-                }
-                if (hasAges) subsPresent.forEach(x => {
-                    const on = sel === 'all' || (Array.isArray(sel) && sel.includes(x.id));
-                    const c = check(x.label, !!sel && on, { type: cat.id, sub: x.id });
-                    c.appendChild(count(ageN[x.id] || 0));
-                    subs.appendChild(c);
-                });
-                host.appendChild(subs);
-            }
         };
 
         // WHAT: leisure, figure, hockey, then Other (one row that groups the rest)
         const t = section('What kind of skating');
         CFG.programTypes.filter(c => MAIN_TYPES.includes(c.id)).forEach(c => typeRow(c, t));
-        const members = CFG.programTypes.filter(c => OTHER_GROUP.includes(c.id) && f.cats[c.id]);
+        const members = CFG.programTypes.filter(c => OTHER_GROUP.includes(c.id) && (f.cats[c.id] || S.types[c.id]));
         if (members.length) {
             const onMembers = members.filter(c => S.types[c.id]);
             const anyOn = onMembers.length > 0, allOn = onMembers.length === members.length;
@@ -821,16 +816,24 @@ window.SkateApp = (() => {
             box.querySelector('input').indeterminate = anyOn && !allOn;
             box.title = members.map(c => c.label).join(', ');
             row.appendChild(box);
-            row.appendChild(count(members.reduce((n, c) => n + f.cats[c.id].n, 0)));
+            row.appendChild(count(members.reduce((n, c) => n + (f.cats[c.id] ? f.cats[c.id].n : 0), 0)));
             row.appendChild(el('button', { class: 'fexpand' + (open ? ' open' : ''), dataset: { expand: OTHER_KEY }, title: open ? 'Hide the kinds' : 'Choose kinds', 'aria-expanded': open ? 'true' : 'false' }, ['Kinds ', el('span', { class: 'caret', 'aria-hidden': 'true' }, ['▾'])]));
             t.appendChild(row);
             const subs = el('div', { class: 'fsubs' + (open ? '' : ' hidden') });
-            members.forEach(c => { const cb = check(c.label, !!S.types[c.id], { type: c.id }); cb.appendChild(count(f.cats[c.id].n)); subs.appendChild(cb); });
+            members.forEach(c => { const cb = check(c.label, !!S.types[c.id], { type: c.id }); cb.appendChild(count(f.cats[c.id] ? f.cats[c.id].n : 0)); subs.appendChild(cb); });
             t.appendChild(subs);
         }
 
         // YOUR AGE: visible, not folded — the most-asked question after "when"
-        const ageSec = section('Your age');
+        if (!t.querySelector('.fcat')) t.appendChild(el('p', { class: 'settings-hint' }, ['Nothing matches your other filters. Try another day, more cities or fewer filters.']));
+
+        // WHO (v3.13): one row for every kind of skating, then an exact age for those who want it
+        const ageSec = section('Who\'s skating');
+        const whoRow = el('div', { class: 'fchips fwho', role: 'group', 'aria-label': 'Who is skating' });
+        const whoChip = (label, n, on, id) => chip([label, el('span', { class: 'fchip-n' }, [String(n)])], on, { who: id });
+        whoRow.appendChild(whoChip('Everyone', whoTotal(f), !S.who.length, ''));
+        whoGroups(f).forEach(g => whoRow.appendChild(whoChip(g.label, g.n, S.who.includes(g.id), g.id)));
+        ageSec.appendChild(whoRow);
         const ageInput = el('input', { type: 'number', min: '0', max: '120', id: 'f-age', placeholder: 'any', inputmode: 'numeric', 'aria-label': 'Your age' });
         if (S.age !== null) ageInput.value = S.age;
         ageSec.appendChild(el('div', { class: 'fage-row' }, [
@@ -850,7 +853,8 @@ window.SkateApp = (() => {
         const where = section('Where');
         const cityRow = el('div', { class: 'fchips' });
         cityRow.appendChild(chip('All cities', !S.cities.length, { city: '' }));
-        cityKeys(f.cities).forEach(c => cityRow.appendChild(chip(`${c} · ${f.cities[c]}`, S.cities.includes(c), { city: c })));
+        const shownCities = citiesShown(f);
+        cityKeys(shownCities).forEach(c => cityRow.appendChild(chip(`${c} · ${shownCities[c]}`, S.cities.includes(c), { city: c })));
         where.appendChild(cityRow);
         const mine = (SkateSettings.get('myRinks') || []).length;
         const mineRow = check(`My rinks only${mine ? ` (${mine})` : ''}`, S.rinkScope === 'mine', { flag: 'mine' });
@@ -2423,25 +2427,12 @@ window.SkateApp = (() => {
             return items;
         },
 
-        /** Age-group picker behind a type pill (multi-select; stays open while you pick). */
-        subTypes(cat) {
-            const f = filterFacets().cats[cat];
-            if (!f) return [];
-            const sel = S.types[cat];
-            const reopen = () => { const a = $('active-filters').querySelector(`.pill.type[data-pill="type:${cat}"]`); if (a) Popover.open(a, Menus.subTypes(cat), subMenuTitle(cat)); };
-            const items = [];
-            const ks = cat === 'hockey' ? kindsPresent() : [];      // v3.12.2: the kinds first, then the ages
-            const cur = kindNow();
-            if (ks.length > 1) {          // one kind at a time: ● marks it (the ages below are several at once: ✓)
-                items.push({ label: `${!cur ? '● ' : '○ '}Any kind · ${f.n}`, onClick: () => { Actions.setKind(null); reopen(); } });
-                ks.forEach(id => items.push({ label: `${cur === id ? '● ' : '○ '}${KIND_OF(id).label} · ${f.kinds[id]}`, onClick: () => { Actions.setKind(id); reopen(); } }));
-            }
-            const n = ageCounts(cat, f);
-            items.push({ label: `${sel === 'all' ? '✓ ' : '\u2007\u2007 '}Every age group · ${cur ? (f.kinds[cur] || 0) : f.n}`, cls: ks.length > 1 ? 'popover-sep' : '', onClick: () => { Actions.setType(cat, null, true); reopen(); } });
-            agesShown(cat, f).forEach(x => {
-                const on = sel === 'all' || (Array.isArray(sel) && sel.includes(x.id));
-                items.push({ label: `${on ? '✓ ' : '\u2007\u2007 '}${x.label} · ${n[x.id] || 0}`, onClick: () => { Actions.setType(cat, x.id, !on); reopen(); } });
-            });
+        /** v3.13: who is skating, behind its pill (several at once; stays open while you pick). */
+        who() {
+            const f = filterFacets();
+            const reopen = () => { const a = $('active-filters').querySelector('.pill.who'); if (a) Popover.open(a, Menus.who(), 'Who\'s skating'); };
+            const items = [{ label: `${S.who.length ? '\u2007\u2007 ' : '✓ '}Everyone · ${whoTotal(f)}`, onClick: () => { Actions.setWho(null); } }];
+            whoGroups(f).forEach(g => items.push({ label: `${S.who.includes(g.id) ? '✓ ' : '\u2007\u2007 '}${g.label} · ${g.n}`, onClick: () => { Actions.toggleWho(g.id); reopen(); } }));
             return items;
         },
 
@@ -2450,7 +2441,7 @@ window.SkateApp = (() => {
             const f = filterFacets().cats;
             const present = otherMembersPresent();
             const reopen = () => { const a = $('active-filters').querySelector(`.pill.type[data-pill="type:${OTHER_KEY}"]`); if (a) Popover.open(a, Menus.otherTypes(), 'Other kinds'); };
-            const allOn = present.every(c => S.types[c]);
+            const allOn = otherMembersAll().every(c => S.types[c]);
             const items = [{ label: `${allOn ? '✓ ' : '\u2007\u2007 '}Everything in Other`, onClick: () => { Actions.setType(OTHER_KEY, null, true); reopen(); } }];
             present.forEach(c => items.push({
                 label: `${S.types[c] ? '✓ ' : '\u2007\u2007 '}${CAT_LABEL(c)} · ${f[c].n}`,
@@ -2461,7 +2452,7 @@ window.SkateApp = (() => {
 
         /** City picker behind the standing city pill (multi-select; stays open while you pick). */
         cities() {
-            const f = filterFacets().cities;
+            const f = citiesShown(filterFacets());
             const reopen = () => { const a = $('active-filters').querySelector('.pill.city'); if (a) Popover.open(a, Menus.cities(), 'Cities'); };
             const items = [{ label: `${S.cities.length ? '\u2007\u2007 ' : '✓ '}All cities`, onClick: () => { Actions.setCities([]); } }];
             cityKeys(f).forEach(c => items.push({
@@ -2513,7 +2504,11 @@ window.SkateApp = (() => {
     };
 
     /** The filter pipeline, pure: state → sorted array (also sets S.paidMatching). */
-    function computeFiltered() {
+    /**
+     * Every filter as its own check (v3.13). The list needs all of them; each part of the
+     * Filters sheet counts with all of them but its own (filterFacets).
+     */
+    function filterChecks() {
         const mine = new Set(SkateSettings.get('myRinks') || []);
         const nowMs = Date.now();
         const todayKey = SkateTime.todayKey(), tomorrowKey = SkateTime.addDays(todayKey, 1);
@@ -2529,12 +2524,9 @@ window.SkateApp = (() => {
             if (d === undefined) { d = SkateGeo.distanceForProgram(p); kmByRink.set(k, d); }
             return d;
         };
-
-        let result = S.programs.filter(p => {
+        const rest = (p) => {
             if (!S.showDropped && SkateAlerts.isDropped(p)) return false;   // toronto.ca is the ground truth
-            if (!P.matchesTypes(p)) return false;
             if (S.savedOnly && !SkateFavorites.has(p)) return false;
-            if (S.cities.length && !S.cities.includes(P.city(p))) return false;
             if (S.rinkScope === 'mine' && mine.size && !mine.has(P.locKey(p))) return false;
             if (S.nearRink && P.locKey(p) !== S.nearRink.key) return false;
             if (radius != null) { const d = kmOf(p); if (d == null || d > radius) return false; }
@@ -2559,7 +2551,19 @@ window.SkateApp = (() => {
             // the minute it ends (not at midnight), and in-progress ones stay.
             if (!S.showPast && SkateTime.status(p, nowMs).phase === 'ended') return false;
             return true;
-        });
+        };
+        return {
+            rest,
+            type: (p) => P.matchesTypes(p),
+            who: (p) => P.matchesWho(p),
+            city: (p) => !S.cities.length || S.cities.includes(P.city(p)),
+            paid: (p) => S.paidVisible || !p.Paid
+        };
+    }
+
+    function computeFiltered() {
+        const c = filterChecks();
+        let result = S.programs.filter(p => c.rest(p) && c.type(p) && c.who(p) && c.city(p));
 
         // Paid exclusion runs LAST so the "N paid hidden" hint reflects every
         // other active filter — no phantom counts.
@@ -2593,8 +2597,7 @@ window.SkateApp = (() => {
 
     /* ---------- Filters sheet + pills ---------- */
     function persistFilters() {
-        if (!S.types.hockey) S.kinds = null;                   // v3.12.2: a kind only ever narrows hockey
-        SkateSettings.set('hockeyKinds', S.kinds);
+        SkateSettings.set('who', S.who);
         SkateSettings.set('typeSel', S.types);
         SkateSettings.set('cities', S.cities);
         SkateSettings.set('freeOnly', !S.paidVisible);
@@ -2619,46 +2622,23 @@ window.SkateApp = (() => {
     Actions.openFilters = function () { Render.filters(); Modal.open('filters-modal'); };
     Actions.closeFilters = function () { Modal.close('filters-modal'); };
 
-    /** Category checkbox (sub=null) or one age group under it. */
+    /** A kind of skating on or off (the Other group toggles all of its kinds). */
     Actions.setType = function (cat, sub, on) {
         const types = { ...S.types };
-        if (cat === OTHER_KEY) {
-            otherMembersPresent().forEach(c => { if (on) types[c] = 'all'; else delete types[c]; });
-        } else if (!sub) {
-            if (on) types[cat] = 'all'; else delete types[cat];
-        } else {
-            // the age groups on offer (v3.12.3: for hockey with a kind picked, the ones in that kind)
-            const fc = filterFacets().cats[cat];
-            const present = fc ? agesShown(cat, fc).map(x => x.id) : [];
-            let sel = types[cat] === 'all' ? [...present] : Array.isArray(types[cat]) ? [...types[cat]] : [];
-            sel = on ? [...new Set([...sel, sub])] : sel.filter(x => x !== sub);
-            if (!sel.length) delete types[cat];
-            else if (present.every(x => sel.includes(x))) types[cat] = 'all';
-            else types[cat] = sel;
-        }
+        if (cat === OTHER_KEY) otherMembersAll().forEach(c => { if (on) types[c] = 'all'; else delete types[c]; });
+        else if (on) types[cat] = 'all';
+        else delete types[cat];
         S.types = types;
-        if (sub) S.expandedCats[cat] = true;
         filtersChanged();
     };
-    /**
-     * The kind of hockey (v3.12.3): one tap picks one, or Any (null). Either way Hockey is on:
-     * picking a kind means "show me that hockey". An age group picked before that has no
-     * sessions in the new kind is dropped, so the list is never empty for a reason nobody sees.
-     */
-    Actions.setKind = function (kind) {
-        const k = kind && kind !== 'other' && CFG.hockeyKinds.some(x => x.id === kind) ? kind : null;
-        const types = { ...S.types };
-        if (!types.hockey) types.hockey = 'all';
-        S.kinds = k ? [k] : null;
-        if (k && Array.isArray(types.hockey)) {
-            const f = filterFacets().cats.hockey, n = (f && f.subsBy && f.subsBy[k]) || {};
-            const left = types.hockey.filter(x => n[x]);
-            types.hockey = left.length ? left : 'all';
-        }
-        S.types = types;
-        S.expandedCats.hockey = true;
+    /** v3.13: one age group on or off in "Who's skating". */
+    Actions.toggleWho = function (id) {
+        if (id === 'all' || !CFG.subTypes.some(t => t.id === id)) return;
+        S.who = S.who.includes(id) ? S.who.filter(x => x !== id) : [...S.who, id];
         filtersChanged();
     };
+    /** v3.13: who is skating, all at once (null or [] = everyone). */
+    Actions.setWho = function (list) { S.who = sanitizeWho(list || []); filtersChanged(); };
     Actions.toggleCity = function (c) {
         S.cities = S.cities.includes(c) ? S.cities.filter(x => x !== c) : [...S.cities, c];
         filtersChanged();
@@ -2713,7 +2693,7 @@ window.SkateApp = (() => {
         filtersChanged();
     };
     Actions.resetFilters = function () {
-        S.types = {}; S.cities = []; S.day = ''; S.age = null; S.savedOnly = false;
+        S.types = {}; S.who = []; S.cities = []; S.day = ''; S.age = null; S.savedOnly = false;
         S.showPast = false; S.nearRink = null; S.rinkScope = 'all'; S.sort = 'time'; S.paidVisible = true;
         S.showDropped = false; S.moreFilters = false; S.expandedCats = {}; S.radius = null; S.radiusWanted = null;
         filtersChanged();
@@ -2724,6 +2704,7 @@ window.SkateApp = (() => {
         if (key === `type:${OTHER_KEY}`) { const t = { ...S.types }; OTHER_GROUP.forEach(c => delete t[c]); S.types = t; }
         else if (key.startsWith('type:')) { const t = { ...S.types }; delete t[key.slice(5)]; S.types = t; }
         else if (key.startsWith('city:')) S.cities = S.cities.filter(c => c !== key.slice(5));
+        else if (key === 'who') S.who = [];
         else if (key === 'day') S.day = '';
         else if (key === 'age') S.age = null;
         else if (key === 'saved') S.savedOnly = false;
@@ -2786,7 +2767,7 @@ window.SkateApp = (() => {
         if (idx === -1) {
             // widen the net: clear every filter, include past + paid, all rinks
             // (session-only — the persisted prefs are untouched)
-            S.types = {}; S.cities = []; S.search = ''; S.day = ''; S.age = null; S.savedOnly = false;
+            S.types = {}; S.who = []; S.cities = []; S.search = ''; S.day = ''; S.age = null; S.savedOnly = false;
             S.showPast = true; S.paidVisible = true; S.rinkScope = 'all'; S.nearRink = null;
             $('search-input').value = '';
             Actions.applyFilters();
@@ -3843,8 +3824,10 @@ window.SkateApp = (() => {
         delegate($('active-filters'), [
             ['.pill.city .pill-x', (x, e) => { e.stopPropagation(); Actions.setCities([]); }],
             ['.pill.city', (b, e) => { e.stopPropagation(); Popover.open(b, Menus.cities(), 'Cities'); }],
+            ['.pill.who .pill-x', (x, e) => { e.stopPropagation(); Actions.setWho(null); }],
+            ['.pill.who', (b, e) => { e.stopPropagation(); Popover.open(b, Menus.who(), 'Who\'s skating'); }],
             ['.pill.type .pill-x', (x, e) => { e.stopPropagation(); Actions.removePill(x.closest('.pill').dataset.pill); }],
-            ['.pill.type', (b, e) => { e.stopPropagation(); const cat = b.dataset.pill.slice(5); Popover.open(b, cat === OTHER_KEY ? Menus.otherTypes() : Menus.subTypes(cat), cat === OTHER_KEY ? 'Other kinds' : subMenuTitle(cat)); }],
+            ['.pill.type', (b, e) => { e.stopPropagation(); Popover.open(b, Menus.otherTypes(), 'Other kinds'); }],
             ['.pill.radius .pill-x', (x, e) => { e.stopPropagation(); Actions.setRadius(null); }],
             ['.pill.radius', (b, e) => { e.stopPropagation(); Popover.open(b, Menus.radius(), 'How far from your spot'); }],
             ['.pill', (b) => Actions.removePill(b.dataset.pill)]
@@ -3891,7 +3874,7 @@ window.SkateApp = (() => {
                 rerenderFilters();
             }],
             ['.fchip[data-day]', (b) => Actions.setDay(b.dataset.day)],
-            ['.fchip[data-kind-chip]', (b) => Actions.setKind(b.dataset.kindChip === 'any' ? null : b.dataset.kindChip)],
+            ['.fchip[data-who]', (b) => (b.dataset.who ? Actions.toggleWho(b.dataset.who) : Actions.setWho(null))],
             ['.fchip[data-city]', (b) => (b.dataset.city ? Actions.toggleCity(b.dataset.city) : Actions.setCities([]))],
             ['.fchip[data-sort]', (b) => Actions.setSort(b.dataset.sort)],
             ['.fchip[data-radius]', (b) => Actions.setRadius(b.dataset.radius ? Number(b.dataset.radius) : null)],

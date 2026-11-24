@@ -1012,7 +1012,7 @@ body.dark-mode .modal-overlay { background: rgba(0, 0, 0, 0.62); }
 .fcat .fcheck { min-width: 0; }
 .fcat.on .fcheck-label { font-weight: 700; }
 .fcat.type-leisure  { --tc: #3aa07f; }
-.fcat.type-hockey   { --tc: #cc4455; }
+.fcat.type-hockey, .fcat.type-stickpuck { --tc: #cc4455; }
 .fcat.type-figure   { --tc: #5566cc; }
 .fcat.type-speed    { --tc: #b08a3d; }
 .fcat.type-adapted  { --tc: #8855bb; }
@@ -1921,6 +1921,8 @@ html { touch-action: manipulation; }
 /* What a filter needs a spot for, said inside Rinks & map (it used to be a toast over the search box) */
 #locator-status.ask { color: var(--text); font-weight: 600; }
 
-/* v3.12.3: hockey's kind as one-tap chips, each with its count */
-.fkinds { margin: 2px 0 6px; }
+/* v3.13: chips that carry a count (Who's skating) */
 .fchip .fchip-n { margin-left: 6px; font-weight: 400; opacity: .75; font-variant-numeric: tabular-nums; }
+
+/* v3.13: Who's skating, one row of chips above the exact-age box */
+.fwho { margin: 2px 0 10px; }
