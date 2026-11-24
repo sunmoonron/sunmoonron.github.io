@@ -30,7 +30,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.12.2',
+    version: '3.12.3',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -44,6 +44,13 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.12.3', date: '2026-11-23', items: [
+                'Ford Performance Centre\'s free Saturday community skates are in: 5:15 to 7:15 pm, courtesy of Ford, helmets required for 6 and under. The arena posts its month only as a picture, so the app now reads each new picture and checks every date against its weekday before listing anything.',
+                'Hockey\'s kind is one tap: Any, Pickup (shinny) or Stick & puck. The age groups under it count only that kind, and an age group with nothing in it is not shown.',
+                'A rink page that was edited after its hours were typed in no longer puts a warning on the schedule. The Data status page notes it quietly while the hours are checked again.',
+            ]
+        },
         {
             v: '3.12.2', date: '2026-11-23', items: [
                 'Hockey now splits into Pickup (shinny) and Stick & puck. Under Filters, open Hockey to choose a kind, an age group or both ("Stick & puck, Youth"); the Hockey pill does the same. Your choice is remembered. Markham\'s Stick & Ring sessions are ringette, so they moved there.',
@@ -557,6 +564,8 @@ window.SkateConfig = {
                          note: 'Dates and hours read from Evergreen\'s own page. Free; skate rentals on site.' },
         'mattamy':     { city: 'Toronto', label: 'Mattamy Athletic Centre', verified: false, site: 'mattamyathleticcentre.ca',
                          note: 'Dates read from the arena\'s own page. Free community skates, no skate rentals; CSA helmets required under 6; the first 200 skaters.' },
+        'fordperformance': { city: 'Toronto', label: 'Ford Performance Centre', verified: false, site: 'lakeshorearena.ca',
+                         note: 'Read from the monthly calendar picture on the arena\'s page, each date checked against its weekday. Free community skates courtesy of Ford; CSA helmets required for 6 and under, strongly recommended for 7 and older.' },
         'yzd':         { city: 'Toronto', label: 'YZD Hangar Skate', verified: false, site: 'yzd.ca', outdoor: true,
                          note: 'Hours entered by hand from yzd.ca, which does not allow them to be read automatically. Free.' },
         'mississauga-square': { city: 'Mississauga', label: 'Celebration Square Rink', verified: false, site: 'mississauga.ca', outdoor: true,
@@ -572,7 +581,7 @@ window.SkateConfig = {
         { id: 'boards', label: 'Toronto arenas run by their own boards',
           keys: ['mosspark', 'grossman', 'leaside-public', 'leaside-community', 'leaside-pickuphub', 'bolton-public', 'bolton-adult', 'bolton-tots', 'georgebell', 'mccormick', 'northtoronto', 'tedreeve'] },
         { id: 'more', label: 'Other Toronto rinks',
-          keys: ['harbourfront', 'bentway', 'evergreen', 'mattamy', 'yzd', 'canlan-york', 'canlan-etobicoke', 'canlan-scarborough'] }
+          keys: ['harbourfront', 'bentway', 'evergreen', 'mattamy', 'yzd', 'fordperformance', 'canlan-york', 'canlan-etobicoke', 'canlan-scarborough'] }
     ],
     sourceRows: { 'leaside-public': 'leaside', 'leaside-community': 'leaside', 'bolton-public': 'bolton', 'bolton-adult': 'bolton', 'bolton-tots': 'bolton' },
 

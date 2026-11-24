@@ -197,7 +197,7 @@ test.describe('hours entered by hand (YZD)', () => {
     });
     test('the page not edited since the hours were entered: nothing to say', async () => {
         const r = await run(sitemap(cfg.watch.seen));
-        expect(r).toMatchObject({ state: 'pending', manual: '2026-11-21', season: cfg.dates });
+        expect(r).toMatchObject({ state: 'pending', manual: '2026-11-23', season: cfg.dates });
         expect(r.edited).toBeUndefined(); expect(r.note).toBeUndefined();
     });
     test('the page edited afterwards: the sessions stay, and the day of the edit is recorded (Toronto time)', async () => {
@@ -225,7 +225,7 @@ test.describe('hours entered by hand (YZD)', () => {
     });
     test('the page gone or about something else still hides the hours, as before', async () => {
         const r = await quiet(() => fetchManual('yzd', cfg, { get: async () => '<title>Page not found | YZD</title>', today: '2026-12-20' }));
-        expect(r).toMatchObject({ state: 'changed', records: [], manual: '2026-11-21' });
+        expect(r).toMatchObject({ state: 'changed', records: [], manual: '2026-11-23' });
     });
     test('after the last entered day it is closed; when the next winter comes its hours are "not entered yet"', async () => {
         expect((await run(sitemap(cfg.watch.seen), '2027-02-20')).state).toBe('closed');

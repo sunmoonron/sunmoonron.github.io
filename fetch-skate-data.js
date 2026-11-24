@@ -589,6 +589,25 @@ const EXTERNAL_SOURCES = {
         priceNote: 'No skate rentals. Helmets required under 6. First 200 skaters',
         infoUrl: 'https://www.mattamyathleticcentre.ca/venue-info/community-skates'
     },
+    'fordperformance': {
+        kind: 'calendar-image',
+        // Ford Performance Centre (run by Lakeshore Arena Corporation) posts each month as a
+        // picture on its drop-in page ("November-1.png"). Each new picture is read once by the
+        // alert reader's model and checked date by date (see "Monthly calendar pictures").
+        // Only its free community skates are listed: stick & puck and shinny show on the
+        // pictures some months, with fees the pictures do not give.
+        url: 'https://www.lakeshorearena.ca/programs/',
+        locationId: 475,                                  // the City lists the arena as location 475
+        keep: [{ match: /community skate|public skat|free skat/i, activity: 'Community Skate (Free)' }],
+        daysAhead: 60,
+        locationName: 'Ford Performance Centre',
+        address: '400 Kipling Ave', district: 'Etobicoke York', postalCode: 'M8V 3L1',
+        lat: 43.6029579, lng: -79.5199134,
+        kinds: ['indoor'],
+        paid: false, unverified: true,
+        priceNote: 'Free, courtesy of Ford. CSA helmets required for 6 and under, strongly recommended for 7 and older',
+        infoUrl: 'https://www.lakeshorearena.ca/programs/'
+    },
     'yzd': {
         kind: 'manual',
         // yzd.ca keeps the hours behind /api/, which its robots.txt disallows, so they are
@@ -609,9 +628,9 @@ const EXTERNAL_SOURCES = {
         //   5. In skate/tests/unit/sources.spec.js, update the two "hours entered by hand (YZD)"
         //      tests to the new dates, then `npx playwright test --project=unit`.
         //   6. Commit fetch-skate-data.js and the test, push. The next run (30 min) publishes them.
-        enteredOn: '2026-11-21',
+        enteredOn: '2026-11-23',          // first entered Nov 21; checked again Nov 23 against the page as edited that morning
         watch: { url: 'https://www.yzd.ca/event/hangar-skate', says: /<title>[^<]*Hangar Skate/i,
-                 sitemap: 'https://www.yzd.ca/sitemap.xml', seen: '2026-11-20T16:31:10Z' },
+                 sitemap: 'https://www.yzd.ca/sitemap.xml', seen: '2026-11-23T09:21:52Z' },   // the edit of Nov 23, checked against these hours that day
         dates: { from: '2026-12-19', to: '2027-02-15' },
         rules: [
             { from: '2026-12-19', to: '2027-01-03', days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Saturday', 'Sunday'], start: '12:00', end: '17:00' },
@@ -3435,7 +3454,7 @@ async function refreshLiveSpots() {
 }
 
 const FETCHERS = { daysmart: fetchDaySmart, perfectmind: fetchPerfectMind, activenet: fetchActiveNet, scrape: fetchScraped, pdf: fetchPdfSchedule, intelligenz: fetchIntelligenz, 'html-grid': fetchHtmlGrid, pickuphub: fetchPickupHub,
-    venue: fetchVenue, watch: fetchWatch, manual: fetchManual };
+    venue: fetchVenue, watch: fetchWatch, manual: fetchManual, 'calendar-image': fetchCalendarImage };
 
 /* ================= Seasons, venue pages and source states (v3.12) =================
  *
@@ -3708,6 +3727,185 @@ function sitemapLastmod(xml, loc) {
     }
     if (!found) return null;
     return { at: mine, shared: mine == null ? 0 : others.filter(t => Math.abs(t - mine) <= 2000).length };
+}
+
+/* ================= Monthly calendar pictures (v3.12.3) =================
+ *
+ * Some arenas post their drop-in month only as a picture (Ford Performance Centre: a PNG
+ * at the top of its drop-in page). The page is read for pictures whose file name says a
+ * month, a calendar or a schedule; each new picture (by its bytes) is read once by the
+ * alert reader's model, and the reading is kept in calendar-readings.json, so a picture
+ * costs one call however many runs see it. A reading is believed only if every event
+ * sits in the weekday column the picture shows it in: a misread month or a shifted row
+ * breaks that for nearly every date, and the picture is then left unread rather than
+ * half believed. Without a key (GitHub's runners) only pictures already read are used.
+ */
+const CAL_READINGS_FILE = 'calendar-readings.json';
+const CAL_READ_LIMIT = 2;                          // new pictures read per run, at most
+const CAL_IMG_MAX = 8 * 1024 * 1024;
+const CAL_RETRY_MS = 24 * 3600000;                 // a picture that could not be believed is tried again after a day
+const CAL_KEEP_MS = 150 * 86400000;                // readings of pictures not seen for this long are dropped
+const CAL_MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+const CAL_WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const CAL_NAME_RE = /(?:^|[^a-z])(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:[^a-z]|$)|calendar|schedule/i;
+const CAL_SCHEMA = {
+    type: 'object', additionalProperties: false,
+    required: ['heading', 'month', 'year', 'events', 'notes'],
+    properties: {
+        heading: { type: 'string' },
+        month: { type: 'integer' },
+        year: { type: 'integer' },
+        events: {
+            type: 'array',
+            items: {
+                type: 'object', additionalProperties: false,
+                required: ['day', 'weekday', 'title', 'start', 'end'],
+                properties: {
+                    day: { type: 'integer' },
+                    weekday: { type: 'string', enum: CAL_WEEKDAYS },
+                    title: { type: 'string' },
+                    start: { type: 'string' },
+                    end: { type: 'string' }
+                }
+            }
+        },
+        notes: { type: 'array', items: { type: 'string' } }
+    }
+};
+const CAL_SYSTEM = `You read a picture of an arena's monthly calendar and report only what is printed on it.
+heading: the calendar's title exactly as printed (for example "November 2026").
+month (1 to 12) and year: the month the calendar is for.
+events: every event printed inside a day cell of that month. Skip the greyed-out days that belong to the month before or after. For each event: day is the number of the cell it is in; weekday is the column heading above that cell; title is the event's name as printed, its lines joined with spaces; start and end are its times in 24-hour HH:MM (5:15pm is 17:15). A cell with two events gives two entries. Leave out an event whose time you cannot read.
+notes: other printed lines that apply to the events (fees, helmet rules), as printed.`;
+
+/** A page → the calendar pictures it links or shows (full size before resized copies), at most four. Pure. */
+function calendarPictures(html, base) {
+    const src = String(html || '').replace(/<!--[\s\S]*?-->/g, ' ');
+    if (src.length > 3000000) return [];
+    const found = [];
+    const add = (raw) => {
+        try {
+            const u = new URL(raw.replace(/&amp;/g, '&'), base);
+            const name = decodeURIComponent(u.pathname.split('/').pop() || '');
+            if (!/^https?:$/.test(u.protocol) || !/\.(png|jpe?g|webp|gif)$/i.test(name) || !CAL_NAME_RE.test(name.replace(/\.\w+$/, ''))) return;
+            if (!found.includes(u.href)) found.push(u.href);
+        } catch { /* not a URL */ }
+    };
+    for (const m of src.matchAll(/<a\b[^>]*?\bhref="([^"]{1,600})"/gi)) add(m[1]);
+    for (const m of src.matchAll(/<img\b[^>]*?\bsrc="([^"]{1,600})"/gi)) add(m[1]);
+    // "November-1-1024x791.png" is a smaller copy of "November-1.png": read the full one only
+    const full = (u) => u.replace(/-\d{2,4}x\d{2,4}(\.\w+)$/, '$1');
+    return found.filter(u => full(u) === u || !found.includes(full(u))).slice(0, 4);
+}
+
+/**
+ * What the model said a picture shows → { ok: true, month, year, events: [{ date, title, start, end }], notes }
+ * or { ok: false, why }. Every event must sit on its weekday, or none is believed. Pure.
+ */
+function checkCalendarReading(r) {
+    if (!r || typeof r !== 'object') return { ok: false, why: 'no reading' };
+    const { month, year } = r;
+    if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2025 || year > 2100) return { ok: false, why: 'it gave no month and year' };
+    const head = String(r.heading || '').toLowerCase();
+    const M = (m) => m.replace(/^./, c => c.toUpperCase());
+    const named = CAL_MONTHS.filter(m => new RegExp(`\\b${m.slice(0, 3)}`).test(head));
+    if (named.length && !named.includes(CAL_MONTHS[month - 1])) return { ok: false, why: `the heading says ${M(named[0])}, not ${M(CAL_MONTHS[month - 1])}` };
+    const years = head.match(/\b20\d\d\b/g) || [];
+    if (years.length && !years.includes(String(year))) return { ok: false, why: `the heading says ${years[0]}, not ${year}` };
+    const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const time = (s) => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(s || ''));
+    const events = [];
+    for (const e of Array.isArray(r.events) ? r.events.slice(0, 200) : []) {
+        if (!e || !Number.isInteger(e.day) || e.day < 1 || e.day > last) return { ok: false, why: `day ${e && e.day} is not in ${M(CAL_MONTHS[month - 1])}` };
+        const wd = CAL_WEEKDAYS[new Date(Date.UTC(year, month - 1, e.day)).getUTCDay()];
+        if (e.weekday !== wd) return { ok: false, why: `${M(CAL_MONTHS[month - 1])} ${e.day}, ${year} is a ${wd}, but it was read under ${e.weekday}` };
+        const title = String(e.title || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+        if (!title || !time(e.start) || !time(e.end) || e.start >= e.end) continue;     // one unreadable time drops that event only
+        events.push({ date: `${year}-${String(month).padStart(2, '0')}-${String(e.day).padStart(2, '0')}`, title, start: e.start, end: e.end });
+    }
+    const notes = (Array.isArray(r.notes) ? r.notes : []).map(x => String(x).replace(/\s+/g, ' ').trim().slice(0, 200)).filter(Boolean).slice(0, 8);
+    return { ok: true, month, year, events, notes };
+}
+
+/** One picture → the model's raw answer (an object). Uses the alert reader's key and model. */
+async function readCalendarPicture(buf, mediaType, creds = readerCreds()) {
+    if (!creds.anthropicKey) throw new Error('no reader key on this machine (calendar pictures are read on the home server)');
+    const headers = { authorization: `Bearer ${creds.anthropicKey}`, 'anthropic-version': '2026-10-21' };
+    if (creds.anthropicWorkspace) headers['anthropic-workspace-id'] = creds.anthropicWorkspace;
+    const { status, text } = await postStatus('https://api.anthropic.com/v1/messages', JSON.stringify({
+        model: READER_MODEL,
+        max_tokens: 4096,
+        system: CAL_SYSTEM,
+        messages: [{ role: 'user', content: [
+            { type: 'image', source: { type: 'base64', media_type: mediaType, data: buf.toString('base64') } },
+            { type: 'text', text: 'Read this calendar.' }
+        ] }],
+        output_config: { format: { type: 'json_schema', schema: CAL_SCHEMA } }
+    }), headers, 90000);
+    let body = null;
+    try { body = JSON.parse(text); } catch { /* handled below */ }
+    if (status !== 200 || !body) throw new Error(`the reader answered HTTP ${status} ${readerScrub(String(body?.error?.message || '')).slice(0, 120)}`);
+    if (body.stop_reason !== 'end_turn') throw new Error(`the reader stopped with ${body.stop_reason}`);
+    const block = (body.content || []).find(b => b.type === 'text');
+    return readerParse(block && block.text);
+}
+const pictureType = (url) => ({ png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' })[(url.split('?')[0].split('.').pop() || '').toLowerCase()] || 'image/png';
+const monthLabel = (ym) => { const [y, m] = ym.split('-').map(Number); return `${CAL_MONTHS[m - 1].replace(/^./, c => c.toUpperCase())} ${y}`; };
+
+/** kind 'calendar-image': an arena's month, read from the picture on its page. */
+async function fetchCalendarImage(sourceKey, cfg, { get = httpGetText, getBuf = httpGetBuffer, read = readCalendarPicture, today = torontoDateStr(), nowMs = Date.now(), store = path.join(OUTPUT_DIR, CAL_READINGS_FILE) } = {}) {
+    const pics = calendarPictures(await get(cfg.url), cfg.url);
+    if (!pics.length) return { records: [], state: 'pending', note: 'Its page has no calendar picture right now.' };
+    let file = { pictures: {} };
+    try { const f = JSON.parse(fs.readFileSync(store, 'utf8')); if (f && f.pictures && typeof f.pictures === 'object') file = f; } catch { /* first run */ }
+    const used = [], problems = [];
+    let reads = 0;
+    for (const url of pics) {
+        const name = url.split('/').pop();
+        let buf;
+        try { buf = await getBuf(url); } catch (e) { problems.push(`${name}: ${errorText(e)}`); continue; }
+        if (!Buffer.isBuffer(buf) || !buf.length || buf.length > CAL_IMG_MAX) { problems.push(`${name}: not a picture that can be read`); continue; }
+        const sha = crypto.createHash('sha256').update(buf).digest('hex');
+        let rec = file.pictures[sha];
+        if (!rec || (!rec.ok && nowMs - Date.parse(rec.readAt || 0) > CAL_RETRY_MS)) {
+            if (reads >= CAL_READ_LIMIT) { problems.push(`${name}: left for the next run`); continue; }
+            reads++;
+            try {
+                const chk = checkCalendarReading(await read(buf, pictureType(url)));
+                rec = { url, readAt: new Date(nowMs).toISOString(), by: READER_MODEL, ...chk };
+                console.log(chk.ok ? `   🖼️  ${name}: read, ${monthLabel(`${chk.year}-${String(chk.month).padStart(2, '0')}`)}, ${chk.events.length} events` : `   ⚠️ ${name}: not believed (${chk.why})`);
+            } catch (e) { problems.push(`${name}: ${errorText(e)}`); continue; }
+        }
+        rec.url = url;
+        rec.seenAt = new Date(nowMs).toISOString();
+        file.pictures[sha] = rec;
+        if (rec.ok) used.push(rec); else problems.push(`${name}: ${rec.why}`);
+    }
+    for (const [sha, rec] of Object.entries(file.pictures)) if (!(nowMs - Date.parse(rec.seenAt || rec.readAt || 0) <= CAL_KEEP_MS)) delete file.pictures[sha];
+    try { fs.writeFileSync(store, JSON.stringify(file, null, 1)); } catch (e) { console.warn(`   ⚠️ ${CAL_READINGS_FILE}: ${e.message}`); }
+    if (problems.length) console.warn(`   ⚠️ ${sourceKey}: ${problems.join('; ')}`);
+    if (!used.length) throw new Error(problems.join('; ').slice(0, 300) || 'no calendar picture could be read');
+
+    const until = addDays(today, cfg.daysAhead || 60);
+    const seen = new Set(), records = [], skipped = new Set();
+    for (const rec of used) for (const e of rec.events) {
+        if (e.date < today || e.date > until) continue;
+        const keep = (cfg.keep || []).find(k => k.match.test(e.title));
+        if (!keep) { skipped.add(e.title); continue; }
+        const id = `${e.date}-${e.start}-${e.end}`;
+        if (seen.has(id)) continue;
+        seen.add(id);
+        records.push(externalRecord(cfg, sourceKey, { activity: keep.activity || e.title, date: e.date, startTime: e.start, endTime: e.end, price: 0, idKey: id }));
+    }
+    if (skipped.size) console.log(`   · ${sourceKey}: also on the picture, not listed: ${[...skipped].slice(0, 4).join(' | ')}`);
+    const latest = used.map(r => `${r.year}-${String(r.month).padStart(2, '0')}`).sort().pop();
+    const behind = latest < today.slice(0, 7);
+    console.log(`   ✅ ${sourceKey}: ${records.length} sessions from the ${monthLabel(latest)} calendar picture`);
+    return {
+        records,
+        state: !records.length && behind ? 'pending' : 'ok',
+        note: behind ? `Its page still shows the ${monthLabel(latest)} calendar; the next one is not up yet.` : `Read from its ${monthLabel(latest)} calendar picture.`
+    };
 }
 
 /** What the last full run recorded per source (meta.json). */
@@ -4843,6 +5041,7 @@ module.exports = { parseLendingPage, parseLendingTime, parseLendingDate, lending
     // v3.12: seasons, source states, venue pages, the City's doubles (skate/tests/unit/sources.spec.js)
     parseNaturalIcePage, winterOf, fetchNaturalIce, fetchVenue, stripHtml,
     fetchExternalSources, networkUp, waitForNetwork, settleNetwork, errorText, neverAnswered, sourceSite, keptResult, fetchManual, sitemapLastmod,
+    calendarPictures, checkCalendarReading, fetchCalendarImage,
     seasonPhase, readSource, sourceMeta, venueRecords, manualRecords, runReader, foldTwinRinks, markSuperseded, sentenceFrom, rinkSeasonal, RINK_AKA, RINK_TWINS,
     verifyReading, readAlerts, fetchAlerts, readerKey, readerWants, readerUserMessage, readerCreds, readerTiers, readerErrorKind, readerScrub, READER_SCHEMA, READER_VERSION, inferKinds, inOutdoorLull };
 

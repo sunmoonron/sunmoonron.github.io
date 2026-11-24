@@ -1,0 +1,45 @@
+{
+ "pictures": {
+  "e0209c018c997c0498b390a07c0357c3aa3ad08c640dfc642e6bb0cab2dacd4b": {
+   "url": "https://www.lakeshorearena.ca/wp-content/uploads/2026/11/November-1.png",
+   "readAt": "2026-11-23T20:41:53.013Z",
+   "by": "claude-haiku-5-5",
+   "ok": true,
+   "month": 11,
+   "year": 2026,
+   "events": [
+    {
+     "date": "2026-11-07",
+     "title": "Free Community Skate Courtesy of Ford",
+     "start": "17:15",
+     "end": "19:15"
+    },
+    {
+     "date": "2026-11-14",
+     "title": "Free Community Skate Courtesy of Ford",
+     "start": "17:15",
+     "end": "19:15"
+    },
+    {
+     "date": "2026-11-21",
+     "title": "Free Community Skate Courtesy of Ford",
+     "start": "17:15",
+     "end": "19:15"
+    },
+    {
+     "date": "2026-11-28",
+     "title": "Free Community Skate Courtesy of Ford",
+     "start": "17:15",
+     "end": "19:15"
+    }
+   ],
+   "notes": [
+    "Program Fees",
+    "Public Skating - No Charge Courtesy of Ford Motor Company",
+    "Children 6 & Under - CSA Approved Helmets Required",
+    "7 & Older - CSA Approved Helmets Strongly Recommended"
+   ],
+   "seenAt": "2026-11-23T20:41:53.013Z"
+  }
+ }
+}

@@ -1920,3 +1920,7 @@ html { touch-action: manipulation; }
 
 /* What a filter needs a spot for, said inside Rinks & map (it used to be a toast over the search box) */
 #locator-status.ask { color: var(--text); font-weight: 600; }
+
+/* v3.12.3: hockey's kind as one-tap chips, each with its count */
+.fkinds { margin: 2px 0 6px; }
+.fchip .fchip-n { margin-left: 6px; font-weight: 400; opacity: .75; font-variant-numeric: tabular-nums; }

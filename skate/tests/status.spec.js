@@ -155,18 +155,20 @@ test.describe('data status', () => {
         await app.noErrors();
     });
 
-    test('hand-entered hours whose page was edited afterwards: still listed, flagged, and counted as behind', async ({ page, app }) => {
+    test('hand-entered hours whose page was edited afterwards: still listed, noted quietly, not counted as behind', async ({ page, app }) => {
         withSources(app, {
             mosspark: { ok: true, state: 'ok', count: 8, at, okAt: at },
             yzd: { ok: true, state: 'ok', count: 9, at, okAt: at, manual: '2026-11-21', season: { from: '2026-12-19', to: '2027-02-15' }, edited: '2026-12-01' }
         });
         await app.open();
-        await expect(page.locator('#status-checked')).toContainText('1 source behind');
+        await expect(page.locator('#status-checked')).toContainText('✓ checked');
+        await expect(page.locator('#status-checked')).not.toContainText('behind');
+        await expect(page.locator('#status-checked')).not.toHaveClass(/stale/);
         await page.click('#status-checked');
         const y = row(page, 'YZD Hangar Skate');
-        await expect(y).toHaveClass(/st-warn/);
+        await expect(y).toHaveClass(/st-wait/);
         await expect(y.locator('.st-head')).toHaveText('its page was edited');
-        await expect(y).toContainText('Its page was edited on Dec 1, after the hours here were entered. They may have changed: confirm on its site before going.');
+        await expect(y).toContainText('Its page was edited on Dec 1, after these hours were entered, so they are being checked again. Its own site has the final word.');
         await expect(y).toContainText('9 sessions');
         await expect(y).toContainText('Hours entered by hand on Nov 21');
         await app.noErrors();
