@@ -824,7 +824,8 @@ const EXTERNAL_SOURCES = {
             'Nobleton Arena & Community Centre': { address: '15 Sheardown Dr',    district: 'Nobleton',  postalCode: 'L0G 1N0', lat: 43.9051671, lng: -79.6604000 }
         },
         district: 'King',
-        infoUrl: 'https://www.king.ca/parks-recreation-culture/recreation/drop-programs'
+        // the Township's own booking page for this calendar (a guessed king.ca address was a 404)
+        infoUrl: 'https://townshipofking.perfectmind.com/23793/Clients/BookMe4BookingPages/Classes?calendarId=2fd6d540-75aa-416b-9a70-a78b8f598e7d&widgetId=15f6af07-39c5-473e-b053-96653f77a406&embed=False'
     },
     'whitby': {
         kind: 'whitby',
