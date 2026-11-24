@@ -30,7 +30,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.12.3',
+    version: '3.14',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -44,6 +44,13 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.14', date: '2026-11-24', items: [
+                'Aurora and Newmarket are in. Aurora: the Aurora Family Leisure Complex and the Aurora Recreation Complex (public, adult, senior and sensory skating, parent and child stick & puck, shinny), with the days the Town cancels. Newmarket: the Magna Centre and the Ray Twinney Recreation Complex (public skating, parent and tot, adult, figure, and shinny by age).',
+                'Hockey\'s two kinds are ticks again, like everything else in Filters: Hockey on ticks Pickup (shinny) and Stick & puck; untick one to hide its sessions. The age groups under it count the kinds ticked, and an age group with nothing in them is not shown.',
+                'The numbers in Filters now follow your cities, Free only, the day, the search box, your rinks and the distance: each one counts what you would actually see. Something you picked that has nothing left stays, at 0, so you can untick it.',
+            ]
+        },
         {
             v: '3.12.3', date: '2026-11-23', items: [
                 'Ford Performance Centre\'s free Saturday community skates are in: 5:15 to 7:15 pm, courtesy of Ford, helmets required for 6 and under. The arena posts its month only as a picture, so the app now reads each new picture and checks every date against its weekday before listing anything.',
@@ -435,7 +442,7 @@ window.SkateConfig = {
         { id: 'other',     label: 'Other hockey',    short: 'Other' }
     ],
     // City order in the Filters sheet (anything else sorts after, A–Z).
-    cityOrder: ['Toronto', 'Markham', 'Vaughan', 'Richmond Hill', 'Stouffville', 'Mississauga', 'Brampton', 'Oakville', 'Burlington', 'Pickering', 'Ajax', 'Oshawa'],
+    cityOrder: ['Toronto', 'Markham', 'Vaughan', 'Richmond Hill', 'Stouffville', 'Aurora', 'Newmarket', 'Mississauga', 'Brampton', 'Oakville', 'Burlington', 'Pickering', 'Ajax', 'Oshawa'],
 
     // Activity categories (Filters → Type). The keyword matcher classifies
     // each session; sessions matching nothing fall into 'other'.
@@ -538,6 +545,11 @@ window.SkateConfig = {
                          note: 'Schedule read from the arena\'s website, no live feed. Free adults-only (18+) skate; no skate or helmet rentals.' },
         'bolton-tots':   { city: 'Toronto', label: 'William H. Bolton Arena', verified: false, site: 'billboltonarena.ca',
                          note: 'Schedule read from the arena\'s website, no live feed. Free parent and tots skate (4 and under); no skate or helmet rentals.' },
+        'aurora':      { city: 'Aurora', label: 'Town of Aurora', verified: false, site: 'aurora.ca',
+                         note: 'Weekly drop-ins read from the Town\'s skating page (Aurora Family Leisure Complex and Aurora Recreation Complex), with the dates it cancels. Public skating $3.37, shinny $7.23 per person, goalies free.' },
+        'newmarket':   { city: 'Newmarket', label: 'Town of Newmarket', verified: false, site: 'newmarket.ca', place: 'Town of Newmarket',
+                         note: 'Read from the Town\'s public skating and shinny schedules (PDFs) for the Magna Centre and the Ray Twinney Recreation Complex. Pay at the Customer Service kiosk before the program.' },
+        'newmarket-shinny': { city: 'Newmarket', label: 'Town of Newmarket (shinny)', verified: false, site: 'newmarket.ca' },
         'stouffville': { city: 'Stouffville', label: 'Whitchurch-Stouffville', verified: false, site: 'townofws.ca',
                          note: 'Weekly schedule read from the Town\'s drop-in PDF, no live feed. Adult $5.50 skate, $7.50 shinny and stick and puck, youth and 60 plus less; cash, debit or credit at the door.' },
         'ajax':        { city: 'Ajax', label: 'Town of Ajax', verified: false, site: 'ajax.ca',
@@ -583,7 +595,7 @@ window.SkateConfig = {
         { id: 'more', label: 'Other Toronto rinks',
           keys: ['harbourfront', 'bentway', 'evergreen', 'mattamy', 'yzd', 'fordperformance', 'canlan-york', 'canlan-etobicoke', 'canlan-scarborough'] }
     ],
-    sourceRows: { 'leaside-public': 'leaside', 'leaside-community': 'leaside', 'bolton-public': 'bolton', 'bolton-adult': 'bolton', 'bolton-tots': 'bolton' },
+    sourceRows: { 'newmarket-shinny': 'newmarket', 'leaside-public': 'leaside', 'leaside-community': 'leaside', 'bolton-public': 'bolton', 'bolton-adult': 'bolton', 'bolton-tots': 'bolton' },
 
     // v3.12: "Within N km" (a radius around your spot) and the bands of the by-distance calendar
     radiusOptions: [2, 5, 10, 20],

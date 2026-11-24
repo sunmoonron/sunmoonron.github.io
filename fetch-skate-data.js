@@ -735,6 +735,77 @@ const EXTERNAL_SOURCES = {
         unverified: true,      // PDF, no live feed — check before a long drive
         infoUrl: 'https://www.townofws.ca/play/recreation/programs/drop-in-programs/'
     },
+    /* ---- v3.14: Aurora and Newmarket (York Region) ---- */
+    'aurora': {
+        kind: 'aurora',
+        // The Town of Aurora posts its drop-ins as tables on one page: per arena and season a
+        // heading with the dates ("Fall 2026: September 8 to December 20, 2026"), then a row per
+        // day ("1 p.m. to 2 p.m. – Parent/Child Stick & Puck") with ">Cancelled: …" lines and
+        // holiday rows dated in full ("Monday, February 15"). Read by parseAuroraPage.
+        url: 'https://www.aurora.ca/recreation-arts-and-culture/recreation-programs-and-drop-in-activities/drop-in-activities/skating-activities/',
+        daysAhead: 28,
+        paid: true,
+        // Its own price list (same page): public skating $3.37 per person, shinny $7.23, goalies free.
+        // Stick & puck's fee is not given there.
+        programs: [
+            { match: /stick/i, price: null },
+            { match: /shinny/i, price: 7.23 },
+            { match: /./, price: 3.37 }
+        ],
+        // Ages from the page's descriptions, where the title does not say them
+        ageRules: [
+            { match: /senior/i, ageMin: 55 },
+            { match: /family shinny/i, ageMin: 6, ageMax: 10 },
+            { match: /adult|men[’']s|ladies/i, ageMin: 18 }
+        ],
+        priceNote: 'Pay at the arena: public skating $3.37, shinny $7.23 per person (goalies free)',
+        venues: {
+            'Aurora Family Leisure Complex': { match: /family leisure|a\.f\.l\.c/i, address: '135 Industrial Pkwy N', district: 'Aurora', postalCode: '', lat: 44.0080564, lng: -79.4594168 },
+            'Aurora Recreation Complex':     { match: /recreation complex|a\.r\.c/i, address: '1400 Wellington St E', district: 'Aurora', postalCode: '', lat: 44.0098616, lng: -79.4234044 }
+        },
+        district: 'Aurora',
+        unverified: true,      // a page of tables, no live feed: check before a long drive
+        infoUrl: 'https://www.aurora.ca/recreation-arts-and-culture/recreation-programs-and-drop-in-activities/drop-in-activities/skating-activities/'
+    },
+    'newmarket': {
+        kind: 'pdf',
+        layout: 'day-grid',
+        // The Town of Newmarket posts each season's public skating as a one-page PDF: per arena a
+        // line "Effective September 9 to December 19, 2026", the days across, the activities down
+        // (labels over two or three lines, two times in one cell joined by "and"). Read by
+        // parseDayGridText. The PDF's address changes each season: found on the schedules page.
+        discover: { page: 'https://www.newmarket.ca/schedules', hops: [/href="([^"]*\/media\/file\/public-skating-[^"]*drop[^"]*schedule[^"]*)"/i] },
+        pdfUrl: 'https://www.newmarket.ca/media/file/public-skating-fall-2026-drop-schedule',
+        grid: { stopAt: /Participants must|Maximum of \d+ skaters|For parents to teach/i },
+        daysAhead: 28,
+        paid: true,
+        priceNote: 'Pay at the Customer Service kiosk before the program; the fee is not on the schedule. Check in opens half an hour before',
+        venues: {
+            'Magna Centre':                   { address: '800 Mulock Dr', district: 'Newmarket', postalCode: '', lat: 44.0438385, lng: -79.4389729 },
+            'Ray Twinney Recreation Complex': { address: '100 Eagle St W', district: 'Newmarket', postalCode: '', lat: 44.0446985, lng: -79.4866557 }
+        },
+        district: 'Newmarket',
+        unverified: true,
+        infoUrl: 'https://www.newmarket.ca/schedules'
+    },
+    'newmarket-shinny': {
+        kind: 'pdf',
+        layout: 'day-grid',
+        // The same grid for shinny ("7 to 7:50 a.m. & 12:30 to 1:20 p.m."), all at the Magna Centre;
+        // the young groups go by birth year ("2017 to 2019 Shinny").
+        discover: { page: 'https://www.newmarket.ca/schedules', hops: [/href="([^"]*\/media\/file\/shinny-[^"]*drop[^"]*schedule[^"]*)"/i] },
+        pdfUrl: 'https://www.newmarket.ca/media/file/shinny-fall-2026-drop-schedule',
+        grid: { stopAt: /^\s*Shinny:|^\s*Admission:/i, venue: 'Magna Centre' },
+        daysAhead: 28,
+        paid: true,
+        priceNote: 'Full equipment and a CSA helmet; 17 and under also a mouth guard, neck guard and full face protection. Pay at the kiosk first',
+        venues: {
+            'Magna Centre': { address: '800 Mulock Dr', district: 'Newmarket', postalCode: '', lat: 44.0438385, lng: -79.4389729 }
+        },
+        district: 'Newmarket',
+        unverified: true,
+        infoUrl: 'https://www.newmarket.ca/schedules'
+    },
     'ajax': {
         kind: 'pdf',
         layout: 'weekday-lines',
@@ -3118,7 +3189,7 @@ async function fetchPdfSchedule(sourceKey, cfg) {
     }
     console.log(`   📄 ${sourceKey}: ${pdfUrl.substring(0, 110)}`);
     const text = pdfToLayoutText(await httpGetBuffer(pdfUrl));
-    const rules = cfg.layout === 'weekday-lines' ? parseWeekdayLinesText(text, cfg) : parseWeekdayGridText(text, cfg);
+    const rules = cfg.layout === 'weekday-lines' ? parseWeekdayLinesText(text, cfg) : cfg.layout === 'day-grid' ? parseDayGridText(text, cfg) : parseWeekdayGridText(text, cfg);
     if (!rules.length) throw new Error('no sessions parsed from the PDF');
     const season = parseSeasonRange(text);
     console.log(`   📋 ${rules.length} weekly rules${season ? ` (season ${season.from} → ${season.to})` : ''}: ${describeRules(rules)}`);
@@ -3454,7 +3525,7 @@ async function refreshLiveSpots() {
 }
 
 const FETCHERS = { daysmart: fetchDaySmart, perfectmind: fetchPerfectMind, activenet: fetchActiveNet, scrape: fetchScraped, pdf: fetchPdfSchedule, intelligenz: fetchIntelligenz, 'html-grid': fetchHtmlGrid, pickuphub: fetchPickupHub,
-    venue: fetchVenue, watch: fetchWatch, manual: fetchManual, 'calendar-image': fetchCalendarImage };
+    venue: fetchVenue, watch: fetchWatch, manual: fetchManual, 'calendar-image': fetchCalendarImage, aurora: fetchAurora };
 
 /* ================= Seasons, venue pages and source states (v3.12) =================
  *
@@ -3906,6 +3977,221 @@ async function fetchCalendarImage(sourceKey, cfg, { get = httpGetText, getBuf = 
         state: !records.length && behind ? 'pending' : 'ok',
         note: behind ? `Its page still shows the ${monthLabel(latest)} calendar; the next one is not up yet.` : `Read from its ${monthLabel(latest)} calendar picture.`
     };
+}
+
+/* ================= Day grids (Newmarket) and day tables (Aurora) — v3.14 ================= */
+const MONTH_NAMES = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const TIME_TO_RE = /(\d{1,2})(?::(\d{2}))?\s*(?:([ap])\.?\s*m\.?)?\s*to\s*(\d{1,2})(?::(\d{2}))?\s*([ap])\.?\s*m\.?/gi;
+const DATE_RANGE_RE = new RegExp(`(${MONTH_NAMES.join('|')})\\s+(\\d{1,2})(?:,\\s*(\\d{4}))?\\s+to\\s+(${MONTH_NAMES.join('|')})\\s+(\\d{1,2}),\\s*(\\d{4})`, 'i');
+const ymdOf = (y, m, d) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+/** Every "9 to 9:50 a.m." / "12:30 to 1:20 p.m." / "1 p.m. to 2 p.m." in a text → [{ start, end }] in 24 h. Pure. */
+function toRanges(text) {
+    const out = [];
+    const mins = (h, m, ap) => ((+h % 12) + (ap === 'p' ? 12 : 0)) * 60 + (+m || 0);
+    const hhmm = (n) => `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
+    for (const m of String(text || '').slice(0, 5000).matchAll(TIME_TO_RE)) {
+        if (+m[1] > 12 || +m[4] > 12 || +(m[2] || 0) > 59 || +(m[5] || 0) > 59) continue;
+        const eap = m[6].toLowerCase(), sap = m[3] && m[3].toLowerCase();
+        const end = mins(m[4], m[5], eap);
+        let start = mins(m[1], m[2], sap || eap);
+        if (!sap && start >= end) start = mins(m[1], m[2], eap === 'p' ? 'a' : 'p');     // "11 to 12:30 p.m." starts at 11 a.m.
+        if (start < end) out.push({ start: hhmm(start), end: hhmm(end) });
+    }
+    return out;
+}
+/** "September 9 to December 19, 2026" anywhere in a text → { from, to }. Pure. */
+function dateRangeIn(text) {
+    const m = DATE_RANGE_RE.exec(String(text || '').slice(0, 2000));
+    if (!m) return null;
+    const mo = (s) => MONTH_NAMES.indexOf(s.toLowerCase()) + 1;
+    const y2 = +m[6], m1 = mo(m[1]), m2 = mo(m[4]);
+    return { from: ymdOf(m[3] ? +m[3] : (m1 > m2 ? y2 - 1 : y2), m1, +m[2]), to: ymdOf(y2, m2, +m[5]) };
+}
+/** "January 8 & 29, February 5 & 26" inside a season → ['2027-01-08', …] (each in the season's year). Pure. */
+function datesIn(text, range) {
+    const out = [];
+    const re = new RegExp(`(${MONTH_NAMES.join('|')})\\s+(\\d{1,2}(?:\\s*(?:&|and)\\s*\\d{1,2})*)`, 'gi');
+    const y1 = +range.from.slice(0, 4), y2 = +range.to.slice(0, 4), m1 = +range.from.slice(5, 7);
+    for (const m of String(text || '').slice(0, 1000).matchAll(re)) {
+        const mo = MONTH_NAMES.indexOf(m[1].toLowerCase()) + 1;
+        const y = y1 === y2 || mo >= m1 ? y1 : y2;
+        m[2].split(/&|and/).map(d => +d.trim()).filter(d => d >= 1 && d <= 31).forEach(d => out.push(ymdOf(y, mo, d)));
+    }
+    return out;
+}
+/** Ages a label says: "18+", "6 yrs & under", "(16-17yrs)", or birth years "2017 to 2019" (in `year`). Pure. */
+function agesFromLabel(label, year) {
+    const s = String(label || '');
+    let m;
+    if ((m = /\b((?:19|20)\d\d)\s*(?:to|-|–)\s*((?:19|20)\d\d)\b/.exec(s))) return { ageMin: year - +m[2], ageMax: year - +m[1] };
+    if ((m = /\b(\d{1,2})\s*(?:yrs?|years?)?\s*(?:-|–|to)\s*(\d{1,2})\s*(?:yrs?|years?)/i.exec(s))) return { ageMin: +m[1], ageMax: +m[2] };
+    if ((m = /\b(\d{1,2})\s*(?:yrs?|years?)\s*(?:&|and)\s*under/i.exec(s))) return { ageMin: null, ageMax: +m[1] };
+    if ((m = /\b(\d{1,2})\s*\+/.exec(s))) return { ageMin: +m[1], ageMax: null };
+    return { ageMin: null, ageMax: null };
+}
+
+/**
+ * Newmarket's PDF grids (layout text) → weekly rules. Per arena a line with "Effective <dates>"
+ * (and the arena's name, else cfg.grid.venue); a line with the seven day names fixes the columns;
+ * below it, activity labels on the left (often over two or three lines) and times in the day
+ * columns, two times in one cell joined by "and" or "&". A cell belongs to the label nearest
+ * its own middle line. Parsing stops at cfg.grid.stopAt. Pure.
+ */
+function parseDayGridText(text, cfg) {
+    const lines = String(text || '').slice(0, 200000).replace(/\t/g, '    ').split('\n');
+    const venueNames = Object.keys(cfg.venues || {});
+    const rules = [];
+    let block = null;
+    const flush = () => { if (block && block.centres) rules.push(...dayGridRules(block, cfg)); block = null; };
+    for (let y = 0; y < lines.length; y++) {
+        const line = lines[y];
+        if (cfg.grid && cfg.grid.stopAt && cfg.grid.stopAt.test(line)) { flush(); break; }
+        if (/effective/i.test(line)) {
+            const range = dateRangeIn(line);
+            if (range) {
+                flush();
+                block = { venue: venueNames.find(v => line.toLowerCase().includes(v.toLowerCase())) || (cfg.grid && cfg.grid.venue) || null, ...range, centres: null, rows: [] };
+                continue;
+            }
+        }
+        if (!block) continue;
+        const at = WEEK_DAYS.map(d => line.indexOf(d));
+        if (at.every(i => i >= 0)) { block.centres = at.map((x, i) => x + WEEK_DAYS[i].length / 2); continue; }
+        if (block.centres && line.trim()) block.rows.push({ y, line });
+    }
+    flush();
+    return rules;
+}
+function dayGridRules(b, cfg) {
+    const width = (b.centres[6] - b.centres[0]) / 6;
+    const labelEdge = b.centres[0] - width / 2;
+    const isTime = (s) => /\d\s*[ap]\.?\s*m\b|\d\s*[ap]\.?\s*m\./i.test(s);
+    const labels = [], cols = b.centres.map(() => []);
+    for (const { y, line } of b.rows) {
+        for (const m of line.matchAll(/\S+(?: \S+)*/g)) {
+            const mid = m.index + m[0].length / 2, tok = m[0];
+            if (isTime(tok) || /^(?:and|&)$/i.test(tok)) {
+                let c = 0;
+                b.centres.forEach((x, i) => { if (Math.abs(x - mid) < Math.abs(b.centres[c] - mid)) c = i; });
+                cols[c].push({ y, tok });
+            } else if (mid < labelEdge) labels.push({ y, tok });
+        }
+    }
+    // cells: tokens of one column joined by "and" / "&" are one cell
+    const cells = [];
+    cols.forEach((list, c) => {
+        let cur = null;
+        list.forEach((t, i) => {
+            const joiner = /^(?:and|&)$/i.test(t.tok);
+            const prevJoins = i > 0 && /^(?:and|&)$/i.test(list[i - 1].tok);
+            if (cur && (joiner || prevJoins)) { cur.toks.push(t.tok); cur.y2 = t.y; return; }
+            cur = { c, y1: t.y, y2: t.y, toks: [t.tok] };
+            cells.push(cur);
+        });
+    });
+    const real = cells.map(x => ({ ...x, mid: (x.y1 + x.y2) / 2, ranges: toRanges(x.toks.join(' ')) })).filter(x => x.ranges.length);
+    // rows: the middle lines of the cells (cells of one row share it), then each label piece joins the nearest row
+    const anchors = [];
+    [...new Set(real.map(x => x.mid))].sort((a, z) => a - z).forEach(m => { const last = anchors[anchors.length - 1]; if (last != null && m - last <= 1.5) return; anchors.push(m); });
+    const near = (y) => anchors.reduce((best, a) => (Math.abs(a - y) < Math.abs(best - y) ? a : best), anchors[0]);
+    const labelOf = new Map();
+    labels.forEach(l => { const a = near(l.y); if (a == null || Math.abs(a - l.y) > 2.5) return; labelOf.set(a, [...(labelOf.get(a) || []), l.tok]); });
+    const year = +String(b.from || '').slice(0, 4) || new Date().getFullYear();
+    const out = [];
+    real.forEach(x => {
+        const label = (labelOf.get(near(x.mid)) || []).join(' ').replace(/\s+/g, ' ').trim();
+        if (!label) return;
+        const cls = applyProgramRules(cfg, label.replace(/\s*\b\d{1,2}\s*(?:yrs?|years?)\s*(?:&|and)\s*under\b/i, '').trim());
+        if (!cls) return;
+        const ages = agesFromLabel(label, year);
+        x.ranges.forEach(r => out.push({ venue: b.venue, activity: cls.activity, weekday: WEEK_DAYS[x.c], start: r.start, end: r.end,
+            ageMin: cls.ageMin ?? ages.ageMin, ageMax: cls.ageMax ?? ages.ageMax, price: cls.price, from: b.from, to: b.to }));
+    });
+    return out;
+}
+
+/**
+ * Aurora's skating page → weekly rules (and one-off dated ones). Each <h3> with a date range opens a
+ * season; "Location - …" names the arena; each table row is a day ("Sunday", or "Monday, February 15")
+ * and lines "1 p.m. to 2 p.m. – Activity", each optionally followed by ">Cancelled: dates". A line
+ * starting with a date ("Sunday, October 25 - 10 a.m. to 12 p.m. Halloween Public Skate") is that
+ * day only, in place of the weekly one at that time. "*FREE …" makes the starred sessions free. Pure.
+ */
+function parseAuroraPage(html, cfg) {
+    const src = String(html || '').slice(0, 3000000).replace(/<!--[\s\S]*?-->/g, ' ').replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, ' ');
+    const text = (s) => s.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&#8211;|&ndash;/g, '–').replace(/&#8217;|&rsquo;/g, '’').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
+    const venues = Object.entries(cfg.venues || {});
+    const ageRule = (name) => (cfg.ageRules || []).find(r => r.match.test(name)) || {};
+    const rules = [];
+    const parts = src.split(/<h3\b[^>]*>/i).slice(1);
+    for (const part of parts) {
+        const end = part.indexOf('</h3>');
+        if (end < 0) continue;
+        const head = text(part.slice(0, end));
+        if (!/drop-?ins?/i.test(head)) continue;
+        const range = dateRangeIn(head);
+        if (!range) continue;
+        const body = part.slice(end);
+        const loc = /Location\s*-\s*([^<]{3,120})/i.exec(body);
+        const venue = loc ? (venues.find(([, v]) => v.match.test(loc[1])) || [])[0] : null;
+        if (!venue) continue;
+        const year = +range.from.slice(0, 4);
+        const weekly = [];
+        for (const tr of body.match(/<tr\b[\s\S]*?<\/tr>/gi) || []) {
+            const tds = tr.match(/<td\b[^>]*>[\s\S]*?<\/td>/gi) || [];
+            if (tds.length < 2) continue;
+            const dayCell = text(tds[0]);
+            const wd = WEEK_DAYS.find(d => dayCell.toLowerCase().startsWith(d.toLowerCase()));
+            if (!wd) continue;                                         // the "Day / Time & Activity" header
+            const dated = datesIn(dayCell, range)[0] || null;          // "Monday, February 15": that day only
+            const lines = tds[1].split(/<\/p>|<br\s*\/?>/i).map(text).filter(Boolean);
+            const free = lines.some(l => /^\*\s*free\b/i.test(l));
+            let last = [], marked = [];     // a line ending in ">" is one the next "Cancelled:" line applies to
+            for (const line of lines) {
+                if (/^>?\s*cancell?ed\s*:/i.test(line)) {
+                    const skip = datesIn(line, range);
+                    (marked.length ? marked : last).forEach(r => r.except.push(...skip));
+                    marked = [];
+                    continue;
+                }
+                const oneOff = new RegExp(`^(${WEEK_DAYS.join('|')}),\\s*(${MONTH_NAMES.join('|')})\\s+\\d{1,2}\\b`, 'i').exec(line);
+                const span = toRanges(line);
+                if (!span.length) continue;                            // notes
+                const name = line.replace(TIME_TO_RE, ' ').replace(/^.*?[–-]\s*/, '').replace(new RegExp(`^(${WEEK_DAYS.join('|')}),\\s*\\S+\\s+\\d{1,2}\\s*`, 'i'), '')
+                    .replace(/[^\p{L}\p{N})+]+$/u, '').replace(/^[^\p{L}\p{N}(]+/u, '').replace(/\s+/g, ' ').trim();
+                if (!name) continue;
+                const cls = applyProgramRules(cfg, name);
+                if (!cls) continue;
+                const ages = agesFromLabel(name, year), ar = ageRule(name);
+                const day = oneOff ? datesIn(oneOff[0], range)[0] : dated;
+                const made = span.map(r => ({ venue, activity: cls.activity, weekday: oneOff ? WEEK_DAYS.find(d => d.toLowerCase() === oneOff[1].toLowerCase()) : wd, start: r.start, end: r.end,
+                    ageMin: cls.ageMin ?? ages.ageMin ?? ar.ageMin ?? null, ageMax: cls.ageMax ?? ages.ageMax ?? ar.ageMax ?? null,
+                    price: free && /\*/.test(line) ? 0 : cls.price, from: day || range.from, to: day || range.to, except: [] }));
+                if (day) {
+                    // that day only: the weekly session at the same time gives way to it
+                    made.forEach(r => weekly.filter(w => w.weekday === r.weekday && w.start === r.start && !w.single).forEach(w => w.except.push(day)));
+                    made.forEach(r => { r.single = true; });
+                }
+                rules.push(...made);
+                weekly.push(...made);
+                last = made;
+                if (/>\s*\*?\s*$/.test(line)) marked.push(...made);
+            }
+        }
+    }
+    return rules.map(({ single, ...r }) => r);
+}
+
+/** kind 'aurora': the Town of Aurora's skating page → dated sessions. */
+async function fetchAurora(sourceKey, cfg, { get = httpGetText } = {}) {
+    const rules = parseAuroraPage(await get(cfg.url), cfg);
+    if (!rules.length) { const e = new Error('no drop-in tables found on the page'); e.code = 'EMPTY'; throw e; }
+    console.log(`   📋 ${rules.length} rules: ${describeRules(rules)}`);
+    const records = expandWeekly(cfg, sourceKey, rules);
+    console.log(`   ✅ ${sourceKey}: ${records.length} sessions over next ${cfg.daysAhead} days`);
+    return records;
 }
 
 /** What the last full run recorded per source (meta.json). */
@@ -5042,6 +5328,7 @@ module.exports = { parseLendingPage, parseLendingTime, parseLendingDate, lending
     parseNaturalIcePage, winterOf, fetchNaturalIce, fetchVenue, stripHtml,
     fetchExternalSources, networkUp, waitForNetwork, settleNetwork, errorText, neverAnswered, sourceSite, keptResult, fetchManual, sitemapLastmod,
     calendarPictures, checkCalendarReading, fetchCalendarImage,
+    toRanges, dateRangeIn, datesIn, agesFromLabel, parseDayGridText, parseAuroraPage, fetchAurora,
     seasonPhase, readSource, sourceMeta, venueRecords, manualRecords, runReader, foldTwinRinks, markSuperseded, sentenceFrom, rinkSeasonal, RINK_AKA, RINK_TWINS,
     verifyReading, readAlerts, fetchAlerts, readerKey, readerWants, readerUserMessage, readerCreds, readerTiers, readerErrorKind, readerScrub, READER_SCHEMA, READER_VERSION, inferKinds, inOutdoorLull };
 

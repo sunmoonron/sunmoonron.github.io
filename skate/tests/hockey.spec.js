@@ -1,35 +1,41 @@
-// Hockey by kind (v3.12.2, one tap since v3.12.3): Any, Pickup (shinny) or Stick & puck,
-// read from each session's title. The age groups under it count only the kind picked, and
-// an age group with nothing in it is not offered. Every project: desktop and phone, light
-// and dark. The suite's fixture data has one more hockey session: "Shinny: Adult" today.
+// Hockey by kind (v3.14): two ticks under Hockey, Pickup (shinny) and Stick & puck, both on
+// when Hockey is on; untick one to hide its sessions. The age groups under it count the kinds
+// ticked, an empty age group is not shown, and every number follows the cities and Free only.
+// Every project: desktop and phone, light and dark. The suite's own data has one more hockey
+// session: "Shinny: Adult" today in Toronto.
 const { test, expect, row, dayPlus } = require('./fixtures');
 
 const HOCKEY = [
-    { activity: 'Stick & Puck' },                                          // no ages given: All ages
-    { activity: 'Drop-In Stick & Puck (16+)', ageMin: 16 },                // Adult
-    { activity: 'Stick and Puck: Youth', ageMin: 13, ageMax: 17 },         // Youth
-    { activity: 'Pick Up Hockey: Adults', ageMin: 18 },                    // Adult
-    { activity: 'Shinny: Youth', ageMin: 13, ageMax: 17 },                 // Youth
-    { activity: 'Shinny: Older Adult', ageMin: 55 },                       // Older adult: pickup only
-    { activity: 'Drop-in Stick & Ring' }                                   // ringette's own drill, not hockey
+    { activity: 'Stick & Puck' },                                          // Toronto, all ages
+    { activity: 'Drop-In Stick & Puck (16+)', ageMin: 16 },                // Toronto, adult
+    { activity: 'Stick and Puck: Youth', ageMin: 13, ageMax: 17 },         // Toronto, youth
+    { activity: 'Pick Up Hockey: Adults', ageMin: 18 },                    // Toronto, adult
+    { activity: 'Shinny: Youth', ageMin: 13, ageMax: 17 },                 // Toronto, youth
+    { activity: 'Shinny: Older Adult', ageMin: 55 },                       // Toronto, older adult: pickup only
+    { activity: 'Drop-in Stick & Ring' },                                  // ringette's own drill, not hockey
+    { activity: 'Stick & Puck', source: 'mississauga' },                   // Mississauga
+    { activity: 'Stick & Puck', source: 'canlan-york', paid: true, price: 12 }   // Toronto, paid
 ];
 function addHockey(app) {
     const programs = app.data['skating-programs.json'].programs;
     HOCKEY.forEach((o, i) => programs.push(row({ id: `h${i}`, loc: 300, rink: 'Warning Arena', district: 'Scarborough', date: dayPlus(1), start: `${String(8 + i).padStart(2, '0')}:00`, end: `${String(8 + i).padStart(2, '0')}:50`, ...o })));
 }
-const hockeyOn = (page) => page.addInitScript(() => {
-    if (sessionStorage.getItem('seeded')) return;              // the first load only
+/** Saved settings for the first load only. */
+const seed = (page, patch) => page.addInitScript((p) => {
+    if (sessionStorage.getItem('seeded')) return;
     sessionStorage.setItem('seeded', '1');
     const s = JSON.parse(localStorage.getItem('skate_settings_v1') || '{}');
-    s.typeSel = { ...(s.typeSel || {}), hockey: 'all' };
+    Object.assign(s, p);
     localStorage.setItem('skate_settings_v1', JSON.stringify(s));
-});
+}, patch);
 /** The hockey-ish titles the list would show right now (the app's own filtered set). */
 const shown = (page) => page.evaluate(() => SkateApp.S.filtered.map(p => p.Activity).filter(a => /shinny|hockey|stick|puck/i.test(a)).sort());
 const pill = (page) => page.locator('#active-filters .pill.type[data-pill="type:hockey"]');
-const kindChip = (page, id) => page.locator(`#filters-body .fchip[data-kind-chip="${id}"]`);
+const kind = (page, id) => page.locator(`#filters-body input[data-kind="${id}"]`);
+const hockeyBox = (page) => page.locator('#filters-body input[data-type="hockey"]:not([data-sub])');
 /** Age groups offered under Hockey, as "label count". */
 const agesOffered = (page) => page.locator('#filters-body input[data-type="hockey"][data-sub]').evaluateAll(els => els.map(e => { const l = e.closest('label'); return `${l.querySelector('.fcheck-label').textContent} ${l.querySelector('.fcount').textContent}`; }));
+const count = (page, sel) => page.locator(`#filters-body ${sel} .fcount`).first();
 async function openHockey(page) {
     await page.click('#btn-filters');
     await expect(page.locator('#filters-modal')).toBeVisible();
@@ -39,100 +45,102 @@ async function openHockey(page) {
 }
 
 test.describe('hockey by kind', () => {
-    test('one tap on a kind shows only that hockey; the ages count that kind and empty ones are hidden', async ({ page, app }) => {
+    test('ticks like everything else: Hockey on ticks both; untick one and only the other shows', async ({ page, app }) => {
         addHockey(app);
         await app.open();
         await openHockey(page);
-        await expect(page.locator('#filters-body .fkinds .fchip')).toHaveText([/^Any\s*7$/, /^Pickup \(shinny\)\s*4$/, /^Stick & puck\s*3$/]);   // no "Other hockey"
-        await expect(page.locator('#filters-body .fkinds .fchip.active')).toHaveCount(0);   // Hockey is off in the suite's defaults
-        await kindChip(page, 'stickpuck').click();                                        // one tap: Hockey on, just stick & puck
-        await expect(kindChip(page, 'stickpuck')).toHaveAttribute('aria-pressed', 'true');
-        await expect(kindChip(page, 'any')).toHaveAttribute('aria-pressed', 'false');
-        await expect(page.locator('input[data-type="hockey"]:not([data-sub])')).toBeChecked();
-        expect(await shown(page)).toEqual(['Drop-In Stick & Puck (16+)', 'Drop-in Stick & Ring', 'Stick & Puck', 'Stick and Puck: Youth']);   // Stick & Ring is ringette, which is on
-        await expect(page.locator('#filters-body .fsubs-head')).toHaveText(['Kind', 'Ages in stick & puck']);
-        expect(await agesOffered(page)).toEqual(['All ages 1', 'Youth 1', 'Adult 1']);
-
-        await kindChip(page, 'pickup').click();                                           // the ages follow the kind
-        expect(await agesOffered(page)).toEqual(['Youth 1', 'Adult 2', 'Older adult 55+ 1']);
-        await kindChip(page, 'any').click();
+        await expect(page.locator('#filters-body .fchip[data-kind-chip], #filters-body .fkinds')).toHaveCount(0);   // no bubbles, no "Any"
         await expect(page.locator('#filters-body .fsubs-head')).toHaveText(['Kind', 'Ages']);
-        expect(await agesOffered(page)).toEqual(['All ages 1', 'Youth 2', 'Adult 3', 'Older adult 55+ 1']);
+        await expect(kind(page, 'pickup')).not.toBeChecked();                       // Hockey is off in the suite's defaults
+        await hockeyBox(page).check();
+        await expect(kind(page, 'pickup')).toBeChecked();
+        await expect(kind(page, 'stickpuck')).toBeChecked();
+        expect(await shown(page)).toEqual(['Drop-In Stick & Puck (16+)', 'Drop-in Stick & Ring', 'Pick Up Hockey: Adults', 'Shinny: Adult', 'Shinny: Older Adult', 'Shinny: Youth', 'Stick & Puck', 'Stick & Puck', 'Stick and Puck: Youth']);
+        await kind(page, 'pickup').uncheck();
+        expect(await shown(page)).toEqual(['Drop-In Stick & Puck (16+)', 'Drop-in Stick & Ring', 'Stick & Puck', 'Stick & Puck', 'Stick and Puck: Youth']);
+        await expect(page.locator('#filters-body .fsubs-head')).toHaveText(['Kind', 'Ages in stick & puck']);
+        expect(await agesOffered(page)).toEqual(['All ages 2', 'Youth 1', 'Adult 1']);   // no older adults in stick & puck: not offered
+        await kind(page, 'pickup').check();
+        expect(await agesOffered(page)).toEqual(['All ages 2', 'Youth 2', 'Adult 3', 'Older adult 55+ 1']);
+        await kind(page, 'stickpuck').uncheck();
+        expect(await shown(page)).toEqual(['Drop-in Stick & Ring', 'Pick Up Hockey: Adults', 'Shinny: Adult', 'Shinny: Older Adult', 'Shinny: Youth']);
+        await kind(page, 'pickup').uncheck();                                       // neither: Hockey is off
+        await expect(hockeyBox(page)).not.toBeChecked();
+        await page.keyboard.press('Escape');
+        await expect(pill(page)).toHaveCount(0);
         await app.noErrors();
     });
 
-    test('kind and ages together, remembered; an age with nothing in the new kind is let go', async ({ page, app }) => {
+    test('with Hockey off, ticking one kind turns Hockey on with just that one; remembered', async ({ page, app }) => {
         addHockey(app);
         await app.open();
         await openHockey(page);
-        await kindChip(page, 'pickup').click();
-        for (const id of ['youth', 'adult']) await page.locator(`input[data-type="hockey"][data-sub="${id}"]`).uncheck();   // Older adult only
-        expect(await shown(page)).toEqual(['Drop-in Stick & Ring', 'Shinny: Older Adult']);
-        await kindChip(page, 'stickpuck').click();                                        // no older adults there: every age again
-        expect(await shown(page)).toEqual(['Drop-In Stick & Puck (16+)', 'Drop-in Stick & Ring', 'Stick & Puck', 'Stick and Puck: Youth']);
-        await page.locator('input[data-type="hockey"][data-sub="all"]').uncheck();
-        await page.locator('input[data-type="hockey"][data-sub="adult"]').uncheck();      // Youth only
-        expect(await shown(page)).toEqual(['Drop-in Stick & Ring', 'Stick and Puck: Youth']);
+        await kind(page, 'stickpuck').check();
+        await expect(hockeyBox(page)).toBeChecked();
+        await expect(kind(page, 'pickup')).not.toBeChecked();
         await page.keyboard.press('Escape');
-        await expect(pill(page)).toContainText('Hockey: Stick & puck, Youth');
-        await app.open();                                                                 // remembered across a reload
-        await expect(pill(page)).toContainText('Hockey: Stick & puck, Youth');
-        expect(await shown(page)).toEqual(['Drop-in Stick & Ring', 'Stick and Puck: Youth']);
+        await expect(pill(page)).toContainText('Hockey: Stick & puck');
+        await app.open();
+        await expect(pill(page)).toContainText('Hockey: Stick & puck');
+        expect(await shown(page)).toEqual(['Drop-In Stick & Puck (16+)', 'Drop-in Stick & Ring', 'Stick & Puck', 'Stick & Puck', 'Stick and Puck: Youth']);
         await app.noErrors();
     });
 
-    test('the Hockey pill menu: one kind at a time (●), the ages below follow it', async ({ page, app }) => {
+    test('an age with nothing in the kind left ticked is let go', async ({ page, app }) => {
         addHockey(app);
-        await hockeyOn(page);
+        await seed(page, { typeSel: { hockey: ['older'] } });
+        await app.open();
+        await openHockey(page);
+        expect(await shown(page)).toEqual(['Shinny: Older Adult']);                 // only hockey is on in this profile
+        await kind(page, 'pickup').uncheck();                                       // stick & puck has no older adults: every age again
+        expect(await shown(page)).toEqual(['Drop-In Stick & Puck (16+)', 'Stick & Puck', 'Stick & Puck', 'Stick and Puck: Youth']);
+        await app.noErrors();
+    });
+
+    test('the Hockey pill menu: a tick per kind, both on, no "Any"', async ({ page, app }) => {
+        addHockey(app);
+        await seed(page, { typeSel: { hockey: 'all' } });
         await app.open();
         await pill(page).click();
-        await expect(page.locator('.popover .popover-title')).toHaveText('Hockey: kind and age');
         const texts = async () => (await page.locator('.popover .popover-item').allTextContents()).map(t => t.replace(/[ \s]+/g, ' ').trim());
-        expect((await texts()).slice(0, 4)).toEqual(['● Any kind · 7', '○ Pickup (shinny) · 4', '○ Stick & puck · 3', '✓ Every age group · 7']);
-        await expect(page.locator('.popover .popover-item').nth(3)).toHaveClass(/popover-sep/);
-        await page.locator('.popover .popover-item', { hasText: 'Stick & puck' }).click();
+        expect((await texts()).slice(0, 3)).toEqual(['✓ Pickup (shinny) · 4', '✓ Stick & puck · 4', '✓ Every age group · 8']);
+        await page.locator('.popover .popover-item', { hasText: 'Pickup (shinny)' }).click();
         await expect(pill(page)).toContainText('Hockey: Stick & puck');
-        expect(await texts()).toEqual(['○ Any kind · 7', '○ Pickup (shinny) · 4', '● Stick & puck · 3', '✓ Every age group · 3', '✓ All ages · 1', '✓ Youth · 1', '✓ Adult · 1']);
-        await page.locator('.popover .popover-item', { hasText: 'Any kind' }).click();
+        expect((await texts()).slice(0, 2)).toEqual(['Pickup (shinny) · 4', '✓ Stick & puck · 4']);
+        await page.locator('.popover .popover-item', { hasText: 'Pickup (shinny)' }).click();
         await expect(pill(page)).toHaveText(/^Hockey\s*▾?\s*✕?$/);
-        expect(await shown(page)).toEqual(expect.arrayContaining(['Pick Up Hockey: Adults', 'Shinny: Youth', 'Stick & Puck']));
         await app.noErrors();
     });
 
-    test('turning Hockey off forgets the kind; Clear does too; nothing overflows', async ({ page, app }) => {
+    test('the numbers follow the cities and Free only; a pick with nothing left stays at 0', async ({ page, app }) => {
         addHockey(app);
+        await seed(page, { typeSel: { hockey: 'all' }, cities: ['Toronto'] });
         await app.open();
         await openHockey(page);
-        await kindChip(page, 'pickup').click();
-        expect(await page.evaluate(() => { const b = document.getElementById('filters-body'); return [b.scrollWidth <= b.clientWidth + 1, document.documentElement.scrollWidth <= innerWidth + 1]; })).toEqual([true, true]);
-        const cat = page.locator('#filters-body input[data-type="hockey"]:not([data-sub])');
-        await cat.uncheck();
-        expect(await page.evaluate(() => [SkateApp.S.kinds, JSON.parse(localStorage.getItem('skate_settings_v1')).hockeyKinds])).toEqual([null, null]);
-        await cat.check();
-        await expect(kindChip(page, 'any')).toHaveAttribute('aria-pressed', 'true');
-        await kindChip(page, 'stickpuck').click();
-        await page.keyboard.press('Escape');
-        await expect(pill(page)).toContainText('Hockey: Stick & puck');
-        await page.evaluate(() => SkateApp.Actions.resetFilters());
-        expect(await page.evaluate(() => SkateApp.S.kinds)).toBeNull();
-        await expect(pill(page)).toHaveCount(0);
+        await expect(count(page, '.fcat.type-hockey')).toHaveText('8');            // Toronto: seven of ours plus "Shinny: Adult"
+        await expect(page.locator('#filters-body .fcheck', { hasText: 'Free sessions only' })).toContainText('hides 1 paid');
+        await page.locator('input[data-flag="free"]').check();
+        await expect(count(page, '.fcat.type-hockey')).toHaveText('7');            // the paid one is out of the count too
+        await expect(kind(page, 'stickpuck').locator('xpath=..')).toContainText('3');
+        await expect(page.locator('#filters-body .fchip[data-city="Mississauga"]')).toHaveText(/Mississauga · \d+/);
+        await page.locator('#filters-body .fchip[data-city="Mississauga"]').click();
+        await page.locator('#filters-body .fchip[data-city="Toronto"]').click();    // Mississauga alone
+        await expect(count(page, '.fcat.type-hockey')).toHaveText('1');
+        await expect(kind(page, 'pickup')).toHaveCount(0);                          // one kind of hockey there: nothing to choose
+        await page.evaluate(() => SkateApp.Actions.setType('figure', null, true));
+        await page.evaluate(() => SkateApp.Actions.setCities(['Pickering']));      // nothing of ours there
+        await expect(page.locator('#filters-body .fcat.type-hockey')).toBeVisible(); // picked, 0: still shown so it can be unticked
+        await expect(count(page, '.fcat.type-hockey')).toHaveText('0');
         await app.noErrors();
     });
 
     test('a stored kind that is not one kind is ignored', async ({ page, app }) => {
         addHockey(app);
-        await page.addInitScript(() => {
-            if (sessionStorage.getItem('seeded')) return;
-            sessionStorage.setItem('seeded', '1');
-            const s = JSON.parse(localStorage.getItem('skate_settings_v1') || '{}');
-            s.typeSel = { ...(s.typeSel || {}), hockey: 'all' };
-            s.hockeyKinds = ['<img src=x onerror=alert(1)>', 'stickpuck', 'stickpuck'];
-            localStorage.setItem('skate_settings_v1', JSON.stringify(s));
-        });
+        await seed(page, { typeSel: { hockey: 'all' }, hockeyKinds: ['<img src=x onerror=alert(1)>', 'stickpuck', 'stickpuck'] });
         await app.open();
         expect(await page.evaluate(() => SkateApp.S.kinds)).toEqual(['stickpuck']);
         await expect(pill(page)).toContainText('Hockey: Stick & puck');
-        for (const bad of [['pickup', 'stickpuck'], ['other'], 'stickpuck']) {           // v3.12.2 kept several; one at a time now
+        for (const bad of [['pickup', 'stickpuck'], ['other'], 'stickpuck']) {
             await page.evaluate((v) => { const s = JSON.parse(localStorage.getItem('skate_settings_v1')); s.hockeyKinds = v; localStorage.setItem('skate_settings_v1', JSON.stringify(s)); }, bad);
             await app.open();
             expect(await page.evaluate(() => SkateApp.S.kinds)).toBeNull();

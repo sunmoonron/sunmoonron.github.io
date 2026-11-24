@@ -611,7 +611,7 @@ window.SkateApp = (() => {
             if (sel !== 'all') parts.push(sel.length === 1 ? SUB_LABEL(sel[0]) : `${SUB_LABEL(sel[0])} +${sel.length - 1}`);
             pills.push({ key: `type:${cat}`, label: `${CAT_LABEL(cat)}${parts.length ? ': ' + parts.join(', ') : ''}`, ages: subsPresentFor(cat).length > 1 || (cat === 'hockey' && kindsPresent().length > 1) });
         });
-        const present = otherMembersPresent();
+        const present = otherMembersAll();
         const onMembers = present.filter(c => S.types[c]);
         if (onMembers.length) {
             const partial = onMembers.length < present.length;
@@ -699,27 +699,46 @@ window.SkateApp = (() => {
 
     /* ---------- Filters sheet ---------- */
     /** Counts by category / sub-type / city over the dataset (dropped City sessions excluded unless shown). */
+    /**
+     * The Filters sheet's numbers (v3.14: they follow your other filters). The kinds and their
+     * ages count what they would show with your cities, Free only, the day, the search, your
+     * rinks, the distance and your age as they are now; the cities count with your kinds and
+     * the rest. `paid` is how many paid sessions Free only hides. Cached per filter state.
+     */
+    let facetMemo = null;
+    const facetKey = () => [S.programs.length, S.programs.length ? S.programs[0]._id : '', JSON.stringify(S.types), JSON.stringify(S.kinds), S.cities.join(','),
+        S.day, S.age, S.savedOnly ? SkateFavorites.count() : '', S.rinkScope, (SkateSettings.get('myRinks') || []).join(','), S.nearRink ? S.nearRink.key : '',
+        S.radius, (SkateGeo.getUserLocation() || {}).ts, S.search, S.showPast, S.showDropped, S.paidVisible, SkateAlerts.checkedAt, Math.floor(Date.now() / 60000)].join('\u0001');
     function filterFacets() {
+        const key = facetKey();
+        if (facetMemo && facetMemo.key === key) return facetMemo.f;
+        const c = filterChecks();
         const cats = {}, cities = {};
         let paid = 0;
-        S.programs.forEach(p => {
-            if (!S.showDropped && SkateAlerts.isDropped(p)) return;
-            const c = P.category(p), st = P.subType(p);
-            (cats[c] ||= { n: 0, subs: {} });
-            cats[c].n++;
-            cats[c].subs[st] = (cats[c].subs[st] || 0) + 1;
-            if (c === 'hockey') {
-                const k = P.hockeyKind(p);
-                (cats[c].kinds ||= {})[k] = (cats[c].kinds[k] || 0) + 1;
-                const by = ((cats[c].subsBy ||= {})[k] ||= {});           // v3.12.3: the ages inside each kind
-                by[st] = (by[st] || 0) + 1;
+        for (const p of S.programs) {
+            if (!c.rest(p)) continue;
+            const t = c.type(p), ci = c.city(p), pv = c.paid(p);
+            if (ci && pv) {
+                const k = P.category(p), st = P.subType(p);
+                const f = (cats[k] ||= { n: 0, subs: {} });
+                f.n++;
+                f.subs[st] = (f.subs[st] || 0) + 1;
+                if (k === 'hockey') {
+                    const kd = P.hockeyKind(p);
+                    (f.kinds ||= {})[kd] = (f.kinds[kd] || 0) + 1;
+                    const by = ((f.subsBy ||= {})[kd] ||= {});            // the ages inside each kind
+                    by[st] = (by[st] || 0) + 1;
+                }
             }
-            const city = P.city(p);
-            cities[city] = (cities[city] || 0) + 1;
-            if (p.Paid) paid++;
-        });
-        return { cats, cities, paid };
+            if (t && pv) { const city = P.city(p); cities[city] = (cities[city] || 0) + 1; }
+            if (t && ci && p.Paid) paid++;
+        }
+        const f = { cats, cities, paid };
+        facetMemo = { key, f };
+        return f;
     }
+    /** Cities as offered: those with sessions under your other filters, and any already picked. */
+    const citiesShown = (f) => { const o = { ...f.cities }; S.cities.forEach(c => { if (!(c in o)) o[c] = 0; }); return o; };
     const cityKeys = (cities) => Object.keys(cities).sort((a, b) => {
         const ia = CFG.cityOrder.indexOf(a), ib = CFG.cityOrder.indexOf(b);
         return ((ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib)) || a.localeCompare(b);
@@ -733,8 +752,8 @@ window.SkateApp = (() => {
     const kindsPresent = () => { const f = filterFacets().cats.hockey; return f && f.kinds ? CFG.hockeyKinds.map(k => k.id).filter(id => id !== 'other' && f.kinds[id]) : []; };
     /** The one hockey kind picked, or '' for any (v3.12.3). */
     const kindNow = () => (S.types.hockey && Array.isArray(S.kinds) && S.kinds.length === 1 ? S.kinds[0] : '');
-    /** A category's age counts: for hockey with a kind picked, the ages inside that kind. */
-    const ageCounts = (cat, facet) => (cat === 'hockey' && kindNow() && facet.subsBy ? (facet.subsBy[kindNow()] || {}) : facet.subs);
+    /** A category's age counts: for hockey with one kind ticked, the ages inside that kind. */
+    const ageCounts = (cat, facet) => (cat === 'hockey' && kindNow() ? ((facet.subsBy || {})[kindNow()] || {}) : (facet.subs || {}));
     /** The age groups worth offering: those with sessions (in the kind picked), and any already picked. */
     const agesShown = (cat, facet) => {
         const n = ageCounts(cat, facet), sel = S.types[cat];
@@ -749,6 +768,13 @@ window.SkateApp = (() => {
     const OTHER_GROUP = ['other', 'adapted', 'ringette', 'speed'];
     const OTHER_KEY = '__other';
     const otherMembersPresent = () => { const f = filterFacets().cats; return OTHER_GROUP.filter(c => f[c]); };
+    /* v3.14: the Other kinds in the data at all, whatever the other filters. Turning Other on or off
+       moves all of them, so a city picked later never finds half of Other switched off. */
+    let otherAllMemo = null;
+    const otherMembersAll = () => {
+        if (!otherAllMemo || otherAllMemo.of !== S.programs) { const seen = new Set(S.programs.map(p => P.category(p))); otherAllMemo = { of: S.programs, list: OTHER_GROUP.filter(c => seen.has(c)) }; }
+        return otherAllMemo.list;
+    };
 
     Render.filters = function () {
         const f = filterFacets();
@@ -766,12 +792,12 @@ window.SkateApp = (() => {
 
         /** One category row (+ its age groups) appended to `host`. */
         const typeRow = (cat, host) => {
-            const facet = f.cats[cat.id];
-            if (!facet) return;                                     // not in this dataset
+            const facet = f.cats[cat.id] || (S.types[cat.id] ? { n: 0, subs: {} } : null);
+            if (!facet) return;                                     // nothing of it under your other filters (v3.14: picked ones stay, at 0)
             const sel = S.types[cat.id];
             const subsPresent = agesShown(cat.id, facet);
             const ageN = ageCounts(cat.id, facet);
-            const kindsHere = cat.id === 'hockey' && facet.kinds ? CFG.hockeyKinds.filter(k => k.id !== 'other' && facet.kinds[k.id]) : [];
+            const kindsHere = cat.id === 'hockey' ? CFG.hockeyKinds.filter(k => k.id !== 'other' && ((facet.kinds || {})[k.id] || (Array.isArray(S.kinds) && S.kinds.includes(k.id)))) : [];
             const hasKinds = kindsHere.length > 1, hasAges = subsPresent.length > 1;
             const hasSubs = hasAges || hasKinds;
             const what = hasKinds ? (hasAges ? 'Kind & ages' : 'Kind') : 'Ages';
@@ -787,14 +813,13 @@ window.SkateApp = (() => {
             if (hasSubs) {
                 const subs = el('div', { class: 'fsubs' + (open ? '' : ' hidden') });
                 if (hasKinds) {
-                    // one tap picks the kind (v3.12.3): Any, Pickup (shinny), Stick & puck
+                    // v3.14: ticks like everything else. Hockey on ticks both; untick one to hide its sessions.
                     subs.appendChild(el('div', { class: 'fsubs-head' }, ['Kind']));
-                    const cur = !sel ? null : (kindNow() || 'any');
-                    const chipsRow = el('div', { class: 'fchips fkinds', role: 'group', 'aria-label': 'Kind of hockey' });
-                    const kchip = (id, label, n) => chip([label, el('span', { class: 'fchip-n' }, [String(n)])], cur === id, { kindChip: id });
-                    chipsRow.appendChild(kchip('any', 'Any', facet.n));
-                    kindsHere.forEach(k => chipsRow.appendChild(kchip(k.id, k.label, facet.kinds[k.id])));
-                    subs.appendChild(chipsRow);
+                    kindsHere.forEach(k => {
+                        const c = check(k.label, !!sel && (!Array.isArray(S.kinds) || S.kinds.includes(k.id)), { kind: k.id });
+                        c.appendChild(count((facet.kinds || {})[k.id] || 0));
+                        subs.appendChild(c);
+                    });
                     if (hasAges) subs.appendChild(el('div', { class: 'fsubs-head' }, [kindNow() ? `Ages in ${KIND_OF(kindNow()).label.toLowerCase()}` : 'Ages']));
                 }
                 if (hasAges) subsPresent.forEach(x => {
@@ -810,7 +835,7 @@ window.SkateApp = (() => {
         // WHAT: leisure, figure, hockey, then Other (one row that groups the rest)
         const t = section('What kind of skating');
         CFG.programTypes.filter(c => MAIN_TYPES.includes(c.id)).forEach(c => typeRow(c, t));
-        const members = CFG.programTypes.filter(c => OTHER_GROUP.includes(c.id) && f.cats[c.id]);
+        const members = CFG.programTypes.filter(c => OTHER_GROUP.includes(c.id) && (f.cats[c.id] || S.types[c.id]));
         if (members.length) {
             const onMembers = members.filter(c => S.types[c.id]);
             const anyOn = onMembers.length > 0, allOn = onMembers.length === members.length;
@@ -821,11 +846,11 @@ window.SkateApp = (() => {
             box.querySelector('input').indeterminate = anyOn && !allOn;
             box.title = members.map(c => c.label).join(', ');
             row.appendChild(box);
-            row.appendChild(count(members.reduce((n, c) => n + f.cats[c.id].n, 0)));
+            row.appendChild(count(members.reduce((n, c) => n + (f.cats[c.id] ? f.cats[c.id].n : 0), 0)));
             row.appendChild(el('button', { class: 'fexpand' + (open ? ' open' : ''), dataset: { expand: OTHER_KEY }, title: open ? 'Hide the kinds' : 'Choose kinds', 'aria-expanded': open ? 'true' : 'false' }, ['Kinds ', el('span', { class: 'caret', 'aria-hidden': 'true' }, ['▾'])]));
             t.appendChild(row);
             const subs = el('div', { class: 'fsubs' + (open ? '' : ' hidden') });
-            members.forEach(c => { const cb = check(c.label, !!S.types[c.id], { type: c.id }); cb.appendChild(count(f.cats[c.id].n)); subs.appendChild(cb); });
+            members.forEach(c => { const cb = check(c.label, !!S.types[c.id], { type: c.id }); cb.appendChild(count(f.cats[c.id] ? f.cats[c.id].n : 0)); subs.appendChild(cb); });
             t.appendChild(subs);
         }
 
@@ -850,7 +875,8 @@ window.SkateApp = (() => {
         const where = section('Where');
         const cityRow = el('div', { class: 'fchips' });
         cityRow.appendChild(chip('All cities', !S.cities.length, { city: '' }));
-        cityKeys(f.cities).forEach(c => cityRow.appendChild(chip(`${c} · ${f.cities[c]}`, S.cities.includes(c), { city: c })));
+        const shownCities = citiesShown(f);
+        cityKeys(shownCities).forEach(c => cityRow.appendChild(chip(`${c} · ${shownCities[c]}`, S.cities.includes(c), { city: c })));
         where.appendChild(cityRow);
         const mine = (SkateSettings.get('myRinks') || []).length;
         const mineRow = check(`My rinks only${mine ? ` (${mine})` : ''}`, S.rinkScope === 'mine', { flag: 'mine' });
@@ -2432,9 +2458,8 @@ window.SkateApp = (() => {
             const items = [];
             const ks = cat === 'hockey' ? kindsPresent() : [];      // v3.12.2: the kinds first, then the ages
             const cur = kindNow();
-            if (ks.length > 1) {          // one kind at a time: ● marks it (the ages below are several at once: ✓)
-                items.push({ label: `${!cur ? '● ' : '○ '}Any kind · ${f.n}`, onClick: () => { Actions.setKind(null); reopen(); } });
-                ks.forEach(id => items.push({ label: `${cur === id ? '● ' : '○ '}${KIND_OF(id).label} · ${f.kinds[id]}`, onClick: () => { Actions.setKind(id); reopen(); } }));
+            if (ks.length > 1) {          // v3.14: ticks, both on with Hockey; untick one to hide it
+                ks.forEach(id => { const on = !cur || cur === id; items.push({ label: `${on ? '✓ ' : '\u2007\u2007 '}${KIND_OF(id).label} · ${(f.kinds || {})[id] || 0}`, onClick: () => { Actions.setKind(id, !on); reopen(); } }); });
             }
             const n = ageCounts(cat, f);
             items.push({ label: `${sel === 'all' ? '✓ ' : '\u2007\u2007 '}Every age group · ${cur ? (f.kinds[cur] || 0) : f.n}`, cls: ks.length > 1 ? 'popover-sep' : '', onClick: () => { Actions.setType(cat, null, true); reopen(); } });
@@ -2450,7 +2475,7 @@ window.SkateApp = (() => {
             const f = filterFacets().cats;
             const present = otherMembersPresent();
             const reopen = () => { const a = $('active-filters').querySelector(`.pill.type[data-pill="type:${OTHER_KEY}"]`); if (a) Popover.open(a, Menus.otherTypes(), 'Other kinds'); };
-            const allOn = present.every(c => S.types[c]);
+            const allOn = otherMembersAll().every(c => S.types[c]);
             const items = [{ label: `${allOn ? '✓ ' : '\u2007\u2007 '}Everything in Other`, onClick: () => { Actions.setType(OTHER_KEY, null, true); reopen(); } }];
             present.forEach(c => items.push({
                 label: `${S.types[c] ? '✓ ' : '\u2007\u2007 '}${CAT_LABEL(c)} · ${f[c].n}`,
@@ -2461,7 +2486,7 @@ window.SkateApp = (() => {
 
         /** City picker behind the standing city pill (multi-select; stays open while you pick). */
         cities() {
-            const f = filterFacets().cities;
+            const f = citiesShown(filterFacets());
             const reopen = () => { const a = $('active-filters').querySelector('.pill.city'); if (a) Popover.open(a, Menus.cities(), 'Cities'); };
             const items = [{ label: `${S.cities.length ? '\u2007\u2007 ' : '✓ '}All cities`, onClick: () => { Actions.setCities([]); } }];
             cityKeys(f).forEach(c => items.push({
@@ -2513,7 +2538,11 @@ window.SkateApp = (() => {
     };
 
     /** The filter pipeline, pure: state → sorted array (also sets S.paidMatching). */
-    function computeFiltered() {
+    /**
+     * Every filter as its own check (v3.14). The list needs all of them; each part of the
+     * Filters sheet counts with all of them but its own (filterFacets).
+     */
+    function filterChecks() {
         const mine = new Set(SkateSettings.get('myRinks') || []);
         const nowMs = Date.now();
         const todayKey = SkateTime.todayKey(), tomorrowKey = SkateTime.addDays(todayKey, 1);
@@ -2529,12 +2558,9 @@ window.SkateApp = (() => {
             if (d === undefined) { d = SkateGeo.distanceForProgram(p); kmByRink.set(k, d); }
             return d;
         };
-
-        let result = S.programs.filter(p => {
+        const rest = (p) => {
             if (!S.showDropped && SkateAlerts.isDropped(p)) return false;   // toronto.ca is the ground truth
-            if (!P.matchesTypes(p)) return false;
             if (S.savedOnly && !SkateFavorites.has(p)) return false;
-            if (S.cities.length && !S.cities.includes(P.city(p))) return false;
             if (S.rinkScope === 'mine' && mine.size && !mine.has(P.locKey(p))) return false;
             if (S.nearRink && P.locKey(p) !== S.nearRink.key) return false;
             if (radius != null) { const d = kmOf(p); if (d == null || d > radius) return false; }
@@ -2559,7 +2585,18 @@ window.SkateApp = (() => {
             // the minute it ends (not at midnight), and in-progress ones stay.
             if (!S.showPast && SkateTime.status(p, nowMs).phase === 'ended') return false;
             return true;
-        });
+        };
+        return {
+            rest,
+            type: (p) => P.matchesTypes(p),
+            city: (p) => !S.cities.length || S.cities.includes(P.city(p)),
+            paid: (p) => S.paidVisible || !p.Paid
+        };
+    }
+
+    function computeFiltered() {
+        const c = filterChecks();
+        let result = S.programs.filter(p => c.rest(p) && c.type(p) && c.city(p));
 
         // Paid exclusion runs LAST so the "N paid hidden" hint reflects every
         // other active filter — no phantom counts.
@@ -2623,7 +2660,7 @@ window.SkateApp = (() => {
     Actions.setType = function (cat, sub, on) {
         const types = { ...S.types };
         if (cat === OTHER_KEY) {
-            otherMembersPresent().forEach(c => { if (on) types[c] = 'all'; else delete types[c]; });
+            otherMembersAll().forEach(c => { if (on) types[c] = 'all'; else delete types[c]; });
         } else if (!sub) {
             if (on) types[cat] = 'all'; else delete types[cat];
         } else {
@@ -2645,10 +2682,17 @@ window.SkateApp = (() => {
      * picking a kind means "show me that hockey". An age group picked before that has no
      * sessions in the new kind is dropped, so the list is never empty for a reason nobody sees.
      */
-    Actions.setKind = function (kind) {
-        const k = kind && kind !== 'other' && CFG.hockeyKinds.some(x => x.id === kind) ? kind : null;
+    Actions.setKind = function (kind, on) {
+        if (kind === 'other' || !CFG.hockeyKinds.some(x => x.id === kind)) return;
+        // v3.14: a tick like an age group's. Hockey on = both ticked; untick one and only the other shows;
+        // untick both and Hockey is off; with Hockey off, the first one ticked turns it on with just that one.
+        const present = kindsPresent();
+        let sel = !S.types.hockey ? [] : kindNow() ? [kindNow()] : [...present];
+        sel = on ? [...new Set([...sel, kind])] : sel.filter(x => x !== kind);
         const types = { ...S.types };
+        if (!sel.length) { delete types.hockey; S.kinds = null; S.types = types; filtersChanged(); return; }
         if (!types.hockey) types.hockey = 'all';
+        const k = sel.length === 1 && present.length > 1 ? sel[0] : null;
         S.kinds = k ? [k] : null;
         if (k && Array.isArray(types.hockey)) {
             const f = filterFacets().cats.hockey, n = (f && f.subsBy && f.subsBy[k]) || {};
@@ -3880,6 +3924,7 @@ window.SkateApp = (() => {
             sheetTap = null;
             if (t.id === 'f-age') return Actions.setAge(t.value);
             if (t.dataset.flag) return Actions.setFlag(t.dataset.flag, t.checked);
+            if (t.dataset.kind) return Actions.setKind(t.dataset.kind, t.checked);
             if (t.dataset.type) return Actions.setType(t.dataset.type, t.dataset.sub || null, t.checked);
         });
         delegate($('filters-body'), [
@@ -3891,7 +3936,6 @@ window.SkateApp = (() => {
                 rerenderFilters();
             }],
             ['.fchip[data-day]', (b) => Actions.setDay(b.dataset.day)],
-            ['.fchip[data-kind-chip]', (b) => Actions.setKind(b.dataset.kindChip === 'any' ? null : b.dataset.kindChip)],
             ['.fchip[data-city]', (b) => (b.dataset.city ? Actions.toggleCity(b.dataset.city) : Actions.setCities([]))],
             ['.fchip[data-sort]', (b) => Actions.setSort(b.dataset.sort)],
             ['.fchip[data-radius]', (b) => Actions.setRadius(b.dataset.radius ? Number(b.dataset.radius) : null)],
