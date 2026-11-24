@@ -30,7 +30,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.13',
+    version: '3.12.3',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -44,13 +44,6 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
-        {
-            v: '3.13', date: '2026-11-24', items: [
-                'Filters, simpler. Shinny and Stick & puck are two kinds of skating of their own, beside Leisure and Figure: tick the ones you want, nothing to open. Age groups moved out of each kind into one row, "Who\'s skating": tap Youth, Adult or any other group and every kind follows. A session open to all ages counts for everyone.',
-                'Every number in Filters now counts what you would actually see: it follows your cities, Free only, the day, the search box, your rinks and the distance. A choice with nothing in it under those is not shown, unless it is already picked.',
-                'Your earlier picks carry over: hockey you had on becomes Shinny and Stick & puck (or just the one you had picked), and age groups you had picked become your "Who\'s skating".',
-            ]
-        },
         {
             v: '3.12.3', date: '2026-11-23', items: [
                 'Ford Performance Centre\'s free Saturday community skates are in: 5:15 to 7:15 pm, courtesy of Ford, helmets required for 6 and under. The arena posts its month only as a picture, so the app now reads each new picture and checks every date against its weekday before listing anything.',
@@ -407,7 +400,7 @@ window.SkateConfig = {
     // `sec` = how long the auto-playing guide lingers on the step.
     tourSteps: [
         { sel: '#search-input',          title: 'Search',                text: 'Type a rink, a city or a session name. Results filter as you type.', sec: 4 },
-        { sel: '#btn-filters',           title: 'Filters',               text: 'What kind of skating and who is skating, a day, cities, your rinks and the order. Your picks are remembered on this device.', sec: 6 },
+        { sel: '#btn-filters',           title: 'Filters',               text: 'Leisure, figure and hockey with their age groups, a day, cities, your rinks and the order. Your picks are remembered on this device.', sec: 6 },
         { sel: '#active-filters',        title: 'Your active filters',   text: 'Each pill is one filter. Tap the x to remove it. Tap the city pill to pick other cities.', sec: 5 },
         { sel: '#btn-rinks',             title: 'Rinks and map',         text: 'Every rink on a map, with distances from your location or an address you type. Star the rinks that are yours.', sec: 6 },
         { sel: '#view-seg',              title: 'List or calendar',      text: 'The same sessions as a list or a week grid. In the grid, tap a day chip to jump to that day and any block for details.', sec: 5 },
@@ -433,6 +426,14 @@ window.SkateConfig = {
         { id: 'older', label: 'Older adult 55+' },
         { id: 'women', label: 'Women & girls' }
     ],
+    // v3.12.2: hockey also splits by kind, read from the session's title: stick & puck
+    // (practice with a stick and a puck, no game) or pickup (shinny, pick-up games).
+    // It combines with the age groups: "Stick & puck, Youth".
+    hockeyKinds: [
+        { id: 'pickup',    label: 'Pickup (shinny)', short: 'Pickup' },
+        { id: 'stickpuck', label: 'Stick & puck',    short: 'Stick & puck' },
+        { id: 'other',     label: 'Other hockey',    short: 'Other' }
+    ],
     // City order in the Filters sheet (anything else sorts after, A–Z).
     cityOrder: ['Toronto', 'Markham', 'Vaughan', 'Richmond Hill', 'Stouffville', 'Mississauga', 'Brampton', 'Oakville', 'Burlington', 'Pickering', 'Ajax', 'Oshawa'],
 
@@ -445,8 +446,7 @@ window.SkateConfig = {
         // Older Adult Skate", Vaughan "Skating - Unsupervised", Burlington
         // "Skate 19+" / "Sensory Skate", Richmond Hill "Public Skating".
         { id: 'leisure',   label: 'Leisure',   keywords: LEISURE_WORDS },
-        { id: 'hockey',    label: 'Shinny (pickup)', keywords: ['shinny', 'hockey', 'stick'] },
-        { id: 'stickpuck', label: 'Stick & puck', keywords: ['stick & puck', 'stick and puck', 'stick n puck'] },   // v3.13: split from hockey by its title (app.js P.category)
+        { id: 'hockey',    label: 'Hockey',    keywords: ['shinny', 'hockey', 'stick'] },
         { id: 'figure',    label: 'Figure',    keywords: ['figure', 'ticket ice'] },
         { id: 'speed',     label: 'Speed',     keywords: ['speed'] },
         { id: 'adapted',   label: 'Adaptive',  keywords: ['adapted', 'adaptive', 'sensory', 'sledge'] },
