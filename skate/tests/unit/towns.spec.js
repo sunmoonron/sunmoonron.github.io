@@ -152,6 +152,15 @@ test.describe('U of T: Varsity Arena term grids', () => {
             '2026-12-10 09:00 Figure Skate', '2026-12-11 12:10 Recreational Skate', '2026-12-15 10:00 Recreational Skate'
         ]);
     });
+    test('the price: free for U of T members and students, a $22.73 day pass for anyone else (the app shows $0–22.73)', () => {
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        const recs = P.expandWeekly(EXTERNAL_SOURCES.uoft, 'uoft', days.map(weekday => ({ weekday, start: '10:00', end: '11:00', activity: 'Recreational Skate', venue: 'Varsity Arena (U of T)' })));
+        expect(recs.length).toBeGreaterThan(20);
+        expect(recs.every(r => r.Paid === true && r.Price === 22.73 && r.PriceMin === 0)).toBe(true);
+        // a town with one price has no range, and a rule's own price still wins
+        const whitby = P.expandWeekly(EXTERNAL_SOURCES.whitby, 'whitby', [{ weekday: days[0], start: '10:00', end: '11:00', activity: 'Adult Skate', price: 5.12 }]);
+        expect(whitby.every(r => r.Price === 5.12 && !('PriceMin' in r))).toBe(true);
+    });
     test('a term heading without a year takes the school year around today', () => {
         expect(parseUoftPage(read('uoft.html'), EXTERNAL_SOURCES.uoft, '2027-01-20').find(r => r.from !== r.to).from).toBe('2026-09-14');
         expect(parseUoftPage(read('uoft.html'), EXTERNAL_SOURCES.uoft, '2026-08-20').find(r => r.from !== r.to).from).toBe('2026-09-14');

@@ -117,7 +117,7 @@ window.SkateCalendar2 = (() => {
         const meta = [
             el('span', { class: 'c2-kind ' + kindCls }, [opts.kindLabel(p)]),
             ` · ${opts.ageText(p)} · `,
-            el('span', { class: p.Paid ? 'c2-paid' : 'c2-free' }, [p.Paid ? `$${opts.fmtPrice(p.Price)}` : 'Free']),
+            el('span', { class: p.Paid ? 'c2-paid' : 'c2-free' }, [p.Paid ? (opts.priceLabel ? opts.priceLabel(p) : `$${opts.fmtPrice(p.Price)}`) : 'Free']),
             ...(km != null ? [` · ${opts.fmtKm(km)}`] : []),
             ...(p.Unverified ? [' · unverified'] : [])
         ];

@@ -862,12 +862,13 @@ const EXTERNAL_SOURCES = {
         // around exams, grids with a date on each column ("Mon, Dec 7"; sometimes the month is left out).
         url: 'https://kpe.utoronto.ca/sport-recreationrecreational-fitness-drop-sportsdrop-sports-activities/drop-ice-skate-ice-sports',
         daysAhead: 28,
-        paid: true,
+        // free for U of T members and students; anyone else needs a day pass ($22.73, KPE's membership page)
+        paid: true, price: 22.73, priceMin: 0,
         programs: [
             { match: /^skate$/i, activity: 'Recreational Skate' },
             { match: /^hockey$/i, activity: 'Drop-in Hockey' }
         ],
-        priceNote: 'U of T members and students; anyone else needs a day pass from U of T Sport & Rec (family passes can be bought online). Skate rentals $6 + HST',
+        priceNote: 'Free for U of T members and students; anyone else needs a $22.73 day pass from U of T Sport & Rec (family passes can be bought online). Skate rentals $6 + HST',
         locationName: 'Varsity Arena (U of T)',
         venues: {
             'Varsity Arena (U of T)': { address: '299 Bloor St W', district: 'Toronto and East York', postalCode: 'M5S 1W2', lat: 43.6670621, lng: -79.3961168 }
@@ -2422,6 +2423,8 @@ function externalRecord(cfg, sourceKey, { activity, date, startTime, endTime, pr
         // means "free", so the row isn't hidden behind the Paid toggle.
         Paid: !!cfg.paid && price !== 0,
         Price: (cfg.paid && price !== 0) ? (price ?? null) : 0,
+        // a price that depends on who you are (U of T: free for members, a day pass for anyone else) → "$0–22.73"
+        ...(cfg.paid && price != null && price !== 0 && cfg.priceMin != null && cfg.priceMin < price ? { PriceMin: cfg.priceMin } : {}),
         // Short honesty note shown beside the price ("free for residents…")
         PriceNote: typeof cfg.priceNote === 'function' ? (cfg.priceNote(price) || '') : (cfg.priceNote || ''),
         RegistrationUrl: registrationUrl || (cfg.registrationUrl ? cfg.registrationUrl(date) : (cfg.infoUrl || '')),
@@ -3118,7 +3121,7 @@ function expandWeekly(cfg, sourceKey, rules) {
             seen.add(externalId);
             records.push(externalRecord(cfg, sourceKey, {
                 activity: r.activity, date, startTime: r.start, endTime: r.end,
-                price: r.price ?? null, externalId,
+                price: r.price ?? cfg.price ?? null, externalId,
                 ageMin: r.ageMin ?? null, ageMax: r.ageMax ?? null,
                 venue: { name: venueName, ...known, extKey: venueKey(sourceKey, venueName) }
             }));
@@ -5547,7 +5550,7 @@ module.exports = { parseLendingPage, parseLendingTime, parseLendingDate, lending
     parseNaturalIcePage, winterOf, fetchNaturalIce, fetchVenue, stripHtml,
     fetchExternalSources, networkUp, waitForNetwork, settleNetwork, errorText, neverAnswered, sourceSite, keptResult, fetchManual, sitemapLastmod,
     calendarPictures, checkCalendarReading, fetchCalendarImage, CANLAN_PROGRAMS,
-    toRanges, dateRangeIn, datesIn, agesFromLabel, parseDayGridText, parseAuroraPage, fetchAurora, listedDates, parseWhitbyPage, parseUoftPage,
+    toRanges, dateRangeIn, datesIn, agesFromLabel, parseDayGridText, parseAuroraPage, fetchAurora, listedDates, parseWhitbyPage, parseUoftPage, expandWeekly,
     seasonPhase, readSource, sourceMeta, venueRecords, manualRecords, runReader, foldTwinRinks, markSuperseded, sentenceFrom, rinkSeasonal, RINK_AKA, RINK_TWINS,
     verifyReading, readAlerts, fetchAlerts, readerKey, readerWants, readerUserMessage, readerCreds, readerTiers, readerErrorKind, readerScrub, READER_SCHEMA, READER_VERSION, inferKinds, inOutdoorLull };
 

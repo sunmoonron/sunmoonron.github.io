@@ -32,7 +32,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.15.2',
+    version: '3.15.3',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -46,6 +46,14 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.15.3', date: '2026-11-24', items: [
+                'Distance and Order are out in Filters again, under Where, instead of folded under More options.',
+                'Varsity Arena shows its price as $0–22.73: free for U of T members and students, a day pass for anyone else. A venue that does not publish its fee says Paid instead of $?.',
+                'Every paid session\'s button looks the same: Details, for a venue\'s own page, is gold like Register.',
+                'The status line warns only when toronto.ca or a city\'s own site is behind. A rink\'s own page being behind is in Data status, where it always was.'
+            ]
+        },
         {
             v: '3.15.2', date: '2026-11-24', items: [
                 'Canlan\'s five rinks (York, Etobicoke, Scarborough, Oakville, Oshawa) now show their stick & puck, shinny and holiday skates too, not only public skating: about 150 more sessions a month, most of them stick & puck.',
@@ -538,19 +546,19 @@ window.SkateConfig = {
                          note: 'Third-party paid venue. Register on their site; Senior Skate is listed at $0.' },
         'canlan-oshawa':      { city: 'Oshawa', label: 'Canlan Sports (Oshawa)', verified: true, site: 'Canlan',
                          note: 'Third-party paid venue. Register on their site; sessions can sell out or change.' },
-        'markham':     { city: 'Markham', label: 'City of Markham', verified: true, site: 'markham.ca',
+        'markham':     { city: 'Markham', main: true, label: 'City of Markham', verified: true, site: 'markham.ca',
                          note: 'Official Markham booking data. Prices vary by age ($0 for some groups); most drop-ins open for booking 21 hours before the start.' },
-        'vaughan':     { city: 'Vaughan', label: 'City of Vaughan', verified: true, site: 'vaughan.ca',
+        'vaughan':     { city: 'Vaughan', main: true, label: 'City of Vaughan', verified: true, site: 'vaughan.ca',
                          note: 'Official Vaughan booking data. Drop-in skating and shinny are free for Vaughan residents (proof of address). The city adds a 20% non-resident surcharge to its fees, so non-residents should ask at the desk. Ticket Ice figure skating $10.50.' },
-        'richmondhill': { city: 'Richmond Hill', label: 'City of Richmond Hill', verified: true, site: 'richmondhill.ca',
+        'richmondhill': { city: 'Richmond Hill', main: true, label: 'City of Richmond Hill', verified: true, site: 'richmondhill.ca',
                          note: 'Official Richmond Hill calendar (Ed Sackfield Arena). Adult $5.90 skate, $8.70 shinny, figure and stick and puck; tickets at the arena desk from 30 minutes before.' },
-        'brampton':    { city: 'Brampton', label: 'City of Brampton', verified: true, site: 'brampton.ca',
+        'brampton':    { city: 'Brampton', main: true, label: 'City of Brampton', verified: true, site: 'brampton.ca',
                          note: 'Official Brampton booking data. Adult $2.96 plus tax, child and youth $2.15, residents 65 and over free; registration opens 25 hours ahead for residents.' },
-        'oakville':    { city: 'Oakville', label: 'Town of Oakville', verified: true, site: 'oakville.ca',
+        'oakville':    { city: 'Oakville', main: true, label: 'Town of Oakville', verified: true, site: 'oakville.ca',
                          note: 'Official Oakville booking data. Adult $5.38, child, youth and 65 plus $4.31 (plus tax); members $0.' },
-        'burlington':  { city: 'Burlington', label: 'City of Burlington', verified: true, site: 'burlington.ca',
+        'burlington':  { city: 'Burlington', main: true, label: 'City of Burlington', verified: true, site: 'burlington.ca',
                          note: 'Official Burlington booking data. Flat $3.50 per skate; pass holders $0.' },
-        'mississauga': { city: 'Mississauga', label: 'City of Mississauga', verified: true, site: 'mississauga.ca',
+        'mississauga': { city: 'Mississauga', main: true, label: 'City of Mississauga', verified: true, site: 'mississauga.ca',
                          note: 'Official Mississauga drop-in calendar. Adult $5.21, child, youth and 55 plus $4.17 including tax (by-law rates, tickets at the door 30 minutes before); residents 65 and over and kids 3 and under free.' },
         'mosspark':    { city: 'Toronto', label: 'mossparkarena.com', place: 'Moss Park Arena', verified: false, site: 'mossparkarena.com',
                          note: 'Schedule read from their website. There is no live feed for this arena.' },
@@ -569,24 +577,24 @@ window.SkateConfig = {
                          note: 'Schedule read from the arena\'s website, no live feed. Free adults-only (18+) skate; no skate or helmet rentals.' },
         'bolton-tots':   { city: 'Toronto', label: 'William H. Bolton Arena', verified: false, site: 'billboltonarena.ca',
                          note: 'Schedule read from the arena\'s website, no live feed. Free parent and tots skate (4 and under); no skate or helmet rentals.' },
-        'aurora':      { city: 'Aurora', label: 'Town of Aurora', verified: false, site: 'aurora.ca',
+        'aurora':      { city: 'Aurora', main: true, label: 'Town of Aurora', verified: false, site: 'aurora.ca',
                          note: 'Weekly drop-ins read from the Town\'s skating page (Aurora Family Leisure Complex and Aurora Recreation Complex), with the dates it cancels. Public skating $3.37, shinny $7.23 per person, goalies free.' },
-        'newmarket':   { city: 'Newmarket', label: 'Town of Newmarket', verified: false, site: 'newmarket.ca', place: 'Town of Newmarket',
+        'newmarket':   { city: 'Newmarket', main: true, label: 'Town of Newmarket', verified: false, site: 'newmarket.ca', place: 'Town of Newmarket',
                          note: 'Read from the Town\'s public skating and shinny schedules (PDFs) for the Magna Centre and the Ray Twinney Recreation Complex. Pay at the Customer Service kiosk before the program.' },
-        'newmarket-shinny': { city: 'Newmarket', label: 'Town of Newmarket (shinny)', verified: false, site: 'newmarket.ca' },
-        'king':        { city: 'King', label: 'Township of King', verified: true, site: 'king.ca',
+        'newmarket-shinny': { city: 'Newmarket', main: true, label: 'Town of Newmarket (shinny)', verified: false, site: 'newmarket.ca' },
+        'king':        { city: 'King', main: true, label: 'Township of King', verified: true, site: 'king.ca',
                          note: 'Official King booking data (PerfectMind) for the Zancor Centre, the Trisan Centre and the Nobleton Arena, with each session\'s own fee.' },
-        'whitby':      { city: 'Whitby', label: 'Town of Whitby', verified: false, site: 'whitby.ca',
+        'whitby':      { city: 'Whitby', main: true, label: 'Town of Whitby', verified: false, site: 'whitby.ca',
                          note: 'Weekly drop-ins read from the Town\'s skating page (Iroquois Park Sports Centre, McKinney Centre, Fieldgate Sports Complex), with the dates it cancels. Adult skate $5.12, shinny $7.69, HST extra.' },
         'uoft':        { city: 'Toronto', label: 'Varsity Arena (U of T)', verified: false, site: 'kpe.utoronto.ca',
-                         note: 'Drop-in skate, stick n puck, shinny, hockey and figure skating read from U of T\'s drop-in ice page, term by term. U of T members and students; anyone else buys a day pass.' },
-        'stouffville': { city: 'Stouffville', label: 'Whitchurch-Stouffville', verified: false, site: 'townofws.ca',
+                         note: 'Drop-in skate, stick n puck, shinny, hockey and figure skating read from U of T\'s drop-in ice page, term by term. Free for U of T members and students; anyone else buys a $22.73 day pass.' },
+        'stouffville': { city: 'Stouffville', main: true, label: 'Whitchurch-Stouffville', verified: false, site: 'townofws.ca',
                          note: 'Weekly schedule read from the Town\'s drop-in PDF, no live feed. Adult $5.50 skate, $7.50 shinny and stick and puck, youth and 60 plus less; cash, debit or credit at the door.' },
-        'ajax':        { city: 'Ajax', label: 'Town of Ajax', verified: false, site: 'ajax.ca',
+        'ajax':        { city: 'Ajax', main: true, label: 'Town of Ajax', verified: false, site: 'ajax.ca',
                          note: 'Weekly schedule read from the Town\'s skating PDF, no live feed. Adult $5.25 skate, $7.90 shinny; youth and 65 plus $3.50 and $5.65. Check ajax.ca/skating for cancellations.' },
-        'oshawa':      { city: 'Oshawa', label: 'City of Oshawa', verified: true, site: 'oshawa.ca',
+        'oshawa':      { city: 'Oshawa', main: true, label: 'City of Oshawa', verified: true, site: 'oshawa.ca',
                          note: 'Official Oshawa booking data (activeOshawa). Adult $5.25 skate, $8.50 shinny, child and youth $3.50, family $10.75; pay at the desk, drop in only.' },
-        'pickering':   { city: 'Pickering', label: 'City of Pickering', verified: false, site: 'pickering.ca',
+        'pickering':   { city: 'Pickering', main: true, label: 'City of Pickering', verified: false, site: 'pickering.ca',
                          note: 'Weekly schedule read from pickering.ca, no live feed. Public skating is free at both arenas; the cancellation dates the City lists are already removed.' },
         // v3.12: the other four board-run arenas. `status` is a standing line for the Data status page.
         'georgebell':  { city: 'Toronto', label: 'George Bell Arena', verified: false, site: 'georgebellarena.com',
@@ -616,6 +624,7 @@ window.SkateConfig = {
                          note: 'Hours and each rink\'s open or closed status read from the City of Brampton\'s outdoor skating page. Free, no registration.' }
     },
 
+    // `main: true` = a city's own site: the status line warns only when one of these (or toronto.ca) is behind.
     // v3.12: where a source sits on the Data status page. Toronto has three groups (the
     // City itself is built in); every other source is listed under its city. `sourceRows`
     // merges sources that are one place read three ways.

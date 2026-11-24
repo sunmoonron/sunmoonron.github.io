@@ -219,6 +219,26 @@ test.describe('schedule', () => {
         await app.noErrors();
     });
 
+    test('a price that depends on who you are reads $0–22.73, a fee nobody publishes reads Paid, and every paid button is gold', async ({ page, app }) => {
+        const programs = app.data['skating-programs.json'].programs;
+        const uoft = { rink: 'Varsity Arena (U of T)', date: dayPlus(1), source: 'uoft', paid: true, unverified: true, infoUrl: 'https://kpe.utoronto.ca/drop-in', registrationUrl: 'https://kpe.utoronto.ca/drop-in' };
+        programs.push({ ...row({ ...uoft, id: 'u1', activity: 'Recreational Skate', start: '10:00', end: '11:55', price: 22.73 }), PriceMin: 0 });
+        programs.push(row({ ...uoft, id: 'u2', activity: 'Family Skate', start: '17:15', end: '18:50', price: null }));
+        await app.open();
+        await expect(card(page, 'Recreational Skate').locator('.price-badge.paid')).toHaveText('$0–22.73');
+        await expect(card(page, 'Family Skate').locator('.price-badge.paid')).toHaveText('Paid');
+        await expect(page.locator('.program-item .price-badge', { hasText: '?' })).toHaveCount(0);
+        // Details (the venue's own page) and Register (a booking page) look alike
+        const details = card(page, 'Recreational Skate').locator('.row-link');
+        await expect(details).toHaveText('Details ↗');
+        await expect(details).toHaveClass(/strong/);
+        const register = card(page, 'Leaside Memorial').locator('.row-link');
+        await expect(register).toHaveText('Register ↗');
+        const look = (l) => l.evaluate(e => { const s = getComputedStyle(e); return [s.backgroundColor, s.color, s.paddingTop]; });
+        expect(await look(details)).toEqual(await look(register));
+        await app.noErrors();
+    });
+
     test('adding a city in the sheet shows its sessions', async ({ page, app }) => {
         await app.open();
         await page.click('#btn-filters');

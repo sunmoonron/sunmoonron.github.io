@@ -303,6 +303,13 @@ window.SkateApp = (() => {
 
     /** 7.5 → "7.50", 5 → "5", null → "?" — prices read like a price tag. */
     function fmtPrice(n) { return n == null ? '?' : Number(n).toFixed(2).replace(/\.00$/, ''); }
+    /** v3.15.3: a paid session's price as people read it: "$5.90", "$0–22.73" when it depends on who you are
+     *  (U of T: free for members, a day pass for anyone else), or "Paid" when the venue does not publish one. */
+    function priceLabel(p) {
+        if (p.Price == null || !Number.isFinite(Number(p.Price))) return 'Paid';
+        const min = p.PriceMin != null && Number.isFinite(Number(p.PriceMin)) && Number(p.PriceMin) < Number(p.Price) ? `${fmtPrice(p.PriceMin)}–` : '';
+        return `$${min}${fmtPrice(p.Price)}`;
+    }
 
     /** "Ages 13–18" / "Adults 19+" / "Up to 12" / "All ages" as plain text. */
     function ageText(p) {
@@ -319,7 +326,7 @@ window.SkateApp = (() => {
         const off = officialUrl(p);
         const city = P.city(p);
         return `${P.activity(p)}\n${P.location(p)}${city !== 'Toronto' ? ', ' + city : ''}\n${date}${P.time(p) ? ' at ' + fmtClock(P.time(p)) : ''}` +
-            (p.Paid ? `\nPaid${p.Price != null ? ', $' + fmtPrice(p.Price) : ''}` : (p.PriceNote ? `\n${p.PriceNote}` : '')) +
+            (p.Paid ? `\nPaid${p.Price != null ? ', ' + priceLabel(p) : ''}` : (p.PriceNote ? `\n${p.PriceNote}` : '')) +
             (off ? `\nVerify: ${off}` : '') +
             `\n\n${baseUrl()}#p=${P.id(p)}`;
     }
@@ -338,7 +345,7 @@ window.SkateApp = (() => {
         const details = [
             `${P.activity(p)} · ${ageText(p)}`,
             addr ? `${P.location(p)}, ${addr}` : P.location(p),
-            p.Paid ? `Paid session${p.Price != null ? ` · $${fmtPrice(p.Price)}` : ''}${p.RegistrationUrl ? ` · ${p.RegistrationUrl === p.InfoUrl ? 'Details' : 'Register'}: ${p.RegistrationUrl}` : ''}` : (p.PriceNote || 'Free drop-in'),
+            p.Paid ? `Paid session${p.Price != null ? ` · ${priceLabel(p)}` : ''}${p.RegistrationUrl ? ` · ${p.RegistrationUrl === p.InfoUrl ? 'Details' : 'Register'}: ${p.RegistrationUrl}` : ''}` : (p.PriceNote || 'Free drop-in'),
             p.Unverified ? 'Unverified schedule (read from the venue site). Confirm with the venue.' : '',
             off ? `Verify on ${officialSite(p)}: ${off}` : '',
             `Toronto Skating: ${baseUrl()}#p=${P.id(p)}`
@@ -918,31 +925,32 @@ window.SkateApp = (() => {
         const mineRow = check(`My rinks only${mine ? ` (${mine})` : ''}`, S.rinkScope === 'mine', { flag: 'mine' });
         mineRow.appendChild(el('button', { class: 'flink', dataset: { open: 'rinks' } }, [mine ? 'Edit' : 'Pick rinks']));
         where.appendChild(mineRow);
-        // v3.15.2: Free only is the switch in the sheet's header; it says how many paid sessions it hides
-        $('f-free').checked = !S.paidVisible;
-        $('f-free-sub').textContent = !S.paidVisible && f.paid ? `${f.paid} paid hidden` : '';
-        $('f-free-sub').classList.toggle('hidden', !(!S.paidVisible && f.paid));
-
-        // MORE: ended, saved-only, dropped, order (folded unless something in it is set)
-        const inUse = S.showPast || S.savedOnly || S.showDropped || S.sort !== 'time' || !!S.radius;
-        const openMore = S.moreFilters || inUse;
-        const m = section('');
-        m.appendChild(foldBtn('__filters', openMore, `${openMore ? 'Fewer' : 'More'} options: ended sessions, saved, order, distance`));
-        const mbody = el('div', { class: 'fmore' + (openMore ? '' : ' hidden') });
-        mbody.appendChild(check('Include sessions that already ended', S.showPast, { flag: 'past' }));
-        mbody.appendChild(check('Only sessions I saved', S.savedOnly, { flag: 'saved' }));
-        const dropped = SkateAlerts.liveStats?.missing || 0;
-        if (dropped) mbody.appendChild(check(`Include the ${dropped} City session${dropped === 1 ? '' : 's'} toronto.ca no longer lists`, S.showDropped, { flag: 'dropped' }));
-        const ord = el('div', { class: 'fchips forder' }, [el('span', { class: 'flabel' }, ['Order'])]);
-        CFG.sortOptions.forEach(x => ord.appendChild(chip(x.label, S.sort === x.id, { sort: x.id })));
-        mbody.appendChild(ord);
-        if (S.sort === 'near' && !SkateGeo.getUserLocation()) mbody.appendChild(el('p', { class: 'settings-hint' }, ['Nearest needs your location. Set it under Rinks and map.']));
+        // v3.15.3: Distance and Order out in the open, under Where (they were folded under More options)
         // v3.12: only what is within N km of your spot (a filter, unlike Nearest, which only reorders)
         const far = el('div', { class: 'fchips fradius' }, [el('span', { class: 'flabel' }, ['Distance'])]);
         const hasSpot = !!SkateGeo.getUserLocation();
         far.appendChild(chip('Any', !S.radius || !hasSpot, { radius: '' }));
         CFG.radiusOptions.forEach(km => far.appendChild(chip(`${km} km`, hasSpot && S.radius === km, { radius: String(km) })));
-        mbody.appendChild(far);
+        where.appendChild(far);
+        const ord = el('div', { class: 'fchips forder' }, [el('span', { class: 'flabel' }, ['Order'])]);
+        CFG.sortOptions.forEach(x => ord.appendChild(chip(x.label, S.sort === x.id, { sort: x.id })));
+        where.appendChild(ord);
+        if (S.sort === 'near' && !hasSpot) where.appendChild(el('p', { class: 'settings-hint' }, ['Nearest needs your location. Set it under Rinks and map.']));
+        // v3.15.2: Free only is the switch in the sheet's header; it says how many paid sessions it hides
+        $('f-free').checked = !S.paidVisible;
+        $('f-free-sub').textContent = !S.paidVisible && f.paid ? `${f.paid} paid hidden` : '';
+        $('f-free-sub').classList.toggle('hidden', !(!S.paidVisible && f.paid));
+
+        // MORE: ended, saved-only, dropped (folded unless something in it is set)
+        const inUse = S.showPast || S.savedOnly || S.showDropped;
+        const openMore = S.moreFilters || inUse;
+        const m = section('');
+        m.appendChild(foldBtn('__filters', openMore, `${openMore ? 'Fewer' : 'More'} options: ended sessions, saved`));
+        const mbody = el('div', { class: 'fmore' + (openMore ? '' : ' hidden') });
+        mbody.appendChild(check('Include sessions that already ended', S.showPast, { flag: 'past' }));
+        mbody.appendChild(check('Only sessions I saved', S.savedOnly, { flag: 'saved' }));
+        const dropped = SkateAlerts.liveStats?.missing || 0;
+        if (dropped) mbody.appendChild(check(`Include the ${dropped} City session${dropped === 1 ? '' : 's'} toronto.ca no longer lists`, S.showDropped, { flag: 'dropped' }));
         m.appendChild(mbody);
 
         Render.filtersCount();
@@ -1179,17 +1187,18 @@ window.SkateApp = (() => {
 
         const chk = $('status-checked');
         const stamps = [SkateAlerts.checkedAt, SkateAlerts.liveCheckedAt].filter(Boolean).map(x => new Date(x).getTime());
-        const stale = (SkateAlerts.checkedAt && now - new Date(SkateAlerts.checkedAt) > ALERTS_STALE_MS) ||
+        // toronto.ca itself: its closure notices, its live schedule, its weekly file
+        const cityStale = !!((SkateAlerts.checkedAt && now - new Date(SkateAlerts.checkedAt) > ALERTS_STALE_MS) ||
                       (SkateAlerts.liveCheckedAt && now - new Date(SkateAlerts.liveCheckedAt) > LIVE_STALE_MS) ||
-                      (meta?.lastUpdated && (now - new Date(meta.lastUpdated)) / 86400000 > 7);
-        const behind = sourcesBehind();
+                      (meta?.lastUpdated && (now - new Date(meta.lastUpdated)) / 86400000 > 7));
+        const behind = sourcesBehind(cityStale);
         let c = '';
-        if (stamps.length) c = `${stale || behind ? '⚠️' : '✓'} checked ${SkateSettings.formatTime(Math.max(...stamps))}`;
+        if (stamps.length) c = `${behind ? '⚠️' : '✓'} checked ${SkateSettings.formatTime(Math.max(...stamps))}`;
         else if (meta?.lastUpdated) c = `${behind ? '⚠️ ' : ''}updated ${new Date(meta.lastUpdated).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}`;
         if (c && behind) c += ` · ${behind} source${behind === 1 ? '' : 's'} behind`;
         chk.textContent = c;
         chk.classList.toggle('hidden', !c);
-        chk.classList.toggle('stale', !!(stale || behind));
+        chk.classList.toggle('stale', !!behind);
         if (!$('status-modal').classList.contains('hidden')) Render.dataStatus();   // the open sheet follows the minute tick
     };
 
@@ -1215,22 +1224,30 @@ window.SkateApp = (() => {
 
     /** How a source's last read went, from a file of any age: its own state, else ok / failed. */
     const stateOf = (s) => (!s || typeof s !== 'object') ? 'new' : (typeof s.state === 'string' && s.state in ST_RANK) ? s.state : (s.ok === false ? 'failed' : 'ok');
-    /** For the status line: how many rows of the sheet need attention in the chosen cities. One pass, no rows built. */
-    function sourcesBehind() {
+    /**
+     * For the status line: the sources everyone relies on that are behind, in the chosen cities.
+     * v3.15.3: only toronto.ca (`cityStale`: its notices, live check or weekly file are old) and each
+     * other city's own site (`main` in CFG.sourceInfo). An arena's or a rink's own page being behind
+     * is in the Data status sheet only: its sessions already say "Unverified", and a warning on
+     * everyone's line for one rink's page worried people for nothing. One pass, no rows built.
+     */
+    function sourcesBehind(cityStale = false) {
+        const wanted = (city) => !S.cities.length || S.cities.includes(city);
+        const fromCity = cityStale && wanted('Toronto') ? 1 : 0;
         const sources = (SkateAPI.getMetadata() || {}).sources;
-        if (!sources || typeof sources !== 'object') return 0;
+        if (!sources || typeof sources !== 'object') return fromCity;
         const rows = new Set();
         for (const key of Object.keys(sources)) {
+            if (!(CFG.sourceInfo[key] || {}).main) continue;
             const state = stateOf(sources[key]);
             // a page that is only watched (no skating there) changing its wording hides nothing: not "behind".
             // v3.12.3: nor does a page edited after its hours were typed in: the hours still show, and a
             // warning on everyone's schedule for an edit that is usually a photo or a typo alarmed people.
             if (state !== 'failed' && !(state === 'changed' && sources[key].manual)) continue;
-            const city = (CFG.sourceInfo[key] || {}).city || 'Toronto';
-            if (S.cities.length && !S.cities.includes(city)) continue;
+            if (!wanted(CFG.sourceInfo[key].city || 'Toronto')) continue;
             rows.add(CFG.sourceRows[key] || key);
         }
-        return rows.size;
+        return fromCity + rows.size;
     }
 
     /** v3.12.1: the day a hand-entered source's page was edited after its hours were typed in ('' when it was not). */
@@ -1451,7 +1468,7 @@ window.SkateApp = (() => {
         const res = SkateCalendar2.render(view, S.filtered, {
             day: S.cal2Day, todayKey, nowMinutes, by: S.cal2By, showEnded: S.cal2ShowEnded,
             hasLocation: !!SkateGeo.getUserLocation(), radius: S.radius, radiusOptions: CFG.radiusOptions, bands: CFG.radiusOptions,
-            fmtClock, fmtKm: SkateGeo.fmtKm, fmtMins: SkateTime.fmtMins, fmtPrice, ageText,
+            fmtClock, fmtKm: SkateGeo.fmtKm, fmtMins: SkateTime.fmtMins, fmtPrice, priceLabel, ageText,
             kindLabel: p => { const cls = P.typeCls(p); return (CFG.activityTags.find(t => t.cls === cls) || {}).label || 'Skate'; },
             distanceFor: p => SkateGeo.distanceForProgram(p),
             idFor: p => P.id(p),
@@ -1518,7 +1535,7 @@ window.SkateApp = (() => {
         // Price as a price tag; notes (residents-only, age tiers) as a wrapping line
         const srcInfo = CFG.sourceInfo[p.Source];
         const price = p.Paid
-            ? `<span class="price-badge paid" title="${escapeHtml(srcInfo?.note || 'Paid venue')}">$${fmtPrice(p.Price)}</span>`
+            ? `<span class="price-badge paid" title="${escapeHtml(srcInfo?.note || 'Paid venue')}">${escapeHtml(priceLabel(p))}</span>`
             : '<span class="price-badge free">Free</span>';
         // the City lists a session once per pad; merged copies at a multi-pad arena = both pads
         const rinkRec = SkateGeo.rinkByLocation(P.locKey(p));
@@ -1538,7 +1555,7 @@ window.SkateApp = (() => {
         // Venues without online booking (PDF/HTML towns) link their schedule page instead.
         const registerLink = (p.Paid && p.RegistrationUrl)
             ? (p.RegistrationUrl === p.InfoUrl
-                ? `<a class="row-link" href="${escapeHtml(p.RegistrationUrl)}" target="_blank" rel="noopener" title="The venue's schedule page. Pay at the door.">Details ↗</a>`
+                ? `<a class="row-link strong" href="${escapeHtml(p.RegistrationUrl)}" target="_blank" rel="noopener" title="The venue's own page: its schedule and how to pay">Details ↗</a>`
                 : `<a class="row-link strong" href="${escapeHtml(p.RegistrationUrl)}" target="_blank" rel="noopener" title="The venue's registration page">Register ↗</a>`)
             : '';
 

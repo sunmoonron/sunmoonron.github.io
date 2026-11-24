@@ -28,8 +28,10 @@ test.describe('within N km', () => {
         await app.open();
         await expect(page.locator('.program-item')).toHaveCount(7);
         await page.click('#btn-filters');
-        await page.locator('#filters-body .fexpand, #filters-body .ftoggle').filter({ hasText: 'options' }).click();
+        // v3.15.3: out in the open under Where, with Order beside it; nothing to unfold first
         await expect(page.locator('#filters-body .fradius .fchip')).toHaveText(['Any', '2 km', '5 km', '10 km', '20 km']);
+        await expect(page.locator('#filters-body .forder .fchip')).toHaveText(['Soonest', 'Nearest']);
+        await expect(page.locator('#filters-body .fmore .fradius, #filters-body .fmore .forder')).toHaveCount(0);
         await page.locator('#filters-body .fradius .fchip', { hasText: /^5 km$/ }).click();
         await page.click('#btn-filters-apply');
         const pill = page.locator('#active-filters .pill.radius');
@@ -111,7 +113,6 @@ test.describe('without a spot', () => {
         placeSessions(app);
         await app.open();
         await page.click('#btn-filters');
-        await page.locator('#filters-body .fexpand, #filters-body .ftoggle').filter({ hasText: 'options' }).click();
         await page.locator('#filters-body .fradius .fchip', { hasText: /^5 km$/ }).click();
         await expect(page.locator('#rinks-modal')).toBeVisible();              // the place to set a spot
         await expect(page.locator('#filters-modal')).toBeHidden();

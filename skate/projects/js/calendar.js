@@ -124,7 +124,7 @@ window.SkateCalendar = (() => {
         const timeTxt = opts.fmtClock(p['Start Time'] || '') + (p['End Time'] ? '–' + opts.fmtClock(p['End Time']) : '');
         block.appendChild(el('span', { class: 'cal-block-time' }, [
             timeTxt,
-            ...(p.Paid ? [el('span', { class: 'cal-price' }, [` $${p.Price == null ? '' : Number(p.Price).toFixed(2).replace(/\.00$/, '')}`])] : []),
+            ...(p.Paid ? [el('span', { class: 'cal-price' }, [` $${p.Price == null ? '' : (p.PriceMin != null && Number(p.PriceMin) < Number(p.Price) ? Number(p.PriceMin).toFixed(2).replace(/\.00$/, '') + '–' : '') + Number(p.Price).toFixed(2).replace(/\.00$/, '')}`])] : []),
             ...(saved ? [el('span', { class: 'cal-heart', 'aria-label': 'saved' }, [' ♥'])] : [])
         ]));
         block.appendChild(el('span', { class: 'cal-block-title' }, [p.Activity || 'Skating']));
