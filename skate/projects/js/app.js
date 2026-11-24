@@ -749,9 +749,14 @@ window.SkateApp = (() => {
     let inDataMemo = null;
     const inData = () => {
         if (!inDataMemo || inDataMemo.of !== S.programs) {
-            const cities = new Set(), cats = new Set();
-            S.programs.forEach(p => { cities.add(P.city(p)); cats.add(P.category(p)); });
-            inDataMemo = { of: S.programs, cities, cats };
+            const cities = new Set(), cats = new Set(), ages = new Map(), kindAges = new Map();
+            const add = (m, k, v) => { if (!m.has(k)) m.set(k, new Set()); m.get(k).add(v); };
+            S.programs.forEach(p => {
+                const c = P.category(p), st = P.subType(p);
+                cities.add(P.city(p)); cats.add(c); add(ages, c, st);
+                if (c === 'hockey') add(kindAges, P.hockeyKind(p), st);
+            });
+            inDataMemo = { of: S.programs, cities, cats, ages, kindAges };
         }
         return inDataMemo;
     };
@@ -761,10 +766,8 @@ window.SkateApp = (() => {
         const ia = CFG.cityOrder.indexOf(a), ib = CFG.cityOrder.indexOf(b);
         return ((ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib)) || a.localeCompare(b);
     });
-    const subsPresentFor = (cat) => {
-        const f = filterFacets().cats[cat];
-        return f ? CFG.subTypes.map(x => x.id).filter(id => f.subs[id]) : [];
-    };
+    /** The age groups a kind of skating has in the data at all (v3.15.2: not only those left after your other filters). */
+    const subsPresentFor = (cat) => CFG.subTypes.map(x => x.id).filter(id => (inData().ages.get(cat) || new Set()).has(id));
     /* v3.12.2: the kinds of hockey in this dataset, in their set order */
     const KIND_OF = (id) => CFG.hockeyKinds.find(k => k.id === id) || { id, label: id, short: id };
     /* v3.15: the kinds of hockey in the data at all, whatever the other filters: both are always offered
@@ -784,8 +787,11 @@ window.SkateApp = (() => {
     const ageCounts = (cat, facet) => (cat === 'hockey' && kindNow() ? ((facet.subsBy || {})[kindNow()] || {}) : (facet.subs || {}));
     /** The age groups worth offering: those with sessions (in the kind picked), and any already picked. */
     const agesShown = (cat, facet) => {
-        const n = ageCounts(cat, facet), sel = S.types[cat];
-        return CFG.subTypes.filter(x => n[x.id] || (Array.isArray(sel) && sel.includes(x.id)));
+        // v3.15.2: every age group the kind has in the data (for hockey with one kind ticked, that kind's),
+        // whatever your other filters leave: Figure's Adult group vanished whenever Toronto or Free only left none.
+        // Only a group the kind never has is not offered; one already picked always is.
+        const sel = S.types[cat], known = (cat === 'hockey' && kindNow() ? inData().kindAges.get(kindNow()) : inData().ages.get(cat)) || new Set();
+        return CFG.subTypes.filter(x => known.has(x.id) || (Array.isArray(sel) && sel.includes(x.id)));
     };
     const subMenuTitle = (cat) => (cat === 'hockey' && kindsPresent().length > 1 ? 'Hockey: kind and age' : CAT_LABEL(cat) + ': age groups');
 
@@ -886,10 +892,10 @@ window.SkateApp = (() => {
 
         // YOUR AGE: visible, not folded — the most-asked question after "when"
         const ageSec = section('Your age');
-        const ageInput = el('input', { type: 'number', min: '0', max: '120', id: 'f-age', placeholder: 'any', inputmode: 'numeric', 'aria-label': 'Your age' });
+        const ageInput = el('input', { type: 'number', min: '0', max: '120', id: 'f-age', placeholder: 'Any age', inputmode: 'numeric', 'aria-label': 'Your age in years' });
         if (S.age !== null) ageInput.value = S.age;
         ageSec.appendChild(el('div', { class: 'fage-row' }, [
-            el('label', { class: 'fage', for: 'f-age' }, ['I am ', ageInput, ' years old']),
+            el('label', { class: 'fage-box', for: 'f-age' }, [ageInput, el('span', { class: 'fage-unit', 'aria-hidden': 'true' }, ['years old'])]),
             ...(S.age !== null ? [el('button', { class: 'flink', dataset: { clearAge: '1' } }, ['Any age'])] : [])
         ]));
         ageSec.appendChild(el('p', { class: 'settings-hint' }, [S.age !== null ? `Showing sessions a ${S.age}-year-old can join.` : 'Type an age to keep only the sessions that person can join.']));
@@ -912,7 +918,10 @@ window.SkateApp = (() => {
         const mineRow = check(`My rinks only${mine ? ` (${mine})` : ''}`, S.rinkScope === 'mine', { flag: 'mine' });
         mineRow.appendChild(el('button', { class: 'flink', dataset: { open: 'rinks' } }, [mine ? 'Edit' : 'Pick rinks']));
         where.appendChild(mineRow);
-        where.appendChild(check(`Free sessions only${f.paid ? ` (hides ${f.paid} paid)` : ''}`, !S.paidVisible, { flag: 'free' }));
+        // v3.15.2: Free only is the switch in the sheet's header; it says how many paid sessions it hides
+        $('f-free').checked = !S.paidVisible;
+        $('f-free-sub').textContent = !S.paidVisible && f.paid ? `${f.paid} paid hidden` : '';
+        $('f-free-sub').classList.toggle('hidden', !(!S.paidVisible && f.paid));
 
         // MORE: ended, saved-only, dropped, order (folded unless something in it is set)
         const inUse = S.showPast || S.savedOnly || S.showDropped || S.sort !== 'time' || !!S.radius;
@@ -2503,12 +2512,12 @@ window.SkateApp = (() => {
         /** The Other pill: its kinds, each a toggle (stays open while you pick). */
         otherTypes() {
             const f = filterFacets().cats;
-            const present = otherMembersPresent();
+            const present = otherMembersAll();                      // v3.15.2: none of them vanishes under your other filters
             const reopen = () => { const a = $('active-filters').querySelector(`.pill.type[data-pill="type:${OTHER_KEY}"]`); if (a) Popover.open(a, Menus.otherTypes(), 'Other kinds'); };
             const allOn = otherMembersAll().every(c => S.types[c]);
             const items = [{ label: `${allOn ? '✓ ' : '\u2007\u2007 '}Everything in Other`, onClick: () => { Actions.setType(OTHER_KEY, null, true); reopen(); } }];
             present.forEach(c => items.push({
-                label: `${S.types[c] ? '✓ ' : '\u2007\u2007 '}${CAT_LABEL(c)} · ${f[c].n}`,
+                label: `${S.types[c] ? '✓ ' : '\u2007\u2007 '}${CAT_LABEL(c)} · ${f[c] ? f[c].n : 0}`,
                 onClick: () => { Actions.setType(c, null, !S.types[c]); reopen(); }
             }));
             return items;
@@ -3939,6 +3948,7 @@ window.SkateApp = (() => {
 
         // ---- Filters sheet ----
         $('btn-filters-close').onclick = Actions.closeFilters;
+        $('f-free').onchange = (e) => Actions.setFlag('free', e.target.checked);   // v3.15.2: the header switch
         $('btn-filters-apply').onclick = Actions.closeFilters;
         $('btn-filters-reset').onclick = Actions.resetFilters;
         let sheetTap = null;   // the row under the finger when the touch began (Android hit-test drift guard)

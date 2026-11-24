@@ -17,7 +17,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=11">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=4">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=54">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=55">
 </head>
 <body>
     <div class="app" id="app">
@@ -366,7 +366,14 @@
         <div class="modal sheet">
             <div class="modal-header">
                 <h3>Filters</h3>
-                <button class="btn-icon" id="btn-filters-close" aria-label="Close" title="Close. Changes apply as you make them.">✕</button>
+                <div class="fhead-right">
+                    <label class="ios-switch" title="Show only free sessions">
+                        <span class="ios-switch-text"><span class="ios-switch-label">Free only</span><span class="ios-switch-sub hidden" id="f-free-sub"></span></span>
+                        <input type="checkbox" role="switch" id="f-free" aria-label="Free sessions only">
+                        <span class="ios-switch-track" aria-hidden="true"></span>
+                    </label>
+                    <button class="btn-icon" id="btn-filters-close" aria-label="Close" title="Close. Changes apply as you make them.">✕</button>
+                </div>
             </div>
             <div id="filters-body"></div>
             <div class="sheet-footer">
@@ -487,7 +494,7 @@
          app.js loads it on demand (COMMUNITY_SCRIPTS) the first time a
          community section, invite link or the feedback sheet needs it, and
          the service worker keeps it cache-first from then on. -->
-    <script src="projects/js/config.js?v=62"></script>
+    <script src="projects/js/config.js?v=63"></script>
     <script src="projects/js/settings.js?v=9"></script>
     <script src="projects/js/favorites.js?v=1"></script>
     <script src="projects/js/api.js?v=22"></script>
@@ -501,7 +508,7 @@
     <script src="projects/js/calendar2.js?v=6"></script>
     <script src="projects/js/map.js?v=9"></script>
     <script src="projects/js/tour.js?v=5"></script>
-    <script src="projects/js/app.js?v=66"></script>
+    <script src="projects/js/app.js?v=67"></script>
     <script src="projects/js/refresh.js?v=5"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)

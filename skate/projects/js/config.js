@@ -32,7 +32,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.15.1',
+    version: '3.15.2',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -46,6 +46,15 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.15.2', date: '2026-11-24', items: [
+                'Canlan\'s five rinks (York, Etobicoke, Scarborough, Oakville, Oshawa) now show their stick & puck, shinny and holiday skates too, not only public skating: about 150 more sessions a month, most of them stick & puck.',
+                'Free only is a switch at the top of Filters now, beside the close button, and says how many paid sessions it hides.',
+                'Age groups no longer disappear from Filters when your city or Free only leaves none of them: Figure\'s Adult group is back, at 0 when there is nothing for adults where you are looking.',
+                'Your age is a box of its own instead of a box in the middle of a sentence.',
+                'When the City lists one session twice with two end times (a holiday change), only the newer listing is shown.',
+            ]
+        },
         {
             v: '3.15.1', date: '2026-11-24', items: [
                 'King\'s and Whitby\'s 55+ Skate sessions count as leisure skating now. They were filed under Other, as Ice Breakdancing.',

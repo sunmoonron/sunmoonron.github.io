@@ -451,3 +451,21 @@ test('a quoted sentence starts where the match does and stops at its full stop',
     expect(sentenceFrom(text, text.indexOf('Ted Reeve does'))).toBe('Ted Reeve does not offer Pleasure Skating times.');
     expect(sentenceFrom('x'.repeat(400), 0).length).toBe(160);
 });
+
+test('Canlan: stick & puck, shinny and holiday skates are kept; lessons, training and goalie sign-ups are not', () => {
+    const { CANLAN_PROGRAMS, EXTERNAL_SOURCES: X } = P;
+    const pick = (label) => CANLAN_PROGRAMS.find(r => r.match.test(label));
+    for (const label of ['Stick & Puck', 'Stick & Puck (1.5 hrs)', 'Family Stick & Puck', 'Junior Stick & Puck', 'Shinny', 'Daytime ADULT Shinny', 'Holiday Skate!', 'Public Skating', 'Senior Skate']) expect(pick(label) && !pick(label).skip, label).toBe(true);
+    for (const label of ['Stick & Puck Instruction', 'Stick & Puck (TRAINING)', 'Shinny (Goalie Signup)', 'GOALIES only']) expect(pick(label).skip, label).toBe(true);
+    expect(['canlan-york', 'canlan-etobicoke', 'canlan-scarborough', 'canlan-oakville', 'canlan-oshawa'].every(k => X[k].programs === CANLAN_PROGRAMS)).toBe(true);
+});
+
+test('the City listing one session twice with two end times: the newer listing is kept', () => {
+    const { dedupePrograms } = P;
+    const base = { Source: 'city', 'Location ID': 77, 'Start Date': '2026-12-31', 'Start Time': '13:15', Activity: 'Shinny: Youth', 'Age Min': 13, 'Age Max': 18, Paid: false, Price: 0 };
+    const out = dedupePrograms([{ ...base, _id: 1, Course_ID: 182362, 'End Time': '15:45' }, { ...base, _id: 2, Course_ID: 199067, 'End Time': '14:45' }, { ...base, _id: 3, Course_ID: 5, 'Start Time': '16:00', 'End Time': '17:00' }]);
+    expect(out.map(p => p._id)).toEqual([2, 3]);
+    const ext = dedupePrograms([{ ...base, Source: 'canlan-york', _id: 4, 'End Time': '15:45' }, { ...base, Source: 'canlan-york', _id: 5, 'End Time': '14:45' }]);
+    expect(ext).toHaveLength(2);                                                   // only the City's own listings are folded
+});
+

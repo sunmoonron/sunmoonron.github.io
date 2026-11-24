@@ -56,6 +56,21 @@ const ONLY = (process.argv.find(a => a.startsWith('--only=')) || '').slice(7).sp
  * Common fields land on every generated program record so the client
  * renders them exactly like city records (+ Paid/Unverified extras).
  */
+/**
+ * What Canlan's five rinks publish as drop-ins (v3.15.2). Until now only public skating was kept,
+ * so their stick & puck (about 150 sessions a month), shinny and holiday skates never showed.
+ * Lessons, training ice and goalie-only sign-ups are not drop-ins for skaters: skipped.
+ */
+const CANLAN_PROGRAMS = [
+    { match: /instruction|training|goalie/i, skip: true },
+    { match: /public\s*skat/i, activity: 'Public Skate', defaultPrice: 5 },
+    { match: /holiday\s*skat/i, activity: 'Holiday Skate', defaultPrice: 5 },
+    // 55+ drop-in; DaySmart lists the product at $0.00
+    { match: /senior\s*skat/i, activity: 'Senior Skate (55+)', defaultPrice: 0 },
+    { match: /stick\s*(?:&|and|n)\s*puck/i, defaultPrice: 10 },                 // named as published ("Family Stick & Puck")
+    { match: /shinny/i, defaultPrice: 10 }
+];
+
 const EXTERNAL_SOURCES = {
     'canlan-york': {
         kind: 'daysmart',
@@ -66,9 +81,7 @@ const EXTERNAL_SOURCES = {
         resourceIds: [3, 4, 5, 6, 7, 8],
         daysAhead: 28,
         // Which published events to keep, and how to label them.
-        programs: [
-            { match: /public\s*skat/i, activity: 'Public Skate', defaultPrice: 5 }
-        ],
+        programs: CANLAN_PROGRAMS,
         locationName: 'NFP Athletic Centre (Canlan York)',
         address: '989 Murray Ross Pkwy',
         district: 'North York',
@@ -84,9 +97,7 @@ const EXTERNAL_SOURCES = {
         // Rinks 1-4 at CWENCH Centre (Etobicoke) — facility_id 3.
         resourceIds: [207, 208, 209, 210],
         daysAhead: 28,
-        programs: [
-            { match: /public\s*skat/i, activity: 'Public Skate', defaultPrice: 5 }
-        ],
+        programs: CANLAN_PROGRAMS,
         locationName: 'CWENCH Centre (Canlan Etobicoke)',
         address: '1120 Martin Grove Rd',
         district: 'Etobicoke',
@@ -104,9 +115,7 @@ const EXTERNAL_SOURCES = {
         // lives in the summary / home-team name (fetchDaySmart falls back).
         resourceIds: [440, 441, 442, 443],
         daysAhead: 28,
-        programs: [
-            { match: /public\s*skat/i, activity: 'Public Skate', defaultPrice: 5 }
-        ],
+        programs: CANLAN_PROGRAMS,
         locationName: 'Canlan Sports Scarborough',
         address: '159 Dynamic Dr',
         district: 'Scarborough',
@@ -124,11 +133,7 @@ const EXTERNAL_SOURCES = {
         // filters to the Drop-In event type and pages at 500.
         resourceIds: [102, 103, 104, 105],
         daysAhead: 28,
-        programs: [
-            { match: /public\s*skat/i, activity: 'Public Skate', defaultPrice: 5 },
-            // 55+ drop-in; DaySmart lists the product at $0.00
-            { match: /senior\s*skat/i, activity: 'Senior Skate (55+)', defaultPrice: 0 }
-        ],
+        programs: CANLAN_PROGRAMS,
         locationName: 'Entripy Centre (Canlan Oakville)',
         address: '2300 Cornwall Rd',
         district: 'Oakville',
@@ -141,14 +146,11 @@ const EXTERNAL_SOURCES = {
     'canlan-oshawa': {
         kind: 'daysmart',
         company: 'canlan',
-        // Rinks 1-2 at Canlan Sports Oshawa — facility_id 14. No public
-        // skate published as of Sep 2026 (Stick & Puck / shinny only) —
-        // yields 0 records until they add one; harmless.
+        // Rinks 1-2 at Canlan Sports Oshawa — facility_id 14: stick & puck
+        // (program type 50), shinny (49) and holiday skates (72); no weekly public skate.
         resourceIds: [54, 65],
         daysAhead: 28,
-        programs: [
-            { match: /public\s*skat/i, activity: 'Public Skate', defaultPrice: 5 }
-        ],
+        programs: CANLAN_PROGRAMS,
         locationName: 'Canlan Sports Oshawa',
         address: '1401 Phillip Murray Ave',
         district: 'Oshawa',
@@ -2471,14 +2473,14 @@ async function fetchDaySmart(sourceKey, cfg) {
         // name then lives only in the summary / home-team record.
         const label = (a.desc || '').trim() || summaries[e.id]?.name || teams[a.hteam_id]?.name || '';
         const rule = cfg.programs.find(r => r.match.test(label));
-        if (!rule) return;
+        if (!rule || rule.skip) return;
         // `start`/`end` are facility-local (America/Toronto) naive timestamps
         const date = String(a.start).slice(0, 10);
         const startTime = String(a.start).slice(11, 16);
         const endTime = String(a.end).slice(11, 16);
         if (!date || !startTime) return;
         records.push(externalRecord(cfg, sourceKey, {
-            activity: rule.activity || label.trim(),
+            activity: rule.activity || label.trim().replace(/!+$/, '').replace(/\b[A-Z]{4,}\b/g, w => w[0] + w.slice(1).toLowerCase()),   // "Daytime ADULT Shinny" → "Daytime Adult Shinny"
             date, startTime, endTime,
             price: priceForTeam(a.hteam_id) ?? rule.defaultPrice ?? null,
             externalId: e.id
@@ -4737,7 +4739,22 @@ function dedupePrograms(list) {
     }
     const removed = list.length - out.length;
     if (removed) console.log(`   🧹 ${removed} duplicate row${removed === 1 ? '' : 's'} merged (same session under another course id)`);
-    return out;
+    // v3.15.2: the City sometimes lists one session twice, same rink, day, start and title but two end
+    // times: a holiday change posted as a new course while the old course still stands (New Year's Eve
+    // 2026 at High Park and Wallace Emerson). The newer course (higher Course_ID) is the one kept; the
+    // live check against toronto.ca confirms it two weeks ahead.
+    const byStart = new Map(), kept = [];
+    let swapped = 0;
+    for (const p of out) {
+        if ((p.Source || 'city') !== 'city' || p.Course_ID == null) { kept.push(p); continue; }
+        const k = sessionIdentity({ ...p, 'End Time': '' });
+        const at = byStart.get(k);
+        if (at == null) { byStart.set(k, kept.length); kept.push(p); continue; }
+        if (+p.Course_ID > +kept[at].Course_ID) kept[at] = p;
+        swapped++;
+    }
+    if (swapped) console.log(`   🧹 ${swapped} City session${swapped === 1 ? '' : 's'} listed twice with two end times: the newer listing kept`);
+    return kept;
 }
 
 /* ================= Venue facts (rentals, admission, helmets) =================
@@ -5529,7 +5546,7 @@ module.exports = { parseLendingPage, parseLendingTime, parseLendingDate, lending
     // v3.12: seasons, source states, venue pages, the City's doubles (skate/tests/unit/sources.spec.js)
     parseNaturalIcePage, winterOf, fetchNaturalIce, fetchVenue, stripHtml,
     fetchExternalSources, networkUp, waitForNetwork, settleNetwork, errorText, neverAnswered, sourceSite, keptResult, fetchManual, sitemapLastmod,
-    calendarPictures, checkCalendarReading, fetchCalendarImage,
+    calendarPictures, checkCalendarReading, fetchCalendarImage, CANLAN_PROGRAMS,
     toRanges, dateRangeIn, datesIn, agesFromLabel, parseDayGridText, parseAuroraPage, fetchAurora, listedDates, parseWhitbyPage, parseUoftPage,
     seasonPhase, readSource, sourceMeta, venueRecords, manualRecords, runReader, foldTwinRinks, markSuperseded, sentenceFrom, rinkSeasonal, RINK_AKA, RINK_TWINS,
     verifyReading, readAlerts, fetchAlerts, readerKey, readerWants, readerUserMessage, readerCreds, readerTiers, readerErrorKind, readerScrub, READER_SCHEMA, READER_VERSION, inferKinds, inOutdoorLull };

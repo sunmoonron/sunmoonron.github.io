@@ -118,8 +118,9 @@ test.describe('hockey by kind', () => {
         await app.open();
         await openHockey(page);
         await expect(count(page, '.fcat.type-hockey')).toHaveText('8');            // Toronto: seven of ours plus "Shinny: Adult"
-        await expect(page.locator('#filters-body .fcheck', { hasText: 'Free sessions only' })).toContainText('hides 1 paid');
-        await page.locator('input[data-flag="free"]').check();
+        await expect(page.locator('#f-free-sub')).toBeHidden();                      // Free only off: nothing hidden to count
+        await page.locator('#filters-modal label.ios-switch').click();
+        await expect(page.locator('#f-free-sub')).toHaveText('1 paid hidden');
         await expect(count(page, '.fcat.type-hockey')).toHaveText('7');            // the paid one is out of the count too
         await expect(kind(page, 'stickpuck').locator('xpath=..')).toContainText('3');
         await expect(kind(page, 'stickpuck').locator('xpath=..').locator('.fpaid')).toHaveText('+1 paid');   // what Free only hides, said beside the name

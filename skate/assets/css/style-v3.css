@@ -1927,3 +1927,32 @@ html { touch-action: manipulation; }
 
 /* v3.15.1: what Free only hides beside a kind's name ("+4 paid") */
 .fpaid { margin-left: 8px; font-size: 11.5px; font-weight: 500; color: var(--text-muted); white-space: nowrap; }
+
+/* ============================================================
+   v3.15.2: a Free only switch in the Filters header; the Your age box
+   ============================================================ */
+.fhead-right { display: flex; align-items: center; gap: 12px; }
+.ios-switch { position: relative; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
+.ios-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
+.ios-switch-text { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; }
+.ios-switch-label { font-size: 14px; font-weight: 600; color: var(--text); }
+.ios-switch-sub { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.ios-switch-track { position: relative; flex: none; width: 46px; height: 28px; border-radius: 14px; background: #c9d1d9; transition: background .2s; }
+.ios-switch-track::after { content: ''; position: absolute; top: 2px; left: 2px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .35); transition: transform .2s; }
+.ios-switch input:checked + .ios-switch-track { background: #2c8072; }
+.ios-switch input:checked + .ios-switch-track::after { transform: translateX(18px); }
+.ios-switch input:focus-visible + .ios-switch-track { outline: 2px solid var(--primary); outline-offset: 2px; }
+body.dark-mode .ios-switch-track { background: #3a4a5c; }
+body.dark-mode .ios-switch input:checked + .ios-switch-track { background: #3fa592; }
+
+.fage-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.fage-box { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 260px; height: 44px; padding: 0 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-white); cursor: text; }
+.fage-box:focus-within { border-color: var(--primary); }
+.fage-box input { flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; background: transparent; color: var(--text); font-size: 16px; outline: none; -moz-appearance: textfield; appearance: textfield; }
+.fage-box input::-webkit-outer-spin-button, .fage-box input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.fage-unit { color: var(--text-muted); font-size: 14px; white-space: nowrap; }
+body.dark-mode .fage-box { background: #1b2530; border-color: #38485a; }
+body.dark-mode .fage-box:focus-within { border-color: var(--primary); }
+/* the site's general input styles (dark mode's box and padding, a margin) must not reach the box's own field */
+.fage-box input, body.dark-mode .fage-box input { margin: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; height: auto; line-height: 1.25; align-self: center; }
+
