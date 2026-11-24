@@ -122,6 +122,8 @@ test.describe('hockey by kind', () => {
         await page.locator('input[data-flag="free"]').check();
         await expect(count(page, '.fcat.type-hockey')).toHaveText('7');            // the paid one is out of the count too
         await expect(kind(page, 'stickpuck').locator('xpath=..')).toContainText('3');
+        await expect(kind(page, 'stickpuck').locator('xpath=..').locator('.fpaid')).toHaveText('+1 paid');   // what Free only hides, said beside the name
+        await expect(page.locator('#filters-body .fcat.type-hockey .fpaid')).toHaveText('+1 paid');
         await expect(page.locator('#filters-body .fchip[data-city="Mississauga"]')).toHaveText(/Mississauga · \d+/);
         await page.locator('#filters-body .fchip[data-city="Mississauga"]').click();
         await page.locator('#filters-body .fchip[data-city="Toronto"]').click();    // Mississauga alone

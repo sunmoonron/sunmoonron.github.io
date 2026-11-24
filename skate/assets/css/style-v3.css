@@ -1924,3 +1924,6 @@ html { touch-action: manipulation; }
 /* v3.12.3: hockey's kind as one-tap chips, each with its count */
 .fkinds { margin: 2px 0 6px; }
 .fchip .fchip-n { margin-left: 6px; font-weight: 400; opacity: .75; font-variant-numeric: tabular-nums; }
+
+/* v3.15.1: what Free only hides beside a kind's name ("+4 paid") */
+.fpaid { margin-left: 8px; font-size: 11.5px; font-weight: 500; color: var(--text-muted); white-space: nowrap; }

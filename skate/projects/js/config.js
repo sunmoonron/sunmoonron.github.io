@@ -19,6 +19,8 @@ const LEISURE_WORDS = [
     'skating - unsupervised', 'skating - adult only', 'skating - older adult',
     'senior skate', 'older adult skate', 'adult skate fit', 'sensory skate',
     'parent & tot skate', 'parent and tot skate', 'skate 19+', 'family skate', 'daytime skate',
+    // v3.15.1: King's and Whitby's "55+ Skate" (it was filed under Other, shown as Ice Breakdancing)
+    '55+ skate', '55+ skating', 'seniors skate', 'seniors\' skate',
     // Stouffville "Adult/Senior Free Skate", Ajax/Oshawa "Adult Skate" / "Parent & Tot", Pickering "Parent & Child Skate"
     'free skate', 'adult skate', 'parent & tot', 'parent and tot', 'parent & child skate',
     // Toronto's board-run arenas (v3.7): Grossman "Pleasure Skate", Leaside "Community Skate", Bolton "Adults Only Skate"
@@ -30,7 +32,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.15',
+    version: '3.15.1',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -44,6 +46,12 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.15.1', date: '2026-11-24', items: [
+                'King\'s and Whitby\'s 55+ Skate sessions count as leisure skating now. They were filed under Other, as Ice Breakdancing.',
+                'With Free only on, a kind of skating whose sessions are all paid says so in Filters, for example Stick & puck "+4 paid" beside a 0. In Toronto the only stick & puck is at U of T\'s Varsity Arena, which needs a day pass, so Free only hides it.',
+            ]
+        },
         {
             v: '3.15', date: '2026-11-24', items: [
                 'King Township (the Zancor Centre, the Trisan Centre and the Nobleton Arena), Whitby (the Iroquois Park Sports Centre, the McKinney Centre and the Fieldgate Sports Complex, with the days the Town cancels) and U of T\'s Varsity Arena (drop-in skate, stick n puck, shinny, hockey, figure and family skating; non-members need a day pass) are in.',

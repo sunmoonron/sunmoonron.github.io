@@ -730,6 +730,11 @@ window.SkateApp = (() => {
                     by[st] = (by[st] || 0) + 1;
                 }
             }
+            else if (ci && !pv) {                                    // v3.15.1: what Free only is hiding, per kind
+                const k = P.category(p), f = (cats[k] ||= { n: 0, subs: {} });
+                f.paidHidden = (f.paidHidden || 0) + 1;
+                if (k === 'hockey') { const kd = P.hockeyKind(p); (f.kindsPaid ||= {})[kd] = (f.kindsPaid[kd] || 0) + 1; }
+            }
             if (t && pv) { const city = P.city(p); cities[city] = (cities[city] || 0) + 1; }
             if (t && ci && p.Paid) paid++;
         }
@@ -813,6 +818,8 @@ window.SkateApp = (() => {
         const chip = (label, on, dataset) => el('button', { class: 'fchip' + (on ? ' active' : ''), dataset, 'aria-pressed': on ? 'true' : 'false' }, Array.isArray(label) ? label : [label]);
         const foldBtn = (key, open, label) => el('button', { class: 'ftoggle' + (open ? ' open' : ''), dataset: { expand: key }, 'aria-expanded': open ? 'true' : 'false' }, [label, el('span', { class: 'caret', 'aria-hidden': 'true' }, ['▾'])]);
 
+        /** A label that says what Free only hides there ("Stick & puck +4 paid"), so a 0 is not a mystery (v3.15.1). */
+        const withPaid = (text, m) => (!S.paidVisible && m ? el('span', {}, [text, el('span', { class: 'fpaid' }, [`+${m} paid`])]) : text);
         /** One category row (+ its age groups) appended to `host`. */
         const typeRow = (cat, host) => {
             const facet = f.cats[cat.id] || (S.types[cat.id] || inData().cats.has(cat.id) ? { n: 0, subs: {} } : null);   // v3.15: always offered, 0 if nothing is left
@@ -828,7 +835,7 @@ window.SkateApp = (() => {
             const narrowed = !!sel && (sel !== 'all' || (hasKinds && Array.isArray(S.kinds)));
             const open = hasSubs && (pick === true || (pick !== false && narrowed));
             const row = el('div', { class: `fcat type-${cat.id}` + (sel ? ' on' : '') });
-            row.appendChild(check(cat.label, !!sel, { type: cat.id }, ' cat'));
+            row.appendChild(check(withPaid(cat.label, facet.paidHidden), !!sel, { type: cat.id }, ' cat'));
             row.appendChild(count(facet.n));
             if (hasSubs) row.appendChild(el('button', { class: 'fexpand' + (open ? ' open' : ''), dataset: { expand: cat.id }, title: open ? `Hide the ${what.toLowerCase()}` : `Choose ${what.toLowerCase()}`, 'aria-expanded': open ? 'true' : 'false' }, [what + ' ', el('span', { class: 'caret', 'aria-hidden': 'true' }, ['▾'])]));
             else row.appendChild(el('span', { class: 'fexpand-spacer', 'aria-hidden': 'true' }));   // keeps the counts in one column
@@ -839,7 +846,7 @@ window.SkateApp = (() => {
                     // v3.14: ticks like everything else. Hockey on ticks both; untick one to hide its sessions.
                     subs.appendChild(el('div', { class: 'fsubs-head' }, ['Kind']));
                     kindsHere.forEach(k => {
-                        const c = check(k.label, !!sel && (!Array.isArray(S.kinds) || S.kinds.includes(k.id)), { kind: k.id });
+                        const c = check(withPaid(k.label, (facet.kindsPaid || {})[k.id]), !!sel && (!Array.isArray(S.kinds) || S.kinds.includes(k.id)), { kind: k.id });
                         c.appendChild(count((facet.kinds || {})[k.id] || 0));
                         subs.appendChild(c);
                     });
