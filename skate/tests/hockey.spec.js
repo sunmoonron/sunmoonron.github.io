@@ -126,7 +126,8 @@ test.describe('hockey by kind', () => {
         await page.locator('#filters-body .fchip[data-city="Mississauga"]').click();
         await page.locator('#filters-body .fchip[data-city="Toronto"]').click();    // Mississauga alone
         await expect(count(page, '.fcat.type-hockey')).toHaveText('1');
-        await expect(kind(page, 'pickup')).toHaveCount(0);                          // one kind of hockey there: nothing to choose
+        await expect(kind(page, 'pickup').locator('xpath=..')).toContainText('0');  // both kinds stay offered; none of one here reads 0
+        await expect(kind(page, 'stickpuck').locator('xpath=..')).toContainText('1');
         await page.evaluate(() => SkateApp.Actions.setType('figure', null, true));
         await page.evaluate(() => SkateApp.Actions.setCities(['Pickering']));      // nothing of ours there
         await expect(page.locator('#filters-body .fcat.type-hockey')).toBeVisible(); // picked, 0: still shown so it can be unticked

@@ -806,6 +806,73 @@ const EXTERNAL_SOURCES = {
         unverified: true,
         infoUrl: 'https://www.newmarket.ca/schedules'
     },
+    /* ---- v3.15: King Township, Whitby, U of T ---- */
+    'king': {
+        kind: 'perfectmind',
+        // Township of King, PerfectMind org 23793 (the tenant is part of the address), calendar
+        // "Skating": public, 55+, parent & tot, adaptive, figure, family stick & puck and shinny at
+        // three arenas, with each session's own fee.
+        base: 'https://townshipofking.perfectmind.com/23793',
+        widgetId: '15f6af07-39c5-473e-b053-96653f77a406',
+        calendarId: '2fd6d540-75aa-416b-9a70-a78b8f598e7d',
+        daysAhead: 28,
+        windowDays: 3,
+        paid: true,
+        venues: {
+            'Zancor Centre':                     { address: '1600 15th Sideroad', district: 'King City', postalCode: 'L7B 1B3', lat: 43.9515368, lng: -79.5125525 },
+            'Trisan Centre':                     { address: '25 Dillane Dr',      district: 'Schomberg', postalCode: 'L0G 1T0', lat: 44.0076708, lng: -79.6733253 },
+            'Nobleton Arena & Community Centre': { address: '15 Sheardown Dr',    district: 'Nobleton',  postalCode: 'L0G 1N0', lat: 43.9051671, lng: -79.6604000 }
+        },
+        district: 'King',
+        infoUrl: 'https://www.king.ca/parks-recreation-culture/recreation/drop-programs'
+    },
+    'whitby': {
+        kind: 'whitby',
+        // The Town of Whitby posts one accordion per arena ("Fall/Winter Skate Schedule - Iroquois Park
+        // Sports Centre (500 Victoria St. W.) - September 8, 2026 - March 28, 2027"), each a table of
+        // Day | Time | Type | Cancellations. A day cell can name several weekdays and an age in brackets
+        // ("Saturday (8-12yrs)"); cancellations carry their month forward ("January 1, 8, and March 26").
+        url: 'https://www.whitby.ca/explore-and-enjoy/parks-and-recreation/skating-schedules-and-arenas/',
+        daysAhead: 28,
+        paid: true,
+        // Its own fee list (same page, HST extra): adult skate $5.12, shinny $7.69. Others are not given there.
+        programs: [
+            { match: /shinny/i, price: 7.69 },
+            { match: /adult/i, price: 5.12 },
+            { match: /^recreational$/i, activity: 'Recreational Public Skate' }
+        ],
+        ageRules: [{ match: /adult|ladies/i, ageMin: 18 }, { match: /parent and tot/i, ageMax: 7 }],
+        priceNote: 'Pay at the arena (HST extra): adult skate $5.12, shinny $7.69; see whitby.ca for the rest',
+        venues: {
+            'Iroquois Park Sports Centre': { match: /iroquois/i,  address: '500 Victoria St W',   district: 'Whitby', postalCode: 'L1N 9B4', lat: 43.8638, lng: -78.9536 },
+            'McKinney Centre':             { match: /mckinney/i,  address: '222 McKinney Dr',     district: 'Whitby', postalCode: 'L1R 3M4', lat: 43.9036, lng: -78.9564 },
+            'Fieldgate Sports Complex':    { match: /fieldgate/i, address: '2 Gathering Place',   district: 'Whitby', postalCode: '',        lat: 43.9568, lng: -78.9512 }
+        },
+        district: 'Whitby',
+        unverified: true,      // a page of tables, no live feed
+        infoUrl: 'https://www.whitby.ca/explore-and-enjoy/parks-and-recreation/skating-schedules-and-arenas/'
+    },
+    'uoft': {
+        kind: 'uoft',
+        // U of T Kinesiology & Physical Education, Varsity Arena: a weekly grid per term ("Varsity Centre -
+        // Arena Fall Schedule - September 14 to December 6", Mon … Sun, cells "11:00am-12:50pm Skate") and,
+        // around exams, grids with a date on each column ("Mon, Dec 7"; sometimes the month is left out).
+        url: 'https://kpe.utoronto.ca/sport-recreationrecreational-fitness-drop-sportsdrop-sports-activities/drop-ice-skate-ice-sports',
+        daysAhead: 28,
+        paid: true,
+        programs: [
+            { match: /^skate$/i, activity: 'Recreational Skate' },
+            { match: /^hockey$/i, activity: 'Drop-in Hockey' }
+        ],
+        priceNote: 'U of T members and students; anyone else needs a day pass from U of T Sport & Rec (family passes can be bought online). Skate rentals $6 + HST',
+        locationName: 'Varsity Arena (U of T)',
+        venues: {
+            'Varsity Arena (U of T)': { address: '299 Bloor St W', district: 'Toronto and East York', postalCode: 'M5S 1W2', lat: 43.6670621, lng: -79.3961168 }
+        },
+        district: 'Toronto and East York',
+        unverified: true,
+        infoUrl: 'https://kpe.utoronto.ca/sport-recreationrecreational-fitness-drop-sportsdrop-sports-activities/drop-ice-skate-ice-sports'
+    },
     'ajax': {
         kind: 'pdf',
         layout: 'weekday-lines',
@@ -3525,7 +3592,7 @@ async function refreshLiveSpots() {
 }
 
 const FETCHERS = { daysmart: fetchDaySmart, perfectmind: fetchPerfectMind, activenet: fetchActiveNet, scrape: fetchScraped, pdf: fetchPdfSchedule, intelligenz: fetchIntelligenz, 'html-grid': fetchHtmlGrid, pickuphub: fetchPickupHub,
-    venue: fetchVenue, watch: fetchWatch, manual: fetchManual, 'calendar-image': fetchCalendarImage, aurora: fetchAurora };
+    venue: fetchVenue, watch: fetchWatch, manual: fetchManual, 'calendar-image': fetchCalendarImage, aurora: fetchAurora, whitby: fetchTablePage, uoft: fetchTablePage };
 
 /* ================= Seasons, venue pages and source states (v3.12) =================
  *
@@ -3982,7 +4049,7 @@ async function fetchCalendarImage(sourceKey, cfg, { get = httpGetText, getBuf = 
 /* ================= Day grids (Newmarket) and day tables (Aurora) — v3.14 ================= */
 const MONTH_NAMES = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const TIME_TO_RE = /(\d{1,2})(?::(\d{2}))?\s*(?:([ap])\.?\s*m\.?)?\s*to\s*(\d{1,2})(?::(\d{2}))?\s*([ap])\.?\s*m\.?/gi;
+const TIME_TO_RE = /(\d{1,2})(?::(\d{2}))?\s*(?:([ap])\.?\s*m\.?)?\s*(?:to|-|–)\s*(\d{1,2})(?::(\d{2}))?\s*([ap])\.?\s*m\.?/gi;
 const DATE_RANGE_RE = new RegExp(`(${MONTH_NAMES.join('|')})\\s+(\\d{1,2})(?:,\\s*(\\d{4}))?\\s+to\\s+(${MONTH_NAMES.join('|')})\\s+(\\d{1,2}),\\s*(\\d{4})`, 'i');
 const ymdOf = (y, m, d) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
@@ -4182,6 +4249,140 @@ function parseAuroraPage(html, cfg) {
         }
     }
     return rules.map(({ single, ...r }) => r);
+}
+
+/* ================= Whitby's arena tables, U of T's term grids — v3.15 ================= */
+const DATE_SPAN_RE = new RegExp(`(${MONTH_NAMES.join('|')})\\s+(\\d{1,2}),\\s*(\\d{4})\\s*[-–]\\s*(${MONTH_NAMES.join('|')})\\s+(\\d{1,2}),\\s*(\\d{4})`, 'i');
+const SHORT_MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const strip = (s) => String(s || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&#8211;|&ndash;/g, '–').replace(/&#8217;|&rsquo;/g, '’').replace(/\s+/g, ' ').trim();
+const cellsOf = (tr) => (tr.match(/<t[dh]\b[^>]*>[\s\S]*?<\/t[dh]>/gi) || []).map(strip);
+/** "November 27, December 4, December 25, January 1, 8, and March 26" in a season → dates (a bare day keeps the month before it). Pure. */
+function listedDates(text, range) {
+    const out = [];
+    const y1 = +range.from.slice(0, 4), y2 = +range.to.slice(0, 4), m1 = +range.from.slice(5, 7);
+    let mo = 0;
+    for (const m of String(text || '').slice(0, 1000).matchAll(new RegExp(`(?:(${MONTH_NAMES.join('|')})\\s+)?(\\d{1,2})\\b`, 'gi'))) {
+        if (m[1]) mo = MONTH_NAMES.indexOf(m[1].toLowerCase()) + 1;
+        if (!mo || +m[2] < 1 || +m[2] > 31) continue;
+        out.push(ymdOf(y1 === y2 || mo >= m1 ? y1 : y2, mo, +m[2]));
+    }
+    return out;
+}
+
+/** Whitby's skating page → weekly rules, one table per arena under its own heading and dates. Pure. */
+function parseWhitbyPage(html, cfg) {
+    const src = String(html || '').slice(0, 3000000).replace(/<!--[\s\S]*?-->/g, ' ').replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, ' ');
+    const venues = Object.entries(cfg.venues || {});
+    const rules = [];
+    let from = 0;
+    for (;;) {
+        const a = src.indexOf('<table', from);
+        if (a < 0) break;
+        const b = src.indexOf('</table>', a);
+        if (b < 0) break;
+        from = b + 8;
+        const head = strip(src.slice(Math.max(0, a - 1500), a)).slice(-400);
+        const at = head.lastIndexOf('Skate Schedule');
+        if (at < 0) continue;
+        const title = head.slice(at);
+        const span = DATE_SPAN_RE.exec(title);
+        const venue = (venues.find(([, v]) => v.match.test(title)) || [])[0];
+        if (!span || !venue) continue;
+        const mo = (s) => MONTH_NAMES.indexOf(s.toLowerCase()) + 1;
+        const range = { from: ymdOf(+span[3], mo(span[1]), +span[2]), to: ymdOf(+span[6], mo(span[4]), +span[5]) };
+        for (const tr of src.slice(a, b).match(/<tr\b[\s\S]*?<\/tr>/gi) || []) {
+            const c = cellsOf(tr);
+            if (c.length < 3) continue;                                  // a section line ("Family Stick and Puck")
+            const days = WEEK_DAYS.filter(d => new RegExp(`\\b${d}\\b`, 'i').test(c[0]));
+            const span2 = toRanges(c[1]);
+            if (!days.length || !span2.length) continue;                 // the header row
+            const cls = applyProgramRules(cfg, c[2]);
+            if (!cls) continue;
+            const ages = agesFromLabel((c[0].match(/\(([^)]*)\)/) || [])[1] || c[2], +range.from.slice(0, 4));
+            const qualifier = (c[0].match(/\(([^)]*)\)/) || [])[1];
+            const activity = qualifier && !cls.activity.includes(qualifier) ? `${cls.activity} (${qualifier})` : cls.activity;
+            const except = listedDates(c[3] || '', range);
+            const ar = (cfg.ageRules || []).find(x => x.match.test(activity)) || {};    // ages the fee list gives, where the table does not
+            days.forEach(weekday => span2.forEach(r => rules.push({ venue, activity, weekday, start: r.start, end: r.end,
+                ageMin: cls.ageMin ?? ages.ageMin ?? ar.ageMin ?? null, ageMax: cls.ageMax ?? ages.ageMax ?? ar.ageMax ?? null, price: cls.price, from: range.from, to: range.to, except })));
+        }
+    }
+    return rules;
+}
+
+/**
+ * U of T's drop-in ice page → rules: a weekly grid per term (columns Mon … Sun) under a heading with
+ * its dates, and grids whose columns carry their own dates ("Mon, Dec 7"; "Wed, 16" keeps the month
+ * before it). Dates without a year take the school year around `today`. Pure.
+ */
+function parseUoftPage(html, cfg, today = torontoDateStr()) {
+    const src = String(html || '').slice(0, 3000000).replace(/<!--[\s\S]*?-->/g, ' ').replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, ' ');
+    const venue = Object.keys(cfg.venues || {})[0] || cfg.locationName;
+    const ty = +today.slice(0, 4), tm = +today.slice(5, 7);
+    const yearOf = (mo) => (mo >= 7 ? (tm >= 7 ? ty : ty - 1) : (tm >= 7 ? ty + 1 : ty));      // Sept to June is one school year
+    const DAY3 = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+    const rules = [];
+    const sessionsIn = (cell) => {
+        const out = [];
+        const parts = cell.split(/(?=(?<![\d:])\d{1,2}(?::\d{2})?\s*[ap]\.?\s*m\.?\s*[-–])/i);   // a new session starts at a whole time, never inside "1:00pm"
+        parts.forEach(p => { const r = toRanges(p)[0]; if (!r) return; const name = p.replace(TIME_TO_RE, ' ').replace(/\s+/g, ' ').trim(); if (name) out.push({ ...r, name }); });
+        return out;
+    };
+    const rule = (weekday, s, from, to) => {
+        const cls = applyProgramRules(cfg, s.name);
+        if (!cls) return;
+        rules.push({ venue, activity: cls.activity, weekday, start: s.start, end: s.end, ageMin: cls.ageMin, ageMax: cls.ageMax, price: cls.price, from, to, except: [] });
+    };
+    let from = 0;
+    for (;;) {
+        const a = src.indexOf('<table', from);
+        if (a < 0) break;
+        const b = src.indexOf('</table>', a);
+        if (b < 0) break;
+        from = b + 8;
+        const rows = (src.slice(a, b).match(/<tr\b[\s\S]*?<\/tr>/gi) || []).map(cellsOf).filter(r => r.length);
+        if (!rows.length || rows[0].length !== 7) continue;
+        const head = rows[0];
+        const weekly = head.every((h, i) => h.toLowerCase().startsWith(DAY3[i]) && !/\d/.test(h));
+        if (weekly) {
+            const title = strip(src.slice(Math.max(0, a - 800), a)).slice(-300);
+            const m = new RegExp(`(${MONTH_NAMES.join('|')})\\s+(\\d{1,2})\\s+to\\s+(${MONTH_NAMES.join('|')})\\s+(\\d{1,2})(?:,\\s*(\\d{4}))?\\s*$`, 'i').exec(title.replace(/\s*Schedule.*$/i, (x) => x).trim()) ||
+                new RegExp(`(${MONTH_NAMES.join('|')})\\s+(\\d{1,2})\\s+to\\s+(${MONTH_NAMES.join('|')})\\s+(\\d{1,2})(?:,\\s*(\\d{4}))?`, 'i').exec(title);
+            if (!m) continue;
+            const m1 = MONTH_NAMES.indexOf(m[1].toLowerCase()) + 1, m2 = MONTH_NAMES.indexOf(m[3].toLowerCase()) + 1;
+            const y1 = m[5] && m1 <= m2 ? +m[5] : yearOf(m1), y2 = m[5] ? +m[5] : yearOf(m2);
+            const f = ymdOf(y1, m1, +m[2]), t = ymdOf(y2, m2, +m[4]);
+            rows.slice(1).forEach(r => r.forEach((cell, i) => sessionsIn(cell).forEach(s => rule(WEEK_DAYS[i], s, f, t))));
+            continue;
+        }
+        // a grid with its own dates on the columns
+        let mo = 0;
+        const dates = head.map(h => {
+            const m = /([A-Za-z]{3})[a-z]*\.?\s*(\d{1,2})\s*$/.exec(h.replace(/^[A-Za-z]{3,9},\s*/, (x) => x)) || /,\s*(?:([A-Za-z]{3})[a-z]*\.?\s*)?(\d{1,2})\s*$/.exec(h);
+            const mm = /,\s*([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2})\s*$/.exec(h) || /,\s*(\d{1,2})\s*$/.exec(h);
+            if (!mm) return null;
+            if (mm.length === 3) { const k = SHORT_MONTHS.indexOf(mm[1].toLowerCase()); if (k >= 0) mo = k + 1; }
+            const day = +(mm.length === 3 ? mm[2] : mm[1]);
+            return mo && day ? ymdOf(yearOf(mo), mo, day) : null;
+        });
+        if (dates.filter(Boolean).length < 5) continue;
+        rows.slice(1).forEach(r => r.forEach((cell, i) => { const d = dates[i]; if (!d) return; sessionsIn(cell).forEach(s => rule(WEEK_DAYS[i], s, d, d)); }));
+    }
+    // a dated grid replaces the weekly sessions on its dates
+    const dated = new Set(rules.filter(r => r.from === r.to).map(r => r.from));
+    rules.forEach(r => { if (r.from !== r.to) dated.forEach(d => { if (d >= r.from && d <= r.to) r.except.push(d); }); });
+    return rules;
+}
+
+/** kinds 'whitby' and 'uoft': a page of tables → dated sessions. */
+async function fetchTablePage(sourceKey, cfg, { get = httpGetText } = {}) {
+    const html = await get(cfg.url);
+    const rules = cfg.kind === 'whitby' ? parseWhitbyPage(html, cfg) : parseUoftPage(html, cfg);
+    if (!rules.length) { const e = new Error('no schedule tables found on the page'); e.code = 'EMPTY'; throw e; }
+    console.log(`   📋 ${rules.length} rules: ${describeRules(rules)}`);
+    const records = expandWeekly(cfg, sourceKey, rules);
+    console.log(`   ✅ ${sourceKey}: ${records.length} sessions over next ${cfg.daysAhead} days`);
+    return records;
 }
 
 /** kind 'aurora': the Town of Aurora's skating page → dated sessions. */
@@ -5328,7 +5529,7 @@ module.exports = { parseLendingPage, parseLendingTime, parseLendingDate, lending
     parseNaturalIcePage, winterOf, fetchNaturalIce, fetchVenue, stripHtml,
     fetchExternalSources, networkUp, waitForNetwork, settleNetwork, errorText, neverAnswered, sourceSite, keptResult, fetchManual, sitemapLastmod,
     calendarPictures, checkCalendarReading, fetchCalendarImage,
-    toRanges, dateRangeIn, datesIn, agesFromLabel, parseDayGridText, parseAuroraPage, fetchAurora,
+    toRanges, dateRangeIn, datesIn, agesFromLabel, parseDayGridText, parseAuroraPage, fetchAurora, listedDates, parseWhitbyPage, parseUoftPage,
     seasonPhase, readSource, sourceMeta, venueRecords, manualRecords, runReader, foldTwinRinks, markSuperseded, sentenceFrom, rinkSeasonal, RINK_AKA, RINK_TWINS,
     verifyReading, readAlerts, fetchAlerts, readerKey, readerWants, readerUserMessage, readerCreds, readerTiers, readerErrorKind, readerScrub, READER_SCHEMA, READER_VERSION, inferKinds, inOutdoorLull };
 

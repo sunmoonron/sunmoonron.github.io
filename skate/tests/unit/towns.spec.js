@@ -4,7 +4,7 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('fs'), path = require('path');
 const P = require('../../../fetch-skate-data.js');
-const { toRanges, dateRangeIn, datesIn, agesFromLabel, parseDayGridText, parseAuroraPage, EXTERNAL_SOURCES } = P;
+const { toRanges, dateRangeIn, datesIn, agesFromLabel, parseDayGridText, parseAuroraPage, listedDates, parseWhitbyPage, parseUoftPage, EXTERNAL_SOURCES } = P;
 
 const read = (f) => fs.readFileSync(path.join(__dirname, 'towns', f), 'utf8');
 const brief = (r) => `${r.venue.split(' ')[0]} ${r.weekday.slice(0, 3)} ${r.start}-${r.end} ${r.activity}`;
@@ -104,3 +104,63 @@ test.describe('Aurora: the day tables', () => {
         expect(Date.now() - t0).toBeLessThan(2000);
     });
 });
+
+test.describe('Whitby: one table per arena', () => {
+    const rules = parseWhitbyPage(read('whitby.html'), EXTERNAL_SOURCES.whitby);
+    test('three arenas, their own dates, several weekdays in one cell, ages in brackets, the fees it lists', () => {
+        expect(rules).toHaveLength(60);
+        expect(new Set(rules.map(r => r.venue))).toEqual(new Set(['Fieldgate Sports Complex', 'Iroquois Park Sports Centre', 'McKinney Centre']));
+        expect(rules.find(r => r.venue === 'Fieldgate Sports Complex')).toMatchObject({ from: '2026-09-13', to: '2027-03-28' });
+        expect(rules.filter(r => r.venue === 'Fieldgate Sports Complex' && r.activity === '55+ Shinny').map(r => r.weekday)).toEqual(['Monday', 'Wednesday', 'Friday']);
+        expect(rules.find(r => r.activity === 'Family Stick and Puck (8-12 years)')).toMatchObject({ venue: 'Iroquois Park Sports Centre', weekday: 'Sunday', start: '15:45', end: '16:45', ageMin: 8, ageMax: 12 });
+        expect(rules.find(r => /Recreational Public Skate/.test(r.activity) && r.venue === 'McKinney Centre')).toMatchObject({ weekday: 'Friday', start: '16:15', end: '18:00' });
+        expect(rules.find(r => r.activity === 'Adult Shinny')).toMatchObject({ ageMin: 18, price: 7.69 });
+        expect(rules.find(r => r.activity === 'Adult Skate')).toMatchObject({ ageMin: 18, price: 5.12 });
+    });
+    test('cancellations keep their month ("January 1, 8, and March 26")', () => {
+        expect(listedDates('November 27, December 4, December 25, January 1, 8, and March 26', { from: '2026-09-08', to: '2027-03-28' }))
+            .toEqual(['2026-11-27', '2026-12-04', '2026-12-25', '2027-01-01', '2027-01-08', '2027-03-26']);
+        const fri = rules.find(r => r.venue === 'Iroquois Park Sports Centre' && r.weekday === 'Friday' && /Recreational/.test(r.activity));
+        expect(fri.except).toEqual(['2026-11-27', '2026-12-04', '2026-12-25', '2027-01-01', '2027-01-08', '2027-03-26']);
+    });
+    test('junk is nothing, quickly', () => {
+        const t0 = Date.now();
+        expect(parseWhitbyPage('<p>No schedule this season.</p>', EXTERNAL_SOURCES.whitby)).toEqual([]);
+        expect(parseWhitbyPage('Fall/Winter Skate Schedule - Iroquois Park (x) - September 8, 2026 - March 28, 2027' + '<table><tr><td>'.repeat(40000), EXTERNAL_SOURCES.whitby)).toEqual([]);
+        expect(Date.now() - t0).toBeLessThan(2000);
+    });
+});
+
+test.describe('U of T: Varsity Arena term grids', () => {
+    const rules = parseUoftPage(read('uoft.html'), EXTERNAL_SOURCES.uoft, '2026-11-24');
+    const brief2 = (r) => `${r.weekday.slice(0, 3)} ${r.start}-${r.end} ${r.activity}`;
+    test('the weekly grid: whole times (never split at the colon), named so the filters know them', () => {
+        const weekly = rules.filter(r => r.from !== r.to);
+        expect(weekly.map(brief2).sort()).toEqual([
+            'Fri 10:00-11:55 Recreational Skate', 'Fri 12:00-12:55 Stick n Puck', 'Fri 13:00-13:50 Drop-in Hockey',
+            'Mon 13:00-15:55 Recreational Skate', 'Mon 16:00-16:50 Drop-in Hockey',
+            'Sun 17:15-18:50 Family Skate',
+            'Thu 11:00-12:25 Recreational Skate', 'Thu 12:30-13:25 Stick n Puck', 'Thu 13:30-14:25 Shinny', 'Thu 14:30-15:50 Figure Skate',
+            'Tue 11:00-12:50 Recreational Skate'
+        ]);
+        expect(weekly.every(r => r.from === '2026-09-14' && r.to === '2026-12-06' && r.venue === 'Varsity Arena (U of T)')).toBe(true);
+    });
+    test('the exam grids: each column its own date, a column without a month keeps the one before', () => {
+        const dated = rules.filter(r => r.from === r.to);
+        expect(dated.map(r => `${r.from} ${r.start} ${r.activity}`).sort()).toEqual([
+            '2026-12-07 13:00 Recreational Skate', '2026-12-07 16:00 Drop-in Hockey', '2026-12-08 10:00 Recreational Skate',
+            '2026-12-10 09:00 Figure Skate', '2026-12-11 12:10 Recreational Skate', '2026-12-15 10:00 Recreational Skate'
+        ]);
+    });
+    test('a term heading without a year takes the school year around today', () => {
+        expect(parseUoftPage(read('uoft.html'), EXTERNAL_SOURCES.uoft, '2027-01-20').find(r => r.from !== r.to).from).toBe('2026-09-14');
+        expect(parseUoftPage(read('uoft.html'), EXTERNAL_SOURCES.uoft, '2026-08-20').find(r => r.from !== r.to).from).toBe('2026-09-14');
+    });
+    test('junk is nothing, quickly', () => {
+        const t0 = Date.now();
+        expect(parseUoftPage('<table><tr><td>Mon</td></tr></table>', EXTERNAL_SOURCES.uoft, '2026-11-24')).toEqual([]);
+        expect(parseUoftPage('<table>' + '<tr><td>1:00pm-'.repeat(30000), EXTERNAL_SOURCES.uoft, '2026-11-24')).toEqual([]);
+        expect(Date.now() - t0).toBeLessThan(2000);
+    });
+});
+

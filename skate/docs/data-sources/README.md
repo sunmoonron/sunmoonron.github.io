@@ -9,7 +9,7 @@ summarizes, plus the cities that were researched but not wired.
 |---|---|---|
 | `canlan-daysmart.md` | Canlan Sports York / Etobicoke / Scarborough / Oakville / Oshawa (DaySmart API), the `open_slots = -1` semantics | yes |
 | `peel-halton.md` | Mississauga (ActiveNet), Brampton, Oakville, Burlington (PerfectMind) and the `ClassesV2` truncation behaviour | yes |
-| `york-durham.md` | Markham corrections, Vaughan (PerfectMind), Richmond Hill (ActiveNet), Whitchurch-Stouffville (PDF), Ajax (Publitas PDF), Oshawa (Intelligenz behind Queue-it), Pickering (HTML grid) | all but Richmond Hill's other three arenas |
+| `york-durham.md` | Markham corrections, Vaughan (PerfectMind), Richmond Hill (ActiveNet), Whitchurch-Stouffville (PDF), Ajax (Publitas PDF), Oshawa (Intelligenz behind Queue-it), Pickering (HTML grid); since v3.14 also Aurora (HTML tables), Newmarket (PDF grids), King (PerfectMind), Whitby (HTML tables) and U of T's Varsity Arena (HTML grids) | all but Richmond Hill's other three arenas |
 
 Wired later the same day (kinds `pdf`, `intelligenz`, `html-grid` in
 `fetch-skate-data.js`): Whitchurch-Stouffville's drop-in PDF (weekday grid,

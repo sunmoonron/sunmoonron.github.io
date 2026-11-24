@@ -599,3 +599,18 @@ All JSON, `Content-Type: application/json;charset=utf-8`, no auth/cookies; UA `t
 activities/list), `nom.sh` (Nominatim), raw responses: `pm-cityofmarkham…json`, `vaughan-classes-v2.json`,
 `vaughan-p1..4.json`, `events-richmondhill.json`, `rh-dates-146253.json`, `rh-activity-146253.json`,
 `ws-skating-f26.pdf/.txt`, `ajax-fall2026.pdf/.txt`, `oshawa-venue-rng.html` (28-day Delpark page), `markham-fees.txt`.
+
+## 8. Added 2026-11-24 (v3.14, v3.15): Aurora, Newmarket, King, Whitby, and U of T's Varsity Arena
+
+| Place | Where the schedule is | Reader | Watch out for |
+|---|---|---|---|
+| Aurora | aurora.ca skating page: one table per arena and season (`<h3>` with the dates, "Location - …"), lines "1 p.m. to 2 p.m. – Activity", ">Cancelled: …" | `parseAuroraPage` (kind `aurora`) | a "Cancelled:" line applies to every line ending in ">" above it; holiday rows dated in full; "*FREE" notes; fees on the same page |
+| Newmarket | newmarket.ca/schedules links one PDF per program and season (`public-skating-…`, `shinny-…`) | `parseDayGridText` (kind `pdf`, layout `day-grid`) | the PDF address changes each season (found by `discover`); labels over two or three lines; "and" / "&" joining two times; birth-year groups ("2017 to 2019 Shinny") become ages; no fees on the sheets |
+| King | PerfectMind org 23793 (`townshipofking.perfectmind.com/23793`), calendar "Skating" | `fetchPerfectMind` (unchanged) | the tenant number is part of the address; calendar and widget ids can change between seasons, like the other PerfectMind cities |
+| Whitby | whitby.ca skating page: one accordion per arena, table Day / Time / Type / Cancellations | `parseWhitbyPage` (kind `whitby`) | a day cell can name several weekdays and an age in brackets; cancellations carry their month forward ("January 1, 8, and March 26"); fees in a separate section |
+| U of T (Varsity Arena) | kpe.utoronto.ca drop-in ice page: a weekly grid per term, dated grids around exams | `parseUoftPage` (kind `uoft`) | headings have no year (taken from the school year); a dated grid can leave the month out ("Wed, 16"); "1:00pm" must not be split at its colon; members or a day pass |
+
+All five are tested against copies of the pages as served on 2026-11-24 (`skate/tests/unit/towns/`). A town that
+changes its layout reads as "could not be read" on the Data status page, never as an empty schedule: every reader
+throws when it finds no tables, and the status row shows when it last read.
+

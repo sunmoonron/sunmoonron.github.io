@@ -738,7 +738,20 @@ window.SkateApp = (() => {
         return f;
     }
     /** Cities as offered: those with sessions under your other filters, and any already picked. */
-    const citiesShown = (f) => { const o = { ...f.cities }; S.cities.forEach(c => { if (!(c in o)) o[c] = 0; }); return o; };
+    /* v3.15: what the data holds at all, whatever the filters. Every city and every kind of skating in
+       it is always offered (at 0 when your other filters leave nothing there): hiding them made
+       Richmond Hill, Mississauga and the rest vanish from the city list whenever Free only was on. */
+    let inDataMemo = null;
+    const inData = () => {
+        if (!inDataMemo || inDataMemo.of !== S.programs) {
+            const cities = new Set(), cats = new Set();
+            S.programs.forEach(p => { cities.add(P.city(p)); cats.add(P.category(p)); });
+            inDataMemo = { of: S.programs, cities, cats };
+        }
+        return inDataMemo;
+    };
+    /** Cities as offered: every city in the data (and any picked), each with what your other filters leave there. */
+    const citiesShown = (f) => { const o = {}; [...inData().cities, ...S.cities].forEach(c => { o[c] = f.cities[c] || 0; }); return o; };
     const cityKeys = (cities) => Object.keys(cities).sort((a, b) => {
         const ia = CFG.cityOrder.indexOf(a), ib = CFG.cityOrder.indexOf(b);
         return ((ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib)) || a.localeCompare(b);
@@ -749,7 +762,17 @@ window.SkateApp = (() => {
     };
     /* v3.12.2: the kinds of hockey in this dataset, in their set order */
     const KIND_OF = (id) => CFG.hockeyKinds.find(k => k.id === id) || { id, label: id, short: id };
-    const kindsPresent = () => { const f = filterFacets().cats.hockey; return f && f.kinds ? CFG.hockeyKinds.map(k => k.id).filter(id => id !== 'other' && f.kinds[id]) : []; };
+    /* v3.15: the kinds of hockey in the data at all, whatever the other filters: both are always offered
+       under Hockey (with Toronto alone, Stick & puck reads 0; hiding it made the choice vanish). */
+    let kindsMemo = null;
+    const kindsPresent = () => {
+        if (!kindsMemo || kindsMemo.of !== S.programs) {
+            const seen = new Set();
+            for (const p of S.programs) { if (P.category(p) === 'hockey') { seen.add(P.hockeyKind(p)); if (seen.has('pickup') && seen.has('stickpuck')) break; } }
+            kindsMemo = { of: S.programs, list: CFG.hockeyKinds.map(k => k.id).filter(id => id !== 'other' && seen.has(id)) };
+        }
+        return kindsMemo.list;
+    };
     /** The one hockey kind picked, or '' for any (v3.12.3). */
     const kindNow = () => (S.types.hockey && Array.isArray(S.kinds) && S.kinds.length === 1 ? S.kinds[0] : '');
     /** A category's age counts: for hockey with one kind ticked, the ages inside that kind. */
@@ -792,12 +815,12 @@ window.SkateApp = (() => {
 
         /** One category row (+ its age groups) appended to `host`. */
         const typeRow = (cat, host) => {
-            const facet = f.cats[cat.id] || (S.types[cat.id] ? { n: 0, subs: {} } : null);
+            const facet = f.cats[cat.id] || (S.types[cat.id] || inData().cats.has(cat.id) ? { n: 0, subs: {} } : null);   // v3.15: always offered, 0 if nothing is left
             if (!facet) return;                                     // nothing of it under your other filters (v3.14: picked ones stay, at 0)
             const sel = S.types[cat.id];
             const subsPresent = agesShown(cat.id, facet);
             const ageN = ageCounts(cat.id, facet);
-            const kindsHere = cat.id === 'hockey' ? CFG.hockeyKinds.filter(k => k.id !== 'other' && ((facet.kinds || {})[k.id] || (Array.isArray(S.kinds) && S.kinds.includes(k.id)))) : [];
+            const kindsHere = cat.id === 'hockey' ? CFG.hockeyKinds.filter(k => kindsPresent().includes(k.id)) : [];
             const hasKinds = kindsHere.length > 1, hasAges = subsPresent.length > 1;
             const hasSubs = hasAges || hasKinds;
             const what = hasKinds ? (hasAges ? 'Kind & ages' : 'Kind') : 'Ages';
@@ -835,7 +858,7 @@ window.SkateApp = (() => {
         // WHAT: leisure, figure, hockey, then Other (one row that groups the rest)
         const t = section('What kind of skating');
         CFG.programTypes.filter(c => MAIN_TYPES.includes(c.id)).forEach(c => typeRow(c, t));
-        const members = CFG.programTypes.filter(c => OTHER_GROUP.includes(c.id) && (f.cats[c.id] || S.types[c.id]));
+        const members = CFG.programTypes.filter(c => OTHER_GROUP.includes(c.id) && (f.cats[c.id] || S.types[c.id] || inData().cats.has(c.id)));
         if (members.length) {
             const onMembers = members.filter(c => S.types[c.id]);
             const anyOn = onMembers.length > 0, allOn = onMembers.length === members.length;

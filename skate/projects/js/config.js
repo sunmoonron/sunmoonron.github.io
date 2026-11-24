@@ -30,7 +30,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.14',
+    version: '3.15',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -44,6 +44,13 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.15', date: '2026-11-24', items: [
+                'King Township (the Zancor Centre, the Trisan Centre and the Nobleton Arena), Whitby (the Iroquois Park Sports Centre, the McKinney Centre and the Fieldgate Sports Complex, with the days the Town cancels) and U of T\'s Varsity Arena (drop-in skate, stick n puck, shinny, hockey, figure and family skating; non-members need a day pass) are in.',
+                'Pickup (shinny) and Stick & puck always show under Hockey now. With only Toronto picked, Stick & puck reads 0 (the City has none) instead of the choice disappearing.',
+                'Every city and every kind of skating stays in Filters again. In 3.14 a city with nothing left under your other filters dropped out of the list (with Free only on, Richmond Hill, Mississauga and others vanished); now it stays, at 0, and can still be picked.',
+            ]
+        },
         {
             v: '3.14', date: '2026-11-24', items: [
                 'Aurora and Newmarket are in. Aurora: the Aurora Family Leisure Complex and the Aurora Recreation Complex (public, adult, senior and sensory skating, parent and child stick & puck, shinny), with the days the Town cancels. Newmarket: the Magna Centre and the Ray Twinney Recreation Complex (public skating, parent and tot, adult, figure, and shinny by age).',
@@ -442,7 +449,7 @@ window.SkateConfig = {
         { id: 'other',     label: 'Other hockey',    short: 'Other' }
     ],
     // City order in the Filters sheet (anything else sorts after, A–Z).
-    cityOrder: ['Toronto', 'Markham', 'Vaughan', 'Richmond Hill', 'Stouffville', 'Aurora', 'Newmarket', 'Mississauga', 'Brampton', 'Oakville', 'Burlington', 'Pickering', 'Ajax', 'Oshawa'],
+    cityOrder: ['Toronto', 'Markham', 'Vaughan', 'Richmond Hill', 'Stouffville', 'Aurora', 'Newmarket', 'King', 'Mississauga', 'Brampton', 'Oakville', 'Burlington', 'Pickering', 'Ajax', 'Whitby', 'Oshawa'],
 
     // Activity categories (Filters → Type). The keyword matcher classifies
     // each session; sessions matching nothing fall into 'other'.
@@ -550,6 +557,12 @@ window.SkateConfig = {
         'newmarket':   { city: 'Newmarket', label: 'Town of Newmarket', verified: false, site: 'newmarket.ca', place: 'Town of Newmarket',
                          note: 'Read from the Town\'s public skating and shinny schedules (PDFs) for the Magna Centre and the Ray Twinney Recreation Complex. Pay at the Customer Service kiosk before the program.' },
         'newmarket-shinny': { city: 'Newmarket', label: 'Town of Newmarket (shinny)', verified: false, site: 'newmarket.ca' },
+        'king':        { city: 'King', label: 'Township of King', verified: true, site: 'king.ca',
+                         note: 'Official King booking data (PerfectMind) for the Zancor Centre, the Trisan Centre and the Nobleton Arena, with each session\'s own fee.' },
+        'whitby':      { city: 'Whitby', label: 'Town of Whitby', verified: false, site: 'whitby.ca',
+                         note: 'Weekly drop-ins read from the Town\'s skating page (Iroquois Park Sports Centre, McKinney Centre, Fieldgate Sports Complex), with the dates it cancels. Adult skate $5.12, shinny $7.69, HST extra.' },
+        'uoft':        { city: 'Toronto', label: 'Varsity Arena (U of T)', verified: false, site: 'kpe.utoronto.ca',
+                         note: 'Drop-in skate, stick n puck, shinny, hockey and figure skating read from U of T\'s drop-in ice page, term by term. U of T members and students; anyone else buys a day pass.' },
         'stouffville': { city: 'Stouffville', label: 'Whitchurch-Stouffville', verified: false, site: 'townofws.ca',
                          note: 'Weekly schedule read from the Town\'s drop-in PDF, no live feed. Adult $5.50 skate, $7.50 shinny and stick and puck, youth and 60 plus less; cash, debit or credit at the door.' },
         'ajax':        { city: 'Ajax', label: 'Town of Ajax', verified: false, site: 'ajax.ca',
@@ -593,7 +606,7 @@ window.SkateConfig = {
         { id: 'boards', label: 'Toronto arenas run by their own boards',
           keys: ['mosspark', 'grossman', 'leaside-public', 'leaside-community', 'leaside-pickuphub', 'bolton-public', 'bolton-adult', 'bolton-tots', 'georgebell', 'mccormick', 'northtoronto', 'tedreeve'] },
         { id: 'more', label: 'Other Toronto rinks',
-          keys: ['harbourfront', 'bentway', 'evergreen', 'mattamy', 'yzd', 'fordperformance', 'canlan-york', 'canlan-etobicoke', 'canlan-scarborough'] }
+          keys: ['harbourfront', 'bentway', 'evergreen', 'mattamy', 'yzd', 'fordperformance', 'uoft', 'canlan-york', 'canlan-etobicoke', 'canlan-scarborough'] }
     ],
     sourceRows: { 'newmarket-shinny': 'newmarket', 'leaside-public': 'leaside', 'leaside-community': 'leaside', 'bolton-public': 'bolton', 'bolton-adult': 'bolton', 'bolton-tots': 'bolton' },
 
