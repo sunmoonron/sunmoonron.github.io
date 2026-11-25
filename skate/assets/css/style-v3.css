@@ -2008,8 +2008,7 @@ body.dark-mode .fswitch[aria-checked="true"] .fswitch-opt:last-child, body.dark-
 }
 
 /* v3.16.1: the day bar is a day header again (TOMORROW · WEDNESDAY, NOV 25): plain text, each part a quiet button.
-   It stays at the top as you scroll; once the line above has gone, the count and the weather drop into its right end. */
-.db-sentinel { height: 0; }
+   It stays at the top as you scroll. v3.16.2: the count and the weather live at its right end, always. */
 .day-bar { position: sticky; top: -11px; z-index: 4; display: flex; flex-wrap: nowrap; align-items: center;
     margin: 2px 0 8px; padding: 10px 2px 5px; background: var(--bg); border-bottom: 1px solid var(--border);
     font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); }
@@ -2023,15 +2022,14 @@ body.dark-mode .fswitch[aria-checked="true"] .fswitch-opt:last-child, body.dark-
 .db-caret { font-size: 10px; line-height: 1; opacity: .6; letter-spacing: 0; text-decoration: none; }
 .db-sep { padding: 0 6px; }
 .db-short { display: none; }
-.db-mini { display: none; margin-left: auto; padding-left: 12px; gap: 12px; align-items: center; }
-.day-bar.stuck .db-mini { display: inline-flex; animation: db-drop .26s cubic-bezier(.2, .8, .2, 1) both; }
-@keyframes db-drop { from { opacity: 0; transform: translateY(-14px); } }
+.db-right { margin-left: auto; padding-left: 12px; display: inline-flex; align-items: center; gap: 12px; min-width: 0; }
+.day-bar #status-data::after { content: '▾'; margin-left: 3px; font-size: 10px; line-height: 1; opacity: .6; letter-spacing: 0; }
 .db-count.stale { color: var(--warning); }
-@media (prefers-reduced-motion: reduce) { .day-bar.stuck .db-mini { animation: none; } }
 @media (max-width: 480px) {
-    .day-bar.stuck .db-long { display: none; }
-    .day-bar.stuck .db-short { display: inline; }
-    .db-mini { padding-left: 8px; gap: 10px; font-size: 10.5px; letter-spacing: .02em; }
+    .db-long { display: none; }
+    .db-short { display: inline; }
+    .db-right { padding-left: 8px; gap: 10px; font-size: 10.5px; letter-spacing: .02em; }
+    .day-bar .sd-paid, .day-bar .wx-spot { display: none; }
 }
 /* the day headers in the list are plain separators now: the bar names the day you are in */
 .day-head { position: static; }
@@ -2063,7 +2061,12 @@ body.dark-mode .dp-nav { background: #1b2530; border-color: #38485a; }
 body.dark-mode .dp-day.sel { background: color-mix(in srgb, var(--acc-programs) 26%, #1b2530); }
 body.dark-mode .dp-day.start, body.dark-mode .dp-day.end { background: var(--acc-programs); color: #0d141b; }
 
-/* pills: each kind as on the cards, Other a blend of the kinds it holds (the city pill keeps its own colour) */
+/* pills: each kind as on the cards, Other a blend of the kinds it holds, the city pill its own colour,
+   and every other filter (a day, dates, an age, saved, a distance…) in a filled blue (v3.16.2) */
+.pill:not(.city):not(.type):not(.toggle) { background: color-mix(in srgb, var(--acc-programs) 70%, #000); border-color: transparent; color: #fff; font-weight: 600; }
+.pill:not(.city):not(.type):not(.toggle) .pill-x:hover { background: rgba(255, 255, 255, .22); }
+body.dark-mode .pill:not(.city):not(.type):not(.toggle) { background: var(--acc-programs); border-color: transparent; color: #0d141b; }
+body.dark-mode .pill:not(.city):not(.type):not(.toggle) .pill-x:hover { background: rgba(0, 0, 0, .18); }
 .pill.type { --tint: 16%; }
 body.dark-mode .pill.type { --tint: 30%; }
 .pill.type.k-leisure { --ct: #3aa07f; }

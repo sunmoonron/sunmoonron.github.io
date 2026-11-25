@@ -17,7 +17,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=11">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=4">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=57">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=58">
 </head>
 <body>
     <div class="app" id="app">
@@ -78,11 +78,6 @@
                 <!-- active filters as removable pills (generated) -->
                 <div class="pills" id="active-filters"></div>
 
-                <!-- one quiet line: the count (tap for options and data status) · the weather (tap to pick a spot) -->
-                <div class="status-line" id="status-line">
-                    <button class="status-btn" id="status-data" type="button" title="How many sessions match. Tap for options.">Loading…</button>
-                    <button class="status-btn weather-chip hidden" id="weather-chip" type="button" aria-label="Current weather. Tap to choose the spot."></button>
-                </div>
 
                 <!-- Next saved session countdown (only when something is saved & upcoming) -->
                 <div id="install-hint" class="hidden"></div>
@@ -91,16 +86,15 @@
                 <!-- Data-health warnings (stale schedule / failed source feeds) -->
                 <div id="data-warnings"></div>
 
-                <!-- v3.16.1: the day header that stays at the top as you scroll: TOMORROW (tap: pick a day) · WEDNESDAY, NOV 25
-                     (tap: one day or a range). Once the line above has scrolled away, the count and the weather drop into its right end. -->
-                <div class="db-sentinel" id="db-sentinel" aria-hidden="true"></div>
+                <!-- v3.16.2: the day header that stays at the top as you scroll: TOMORROW (tap: pick a day) · WEDNESDAY, NOV 25
+                     (tap: one day or a range) … and at its right end the count (tap: options, data status) and the weather (tap: pick a spot) -->
                 <div class="day-bar" id="day-bar">
                     <button class="db-btn db-when" id="db-when" type="button" aria-haspopup="menu" title="Pick a day">Today<span class="db-caret" aria-hidden="true">▾</span></button>
                     <span class="db-sep" aria-hidden="true">·</span>
-                    <button class="db-btn db-date" id="db-date" type="button" aria-haspopup="dialog" title="Pick a date, or a range of dates"><span class="db-long">Any date</span><span class="db-short">Any date</span><span class="db-caret" aria-hidden="true">▾</span></button>
-                    <span class="db-mini">
-                        <button class="db-btn db-count" id="db-count" type="button" title="How many sessions match. Tap for options.">0 sessions<span class="db-caret" aria-hidden="true">▾</span></button>
-                        <button class="db-btn db-wx hidden" id="db-wx" type="button" title="Current weather. Tap to choose the spot."> <span class="db-caret" aria-hidden="true">▾</span></button>
+                    <button class="db-btn db-date" id="db-date" type="button" aria-haspopup="dialog" title="Pick a date, or a range of dates"><span class="db-long">Today</span><span class="db-short">Today</span><span class="db-caret" aria-hidden="true">▾</span></button>
+                    <span class="db-right">
+                        <button class="db-btn db-count" id="status-data" type="button" title="How many sessions match. Tap for options.">Loading…</button>
+                        <button class="db-btn db-wx hidden" id="weather-chip" type="button" aria-label="Current weather. Tap to choose the spot."></button>
                     </span>
                 </div>
 
@@ -513,7 +507,7 @@
          app.js loads it on demand (COMMUNITY_SCRIPTS) the first time a
          community section, invite link or the feedback sheet needs it, and
          the service worker keeps it cache-first from then on. -->
-    <script src="projects/js/config.js?v=66"></script>
+    <script src="projects/js/config.js?v=67"></script>
     <script src="projects/js/settings.js?v=9"></script>
     <script src="projects/js/favorites.js?v=1"></script>
     <script src="projects/js/api.js?v=22"></script>
@@ -527,7 +521,7 @@
     <script src="projects/js/calendar2.js?v=7"></script>
     <script src="projects/js/map.js?v=9"></script>
     <script src="projects/js/tour.js?v=5"></script>
-    <script src="projects/js/app.js?v=70"></script>
+    <script src="projects/js/app.js?v=71"></script>
     <script src="projects/js/refresh.js?v=5"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)

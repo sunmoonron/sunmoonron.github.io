@@ -17,21 +17,31 @@ test('the bar names the day at the top of the list, and follows it as you scroll
     await expect(page.locator('#status-checked')).toHaveCount(0);
     const next = page.locator('#program-list .day-head[data-day]:not(.first)').first();
     const nextDay = await next.getAttribute('data-day');
-    // at rest the count and the weather are in the line above; the bar has only the day and the date
-    await expect(page.locator('#status-data')).toBeVisible();
-    await expect(page.locator('#db-count')).toBeHidden();
+    // v3.16.2: the count lives at the bar's right end, at rest and scrolled
+    await expect(page.locator('#day-bar #status-data')).toBeVisible();
     await next.evaluate(h => h.scrollIntoView());
     await expect.poll(() => page.evaluate(() => SkateApp.S.barDay)).toBe(nextDay);
-    // scrolled: the line above has gone and the count has dropped into the bar; it opens the same menu
-    await expect(page.locator('#day-bar')).toHaveClass(/\bstuck\b/);
-    await expect(page.locator('#db-count')).toBeVisible();
-    await expect(page.locator('#db-count')).toHaveText(/^\d+ sessions?/);
-    await page.locator('#db-count').dispatchEvent('click');   // a plain tap: no scroll first (a scroll closes menus by design)
+    await expect(page.locator('#day-bar #status-data')).toBeVisible();
+    await expect(page.locator('#status-data')).toHaveText(/^\d+ sessions?/);
+    await page.locator('#status-data').dispatchEvent('click');   // a plain tap: no scroll first (a scroll closes menus by design)
     await expect(page.locator('#popover .popover-title')).toHaveText('Sessions shown');
     await page.keyboard.press('Escape');
     // it stays in view while the list scrolls under it
     const bar = await page.locator('#day-bar').boundingBox();
     expect(bar.y).toBeGreaterThanOrEqual(-12);
+    await app.noErrors();
+});
+
+test('a day you picked is named by its weekday on the bar, even with nothing left on it (never "Any day")', async ({ page, app }) => {
+    await app.open();
+    const k = dayPlus(5), weekday = new Date(`${k}T12:00:00`).toLocaleDateString('en-CA', { weekday: 'long' });
+    await page.evaluate((d) => SkateApp.Actions.setDates(d), k);
+    await expect(page.locator('#db-when')).toHaveText(new RegExp(`^${weekday}`));
+    await expect(page.locator('#db-date')).toHaveClass(/\bon\b/);
+    await page.evaluate(() => SkateApp.Actions.setDates(null));
+    await page.locator('#search-input').fill('zzzz no such rink');                       // nothing listed, no day picked: today
+    await expect(page.locator('#db-when')).toHaveText(/^Today/);
+    await expect(page.locator('#day-bar')).not.toContainText(/any day/i);
     await app.noErrors();
 });
 
@@ -124,6 +134,11 @@ test('pills wear their colours: the city its own, each kind as on the cards, Oth
     const colours = [await bg('#active-filters .pill.city'), await bg('#active-filters .pill.k-leisure'), await bg('#active-filters .pill.k-figure')];
     expect(new Set(colours).size).toBe(3);
     await expect(page.locator('#active-filters .pill.city')).not.toHaveClass(/\bk-/);   // the city pill keeps its own colour
+    // any other filter's pill is a filled blue, unlike the city's
+    await page.evaluate(() => SkateApp.Actions.setDay('tomorrow'));
+    const day = await bg('#active-filters .pill[data-pill="day"]');
+    expect(day).not.toBe(colours[0]);
+    expect(day).not.toBe('rgba(0, 0, 0, 0)');
     const mix = page.locator('#active-filters .pill.k-mix');
     const before = await mix.evaluate(e => getComputedStyle(e).backgroundImage);
     expect(before).toMatch(/linear-gradient/);

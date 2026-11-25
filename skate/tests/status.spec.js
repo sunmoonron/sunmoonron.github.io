@@ -252,8 +252,8 @@ test.describe('data status', () => {
         await app.open();
         await page.setViewportSize({ width: 320, height: 640 });
         const fits = await page.evaluate(() => {
-            const line = document.querySelector('.status-line').getBoundingClientRect();
-            return [...document.querySelectorAll('.status-line .status-btn:not(.hidden)')].every(b => { const r = b.getBoundingClientRect(); return r.left >= line.left - 0.5 && r.right <= line.right + 0.5; });
+            const line = document.querySelector('#day-bar').getBoundingClientRect();
+            return [...document.querySelectorAll('#day-bar .db-btn:not(.hidden)')].every(b => { const r = b.getBoundingClientRect(); return r.left >= line.left - 0.5 && r.right <= line.right + 0.5; });
         });
         expect(fits).toBe(true);
         await openStatus(page);

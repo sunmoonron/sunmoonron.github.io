@@ -32,7 +32,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.16.1',
+    version: '3.16.2',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -46,6 +46,13 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.16.2', date: '2026-11-24', items: [
+                'The count and the weather sit at the right end of the day bar, always; the line above it is gone.',
+                'A day you picked is named on the bar even when nothing is left on it (TUESDAY · NOV 24), never ANY DAY.',
+                'Filter pills for a day, dates, an age and the like are a filled blue; the city pill keeps its colour.'
+            ]
+        },
         {
             v: '3.16.1', date: '2026-11-24', items: [
                 'The bar above the list looks like the day headers again (TOMORROW · WEDNESDAY, NOV 25). Tap the day or the date. Once you scroll, the count and the weather drop into its right end.',
@@ -461,7 +468,7 @@ window.SkateConfig = {
         { sel: '#btn-rinks',             title: 'Rinks and map',         text: 'Every rink on a map, with distances from your location or an address you type. Star the rinks that are yours.', sec: 6 },
         { sel: '#view-seg',              title: 'List or calendar',      text: 'The same sessions as a list or a week grid. In the grid, tap a day chip to jump to that day and any block for details.', sec: 5 },
         { sel: '#btn-free',              title: 'Free only',             text: 'All shows everything with its price. Slide it to Free to keep only the free sessions.', sec: 4 },
-        { sel: '#day-bar',               title: 'Day and dates',         text: 'Tap the day for another day, or the date for a calendar: one day, or a range.', sec: 5 },
+        { sel: '#day-bar',               title: 'Day and dates',         text: 'Tap the day for another day, or the date for a calendar: one day, or a range. The count at its right end has the data options.', sec: 6 },
         { sel: '#program-list .program-item', title: 'A session',        text: 'Time, rink, ages and price. Tap the rink name for directions; the small globe beside it opens the official rink page, the one the staff go by. The heart saves the session.', sec: 7 },
         { sel: '#program-list .btn-copy', title: 'More',                 text: 'Copy the details, add the session to your calendar, share it into a chat, or add this rink to your rinks.', sec: 5 },
         { sel: '#weather-chip',          title: 'Dress for it',          text: 'Live temperature. Tap it to pick a spot, from Scarborough to Mississauga.', sec: 4 },
