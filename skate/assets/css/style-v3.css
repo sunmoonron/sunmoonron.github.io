@@ -2098,9 +2098,10 @@ body.dark-mode .pill.type { --tint: 30%; }
 /* no decorative strip along the top of the panel */
 .view-panel::before { content: none; }
 
-/* session titles in the text colour (blue is for things that open a page) */
-.program-title, .program-item.is-paid .program-title { color: var(--text); }
-body.dark-mode .program-title, body.dark-mode .program-item.is-paid .program-title { color: var(--text); }
+/* v3.17.1: session titles back in the icy blue: the one coloured anchor on each card, and the winter feel
+   (black titles made every card a wall of equal-weight text); paid and free alike, 5.6:1 or better */
+.program-title, .program-item.is-paid .program-title { color: #0066cc; }
+body.dark-mode .program-title, body.dark-mode .program-item.is-paid .program-title { color: #8cc2f7; }
 
 /* a plain pin instead of the red emoji */
 .where-link .pin { width: 13px; height: 13px; margin-right: 4px; vertical-align: -2px; fill: currentColor; opacity: .8; flex: none; }

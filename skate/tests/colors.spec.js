@@ -1,5 +1,5 @@
 // v3.17: one job per colour, in light and dark (each test runs in both themes): every label on a
-// card readable at WCAG AA (4.5:1), age chips neutral, titles in the text colour, no emoji pin,
+// card readable at WCAG AA (4.5:1), age chips neutral, titles the one blue anchor, no emoji pin,
 // and the kinds' tags in soft colours of their own.
 const { test, expect, row, dayPlus } = require('./fixtures');
 
@@ -15,7 +15,7 @@ const RATIO = (el) => {
 
 test.describe('colours', () => {
     test.use({ settings: { typeSel: { leisure: 'all', figure: 'all', hockey: 'all', other: 'all', adapted: 'all', ringette: 'all', speed: 'all' } } });
-    test('every label on a card is readable, age chips are neutral, titles are text-coloured, no emoji pin', async ({ page, app }) => {
+    test('every label on a card is readable, age chips are neutral, titles are the blue anchor, no emoji pin', async ({ page, app }) => {
         const programs = app.data['skating-programs.json'].programs;
         ['Shinny', 'Ringette (drop-in)', 'Speed Skating', 'Adapted Skating', 'Ice Breakdancing', 'Figure Skating: Adult'].forEach((activity, i) =>
             programs.push(row({ id: `c${i}`, loc: 100, rink: 'Alpha Arena', activity, date: dayPlus(1), start: `1${i}:00`, end: `1${i}:50`, ageMin: i === 5 ? 18 : null })));
@@ -35,8 +35,9 @@ test.describe('colours', () => {
         // age chips have no hue of their own; titles are the text colour; the pin is a plain icon
         const chip = await page.locator('.program-item .age-badge').first().evaluate(e => getComputedStyle(e).color.match(/\d+/g).map(Number));
         expect(Math.max(...chip) - Math.min(...chip)).toBeLessThan(40);
-        const [title, text] = await page.evaluate(() => [getComputedStyle(document.querySelector('.program-item .program-title')).color, getComputedStyle(document.body).color]);
-        expect(title).toBe(text);
+        // v3.17.1: the title is the card's one coloured anchor, in the icy blue (readable: checked above)
+        const title = await page.locator('.program-item .program-title').first().evaluate(e => getComputedStyle(e).color.match(/\d+/g).map(Number));
+        expect(title[2]).toBeGreaterThan(title[0] + 40);
         expect(await page.locator('.program-item .where-link').first().textContent()).not.toContain('📍');
         await expect(page.locator('.program-item .where-link svg.pin').first()).toBeVisible();
         await app.noErrors();
