@@ -32,19 +32,6 @@ test.describe('prompts that got in the way', () => {
         await app.noErrors();
     });
 
-    test.describe('the install card', () => {
-        test.use({ settings: { installSeen: false } });
-        test('both its buttons are readable', async ({ page, app, isMobile }) => {
-            test.skip(!isMobile, 'the card only shows in a phone browser');
-            await app.open();
-            const how = page.locator('#install-hint [data-install="how"]'), later = page.locator('#install-hint [data-install="later"]');
-            await expect(how).toBeVisible();
-            expect(await contrastOf(how)).toBeGreaterThanOrEqual(4.5);          // was 1.0 (white on white) in light mode
-            expect(await contrastOf(later)).toBeGreaterThanOrEqual(4.5);
-            await app.noErrors();
-        });
-    });
-
     test('a filter that needs a spot asks inside Rinks & map, with no toast over the search box', async ({ page, app, isMobile }) => {
         await app.open();
         await page.evaluate(() => SkateApp.Actions.setRadius(5));

@@ -2074,3 +2074,11 @@ body.dark-mode .pill.type { --tint: 30%; }
 .pill.type[class*="k-"]:not(.k-mix) { background: color-mix(in srgb, var(--ct, var(--acc-programs)) var(--tint), var(--bg-white)); border-color: color-mix(in srgb, var(--ct, var(--acc-programs)) 60%, var(--bg-white)); }
 .pill.type.k-mix { background: var(--mix-bg) padding-box, var(--mix-line) border-box; border-color: transparent; }
 .pill.type .pill-x:hover { background: color-mix(in srgb, var(--ct, var(--acc-programs)) 30%, transparent); }
+
+/* v3.16.4: a grey notice (skating not affected) folds to one line; tap it to read */
+.alert-banner.note.fold > summary { display: flex; align-items: center; gap: 6px; min-width: 0; list-style: none; cursor: pointer; }
+.alert-banner.note.fold > summary::-webkit-details-marker { display: none; }
+.alert-banner.note.fold > summary strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alert-banner.note.fold > summary::after { content: '›'; margin-left: auto; padding-left: 6px; font-size: 16px; line-height: 1; opacity: .55; transition: transform .15s; }
+.alert-banner.note.fold[open] > summary::after { transform: rotate(90deg); }
+.alert-banner.note.fold .fold-body { margin-top: 5px; }

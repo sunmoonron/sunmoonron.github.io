@@ -174,6 +174,13 @@ test.describe('schedule', () => {
         await expect(frostLater.locator('.alert-banner.note')).toContainText('takes it down once the rink opens');
         await expect(frostLater.locator('.program-title')).toHaveCSS('text-decoration-line', 'none');
         await expect(card(page, 'Lobby Arena').locator('.alert-banner.note')).toContainText('Building notice, skating not affected');
+        // v3.16.4: folded to one line; a tap opens it
+        const lobby = card(page, 'Lobby Arena').locator('details.alert-banner.note');
+        await expect(lobby).not.toHaveAttribute('open', '');
+        await expect(lobby.locator('.fold-body')).toBeHidden();
+        expect((await lobby.boundingBox()).height).toBeLessThan(40);
+        await lobby.locator('summary').click();
+        await expect(lobby.locator('.fold-body')).toBeVisible();
         await expect(card(page, 'Zed Arena')).toHaveClass(/has-alert-closed/);
         await expect(card(page, 'Zed Arena').locator('.alert-banner.closed')).toContainText('Likely cancelled');
 
@@ -327,15 +334,14 @@ test.describe('schedule', () => {
 
     test.describe('install hint', () => {
         test.use({ settings: { installSeen: false } });
-        test('appears on a phone browser, Not now hides it for good', async ({ page, app }, testInfo) => {
-            test.skip(!isPhone(testInfo), 'phone projects only');
+        test('v3.16.4: no Home Screen card in the list, even on a phone that never saw it; Settings still has it', async ({ page, app }) => {
             await app.open();
-            await expect(page.locator('#install-hint')).toBeVisible();
-            await page.click('#install-hint [data-install="later"]');
+            await expect(page.locator('.program-item').first()).toBeVisible();
             await expect(page.locator('#install-hint')).toBeHidden();
-            await page.reload();
-            await page.waitForSelector('.program-item');
-            await expect(page.locator('#install-hint')).toBeHidden();
+            await page.click('#btn-more'); await page.click('#btn-settings');
+            await page.click('#btn-install');
+            await expect(page.locator('#install-modal')).toBeVisible();
+            await expect(page.locator('#install-body')).not.toBeEmpty();
         });
     });
 });

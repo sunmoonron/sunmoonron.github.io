@@ -91,7 +91,7 @@ test.describe('places', () => {
         await expect(gb).toHaveCount(1);
         await expect(gb).not.toHaveClass(/has-alert-closed/);
         await expect(gb).toHaveClass(/has-alert-note/);
-        await expect(gb.locator('.alert-banner.note')).toContainText('The City\'s page still shows an old notice.');
+        await expect(gb.locator('.alert-banner.note')).toContainText('The City\'s page still shows an old notice');   // v3.16.4: the folded line's title
         await expect(gb.locator('.alert-banner.note')).toContainText('“George Bell Arena is closed as it undergoes improvements.”, posted Wed, Nov 5, 2025.');
         await expect(gb.locator('.alert-banner.note')).toContainText('georgebellarena.com says the arena reopened on Sat, Oct 10 and lists this skate.');
         await page.click('#btn-rinks');

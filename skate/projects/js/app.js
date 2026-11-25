@@ -1539,7 +1539,8 @@ window.SkateApp = (() => {
         } else if (alert && alert.level === 'note') {
             // a grey heads-up, not about this session: an alert that ended in the last few days (v3.9),
             // a building notice, an alert for other hours, last season's closure notice (v3.10)
-            alertHtml = `<div class="alert-banner note"><strong>${escapeHtml(alert.lead || 'Heads-up')}.</strong> ${escapeHtml(alert.text)}${verify}</div>`;
+            // v3.16.4: folded to one line (tap to read): a notice that does not touch this session must not push the next sessions off a phone's screen
+            alertHtml = `<details class="alert-banner note fold"><summary><strong>${escapeHtml(alert.lead || 'Heads-up')}</strong></summary><div class="fold-body">${escapeHtml(alert.text)}${verify}</div></details>`;
         } else if (alert) {
             const closed = alert.level === 'closed';
             const lead = alert.lead || (closed ? 'Likely cancelled, rink alert'
@@ -3180,14 +3181,11 @@ window.SkateApp = (() => {
     window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; });
 
     /** One-time card above the list on phones (browser, not the installed app). */
+    // v3.16.4: no install card in the list any more (on a phone it pushed the first sessions off the screen);
+    // Settings keeps "Add to Home Screen" (Actions.openInstall)
     Render.installHint = function () {
         const box = $('install-hint');
-        if (!box) return;
-        const show = isMobileBrowser() && !isStandalone() && !SkateSettings.get('installSeen');
-        box.classList.toggle('hidden', !show);
-        if (!show) { box.innerHTML = ''; return; }
-        box.innerHTML = `<div class="install-card"><div class="install-text"><strong>Put Toronto Skating on your Home Screen.</strong> Opens with one tap, no browser bar, works like an app.</div>
-            <div class="install-btns"><button class="btn-primary" data-install="how">Show me how</button><button data-install="later">Not now</button></div></div>`;
+        if (box) { box.classList.add('hidden'); box.innerHTML = ''; }
     };
 
     Actions.openInstall = function () {
