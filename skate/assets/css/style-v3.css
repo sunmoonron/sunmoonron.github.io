@@ -2019,11 +2019,10 @@ body.dark-mode .fswitch[aria-checked="true"] .fswitch-opt:last-child, body.dark-
 .db-btn:focus-visible { outline: 2px solid var(--acc-programs); outline-offset: 2px; border-radius: 3px; }
 .day-bar .db-when { color: var(--text); }
 .day-bar.today .db-when, .day-bar .db-btn.on { color: var(--acc-programs); }
-.db-caret { font-size: 10px; line-height: 1; opacity: .6; letter-spacing: 0; text-decoration: none; }
 .db-sep { padding: 0 6px; }
 .db-short { display: none; }
 .db-right { margin-left: auto; padding-left: 12px; display: inline-flex; align-items: center; gap: 12px; min-width: 0; }
-.day-bar #status-data::after { content: '▾'; margin-left: 3px; font-size: 10px; line-height: 1; opacity: .6; letter-spacing: 0; }
+/* v3.16.3: no ▾ on the bar: every part is still a button (hover underlines it) */
 .db-count.stale { color: var(--warning); }
 @media (max-width: 480px) {
     .db-long { display: none; }

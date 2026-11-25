@@ -15,6 +15,9 @@ test('the bar names the day at the top of the list, and follows it as you scroll
     await app.open();
     await expect(page.locator('#db-when')).toHaveText(/^Today/);
     await expect(page.locator('#status-checked')).toHaveCount(0);
+    // v3.16.3: no ▾ anywhere on the bar, every part still a button
+    expect(await page.locator('#day-bar').evaluate(b => b.innerText.includes('▾') || [...b.querySelectorAll('*')].some(e => getComputedStyle(e, '::after').content.includes('▾')))).toBe(false);
+    await expect(page.locator('#day-bar button:visible')).toHaveCount(3);   // the day, the date, the count (no weather in the test world)
     const next = page.locator('#program-list .day-head[data-day]:not(.first)').first();
     const nextDay = await next.getAttribute('data-day');
     // v3.16.2: the count lives at the bar's right end, at rest and scrolled

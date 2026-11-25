@@ -2029,7 +2029,6 @@ window.SkateApp = (() => {
         const label = /^my location$/i.test(w.label || '') ? 'near you' : (w.label || '');
         chip.textContent = `${w.emoji} ${w.temp}°`;
         chip.appendChild(el('span', { class: 'wx-spot' }, [` · ${label.length > 18 ? label.slice(0, 17) + '…' : label}`]));
-        chip.appendChild(el('span', { class: 'db-caret', 'aria-hidden': 'true' }, ['▾']));
         chip.title = `${w.text} in ${w.label}: ${w.temp}°C, feels like ${w.feels}°C. Tap to pick another spot (Open-Meteo).`;
     };
 

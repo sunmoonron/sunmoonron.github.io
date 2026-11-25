@@ -32,7 +32,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.16.2',
+    version: '3.16.3',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -46,6 +46,11 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.16.3', date: '2026-11-24', items: [
+                'The day bar drops its ▾ arrows. The day, the date, the count and the weather are still each a tap away.'
+            ]
+        },
         {
             v: '3.16.2', date: '2026-11-24', items: [
                 'The count and the weather sit at the right end of the day bar, always; the line above it is gone.',
