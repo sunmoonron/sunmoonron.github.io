@@ -53,6 +53,8 @@ window.SkateApp = (() => {
         kinds: sanitizeKinds(SkateSettings.get('hockeyKinds')),   // v3.12.2: null = every kind of hockey
         cities: Array.isArray(SkateSettings.get('cities')) ? SkateSettings.get('cities').filter(c => typeof c === 'string') : [],
         day: '',                       // '' | 'today' | 'tomorrow' | 'weekend' | weekday name
+        dateFrom: null, dateTo: null,  // v3.16: one day or a range from the date picker (YYYY-MM-DD; not kept between visits)
+        barDay: null,                  // v3.16: the day the bar names (the one at the top of the list)
         calRenderedWeek: null,         // to keep the grid's scroll position across the minute re-render
         heartHint: false,              // first card carries the one-time "tap ♡ to save" nudge (Render.programs decides)
         cal2Day: null,                 // Calendar 2.0's selected day (today until tapped)
@@ -626,6 +628,7 @@ window.SkateApp = (() => {
             pills.push({ key: `type:${OTHER_KEY}`, label, ages: present.length > 1 });
         }
         if (S.day) pills.push({ key: 'day', label: DAY_LABEL(S.day) });
+        if (S.dateFrom) pills.push({ key: 'dates', label: rangeLabel(S.dateFrom, S.dateTo) });
         if (S.age !== null) pills.push({ key: 'age', label: `${S.age} years old` });
         if (S.savedOnly) pills.push({ key: 'saved', label: 'Saved only' });
         if (S.nearRink) pills.push({ key: 'near', label: `Only ${S.nearRink.name}` });
@@ -634,6 +637,17 @@ window.SkateApp = (() => {
         if (S.sort === 'near') pills.push({ key: 'sort', label: 'Nearest first' });
         if (S.radius && SkateGeo.getUserLocation()) pills.push({ key: 'radius', label: `Within ${S.radius} km`, menu: 'radius' });
         return pills;
+    }
+
+    // v3.16: the colours of the kinds folded into Other (as on the cards), warm to cool
+    const OTHER_HUES = { speed: '#b08a3d', other: '#c9862b', ringette: '#bb4499', adapted: '#8855bb' };
+    /** Other's pill: a blend of the kinds it holds right now (one kind = its colour alone). */
+    function paintOther(b) {
+        const on = Object.keys(OTHER_HUES).filter(c => S.types[c]);
+        const cols = (on.length ? on : Object.keys(OTHER_HUES)).map(c => OTHER_HUES[c]);
+        const stops = (f) => (cols.length === 1 ? [cols[0], cols[0]] : cols).map(f).join(', ');
+        b.style.setProperty('--mix-bg', `linear-gradient(100deg, ${stops(c => `color-mix(in srgb, ${c} var(--tint), var(--bg-white))`)})`);
+        b.style.setProperty('--mix-line', `linear-gradient(100deg, ${stops(c => c)})`);
     }
 
     /** "Toronto" / "Toronto + 2" / "All cities" for the standing city pill. */
@@ -664,13 +678,18 @@ window.SkateApp = (() => {
         }
         const pills = activeFilterPills();
         pills.forEach(pl => {
+            // v3.16: a kind's pill wears its colour from the cards; Other blends the kinds it holds
+            const kind = pl.key.startsWith('type:') ? pl.key.slice(5) : '';
+            const kindCls = kind ? ` type k-${kind === OTHER_KEY ? 'mix' : kind}` : '';
             if (pl.ages) {
                 // type pill: tap = choose age groups, x = drop the type
-                wrap.appendChild(el('button', { class: 'pill type', dataset: { pill: pl.key }, title: 'Tap to choose age groups. The x removes this type.' }, [
+                const b = el('button', { class: 'pill' + kindCls, dataset: { pill: pl.key }, title: 'Tap to choose age groups. The x removes this type.' }, [
                     el('span', { class: 'pill-label' }, [pl.label]),
                     el('span', { class: 'pill-caret', 'aria-hidden': 'true' }, ['▾']),
                     el('span', { class: 'pill-x', role: 'button', 'aria-label': `Remove ${pl.label}`, title: 'Remove this type' }, ['✕'])
-                ]));
+                ]);
+                if (kind === OTHER_KEY) paintOther(b);
+                wrap.appendChild(b);
                 return;
             }
             if (pl.menu === 'radius') {
@@ -682,9 +701,11 @@ window.SkateApp = (() => {
                 ]));
                 return;
             }
-            wrap.appendChild(el('button', { class: 'pill' + (pl.key === 'near' ? ' rink' : ''), dataset: { pill: pl.key }, title: 'Remove this filter' }, [
+            const plain = el('button', { class: 'pill' + (pl.key === 'near' ? ' rink' : '') + kindCls, dataset: { pill: pl.key }, title: 'Remove this filter' }, [
                 pl.label, el('span', { class: 'pill-x', 'aria-hidden': 'true' }, ['✕'])
-            ]));
+            ]);
+            if (kind === OTHER_KEY) paintOther(plain);
+            wrap.appendChild(plain);
         });
         const n = pills.length + (S.rinkScope === 'mine' && mine ? 1 : 0) + (S.cities.length ? 1 : 0);
         $('filters-count').textContent = String(n);
@@ -699,8 +720,7 @@ window.SkateApp = (() => {
         $('view-seg').dataset.cal = ct;
         $('btn-cal').title = `Calendar: ${(CFG.calTypes.find(t => t.id === ct) || {}).label || 'week grid'}. The ▾ switches calendars.`;
         $('btn-cal-type').classList.toggle('active', S.calMode);
-        $('btn-free').classList.toggle('active', !S.paidVisible);
-        $('btn-free').setAttribute('aria-pressed', S.paidVisible ? 'false' : 'true');
+        $('btn-free').setAttribute('aria-checked', S.paidVisible ? 'false' : 'true');
         $('btn-free').title = S.paidVisible ? 'Showing everything with prices. Tap for free sessions only.' : 'Showing free sessions only. Tap to show paid ones too.';
     };
 
@@ -714,7 +734,7 @@ window.SkateApp = (() => {
      */
     let facetMemo = null;
     const facetKey = () => [S.programs.length, S.programs.length ? S.programs[0]._id : '', JSON.stringify(S.types), JSON.stringify(S.kinds), S.cities.join(','),
-        S.day, S.age, S.savedOnly ? SkateFavorites.count() : '', S.rinkScope, (SkateSettings.get('myRinks') || []).join(','), S.nearRink ? S.nearRink.key : '',
+        S.day, S.dateFrom, S.dateTo, S.age, S.savedOnly ? SkateFavorites.count() : '', S.rinkScope, (SkateSettings.get('myRinks') || []).join(','), S.nearRink ? S.nearRink.key : '',
         S.radius, (SkateGeo.getUserLocation() || {}).ts, S.search, S.showPast, S.showDropped, S.paidVisible, SkateAlerts.checkedAt, Math.floor(Date.now() / 60000)].join('\u0001');
     function filterFacets() {
         const key = facetKey();
@@ -899,19 +919,19 @@ window.SkateApp = (() => {
 
         // YOUR AGE: visible, not folded — the most-asked question after "when"
         const ageSec = section('Your age');
-        const ageInput = el('input', { type: 'number', min: '0', max: '120', id: 'f-age', placeholder: 'Any age', inputmode: 'numeric', 'aria-label': 'Your age in years' });
+        const ageInput = el('input', { type: 'number', min: '0', max: '120', id: 'f-age', placeholder: 'Any age', inputmode: 'numeric', 'aria-label': 'Your age in years', title: 'Keeps only the sessions a person of this age can join' });
         if (S.age !== null) ageInput.value = S.age;
         ageSec.appendChild(el('div', { class: 'fage-row' }, [
             el('label', { class: 'fage-box', for: 'f-age' }, [ageInput, el('span', { class: 'fage-unit', 'aria-hidden': 'true' }, ['years old'])]),
             ...(S.age !== null ? [el('button', { class: 'flink', dataset: { clearAge: '1' } }, ['Any age'])] : [])
         ]));
-        ageSec.appendChild(el('p', { class: 'settings-hint' }, [S.age !== null ? `Showing sessions a ${S.age}-year-old can join.` : 'Type an age to keep only the sessions that person can join.']));
 
         // WHEN
         const w = section('When');
         const days = el('div', { class: 'fchips' });
         [['', 'Any day'], ['today', 'Today'], ['tomorrow', 'Tomorrow'], ['weekend', 'Weekend'], ...CFG.days.map(d => [d, d.slice(0, 3)])]
-            .forEach(([id, label]) => days.appendChild(chip(label, S.day === id, { day: id })));
+            .forEach(([id, label]) => days.appendChild(chip(label, S.day === id && !(id === '' && S.dateFrom), { day: id })));
+        if (S.dateFrom) days.appendChild(chip(`${rangeLabel(S.dateFrom, S.dateTo)} ✕`, true, { dates: 'clear' }));   // v3.16: from the bar's date picker
         w.appendChild(days);
 
         // WHERE
@@ -1138,6 +1158,7 @@ window.SkateApp = (() => {
                 : S.rinkScope === 'mine' ? 'Nothing at your rinks with these filters. Tap the My rinks pill to see every rink.'
                 : 'No sessions match. Try fewer filters, or tap the city pill to add cities.';
             list.innerHTML = `<li class="loading">${empty}</li>`;
+            list.dataset.firstDay = ''; Render.dayBar(null);
             const tmr = list.querySelector('[data-day-tomorrow]');
             if (tmr) tmr.onclick = () => Actions.setDay('tomorrow');
             Render.showMore(0);
@@ -1163,11 +1184,15 @@ window.SkateApp = (() => {
                 const free = d ? lendOn(d) : [];
                 const freeLine = free.length
                     ? `<button type="button" class="day-lend" data-lending="1" title="Where to borrow skates free that day">⛸ Free skates: ${escapeHtml(free.slice(0, 2).map(f => f.place + (f.hours ? ' ' + f.hours : '')).join(' · '))}${free.length > 2 ? ` +${free.length - 2}` : ''}</button>` : '';
-                html += `<li class="day-head${d === todayKey ? ' today' : ''}"><span>${rel ? `<strong>${rel}</strong> · ` : ''}${escapeHtml(dt)}</span>${freeLine}</li>`;
+                // v3.16: the first day's name is on the bar above the list (its free-skates line stays)
+                const first = i === 0;
+                html += `<li class="day-head${d === todayKey ? ' today' : ''}${first ? ' first' : ''}${first && !freeLine ? ' bare' : ''}" data-day="${escapeHtml(d)}"><span class="dh-text">${rel ? `<strong>${rel}</strong> · ` : ''}${escapeHtml(dt)}</span>${freeLine}</li>`;
             }
             html += Render.programRow(p, i, chatState, now);
         });
         list.innerHTML = html;
+        list.dataset.firstDay = items.length ? P.dateStr(items[0]).slice(0, 10) : '';
+        spyDay();
         Render.showMore(filtered.length - items.length);
     };
 
@@ -1181,24 +1206,21 @@ window.SkateApp = (() => {
         const now = Date.now();
         const meta = SkateAPI.getMetadata();
         const n = S.filtered.length;
-        let txt = `${n} session${n === 1 ? '' : 's'}`;
-        if (!S.paidVisible && S.paidMatching) txt += ` · ${S.paidMatching} paid hidden`;
-        $('status-data').textContent = txt;
-
-        const chk = $('status-checked');
         const stamps = [SkateAlerts.checkedAt, SkateAlerts.liveCheckedAt].filter(Boolean).map(x => new Date(x).getTime());
         // toronto.ca itself: its closure notices, its live schedule, its weekly file
         const cityStale = !!((SkateAlerts.checkedAt && now - new Date(SkateAlerts.checkedAt) > ALERTS_STALE_MS) ||
                       (SkateAlerts.liveCheckedAt && now - new Date(SkateAlerts.liveCheckedAt) > LIVE_STALE_MS) ||
                       (meta?.lastUpdated && (now - new Date(meta.lastUpdated)) / 86400000 > 7));
         const behind = sourcesBehind(cityStale);
-        let c = '';
-        if (stamps.length) c = `${behind ? '⚠️' : '✓'} checked ${SkateSettings.formatTime(Math.max(...stamps))}`;
-        else if (meta?.lastUpdated) c = `${behind ? '⚠️ ' : ''}updated ${new Date(meta.lastUpdated).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}`;
-        if (c && behind) c += ` · ${behind} source${behind === 1 ? '' : 's'} behind`;
-        chk.textContent = c;
-        chk.classList.toggle('hidden', !c);
-        chk.classList.toggle('stale', !!behind);
+        // v3.16: when things were checked is in the count's menu now; the count itself warns only when toronto.ca or a city's own site is behind
+        S.behind = behind;
+        S.checkedAt = stamps.length ? Math.max(...stamps) : (meta?.lastUpdated ? new Date(meta.lastUpdated).getTime() : null);
+        const sd = $('status-data');
+        sd.textContent = `${behind ? '⚠️ ' : ''}${n} session${n === 1 ? '' : 's'}`;
+        if (!S.paidVisible && S.paidMatching) sd.appendChild(el('span', { class: 'sd-paid' }, [` · ${S.paidMatching} paid hidden`]));
+        sd.classList.toggle('stale', !!behind);
+        sd.title = behind ? `${behind} source${behind === 1 ? '' : 's'} behind. Tap, then Data status.` : 'How many sessions match. Tap for options.';
+        Render.dayBar();
         if (!$('status-modal').classList.contains('hidden')) Render.dataStatus();   // the open sheet follows the minute tick
     };
 
@@ -2005,7 +2027,9 @@ window.SkateApp = (() => {
         if (!w) { chip.classList.add('hidden'); return; }
         chip.classList.remove('hidden');
         const label = /^my location$/i.test(w.label || '') ? 'near you' : (w.label || '');
-        chip.textContent = `${w.emoji} ${w.temp}° · ${label.length > 18 ? label.slice(0, 17) + '…' : label} ▾`;
+        chip.textContent = `${w.emoji} ${w.temp}°`;
+        chip.appendChild(el('span', { class: 'wx-spot' }, [` · ${label.length > 18 ? label.slice(0, 17) + '…' : label}`]));
+        chip.appendChild(document.createTextNode(' ▾'));
         chip.title = `${w.text} in ${w.label}: ${w.temp}°C, feels like ${w.feels}°C. Tap to pick another spot (Open-Meteo).`;
     };
 
@@ -2483,13 +2507,20 @@ window.SkateApp = (() => {
             // v3.12: when each source was read lives on its own sheet (the "checked" part of the line)
             const items = [
                 { label: `Schedule data: ${fmt(meta?.lastUpdated)}${meta?.counts?.duplicatesRemoved ? ` · ${meta.counts.duplicatesRemoved} duplicate row${meta.counts.duplicatesRemoved === 1 ? '' : 's'} merged` : ''}`, onClick: () => Actions.openStatus() },
-                { label: 'Data status: every source, when it was read', onClick: () => Actions.openStatus() }
+                { label: S.behind ? `⚠️ Data status: ${S.behind} source${S.behind === 1 ? '' : 's'} behind` : `Data status: checked ${S.checkedAt ? SkateSettings.formatTime(S.checkedAt) : 'each source'}`, onClick: () => Actions.openStatus() }
             ];
             if (st?.missing) items.push({ label: S.showDropped ? 'Hide the sessions toronto.ca no longer lists' : `Show the ${st.missing} session${st.missing === 1 ? '' : 's'} toronto.ca no longer lists`, onClick: () => Actions.setFlag('dropped', !S.showDropped) });
             items.push({ label: 'Refresh now', onClick: () => Actions.refreshPrograms() });
             items.push({ label: 'Ask for a fresh pull from the City', onClick: () => Actions.requestCityRefresh() });
             if (!S.paidVisible && S.paidMatching) items.push({ label: `Show ${S.paidMatching} paid sessions`, onClick: () => Actions.setFlag('free', false) });
             return items;
+        },
+
+        /** v3.16: the day part of the bar: the When choices from Filters. */
+        when() {
+            const cur = S.dateFrom ? null : S.day;
+            return [['', 'Any day'], ['today', 'Today'], ['tomorrow', 'Tomorrow'], ['weekend', 'Weekend'], ...CFG.days.map(d => [d, d])]
+                .map(([id, label]) => ({ label: `${cur === id ? '✓ ' : '\u2007\u2007 '}${label}`, onClick: () => Actions.setDay(id) }));
         },
 
         /** v3.12: the ▾ beside Calendar. Four calendars, each with its own colour. */
@@ -2628,6 +2659,7 @@ window.SkateApp = (() => {
                 (p.District || '').toLowerCase().includes(term) ||
                 P.city(p).toLowerCase().includes(term) ||
                 (postalTerm && (p.PostalCode || '').toLowerCase().replace(/\s+/g, '').includes(postalTerm)))) return false;
+            if (S.dateFrom) { const d = P.dateStr(p).slice(0, 10); if (d < S.dateFrom || d > S.dateTo) return false; }   // v3.16
             if (S.day) {
                 const d = P.dateStr(p).slice(0, 10), dow = p['Day of Week'];
                 if (S.day === 'today' && d !== todayKey) return false;
@@ -2764,7 +2796,130 @@ window.SkateApp = (() => {
         filtersChanged();
     };
     Actions.setCities = function (list) { S.cities = list; filtersChanged(); };
-    Actions.setDay = function (d) { S.day = d || ''; filtersChanged(); };
+    Actions.setDay = function (d) { S.day = d || ''; S.dateFrom = null; S.dateTo = null; filtersChanged(); };
+    /** v3.16: one day or a range from the bar's date picker (no `from` = any date). It replaces the When choice. */
+    Actions.setDates = function (from, to) {
+        const ok = (k) => typeof k === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(k);
+        if (ok(from)) { S.dateFrom = from; S.dateTo = ok(to) && to >= from ? to : from; S.day = ''; }
+        else { S.dateFrom = null; S.dateTo = null; }
+        filtersChanged();
+    };
+
+    /* ---------- v3.16: the day bar: the day at the top of the list, the dates you picked, the count, the weather ---------- */
+    const mdLabel = (k) => parseLocalDate(k).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
+    const wdLabel = (k) => parseLocalDate(k).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
+    /** "Tue, Nov 24" for one day; "Nov 24 – 30" or "Nov 28 – Dec 3" for a range. */
+    function rangeLabel(from, to) {
+        if (!to || from === to) return wdLabel(from);
+        return from.slice(0, 7) === to.slice(0, 7) ? `${mdLabel(from)} – ${Number(to.slice(8, 10))}` : `${mdLabel(from)} – ${mdLabel(to)}`;
+    }
+    function setBarBtn(btn, text, on) {
+        if (!btn) return;
+        if (btn.firstChild && btn.firstChild.nodeType === 3) btn.firstChild.nodeValue = text;
+        else btn.insertBefore(document.createTextNode(text), btn.firstChild);
+        btn.classList.toggle('on', !!on);
+    }
+    /** The bar's two left items: the day (or the When choice in force) and its date (or the dates picked). */
+    Render.dayBar = function (day) {
+        if (day !== undefined) S.barDay = day || null;
+        const d = S.calMode ? null : S.barDay;
+        const todayKey = SkateTime.todayKey(), tomorrowKey = SkateTime.addDays(todayKey, 1);
+        const rel = d === todayKey ? 'Today' : d === tomorrowKey ? 'Tomorrow' : '';
+        const when = S.day ? (S.day === 'today' ? 'Today' : S.day === 'tomorrow' ? 'Tomorrow' : S.day === 'weekend' ? 'Weekend' : S.day)
+            : d ? (rel || parseLocalDate(d).toLocaleDateString('en-CA', { weekday: 'long' })) : 'Any day';
+        setBarBtn($('db-when'), when, !!S.day);
+        const date = S.dateFrom ? rangeLabel(S.dateFrom, S.dateTo) : d ? mdLabel(d) : 'Any date';   // the day chip already names the weekday
+        setBarBtn($('db-date'), date, !!S.dateFrom);
+    };
+    /** Which day is at the top of the list, under the bar: the last separator that has gone under it. */
+    let spyRaf = 0;
+    function spyDay() {
+        spyRaf = 0;
+        const list = $('program-list'), bar = $('day-bar');
+        if (S.calMode || !list || !bar || !list.offsetParent) return;
+        // the line is the bar's bottom edge; at the very end of the list (where the last day's separator
+        // can never reach the bar) it is the bottom of what you can see
+        let sc = list.parentElement;
+        while (sc && sc !== document.body && !(/(auto|scroll)/.test(getComputedStyle(sc).overflowY) && sc.scrollHeight > sc.clientHeight + 1)) sc = sc.parentElement;
+        if (!sc || sc === document.body) sc = document.scrollingElement || document.documentElement;
+        const atEnd = sc.scrollTop > 0 && sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 2;
+        const limit = atEnd ? (sc === (document.scrollingElement || document.documentElement) ? innerHeight : sc.getBoundingClientRect().bottom) : bar.getBoundingClientRect().bottom + 1;
+        let day = list.dataset.firstDay || null;
+        for (const h of list.querySelectorAll('.day-head[data-day]:not(.first)')) {
+            if (h.getBoundingClientRect().top > limit) break;
+            day = h.dataset.day;
+        }
+        if (day !== S.barDay) Render.dayBar(day);
+    }
+    document.addEventListener('scroll', () => { if (!spyRaf) spyRaf = requestAnimationFrame(spyDay); }, { capture: true, passive: true });
+
+    /** Sessions per day under every filter but the day ones: what the date picker marks and counts. */
+    function sessionsByDay() {
+        const keep = [S.day, S.dateFrom, S.dateTo, S.paidMatching];
+        S.day = ''; S.dateFrom = null; S.dateTo = null;
+        let list = [];
+        try { list = computeFiltered(); } finally { [S.day, S.dateFrom, S.dateTo, S.paidMatching] = keep; }
+        const m = new Map();
+        list.forEach(p => { const d = P.dateStr(p).slice(0, 10); if (d) m.set(d, (m.get(d) || 0) + 1); });
+        return m;
+    }
+    /** v3.16: a month calendar under the bar's date: tap a day, tap another for a range, then Show. */
+    Actions.openDates = function () {
+        const counts = sessionsByDay();
+        const today = SkateTime.todayKey();
+        const keys = [...counts.keys()].sort();
+        const first = S.showPast && keys.length && keys[0] < today ? keys[0] : today;
+        const last = keys.length && keys[keys.length - 1] > today ? keys[keys.length - 1] : SkateTime.addDays(today, 30);
+        let pick = S.dateFrom ? { from: S.dateFrom, to: S.dateTo } : null;
+        let month = (S.dateFrom || today).slice(0, 7);
+        const shift = (m, n) => { const x = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1 + n, 1); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}`; };
+        const total = (a, b) => { let n = 0; counts.forEach((c, k) => { if (k >= a && k <= b) n += c; }); return n; };
+        const box = el('div', { class: 'dp' });
+        const draw = () => {
+            box.innerHTML = '';
+            const y = Number(month.slice(0, 4)), mo = Number(month.slice(5, 7)) - 1;
+            box.appendChild(el('div', { class: 'dp-head' }, [
+                el('button', { type: 'button', class: 'dp-nav', dataset: { nav: '-1' }, 'aria-label': 'Previous month', disabled: month <= first.slice(0, 7) ? '' : null }, ['‹']),
+                el('strong', { class: 'dp-month' }, [new Date(y, mo, 1).toLocaleDateString('en-CA', { month: 'long', year: 'numeric' })]),
+                el('button', { type: 'button', class: 'dp-nav', dataset: { nav: '1' }, 'aria-label': 'Next month', disabled: month >= last.slice(0, 7) ? '' : null }, ['›'])
+            ]));
+            const grid = el('div', { class: 'dp-grid' });
+            ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].forEach(w => grid.appendChild(el('span', { class: 'dp-wd', 'aria-hidden': 'true' }, [w])));
+            const lead = new Date(y, mo, 1).getDay(), days = new Date(y, mo + 1, 0).getDate();
+            for (let i = 0; i < lead; i++) grid.appendChild(el('span', { class: 'dp-pad' }, []));
+            for (let n = 1; n <= days; n++) {
+                const k = `${month}-${String(n).padStart(2, '0')}`, c = counts.get(k) || 0;
+                const cls = ['dp-day'];
+                if (k === today) cls.push('today');
+                if (!c) cls.push('none');
+                if (pick && k >= pick.from && k <= pick.to) cls.push('sel', k === pick.from ? 'start' : '', k === pick.to ? 'end' : '');
+                grid.appendChild(el('button', {
+                    type: 'button', class: cls.filter(Boolean).join(' '), dataset: { d: k }, disabled: k < first || k > last ? '' : null,
+                    'aria-label': `${parseLocalDate(k).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' })}, ${c} session${c === 1 ? '' : 's'}`
+                }, [String(n)]));
+            }
+            box.appendChild(grid);
+            const n = pick ? total(pick.from, pick.to) : 0;
+            box.appendChild(el('p', { class: 'dp-hint' }, [pick ? (pick.from === pick.to ? `${rangeLabel(pick.from)}. Tap another day for a range.` : rangeLabel(pick.from, pick.to)) : 'Tap a day, then another for a range.']));
+            box.appendChild(el('div', { class: 'dp-foot' }, [
+                el('button', { type: 'button', class: 'btn-small dp-any', dataset: { any: '1' } }, ['Any date']),
+                el('button', { type: 'button', class: 'btn-primary dp-go', dataset: { go: '1' }, disabled: pick ? null : '' }, [pick ? `Show ${n.toLocaleString('en-CA')} session${n === 1 ? '' : 's'}` : 'Show'])
+            ]));
+        };
+        box.addEventListener('click', (e) => {
+            const b = e.target.closest('button');
+            if (!b || b.disabled) return;
+            if (b.dataset.nav) { month = shift(month, Number(b.dataset.nav)); draw(); return; }
+            if (b.dataset.any) { Popover.close(); Actions.setDates(null); return; }
+            if (b.dataset.go) { Popover.close(); if (pick) Actions.setDates(pick.from, pick.to); return; }
+            const k = b.dataset.d;
+            if (!k) return;
+            pick = (!pick || pick.from !== pick.to || k < pick.from) ? { from: k, to: k } : { from: pick.from, to: k };
+            draw();
+        });
+        draw();
+        Popover.open($('db-date'), [{ node: box }], 'One day, or a range', { width: 300 });
+    };
     Actions.setAge = function (v) { const n = parseInt(v, 10); S.age = Number.isFinite(n) ? n : null; filtersChanged(); };
     Actions.setSort = function (id) {
         S.sort = id;
@@ -2815,7 +2970,7 @@ window.SkateApp = (() => {
     Actions.resetFilters = function () {
         S.types = {}; S.cities = []; S.day = ''; S.age = null; S.savedOnly = false;
         S.showPast = false; S.nearRink = null; S.rinkScope = 'all'; S.sort = 'time'; S.paidVisible = true;
-        S.showDropped = false; S.moreFilters = false; S.expandedCats = {}; S.radius = null; S.radiusWanted = null;
+        S.showDropped = false; S.moreFilters = false; S.expandedCats = {}; S.radius = null; S.radiusWanted = null; S.dateFrom = null; S.dateTo = null;
         filtersChanged();
     };
     /** Tapping a pill removes that one filter (or toggles ⭐ My rinks). */
@@ -2825,6 +2980,7 @@ window.SkateApp = (() => {
         else if (key.startsWith('type:')) { const t = { ...S.types }; delete t[key.slice(5)]; S.types = t; }
         else if (key.startsWith('city:')) S.cities = S.cities.filter(c => c !== key.slice(5));
         else if (key === 'day') S.day = '';
+        else if (key === 'dates') { S.dateFrom = null; S.dateTo = null; }
         else if (key === 'age') S.age = null;
         else if (key === 'saved') S.savedOnly = false;
         else if (key === 'near') S.nearRink = null;
@@ -3952,8 +4108,22 @@ window.SkateApp = (() => {
 
         // ---- Status line + weather ----
         $('status-data').onclick = (e) => { e.stopPropagation(); Popover.open($('status-data'), Menus.status(), 'Sessions shown'); };
-        // v3.12: the "checked" part opens the status of every source
-        $('status-checked').onclick = () => Actions.openStatus();
+        // v3.16: the bar's day and date
+        $('db-when').onclick = (e) => { e.stopPropagation(); Popover.open($('db-when'), Menus.when(), 'Day'); };
+        $('db-date').onclick = (e) => { e.stopPropagation(); Actions.openDates(); };
+        // v3.16: Refresh, Members and Settings under ⋯
+        {
+            const more = $('btn-more'), menu = $('more-menu');
+            const setMore = (open) => { menu.classList.toggle('hidden', !open); more.setAttribute('aria-expanded', open ? 'true' : 'false'); };
+            more.onclick = (e) => { e.stopPropagation(); setMore(menu.classList.contains('hidden')); };
+            menu.addEventListener('click', (e) => { if (e.target.closest('.more-item')) setMore(false); });
+            document.addEventListener('click', (e) => { if (!e.target.closest('.more-wrap')) setMore(false); }, true);
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !menu.classList.contains('hidden')) setMore(false); });
+            // the dot on ⋯ follows the dots inside it (an unseen release, a members' note)
+            const syncDot = () => $('more-dot').classList.toggle('hidden', ![...menu.querySelectorAll('.more-item:not(.hidden) .new-dot')].some(d => !d.classList.contains('hidden')));
+            new MutationObserver(syncDot).observe(menu, { subtree: true, attributes: true, attributeFilter: ['class'] });
+            syncDot();
+        }
         $('btn-status-close').onclick = () => Modal.close('status-modal');
         delegate($('status-body'), [
             ['[data-st-all]', (b) => { S.statusAll = b.dataset.stAll === '1'; Render.dataStatus(); }],
@@ -3993,6 +4163,7 @@ window.SkateApp = (() => {
                 rerenderFilters();
             }],
             ['.fchip[data-day]', (b) => Actions.setDay(b.dataset.day)],
+            ['.fchip[data-dates]', () => Actions.setDates(null)],
             ['.fchip[data-city]', (b) => (b.dataset.city ? Actions.toggleCity(b.dataset.city) : Actions.setCities([]))],
             ['.fchip[data-sort]', (b) => Actions.setSort(b.dataset.sort)],
             ['.fchip[data-radius]', (b) => Actions.setRadius(b.dataset.radius ? Number(b.dataset.radius) : null)],

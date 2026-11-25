@@ -22,7 +22,7 @@ test.describe('visual', () => {
     });
     test('settings', async ({ page, app }) => {
         await app.open();
-        await page.click('#btn-settings');
+        await page.click('#btn-more'); await page.click('#btn-settings');
         await expect(page.locator('#settings-modal')).toBeVisible();
         await expect(page).toHaveScreenshot('settings.png', { mask: [page.locator('#identity-line'), page.locator('#qr-code, #settings-qr')] });
     });

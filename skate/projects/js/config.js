@@ -32,7 +32,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.15.3',
+    version: '3.16',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -46,6 +46,15 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.16', date: '2026-11-24', items: [
+                'A simpler top: Feedback, a Free switch that says All or Free inside it, and ⋯ for Refresh and Settings.',
+                'One bar stays at the top as you scroll: tap the day for another day, tap the date for a calendar (one day or a range), tap the count for the data options. The weather sits beside it.',
+                'The "checked" time left the page. It is in the count\'s menu, beside Data status.',
+                'Filter pills wear their colours: your cities in blue, Leisure green, Figure purple, Hockey red, and Other a blend of the kinds it holds.',
+                'Your age takes two lines in Filters instead of three.'
+            ]
+        },
         {
             v: '3.15.3', date: '2026-11-24', items: [
                 'Distance and Order are out in Filters again, under Where, instead of folded under More options.',
@@ -443,12 +452,12 @@ window.SkateConfig = {
         { sel: '#active-filters',        title: 'Your active filters',   text: 'Each pill is one filter. Tap the x to remove it. Tap the city pill to pick other cities.', sec: 5 },
         { sel: '#btn-rinks',             title: 'Rinks and map',         text: 'Every rink on a map, with distances from your location or an address you type. Star the rinks that are yours.', sec: 6 },
         { sel: '#view-seg',              title: 'List or calendar',      text: 'The same sessions as a list or a week grid. In the grid, tap a day chip to jump to that day and any block for details.', sec: 5 },
-        { sel: '#btn-free',              title: 'Free only',             text: 'Everything shows with its price. Switch this on to keep only the free sessions.', sec: 4 },
-        { sel: '#btn-refresh',           title: 'Refresh',               text: 'Reloads the schedule, rink alerts and live spots. The status line under the buttons says when things were last checked.', sec: 5 },
+        { sel: '#btn-free',              title: 'Free only',             text: 'All shows everything with its price. Slide it to Free to keep only the free sessions.', sec: 4 },
+        { sel: '#day-bar',               title: 'Day and dates',         text: 'Tap the day for another day, or the date for a calendar: one day, or a range. The count beside them has the data options.', sec: 6 },
         { sel: '#program-list .program-item', title: 'A session',        text: 'Time, rink, ages and price. Tap the rink name for directions; the small globe beside it opens the official rink page, the one the staff go by. The heart saves the session.', sec: 7 },
         { sel: '#program-list .btn-copy', title: 'More',                 text: 'Copy the details, add the session to your calendar, share it into a chat, or add this rink to your rinks.', sec: 5 },
         { sel: '#weather-chip',          title: 'Dress for it',          text: 'Live temperature. Tap it to pick a spot, from Scarborough to Mississauga.', sec: 4 },
-        { sel: '#btn-settings',          title: 'Settings',              text: 'Theme, time format, sharing, the community sections and privacy. Enjoy the ice.', sec: 4 }
+        { sel: '#btn-more',              title: 'More',                  text: 'Refresh, and Settings: theme, time format, sharing, the community sections and privacy. Enjoy the ice.', sec: 4 }
     ],
 
 

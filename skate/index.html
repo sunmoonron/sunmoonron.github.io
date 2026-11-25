@@ -17,7 +17,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=11">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=4">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=55">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=56">
 </head>
 <body>
     <div class="app" id="app">
@@ -25,11 +25,18 @@
         <div class="top-bar">
             <h1>Toronto Skating</h1>
             <div class="top-bar-actions">
-                <button class="top-toggle top-feedback" id="btn-feedback" title="Report a bug or send feedback to the dev"><span class="top-toggle-icon" aria-hidden="true">💬</span><span class="top-toggle-text"><span>Report bug</span><span>&amp; feedback</span></span><span class="badge hidden" id="feedback-badge">0</span></button>
-                <button class="top-toggle free" id="btn-free" title="Free sessions only. Off = everything, with prices." aria-pressed="false"><span class="top-toggle-dot" aria-hidden="true"></span><span class="top-toggle-text"><span>Free</span><span>only</span></span></button>
-                <button class="btn-icon btn-refresh" id="btn-refresh" title="Refresh the schedule, rink alerts and live spots" aria-label="Refresh">↻</button>
-                <button class="btn-icon btn-gate hidden" id="btn-gate" title="Members" aria-label="Members">🏠<span class="new-dot hidden" id="gate-dot"></span></button>
-                <button class="btn-icon btn-settings" id="btn-settings" title="Settings" aria-label="Settings">⚙️<span class="new-dot hidden" id="settings-dot"></span></button>
+                <button class="top-toggle top-feedback" id="btn-feedback" title="Report a bug or send feedback to the dev">Feedback<span class="badge hidden" id="feedback-badge">0</span></button>
+                <!-- v3.16: Free only as a labelled switch: both choices inside it, the knob on the one in force -->
+                <button class="fswitch" id="btn-free" type="button" role="switch" aria-checked="false" aria-label="Free sessions only" title="Free sessions only"><span class="fswitch-opt">All</span><span class="fswitch-opt">Free</span></button>
+                <!-- v3.16: Refresh, Members and Settings under ⋯ -->
+                <div class="more-wrap">
+                    <button class="btn-icon btn-more" id="btn-more" type="button" aria-label="More: refresh, settings" aria-haspopup="menu" aria-expanded="false" aria-controls="more-menu" title="Refresh, settings and more"><span aria-hidden="true">⋯</span><span class="new-dot hidden" id="more-dot"></span></button>
+                    <div class="more-menu hidden" id="more-menu" role="menu" aria-label="More">
+                        <button class="more-item" id="btn-refresh" type="button" role="menuitem" title="Refresh the schedule, rink alerts and live spots"><span class="mi-icon" aria-hidden="true">↻</span>Refresh</button>
+                        <button class="more-item hidden" id="btn-gate" type="button" role="menuitem" title="Members"><span class="mi-icon" aria-hidden="true">🏠</span>Members<span class="new-dot hidden" id="gate-dot"></span></button>
+                        <button class="more-item" id="btn-settings" type="button" role="menuitem" title="Settings"><span class="mi-icon" aria-hidden="true">⚙️</span>Settings<span class="new-dot hidden" id="settings-dot"></span></button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -71,11 +78,15 @@
                 <!-- active filters as removable pills (generated) -->
                 <div class="pills" id="active-filters"></div>
 
-                <!-- one quiet line: count (tap for options) · when the data was checked (tap for the status of every source) · weather (tap to pick a spot) -->
-                <div class="status-line">
-                    <button class="status-btn" id="status-data" title="How many sessions match. Tap for options.">Loading…</button>
-                    <button class="status-btn status-checked hidden" id="status-checked" title="When the data was last checked. Tap for the status of every source."></button>
-                    <button class="status-btn weather-chip hidden" id="weather-chip" aria-label="Current weather. Tap to choose the spot."></button>
+                <!-- v3.16: one bar that stays at the top as you scroll: the day you are looking at (tap: pick a day),
+                     its date (tap: a calendar for one day or a range), the count (tap: options, data status) and the weather -->
+                <div class="status-line day-bar" id="day-bar">
+                    <button class="status-btn db-btn" id="db-when" type="button" aria-haspopup="menu" title="Pick a day">Today<span class="db-caret" aria-hidden="true">▾</span></button>
+                    <button class="status-btn db-btn" id="db-date" type="button" aria-haspopup="dialog" title="Pick a date, or a range of dates">Any date<span class="db-caret" aria-hidden="true">▾</span></button>
+                    <span class="db-right">
+                        <button class="status-btn" id="status-data" type="button" title="How many sessions match. Tap for options.">Loading…</button>
+                        <button class="status-btn weather-chip hidden" id="weather-chip" type="button" aria-label="Current weather. Tap to choose the spot."></button>
+                    </span>
                 </div>
 
                 <!-- Next saved session countdown (only when something is saved & upcoming) -->
@@ -368,9 +379,9 @@
                 <h3>Filters</h3>
                 <div class="fhead-right">
                     <label class="ios-switch" title="Show only free sessions">
-                        <span class="ios-switch-text"><span class="ios-switch-label">Free only</span><span class="ios-switch-sub hidden" id="f-free-sub"></span></span>
+                        <span class="ios-switch-sub hidden" id="f-free-sub"></span>
                         <input type="checkbox" role="switch" id="f-free" aria-label="Free sessions only">
-                        <span class="ios-switch-track" aria-hidden="true"></span>
+                        <span class="fswitch" aria-hidden="true"><span class="fswitch-opt">All</span><span class="fswitch-opt">Free</span></span>
                     </label>
                     <button class="btn-icon" id="btn-filters-close" aria-label="Close" title="Close. Changes apply as you make them.">✕</button>
                 </div>
@@ -494,7 +505,7 @@
          app.js loads it on demand (COMMUNITY_SCRIPTS) the first time a
          community section, invite link or the feedback sheet needs it, and
          the service worker keeps it cache-first from then on. -->
-    <script src="projects/js/config.js?v=64"></script>
+    <script src="projects/js/config.js?v=65"></script>
     <script src="projects/js/settings.js?v=9"></script>
     <script src="projects/js/favorites.js?v=1"></script>
     <script src="projects/js/api.js?v=22"></script>
@@ -503,12 +514,12 @@
     <script src="projects/js/live.js?v=4"></script>
     <script src="projects/js/weather.js?v=2"></script>
     <script src="projects/js/alerts.js?v=11"></script>
-    <script src="projects/js/ui.js?v=8"></script>
+    <script src="projects/js/ui.js?v=9"></script>
     <script src="projects/js/calendar.js?v=14"></script>
     <script src="projects/js/calendar2.js?v=7"></script>
     <script src="projects/js/map.js?v=9"></script>
     <script src="projects/js/tour.js?v=5"></script>
-    <script src="projects/js/app.js?v=68"></script>
+    <script src="projects/js/app.js?v=69"></script>
     <script src="projects/js/refresh.js?v=5"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)

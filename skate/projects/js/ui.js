@@ -155,11 +155,12 @@ window.SkateUI = (() => {
             const p = $('popover');
             p.classList.add('hidden');
             p.innerHTML = '';
+            p.style.width = ''; p.style.maxWidth = '';
         },
         /** items: [{label, danger?, cls?, onClick}] — built with textContent, never innerHTML.
          *  title: what the menu is about (a session, a person, a room) — it heads the
          *  menu beside the ✕, so the close button is not a lone glyph in space. */
-        open(anchor, items, title = '') {
+        open(anchor, items, title = '', opts = {}) {
             if (!items.length) return;
             const p = $('popover');
             p.innerHTML = '';
@@ -168,6 +169,7 @@ window.SkateUI = (() => {
                 el('button', { class: 'popover-close', type: 'button', 'aria-label': 'Close menu', title: 'Close', onclick: (e) => { e.stopPropagation(); Popover.close(); } }, ['✕'])
             ]));
             items.forEach(it => {
+                if (it.node) { p.appendChild(it.node); return; }   // v3.16: a whole panel (the date picker)
                 if (it.reactions) {   // v3.8: a row of emoji, each its own button
                     const row = el('div', { class: 'popover-reacts' });
                     it.reactions.forEach(emoji => row.appendChild(el('button', {
@@ -184,7 +186,9 @@ window.SkateUI = (() => {
             });
             p.classList.remove('hidden');
             const r = anchor.getBoundingClientRect();
-            const pw = Math.min(240, window.innerWidth - 16);
+            const pw = Math.min(opts.width || 240, window.innerWidth - 16);
+            p.style.width = opts.width ? pw + 'px' : '';
+            p.style.maxWidth = opts.width ? pw + 'px' : '';   // the sheet's 240px cap is for menus
             p.style.left = Math.min(Math.max(8, r.left), window.innerWidth - pw - 8) + 'px';
             p.style.top = (r.bottom + 6) + 'px';
             const ph = p.offsetHeight;

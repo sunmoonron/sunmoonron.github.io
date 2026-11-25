@@ -7,6 +7,8 @@
 const fs = require('fs');
 const path = require('path');
 const { test, expect } = require('./fixtures');
+/** v3.16: the members' entrance sits under ⋯ in the top bar. */
+async function openMore(page) { if (await page.locator('#more-menu').isHidden()) await page.click('#btn-more'); }
 
 const N = new Function(fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'js', 'nostr.bundle.js'), 'utf8') + '\n; return NostrTools;')();
 const GATE_URL = 'ws://gate.test/hq';
@@ -87,7 +89,7 @@ test.describe('members\' entrance', () => {
         await page.waitForTimeout(2200);          // past the idle warm-up a known device would get
         expect(urls.filter(u => /gate\.js|nostr\.bundle/.test(u))).toEqual([]);
         expect(world.connects).toBe(0);
-        await expect(page.locator('#btn-gate')).toBeHidden();
+        await expect(page.locator('#btn-gate')).toHaveClass(/\bhidden\b/);
         await expect(page.locator('.gate-backdrop')).toHaveCount(0);
         expect(await page.evaluate(() => typeof window.SkateGate)).toBe('undefined');
         await app.noErrors();
@@ -110,7 +112,7 @@ test.describe('members\' entrance', () => {
         expect(await page.evaluate(() => window.__gate)).toBeUndefined();
         expect(await kept(page)).toBe(null);
         expect((await gateState(page)).members).toEqual({});
-        await expect(page.locator('#btn-gate')).toBeHidden();
+        await expect(page.locator('#btn-gate')).toHaveClass(/\bhidden\b/);
         // Escape closes the card and the address is the plain app again
         await page.keyboard.press('Escape');
         await expect(card).toHaveCount(0);
@@ -136,20 +138,20 @@ test.describe('members\' entrance', () => {
         await page.locator('#members-close').click();
         await expect(page.locator('#members-app')).toBeHidden();
         expect(new URL(page.url()).hash).toBe('');
-        await expect(page.locator('#btn-gate')).toBeVisible();
+        await expect(page.locator('#btn-gate')).not.toHaveClass(/\bhidden\b/);
         const before = world.connects;
-        await page.locator('#btn-gate').click();
+        await openMore(page); await page.locator('#btn-gate').click();
         await expect(page.locator('#members-app')).toBeVisible();
         expect(world.connects).toBe(before);
         // a later visit: the kept build starts in the background, from this device alone
         await page.locator('#members-close').click();
         world.served = null;
         await page.reload();
-        await expect(page.locator('#btn-gate')).toBeVisible();
+        await expect(page.locator('#btn-gate')).not.toHaveClass(/\bhidden\b/);
         await expect(page.locator('#members-app')).toHaveCount(1, { timeout: 10000 });
         await expect(page.locator('#members-app')).toBeHidden();
         expect(world.connects).toBe(before);
-        await page.locator('#btn-gate').click();
+        await openMore(page); await page.locator('#btn-gate').click();
         await expect(page.locator('#members-app')).toBeVisible();
         await app.noErrors();
     });
@@ -179,13 +181,13 @@ test.describe('members\' entrance', () => {
         world.served = build(5);
         await page.locator('.gate-card').getByRole('button', { name: 'Close' }).click();
         await page.reload();
-        await page.locator('#btn-gate').click();
+        await openMore(page); await page.locator('#btn-gate').click();
         await expect(page.locator('.gate-card h2')).toHaveText('Stopped for safety');
         expect(await page.evaluate(() => window.__gate)).toBeUndefined();
         // and the genuine current build still works afterwards
         world.served = build(8);
         await page.locator('.gate-card').getByRole('button', { name: 'Close' }).click();
-        await page.locator('#btn-gate').click();
+        await openMore(page); await page.locator('#btn-gate').click();
         await expect(page.locator('#members-app')).toContainText('build 8');
     });
 
@@ -220,14 +222,14 @@ test.describe('members\' entrance', () => {
         expect(await page.evaluate(() => window.__wiped)).toBe(true);
         expect(await kept(page)).toBe(null);
         expect((await gateState(page)).members).toEqual({});
-        await expect(page.locator('#btn-gate')).toBeHidden();
+        await expect(page.locator('#btn-gate')).toHaveClass(/\bhidden\b/);
     });
 
     test('the site owner\'s key has the button on any device, and goes straight in', async ({ page, context, app }) => {
         const world = await arrange(context, { identity: memberSk, admins: [memberPk] });
         await app.open();
-        await expect(page.locator('#btn-gate')).toBeVisible();                     // never signed in here before
-        await page.locator('#btn-gate').click();
+        await expect(page.locator('#btn-gate')).not.toHaveClass(/\bhidden\b/);                     // never signed in here before
+        await openMore(page); await page.locator('#btn-gate').click();
         await expect(page.locator('#members-app')).toBeVisible();
         await expect(page.locator('.gate-card')).toHaveCount(0);                   // no "Members only" card for the owner
         expect(world.proved).toContain(memberPk);
@@ -238,7 +240,7 @@ test.describe('members\' entrance', () => {
         const guestSk = N.generateSecretKey(), guestPk = N.getPublicKey(guestSk);
         const world = await arrange(context, { identity: guestSk });
         await app.open();
-        await expect(page.locator('#btn-gate')).toBeHidden();
+        await expect(page.locator('#btn-gate')).toHaveClass(/\bhidden\b/);
         await page.evaluate(() => SkateApp.Actions.bootCommunity());
         await page.waitForFunction(() => window.SkateChat && SkateChat.getIdentity().pk, null, { timeout: 20000 });
         const invite = (id) => page.evaluate((mid) => {
@@ -254,7 +256,7 @@ test.describe('members\' entrance', () => {
         expect(await page.evaluate(() => !document.getElementById('btn-gate').classList.contains('hidden'))).toBe(true);
         await page.locator('#devchat-messages .devchat-invite').click();
         await expect(page.locator('.gate-card h2')).toHaveText('Not on the list');
-        await expect(page.locator('#btn-gate')).toBeHidden();
+        await expect(page.locator('#btn-gate')).toHaveClass(/\bhidden\b/);
         expect((await gateState(page)).refused).toBe('evt-one');
         await page.locator('.gate-card').getByRole('button', { name: 'Close' }).click();
         await page.evaluate(() => SkateDev.open());
@@ -267,7 +269,7 @@ test.describe('members\' entrance', () => {
         await expect(page.locator('#members-app')).toBeVisible();
         expect(await gateState(page)).toMatchObject({ members: { [guestPk]: 1 } });
         await page.locator('#members-close').click();
-        await expect(page.locator('#btn-gate')).toBeVisible();
+        await expect(page.locator('#btn-gate')).not.toHaveClass(/\bhidden\b/);
     });
 
     test('an invitation counts only from the owner\'s own thread', async ({ page, context, app }) => {

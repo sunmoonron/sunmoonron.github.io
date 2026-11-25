@@ -32,6 +32,8 @@ function withSources(app, sources = SOURCES, extra = {}) {
 }
 const row = (page, name) => page.locator('#status-body .st-row', { has: page.locator('.st-top strong', { hasText: name }) });
 const groups = (page) => page.locator('#status-body h4').allTextContents();
+/** v3.16: Data status opens from the count's menu (the "checked" text left the page). */
+const openStatus = async (page) => { await page.click('#status-data'); await page.locator('#popover .popover-item', { hasText: 'Data status' }).click(); };
 
 test.describe('data status', () => {
     test('the line has two parts: the count opens options, "checked" opens the sheet with the City\'s own checks', async ({ page, app }) => {
@@ -39,8 +41,9 @@ test.describe('data status', () => {
         app.data['live-check.json'].stats = { missing: 1, extra: 0 };
         await app.open();
         await expect(page.locator('#status-data')).toHaveText(/^\d+ sessions?$/);
-        await expect(page.locator('#status-checked')).toHaveText(/^✓ checked 1:00 p\.?m\.?$/i);
+        await expect(page.locator('#status-checked')).toHaveCount(0);                     // v3.16: no "checked" text on the page
         await page.click('#status-data');
+        await expect(page.locator('#popover .popover-item', { hasText: 'Data status' })).toHaveText(/^Data status: checked 1:00 p\.?m\.?$/i);
         await expect(page.locator('#popover .popover-title')).toHaveText('Sessions shown');
         await expect(page.locator('#popover')).toContainText('Refresh now');
         await page.locator('#popover .popover-item', { hasText: 'Data status' }).click();
@@ -48,7 +51,7 @@ test.describe('data status', () => {
         await page.click('#btn-status-close');
         await expect(page.locator('#status-modal')).toBeHidden();
 
-        await page.click('#status-checked');
+        await openStatus(page);
         await expect(page.locator('#status-modal')).toBeVisible();
         expect((await groups(page))[0]).toBe('City of Toronto');
         await expect(row(page, 'Drop-in schedule')).toContainText('read 1:00');
@@ -65,10 +68,10 @@ test.describe('data status', () => {
         withSources(app);
         await app.open();
         // v3.15.3: an arena's own page (Bolton's) being behind is for the sheet, not the line; Ajax's site is outside the filter
-        await expect(page.locator('#status-checked')).toHaveText(/^✓ checked 1:00 p\.?m\.?$/i);
-        await expect(page.locator('#status-checked')).not.toHaveClass(/stale/);
+        await expect(page.locator('#status-data')).toHaveText(/^\d+ sessions?$/);
+        await expect(page.locator('#status-data')).not.toHaveClass(/stale/);
         await expect(page.locator('.alert-banner', { hasText: 'feed failed' })).toHaveCount(0);   // no banner per feed
-        await page.click('#status-checked');
+        await openStatus(page);
         expect(await groups(page)).toEqual(['City of Toronto', 'Toronto arenas run by their own boards', 'Other Toronto rinks']);
         await expect(page.locator('#status-body .st-scope')).toContainText('Showing your cities: Toronto');
         await expect(page.locator('#status-body .st-sum.warn')).toContainText('One source needs attention');
@@ -104,7 +107,7 @@ test.describe('data status', () => {
     test('it follows the city filter: one look at every city from the sheet, and all cities when none is picked', async ({ page, app }) => {
         withSources(app);
         await app.open();
-        await page.click('#status-checked');
+        await openStatus(page);
         await page.locator('#status-body [data-st-all="1"]').click();
         const all = await groups(page);
         expect(all.slice(0, 3)).toEqual(['City of Toronto', 'Toronto arenas run by their own boards', 'Other Toronto rinks']);
@@ -122,8 +125,9 @@ test.describe('data status', () => {
 
         // widen the filter itself: the line counts Ajax, the Town's own site (Bolton's page still is not), and the sheet opens on everything
         await page.locator('#active-filters .pill.city .pill-x').click();
-        await expect(page.locator('#status-checked')).toHaveText(/^⚠️ checked 1:00 p\.?m\.? · 1 source behind$/i);
-        await page.click('#status-checked');
+        await expect(page.locator('#status-data')).toHaveText(/^⚠️ \d+ sessions?/);
+        await expect(page.locator('#status-data')).toHaveClass(/stale/);
+        await openStatus(page);
         expect(await groups(page)).toEqual(all);
         await expect(page.locator('#status-body .st-scope')).toHaveCount(0);
         await page.click('#btn-status-close');
@@ -132,8 +136,8 @@ test.describe('data status', () => {
         await page.locator('#active-filters .pill.city').click();
         await page.locator('#popover .popover-item', { hasText: 'Mississauga' }).click();
         await page.keyboard.press('Escape');
-        await expect(page.locator('#status-checked')).not.toContainText('behind');
-        await page.click('#status-checked');
+        await expect(page.locator('#status-data')).not.toHaveClass(/stale/);
+        await openStatus(page);
         expect(await groups(page)).toEqual(['Mississauga']);
         await expect(page.locator('#status-body .st-row')).toHaveCount(2);
         await app.noErrors();
@@ -145,8 +149,8 @@ test.describe('data status', () => {
             yzd: { ok: true, state: 'changed', count: 0, at, okAt: at, manual: '2026-11-21', note: 'Its page changed since the hours were entered by hand. Nothing is listed until they are checked again.' }
         });
         await app.open();
-        await expect(page.locator('#status-checked')).not.toContainText('behind');           // v3.15.3: a rink's page, not a city's site
-        await page.click('#status-checked');
+        await expect(page.locator('#status-data')).not.toHaveClass(/stale/);           // v3.15.3: a rink's page, not a city's site
+        await openStatus(page);
         await expect(page.locator('#status-body .st-sum.warn')).toContainText('One source needs attention');
         await expect(row(page, 'Ted Reeve Community Arena')).toHaveClass(/st-wait/);
         await expect(row(page, 'Ted Reeve Community Arena').locator('.st-head')).toHaveText('its page changed');
@@ -162,10 +166,10 @@ test.describe('data status', () => {
             yzd: { ok: true, state: 'ok', count: 9, at, okAt: at, manual: '2026-11-21', season: { from: '2026-12-19', to: '2027-02-15' }, edited: '2026-12-01' }
         });
         await app.open();
-        await expect(page.locator('#status-checked')).toContainText('✓ checked');
-        await expect(page.locator('#status-checked')).not.toContainText('behind');
-        await expect(page.locator('#status-checked')).not.toHaveClass(/stale/);
-        await page.click('#status-checked');
+        await expect(page.locator('#status-data')).toHaveText(/^\d+ sessions?$/);
+        await expect(page.locator('#status-data')).not.toHaveClass(/stale/);
+        await expect(page.locator('#status-data')).not.toHaveClass(/stale/);
+        await openStatus(page);
         const y = row(page, 'YZD Hangar Skate');
         await expect(y).toHaveClass(/st-wait/);
         await expect(y.locator('.st-head')).toHaveText('its page was edited');
@@ -180,8 +184,8 @@ test.describe('data status', () => {
             yzd: { ok: true, state: 'ok', count: 9, at, okAt: at, manual: '2026-11-21', edited: '<img src=x onerror=alert(1)>', note: 'Its whole site was republished on Dec 2, after these hours were entered.' }
         });
         await app.open();
-        await expect(page.locator('#status-checked')).not.toContainText('behind');
-        await page.click('#status-checked');
+        await expect(page.locator('#status-data')).not.toHaveClass(/stale/);
+        await openStatus(page);
         const y = row(page, 'YZD Hangar Skate');
         await expect(y).toHaveClass(/st-ok/);
         await expect(y).toContainText('Its whole site was republished on Dec 2, after these hours were entered.');
@@ -192,8 +196,8 @@ test.describe('data status', () => {
     test('a file from before v3.12 (only ok and a count per source) still reads correctly', async ({ page, app }) => {
         withSources(app, { mosspark: { ok: true, count: 8 }, grossman: { ok: false, count: 5, error: 'HTTP 500' } });
         await app.open();
-        await expect(page.locator('#status-checked')).not.toContainText('behind');           // an arena's page: the sheet says so
-        await page.click('#status-checked');
+        await expect(page.locator('#status-data')).not.toHaveClass(/stale/);           // an arena's page: the sheet says so
+        await openStatus(page);
         await expect(row(page, 'Moss Park Arena')).toContainText('read 1:00');
         const g = row(page, 'Larry Grossman Forest Hill Memorial Arena');
         await expect(g.locator('.st-head')).toHaveText('could not be read');
@@ -205,15 +209,20 @@ test.describe('data status', () => {
         withSources(app, { ...SOURCES, markham: { ok: false, count: 5, error: 'HTTP 500' } });   // Markham's own site, a file from before v3.12
         app.data['alerts.json'].checkedAt = earlier;                                                 // the City's notices not read for a day
         await app.open();
-        const line = page.locator('#status-checked');
-        await expect(line).toHaveText(/^⚠️ checked 1:00 p\.?m\.? · 1 source behind$/i);           // toronto.ca; Bolton's page is not counted
+        const line = page.locator('#status-data'), item = page.locator('#popover .popover-item', { hasText: 'Data status' });
+        await expect(line).toHaveText(/^⚠️ \d+ sessions?/);                                         // toronto.ca; Bolton's page is not counted
         await expect(line).toHaveClass(/stale/);
+        await line.click();
+        await expect(item).toHaveText('⚠️ Data status: 1 source behind');
+        await page.keyboard.press('Escape');
         await page.evaluate(() => SkateApp.Actions.setCities(['Mississauga']));
-        await expect(line).toHaveText(/^✓ checked 1:00 p\.?m\.?$/i);                               // not looking at Toronto: nothing to worry about
+        await expect(line).toHaveText(/^\d+ sessions?$/);                                           // not looking at Toronto: nothing to worry about
         await expect(line).not.toHaveClass(/stale/);
         await page.evaluate(() => SkateApp.Actions.setCities(['Markham', 'Ajax']));
-        await expect(line).toHaveText(/· 2 sources behind$/);                                        // each town's own site
-        await page.click('#status-checked');
+        await expect(line).toHaveClass(/stale/);
+        await line.click();
+        await expect(item).toHaveText('⚠️ Data status: 2 sources behind');                          // each town's own site
+        await item.click();
         await expect(row(page, 'City of Markham').locator('.st-head')).toHaveText('could not be read');
         await app.noErrors();
     });
@@ -226,7 +235,7 @@ test.describe('data status', () => {
             'made-up-source': { ok: true, state: 'ok', count: 1, at }
         });
         await app.open();
-        await page.click('#status-checked');
+        await openStatus(page);
         await page.locator('#status-body [data-st-all="1"]').click();
         await expect(row(page, 'Moss Park Arena')).toContainText('<img src=x');
         expect(await page.evaluate(() => window.__x)).toBeUndefined();
@@ -247,7 +256,7 @@ test.describe('data status', () => {
             return [...document.querySelectorAll('.status-line .status-btn:not(.hidden)')].every(b => { const r = b.getBoundingClientRect(); return r.left >= line.left - 0.5 && r.right <= line.right + 0.5; });
         });
         expect(fits).toBe(true);
-        await page.click('#status-checked');
+        await openStatus(page);
         const box = await page.evaluate(() => {
             const m = document.querySelector('#status-modal .modal').getBoundingClientRect(), b = document.getElementById('status-body');
             return { inside: m.left >= 0 && m.right <= window.innerWidth + 0.5 && m.bottom <= window.innerHeight + 0.5, scrolls: b.scrollHeight > b.clientHeight, wide: b.scrollWidth <= b.clientWidth + 1 };

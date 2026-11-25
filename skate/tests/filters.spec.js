@@ -86,6 +86,7 @@ test('Your age is a box of its own: type an age, clear it', async ({ page, app }
     const box = page.locator('#filters-body .fage-box');
     await expect(box).toBeVisible();
     await expect(box.locator('.fage-unit')).toHaveText('years old');
+    await expect(page.locator('#filters-body .fsec', { has: box }).locator('.settings-hint')).toHaveCount(0);   // v3.16: a heading and the box, two lines
     await page.fill('#f-age', '12');
     await page.locator('#f-age').blur();                                        // applies when you leave the box, like before
     await expect.poll(() => page.evaluate(() => SkateApp.S.age)).toBe(12);

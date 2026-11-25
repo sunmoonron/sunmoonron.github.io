@@ -177,7 +177,7 @@ test.describe('schedule', () => {
         await expect(card(page, 'Zed Arena')).toHaveClass(/has-alert-closed/);
         await expect(card(page, 'Zed Arena').locator('.alert-banner.closed')).toContainText('Likely cancelled');
 
-        await page.click('#status-checked');                                        // v3.12: the Data status sheet names the reader
+        await page.click('#status-data'); await page.locator('#popover .popover-item', { hasText: 'Data status' }).click();                                        // v3.12: the Data status sheet names the reader
         await expect(page.locator('#status-body')).toContainText('Alert reading: claude-haiku-5-5');
         await page.click('#btn-status-close');
         await app.noErrors();
@@ -275,6 +275,7 @@ test.describe('schedule', () => {
         await expect(page.locator('#update-text')).toContainText('newer version');
         await page.click('#btn-update-later');
         await expect(page.locator('#update-bar')).toBeHidden();
+        await page.click('#btn-more');                                              // v3.16: Refresh sits under ⋯
         await Promise.all([page.waitForEvent('load'), page.click('#btn-refresh')]);   // the stale app reloads itself
         await expect(page.locator('.program-item').first()).toBeVisible();
     });
@@ -309,7 +310,7 @@ test.describe('schedule', () => {
             return {
                 scrollW: document.documentElement.scrollWidth, innerW: innerWidth,
                 searchRight: r('#search-input').right, filtersLeft: r('#btn-filters').left,
-                topbar: ['#btn-feedback', '#btn-free', '#btn-refresh', '#btn-settings'].every(s => inView(r(s))),
+                topbar: ['#btn-feedback', '#btn-free', '#btn-more'].every(s => inView(r(s))),
                 pills: inView(r('#active-filters'))
             };
         });
