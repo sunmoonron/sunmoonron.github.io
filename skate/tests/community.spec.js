@@ -87,7 +87,7 @@ test.describe('community', () => {
 
     test('the feedback sheet sends a message to the dev', async ({ page, app }) => {
         await app.open();
-        await page.click('#btn-feedback');
+        await page.click('#btn-more'); await page.click('#btn-feedback');   // v3.16.1: under ⋮
         await expect(page.locator('#devchat-modal')).toBeVisible({ timeout: 20000 });
         await page.fill('#devchat-input', 'smoke: the rink line is cut off');
         await page.click('#devchat-send');

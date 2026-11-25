@@ -1220,6 +1220,8 @@ window.SkateApp = (() => {
         if (!S.paidVisible && S.paidMatching) sd.appendChild(el('span', { class: 'sd-paid' }, [` · ${S.paidMatching} paid hidden`]));
         sd.classList.toggle('stale', !!behind);
         sd.title = behind ? `${behind} source${behind === 1 ? '' : 's'} behind. Tap, then Data status.` : 'How many sessions match. Tap for options.';
+        const dc = $('db-count');   // v3.16.1: its copy in the day bar, shown once this line has scrolled away
+        if (dc) { setBarBtn(dc, `${behind ? '⚠️ ' : ''}${n} session${n === 1 ? '' : 's'}`, false); dc.classList.toggle('stale', !!behind); dc.title = sd.title; }
         Render.dayBar();
         if (!$('status-modal').classList.contains('hidden')) Render.dataStatus();   // the open sheet follows the minute tick
     };
@@ -2024,6 +2026,8 @@ window.SkateApp = (() => {
     Render.weather = function () {
         const chip = $('weather-chip');
         const w = SkateWeather.current;
+        const wx = $('db-wx');   // v3.16.1: its copy in the day bar
+        if (wx) { wx.classList.toggle('hidden', !w); if (w) { setBarBtn(wx, `${w.emoji} ${w.temp}°`, false); wx.title = `${w.text} in ${w.label}: ${w.temp}°C. Tap to pick another spot.`; } }
         if (!w) { chip.classList.add('hidden'); return; }
         chip.classList.remove('hidden');
         const label = /^my location$/i.test(w.label || '') ? 'near you' : (w.label || '');
@@ -2828,15 +2832,25 @@ window.SkateApp = (() => {
         const when = S.day ? (S.day === 'today' ? 'Today' : S.day === 'tomorrow' ? 'Tomorrow' : S.day === 'weekend' ? 'Weekend' : S.day)
             : d ? (rel || parseLocalDate(d).toLocaleDateString('en-CA', { weekday: 'long' })) : 'Any day';
         setBarBtn($('db-when'), when, !!S.day);
-        const date = S.dateFrom ? rangeLabel(S.dateFrom, S.dateTo) : d ? mdLabel(d) : 'Any date';   // the day chip already names the weekday
-        setBarBtn($('db-date'), date, !!S.dateFrom);
+        // "Wednesday, Nov 25" when the first part says Today, Tomorrow or a When choice; "Nov 26" when it already names the weekday
+        let long = 'Any date', short = 'Any date';
+        if (S.dateFrom) long = short = rangeLabel(S.dateFrom, S.dateTo);
+        else if (d) { short = mdLabel(d); long = (rel || S.day) ? parseLocalDate(d).toLocaleDateString('en-CA', { weekday: 'long', month: 'short', day: 'numeric' }) : short; }
+        const db = $('db-date');
+        db.querySelector('.db-long').textContent = long;
+        db.querySelector('.db-short').textContent = short;
+        db.classList.toggle('on', !!S.dateFrom);
+        $('day-bar').classList.toggle('today', d === todayKey && !S.day && !S.dateFrom);
     };
     /** Which day is at the top of the list, under the bar: the last separator that has gone under it. */
     let spyRaf = 0;
     function spyDay() {
         spyRaf = 0;
-        const list = $('program-list'), bar = $('day-bar');
-        if (S.calMode || !list || !bar || !list.offsetParent) return;
+        const list = $('program-list'), bar = $('day-bar'), sen = $('db-sentinel');
+        if (!bar || !bar.offsetParent) return;
+        // stuck = the bar has reached the top and the page goes on scrolling under it (the sentinel just above it moves up)
+        bar.classList.toggle('stuck', !!sen && sen.getBoundingClientRect().top < bar.getBoundingClientRect().top - 1);
+        if (S.calMode || !list || !list.offsetParent) return;
         // the line is the bar's bottom edge; at the very end of the list (where the last day's separator
         // can never reach the bar) it is the bottom of what you can see
         let sc = list.parentElement;
@@ -4111,7 +4125,9 @@ window.SkateApp = (() => {
         // v3.16: the bar's day and date
         $('db-when').onclick = (e) => { e.stopPropagation(); Popover.open($('db-when'), Menus.when(), 'Day'); };
         $('db-date').onclick = (e) => { e.stopPropagation(); Actions.openDates(); };
-        // v3.16: Refresh, Members and Settings under ⋯
+        $('db-count').onclick = (e) => { e.stopPropagation(); Popover.open($('db-count'), Menus.status(), 'Sessions shown'); };
+        $('db-wx').onclick = (e) => { e.stopPropagation(); Popover.open($('db-wx'), Menus.weather(), 'Weather'); };
+        // v3.16: Feedback, Refresh, Members and Settings under ⋮
         {
             const more = $('btn-more'), menu = $('more-menu');
             const setMore = (open) => { menu.classList.toggle('hidden', !open); more.setAttribute('aria-expanded', open ? 'true' : 'false'); };
@@ -4120,7 +4136,7 @@ window.SkateApp = (() => {
             document.addEventListener('click', (e) => { if (!e.target.closest('.more-wrap')) setMore(false); }, true);
             document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !menu.classList.contains('hidden')) setMore(false); });
             // the dot on ⋯ follows the dots inside it (an unseen release, a members' note)
-            const syncDot = () => $('more-dot').classList.toggle('hidden', ![...menu.querySelectorAll('.more-item:not(.hidden) .new-dot')].some(d => !d.classList.contains('hidden')));
+            const syncDot = () => $('more-dot').classList.toggle('hidden', ![...menu.querySelectorAll('.more-item:not(.hidden) .new-dot, .more-item:not(.hidden) .badge')].some(d => !d.classList.contains('hidden')));
             new MutationObserver(syncDot).observe(menu, { subtree: true, attributes: true, attributeFilter: ['class'] });
             syncDot();
         }

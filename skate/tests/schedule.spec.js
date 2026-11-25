@@ -310,7 +310,7 @@ test.describe('schedule', () => {
             return {
                 scrollW: document.documentElement.scrollWidth, innerW: innerWidth,
                 searchRight: r('#search-input').right, filtersLeft: r('#btn-filters').left,
-                topbar: ['#btn-feedback', '#btn-free', '#btn-more'].every(s => inView(r(s))),
+                topbar: ['#btn-free', '#btn-more'].every(s => inView(r(s))),
                 pills: inView(r('#active-filters'))
             };
         });

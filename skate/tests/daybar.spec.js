@@ -17,8 +17,18 @@ test('the bar names the day at the top of the list, and follows it as you scroll
     await expect(page.locator('#status-checked')).toHaveCount(0);
     const next = page.locator('#program-list .day-head[data-day]:not(.first)').first();
     const nextDay = await next.getAttribute('data-day');
+    // at rest the count and the weather are in the line above; the bar has only the day and the date
+    await expect(page.locator('#status-data')).toBeVisible();
+    await expect(page.locator('#db-count')).toBeHidden();
     await next.evaluate(h => h.scrollIntoView());
     await expect.poll(() => page.evaluate(() => SkateApp.S.barDay)).toBe(nextDay);
+    // scrolled: the line above has gone and the count has dropped into the bar; it opens the same menu
+    await expect(page.locator('#day-bar')).toHaveClass(/\bstuck\b/);
+    await expect(page.locator('#db-count')).toBeVisible();
+    await expect(page.locator('#db-count')).toHaveText(/^\d+ sessions?/);
+    await page.locator('#db-count').dispatchEvent('click');   // a plain tap: no scroll first (a scroll closes menus by design)
+    await expect(page.locator('#popover .popover-title')).toHaveText('Sessions shown');
+    await page.keyboard.press('Escape');
     // it stays in view while the list scrolls under it
     const bar = await page.locator('#day-bar').boundingBox();
     expect(bar.y).toBeGreaterThanOrEqual(-12);
@@ -66,13 +76,14 @@ test('the date part opens a calendar: a day, then another for a range; Show appl
     await app.noErrors();
 });
 
-test('⋯ holds Refresh and Settings, closes on a tap elsewhere, and carries the dot of what is inside', async ({ page, app }) => {
+test('⋮ holds Feedback, Refresh and Settings, closes on a tap elsewhere, and carries the dot of what is inside', async ({ page, app }) => {
     await app.open();
     const menu = page.locator('#more-menu');
     await expect(menu).toBeHidden();
     await page.click('#btn-more');
     await expect(menu).toBeVisible();
-    await expect(menu.locator('.more-item:visible')).toHaveCount(2);
+    await expect(menu.locator('.more-item:visible')).toHaveCount(3);
+    await expect(page.locator('#btn-feedback')).toContainText('Feedback');
     await expect(page.locator('#btn-refresh')).toContainText('Refresh');
     await expect(page.locator('#btn-settings')).toContainText('Settings');
     await page.locator('#search-input').click();
@@ -112,6 +123,7 @@ test('pills wear their colours: the city its own, each kind as on the cards, Oth
     const bg = (s) => page.locator(s).evaluate(e => getComputedStyle(e).backgroundColor);
     const colours = [await bg('#active-filters .pill.city'), await bg('#active-filters .pill.k-leisure'), await bg('#active-filters .pill.k-figure')];
     expect(new Set(colours).size).toBe(3);
+    await expect(page.locator('#active-filters .pill.city')).not.toHaveClass(/\bk-/);   // the city pill keeps its own colour
     const mix = page.locator('#active-filters .pill.k-mix');
     const before = await mix.evaluate(e => getComputedStyle(e).backgroundImage);
     expect(before).toMatch(/linear-gradient/);

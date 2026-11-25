@@ -17,7 +17,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=11">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=4">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=56">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=57">
 </head>
 <body>
     <div class="app" id="app">
@@ -25,13 +25,13 @@
         <div class="top-bar">
             <h1>Toronto Skating</h1>
             <div class="top-bar-actions">
-                <button class="top-toggle top-feedback" id="btn-feedback" title="Report a bug or send feedback to the dev">Feedback<span class="badge hidden" id="feedback-badge">0</span></button>
-                <!-- v3.16: Free only as a labelled switch: both choices inside it, the knob on the one in force -->
+                <!-- v3.16: Free only as a labelled switch: both choices inside it, the knob on the one in force (gold = paid too, green = free) -->
                 <button class="fswitch" id="btn-free" type="button" role="switch" aria-checked="false" aria-label="Free sessions only" title="Free sessions only"><span class="fswitch-opt">All</span><span class="fswitch-opt">Free</span></button>
-                <!-- v3.16: Refresh, Members and Settings under ⋯ -->
+                <!-- v3.16.1: Feedback, Refresh, Members and Settings under ⋮ -->
                 <div class="more-wrap">
-                    <button class="btn-icon btn-more" id="btn-more" type="button" aria-label="More: refresh, settings" aria-haspopup="menu" aria-expanded="false" aria-controls="more-menu" title="Refresh, settings and more"><span aria-hidden="true">⋯</span><span class="new-dot hidden" id="more-dot"></span></button>
+                    <button class="btn-icon btn-more" id="btn-more" type="button" aria-label="More: feedback, refresh, settings" aria-haspopup="menu" aria-expanded="false" aria-controls="more-menu" title="Feedback, refresh, settings"><span aria-hidden="true">⋮</span><span class="new-dot hidden" id="more-dot"></span></button>
                     <div class="more-menu hidden" id="more-menu" role="menu" aria-label="More">
+                        <button class="more-item" id="btn-feedback" type="button" role="menuitem" title="Report a bug or send feedback to the dev"><span class="mi-icon" aria-hidden="true">✎</span>Feedback<span class="badge hidden" id="feedback-badge">0</span></button>
                         <button class="more-item" id="btn-refresh" type="button" role="menuitem" title="Refresh the schedule, rink alerts and live spots"><span class="mi-icon" aria-hidden="true">↻</span>Refresh</button>
                         <button class="more-item hidden" id="btn-gate" type="button" role="menuitem" title="Members"><span class="mi-icon" aria-hidden="true">🏠</span>Members<span class="new-dot hidden" id="gate-dot"></span></button>
                         <button class="more-item" id="btn-settings" type="button" role="menuitem" title="Settings"><span class="mi-icon" aria-hidden="true">⚙️</span>Settings<span class="new-dot hidden" id="settings-dot"></span></button>
@@ -78,15 +78,10 @@
                 <!-- active filters as removable pills (generated) -->
                 <div class="pills" id="active-filters"></div>
 
-                <!-- v3.16: one bar that stays at the top as you scroll: the day you are looking at (tap: pick a day),
-                     its date (tap: a calendar for one day or a range), the count (tap: options, data status) and the weather -->
-                <div class="status-line day-bar" id="day-bar">
-                    <button class="status-btn db-btn" id="db-when" type="button" aria-haspopup="menu" title="Pick a day">Today<span class="db-caret" aria-hidden="true">▾</span></button>
-                    <button class="status-btn db-btn" id="db-date" type="button" aria-haspopup="dialog" title="Pick a date, or a range of dates">Any date<span class="db-caret" aria-hidden="true">▾</span></button>
-                    <span class="db-right">
-                        <button class="status-btn" id="status-data" type="button" title="How many sessions match. Tap for options.">Loading…</button>
-                        <button class="status-btn weather-chip hidden" id="weather-chip" type="button" aria-label="Current weather. Tap to choose the spot."></button>
-                    </span>
+                <!-- one quiet line: the count (tap for options and data status) · the weather (tap to pick a spot) -->
+                <div class="status-line" id="status-line">
+                    <button class="status-btn" id="status-data" type="button" title="How many sessions match. Tap for options.">Loading…</button>
+                    <button class="status-btn weather-chip hidden" id="weather-chip" type="button" aria-label="Current weather. Tap to choose the spot."></button>
                 </div>
 
                 <!-- Next saved session countdown (only when something is saved & upcoming) -->
@@ -95,6 +90,19 @@
 
                 <!-- Data-health warnings (stale schedule / failed source feeds) -->
                 <div id="data-warnings"></div>
+
+                <!-- v3.16.1: the day header that stays at the top as you scroll: TOMORROW (tap: pick a day) · WEDNESDAY, NOV 25
+                     (tap: one day or a range). Once the line above has scrolled away, the count and the weather drop into its right end. -->
+                <div class="db-sentinel" id="db-sentinel" aria-hidden="true"></div>
+                <div class="day-bar" id="day-bar">
+                    <button class="db-btn db-when" id="db-when" type="button" aria-haspopup="menu" title="Pick a day">Today<span class="db-caret" aria-hidden="true">▾</span></button>
+                    <span class="db-sep" aria-hidden="true">·</span>
+                    <button class="db-btn db-date" id="db-date" type="button" aria-haspopup="dialog" title="Pick a date, or a range of dates"><span class="db-long">Any date</span><span class="db-short">Any date</span><span class="db-caret" aria-hidden="true">▾</span></button>
+                    <span class="db-mini">
+                        <button class="db-btn db-count" id="db-count" type="button" title="How many sessions match. Tap for options.">0 sessions<span class="db-caret" aria-hidden="true">▾</span></button>
+                        <button class="db-btn db-wx hidden" id="db-wx" type="button" title="Current weather. Tap to choose the spot."> <span class="db-caret" aria-hidden="true">▾</span></button>
+                    </span>
+                </div>
 
                 <!-- Week calendar (list ↔ week toggled by the Week button) -->
                 <div id="calendar-wrap" class="hidden">
@@ -505,7 +513,7 @@
          app.js loads it on demand (COMMUNITY_SCRIPTS) the first time a
          community section, invite link or the feedback sheet needs it, and
          the service worker keeps it cache-first from then on. -->
-    <script src="projects/js/config.js?v=65"></script>
+    <script src="projects/js/config.js?v=66"></script>
     <script src="projects/js/settings.js?v=9"></script>
     <script src="projects/js/favorites.js?v=1"></script>
     <script src="projects/js/api.js?v=22"></script>
@@ -519,7 +527,7 @@
     <script src="projects/js/calendar2.js?v=7"></script>
     <script src="projects/js/map.js?v=9"></script>
     <script src="projects/js/tour.js?v=5"></script>
-    <script src="projects/js/app.js?v=69"></script>
+    <script src="projects/js/app.js?v=70"></script>
     <script src="projects/js/refresh.js?v=5"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)

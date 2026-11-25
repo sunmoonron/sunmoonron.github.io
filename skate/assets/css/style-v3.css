@@ -1961,12 +1961,15 @@ body.dark-mode .fage-box:focus-within { border-color: var(--primary); }
    v3.16 — simpler: Feedback · All|Free · ⋯ in the top bar; one sticky
    day bar (day · date … count · weather); pills in their kind's colours
    ============================================================ */
-.top-feedback { padding: 0 12px; }
 /* ⋯: Refresh, Members, Settings */
 .more-wrap { position: relative; z-index: 40; }
 .btn-more { position: relative; font-size: 20px; line-height: 1; font-weight: 700; }
+.top-bar .btn-more, body.dark-mode .top-bar .btn-more { width: 26px; min-width: 26px; border: 0; background: none; color: var(--text); font-size: 22px; }
+.top-bar .btn-more:hover { background: color-mix(in srgb, var(--acc-programs) 14%, transparent); }
+.more-item .badge { margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center;
+    background: var(--alert-red, #d9534f); color: #fff; font-size: 11px; font-weight: 700; }
 .btn-more .new-dot, .more-item .new-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--alert-red, #e5484d); }
-.btn-more .new-dot { position: absolute; top: 5px; right: 5px; }
+.btn-more .new-dot { position: absolute; top: 4px; right: 1px; }
 .more-item .new-dot { margin-left: auto; }
 .more-menu { position: absolute; right: 0; top: calc(100% + 6px); min-width: 180px; padding: 6px; display: flex; flex-direction: column; gap: 2px;
     border: 1px solid var(--border); border-radius: 12px; background: var(--bg-white); box-shadow: 0 8px 24px rgba(0, 0, 0, .18); }
@@ -1982,18 +1985,18 @@ body.dark-mode .more-item:hover, body.dark-mode .more-item:focus-visible { backg
     width: 104px; height: 34px; padding: 3px; margin: 0; border: 0; border-radius: 17px; background: #d5dce3;
     cursor: pointer; font: inherit; -webkit-tap-highlight-color: transparent; }
 .fswitch::before { content: ''; position: absolute; top: 3px; left: 3px; width: calc(50% - 3px); height: calc(100% - 6px); box-sizing: border-box;
-    border-radius: 14px; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .28); transition: transform .2s ease, background-color .2s ease; }
+    border-radius: 14px; background: var(--paid); box-shadow: 0 1px 3px rgba(0, 0, 0, .28); transition: transform .2s ease, background-color .2s ease; }
 .fswitch-opt { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;
     line-height: 1; color: #5b6774; transition: color .2s; pointer-events: none; }
-.fswitch-opt:first-child { color: #1f2933; }
+.fswitch-opt:first-child { color: #fff; }   /* All, on gold */
 .fswitch[aria-checked="true"]::before, .ios-switch input:checked + .fswitch::before { transform: translateX(100%); background: #15803d; }
 .fswitch[aria-checked="true"] .fswitch-opt:first-child, .ios-switch input:checked + .fswitch .fswitch-opt:first-child { color: #5b6774; }
 .fswitch[aria-checked="true"] .fswitch-opt:last-child, .ios-switch input:checked + .fswitch .fswitch-opt:last-child { color: #fff; }
 .fswitch:focus-visible, .ios-switch input:focus-visible + .fswitch { outline: 2px solid var(--primary); outline-offset: 2px; }
 body.dark-mode .fswitch { background: #2b3947; }
-body.dark-mode .fswitch::before { background: #dfe6ed; }
+body.dark-mode .fswitch::before { background: var(--paid); }
 body.dark-mode .fswitch-opt { color: #9fb0c0; }
-body.dark-mode .fswitch-opt:first-child { color: #0d141b; }
+body.dark-mode .fswitch-opt:first-child { color: #1a1a1a; }
 body.dark-mode .fswitch[aria-checked="true"]::before, body.dark-mode .ios-switch input:checked + .fswitch::before { background: #4ee08a; }
 body.dark-mode .fswitch[aria-checked="true"] .fswitch-opt:first-child, body.dark-mode .ios-switch input:checked + .fswitch .fswitch-opt:first-child { color: #9fb0c0; }
 body.dark-mode .fswitch[aria-checked="true"] .fswitch-opt:last-child, body.dark-mode .ios-switch input:checked + .fswitch .fswitch-opt:last-child { color: #0d141b; }
@@ -2002,27 +2005,33 @@ body.dark-mode .fswitch[aria-checked="true"] .fswitch-opt:last-child, body.dark-
     .top-bar .fswitch { width: 86px; height: 32px; border-radius: 16px; }
     .top-bar .fswitch::before { border-radius: 13px; }
     .top-bar .fswitch-opt { font-size: 12px; }
-    .top-feedback { padding: 0 9px; }
 }
 
-/* the day bar: sticks to the top of the list as you scroll */
-.day-bar { position: sticky; top: -11px; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
-    margin: 0 0 6px; padding: 8px 0 7px; background: var(--bg); border-bottom: 1px solid var(--border); }
-.day-bar .status-btn { display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 10px; border: 1px solid var(--border);
-    border-radius: 15px; background: var(--bg-white); color: var(--text); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
-.day-bar .status-btn:hover { border-color: var(--acc-programs); color: var(--text); }
-.day-bar .db-btn.on { background: color-mix(in srgb, var(--acc-programs) 16%, var(--bg-white)); border-color: var(--acc-programs); }
-.db-caret { font-size: 9px; opacity: .6; }
-.day-bar #status-data::after { content: '▾'; margin-left: 2px; font-size: 9px; opacity: .6; }
-.day-bar #status-data.stale { color: var(--warning); border-color: var(--warning); }
-.db-right { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
-.day-bar .weather-chip { height: 30px; padding: 0 10px; font-size: 12.5px; }
-body.dark-mode .day-bar .status-btn { background: #1b2530; border-color: #38485a; }
-body.dark-mode .day-bar .db-btn.on { background: color-mix(in srgb, var(--acc-programs) 22%, #1b2530); border-color: var(--acc-programs); }
+/* v3.16.1: the day bar is a day header again (TOMORROW · WEDNESDAY, NOV 25): plain text, each part a quiet button.
+   It stays at the top as you scroll; once the line above has gone, the count and the weather drop into its right end. */
+.db-sentinel { height: 0; }
+.day-bar { position: sticky; top: -11px; z-index: 4; display: flex; flex-wrap: nowrap; align-items: center;
+    margin: 2px 0 8px; padding: 10px 2px 5px; background: var(--bg); border-bottom: 1px solid var(--border);
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); }
+.day-bar.today { color: var(--acc-programs); border-bottom-color: color-mix(in srgb, var(--acc-programs) 50%, var(--border)); }
+.db-btn { display: inline-flex; align-items: center; gap: 3px; padding: 0; margin: 0; border: 0; border-radius: 0; background: none; box-shadow: none;
+    font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; cursor: pointer; white-space: nowrap; min-width: 0; min-height: 0; }
+.db-btn:hover { text-decoration: underline; text-underline-offset: 3px; }
+.db-btn:focus-visible { outline: 2px solid var(--acc-programs); outline-offset: 2px; border-radius: 3px; }
+.day-bar .db-when { color: var(--text); }
+.day-bar.today .db-when, .day-bar .db-btn.on { color: var(--acc-programs); }
+.db-caret { font-size: 10px; line-height: 1; opacity: .6; letter-spacing: 0; text-decoration: none; }
+.db-sep { padding: 0 6px; }
+.db-short { display: none; }
+.db-mini { display: none; margin-left: auto; padding-left: 12px; gap: 12px; align-items: center; }
+.day-bar.stuck .db-mini { display: inline-flex; animation: db-drop .26s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes db-drop { from { opacity: 0; transform: translateY(-14px); } }
+.db-count.stale { color: var(--warning); }
+@media (prefers-reduced-motion: reduce) { .day-bar.stuck .db-mini { animation: none; } }
 @media (max-width: 480px) {
-    .day-bar, .db-right { gap: 4px; }
-    .day-bar .status-btn, .day-bar .weather-chip { height: 28px; padding: 0 7px; font-size: 12px; }
-    .day-bar .wx-spot, .day-bar .sd-paid, .day-bar #status-data::after { display: none; }
+    .day-bar.stuck .db-long { display: none; }
+    .day-bar.stuck .db-short { display: inline; }
+    .db-mini { padding-left: 8px; gap: 10px; font-size: 10.5px; letter-spacing: .02em; }
 }
 /* the day headers in the list are plain separators now: the bar names the day you are in */
 .day-head { position: static; }
@@ -2054,11 +2063,7 @@ body.dark-mode .dp-nav { background: #1b2530; border-color: #38485a; }
 body.dark-mode .dp-day.sel { background: color-mix(in srgb, var(--acc-programs) 26%, #1b2530); }
 body.dark-mode .dp-day.start, body.dark-mode .dp-day.end { background: var(--acc-programs); color: #0d141b; }
 
-/* pills: the city in the accent, each kind as on the cards, Other a blend of the kinds it holds */
-.pill.city.on { background: color-mix(in srgb, var(--acc-programs) 70%, #000); border-color: transparent; color: #fff; }
-.pill.city.on .pill-x:hover { background: rgba(255, 255, 255, .22); }
-body.dark-mode .pill.city.on { background: var(--acc-programs); border-color: transparent; color: #0d141b; }
-body.dark-mode .pill.city.on .pill-x:hover { background: rgba(0, 0, 0, .18); }
+/* pills: each kind as on the cards, Other a blend of the kinds it holds (the city pill keeps its own colour) */
 .pill.type { --tint: 16%; }
 body.dark-mode .pill.type { --tint: 30%; }
 .pill.type.k-leisure { --ct: #3aa07f; }
