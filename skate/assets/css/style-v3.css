@@ -2082,3 +2082,8 @@ body.dark-mode .pill.type { --tint: 30%; }
 .alert-banner.note.fold > summary::after { content: '›'; margin-left: auto; padding-left: 6px; font-size: 16px; line-height: 1; opacity: .55; transition: transform .15s; }
 .alert-banner.note.fold[open] > summary::after { transform: rotate(90deg); }
 .alert-banner.note.fold .fold-body { margin-top: 5px; }
+
+/* v3.16.5 (WCAG 2.2): the bar's plain-text buttons get a tap area of at least 24px without changing how they look,
+   and the sticky bar never hides what has keyboard focus (2.4.11) */
+.day-bar .db-btn { padding: 8px 0; margin: -8px 0; }
+#program-list .program-item, #program-list a, #program-list button, #program-list summary { scroll-margin-top: 60px; }

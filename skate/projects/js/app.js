@@ -1168,7 +1168,7 @@ window.SkateApp = (() => {
         // the heart nudge rides the first card until a first save or "Got it";
         // anyone who already has saved sessions never sees it
         if (!SkateSettings.get('heartHintDone') && SkateFavorites.count()) SkateSettings.set('heartHintDone', true);
-        S.heartHint = !SkateSettings.get('heartHintDone');
+        S.heartHint = false;   // v3.16.5: no tip on the first card any more; it waits until someone has scrolled a while (maybeHeartTip)
 
         // rows grouped under day headers — the date leaves the row
         const items = filtered.slice(0, S.limit);
@@ -2863,7 +2863,16 @@ window.SkateApp = (() => {
         }
         if (day !== S.barDay) Render.dayBar(day);
     }
-    document.addEventListener('scroll', () => { if (!spyRaf) spyRaf = requestAnimationFrame(spyDay); }, { capture: true, passive: true });
+    /** v3.16.5: the one-time "tap ♡ to save" tip, once someone has scrolled past a few sessions (just in time, not up front). */
+    function maybeHeartTip() {
+        if (SkateSettings.get('heartHintDone') || S.calMode) return;
+        const items = $('program-list')?.querySelectorAll('.program-item');
+        if (!items || items.length < 6 || !$('day-bar')) return;
+        if (items[3].getBoundingClientRect().bottom > $('day-bar').getBoundingClientRect().bottom) return;   // the 4th session is still in view
+        SkateSettings.set('heartHintDone', true);
+        SkateUI.toast('Tip: tap ♡ on a session to save it. Saved sessions come back up top.', 'info', 7000);
+    }
+    document.addEventListener('scroll', () => { if (!spyRaf) spyRaf = requestAnimationFrame(() => { spyDay(); maybeHeartTip(); }); }, { capture: true, passive: true });
 
     /** Sessions per day under every filter but the day ones: what the date picker marks and counts. */
     function sessionsByDay() {

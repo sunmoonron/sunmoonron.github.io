@@ -151,3 +151,22 @@ test('pills wear their colours: the city its own, each kind as on the cards, Oth
     await expect.poll(() => mix.evaluate(e => getComputedStyle(e).backgroundImage)).not.toBe(before);
     await app.noErrors();
 });
+
+test.describe('the save tip', () => {
+    test.use({ settings: { heartHintDone: false } });
+    test('waits until someone has scrolled past a few sessions, shows once, never on the first card', async ({ page, app }) => {
+        manyToday(app);
+        await app.open();
+        await expect(page.locator('.heart-hint')).toHaveCount(0);
+        await expect(page.locator('#toast-container', { hasText: 'tap ♡' })).toHaveCount(0);
+        await page.locator('#program-list .program-item').nth(8).evaluate(e => e.scrollIntoView());
+        await expect(page.locator('#toast-container')).toContainText('tap ♡ on a session to save it');
+        expect(await page.evaluate(() => SkateSettings.get('heartHintDone'))).toBe(true);
+        await app.noErrors();
+    });
+});
+
+test('the bar\'s words are at least 24px tall to tap (WCAG 2.2 target size)', async ({ page, app }) => {
+    await app.open();
+    for (const id of ['#db-when', '#db-date', '#status-data']) expect((await page.locator(id).boundingBox()).height).toBeGreaterThanOrEqual(24);
+});
