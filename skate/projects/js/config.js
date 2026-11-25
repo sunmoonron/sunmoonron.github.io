@@ -32,7 +32,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.17.2',
+    version: '3.17.3',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -46,6 +46,11 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.17.3', date: '2026-11-25', items: [
+                'No red dot on ⋮ or Settings any more. A new version still shows its update banner.'
+            ]
+        },
         {
             v: '3.17.2', date: '2026-11-25', items: [
                 'The calendar choice left Settings: the ▾ beside Calendar picks the week grid or a day planner view.',

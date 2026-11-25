@@ -490,8 +490,7 @@ window.SkateApp = (() => {
             if (t) Actions.switchView(t.dataset.view);
         };
 
-        // Unseen release → dot on ⚙️ (What's new lives in Settings now)
-        $('settings-dot').classList.toggle('hidden', SkateSettings.get('lastSeenVersion') === CFG.version);
+        // v3.17.3: no dot for an unseen release: the update banner already says when a new version arrives
 
 
         // Chat filter chips (muted chip starts hidden, like before)
@@ -3637,7 +3636,6 @@ window.SkateApp = (() => {
     Actions.openWhatsNew = function () {
         Render.whatsNew();
         SkateSettings.set('lastSeenVersion', CFG.version);
-        $('settings-dot').classList.add('hidden');
         Modal.open('whatsnew-modal');
     };
 
@@ -4135,10 +4133,6 @@ window.SkateApp = (() => {
             menu.addEventListener('click', (e) => { if (e.target.closest('.more-item')) setMore(false); });
             document.addEventListener('click', (e) => { if (!e.target.closest('.more-wrap')) setMore(false); }, true);
             document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !menu.classList.contains('hidden')) setMore(false); });
-            // the dot on ⋯ follows the dots inside it (an unseen release, a members' note)
-            const syncDot = () => $('more-dot').classList.toggle('hidden', ![...menu.querySelectorAll('.more-item:not(.hidden) .new-dot, .more-item:not(.hidden) .badge')].some(d => !d.classList.contains('hidden')));
-            new MutationObserver(syncDot).observe(menu, { subtree: true, attributes: true, attributeFilter: ['class'] });
-            syncDot();
         }
         $('btn-status-close').onclick = () => Modal.close('status-modal');
         delegate($('status-body'), [

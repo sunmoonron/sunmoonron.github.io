@@ -89,7 +89,7 @@ test('the date part opens a calendar: a day, then another for a range; Show appl
     await app.noErrors();
 });
 
-test('⋮ holds Feedback, Refresh and Settings, closes on a tap elsewhere, and carries the dot of what is inside', async ({ page, app }) => {
+test('⋮ holds Feedback, Refresh and Settings, closes on a tap elsewhere, and carries no red dot', async ({ page, app }) => {
     await app.open();
     const menu = page.locator('#more-menu');
     await expect(menu).toBeHidden();
@@ -101,9 +101,7 @@ test('⋮ holds Feedback, Refresh and Settings, closes on a tap elsewhere, and c
     await expect(page.locator('#btn-settings')).toContainText('Settings');
     await page.locator('#search-input').click();
     await expect(menu).toBeHidden();
-    await expect(page.locator('#more-dot')).toBeHidden();
-    await page.evaluate(() => document.getElementById('settings-dot').classList.remove('hidden'));
-    await expect(page.locator('#more-dot')).toBeVisible();
+    await expect(page.locator('#more-dot, #settings-dot')).toHaveCount(0);   // v3.17.3: no red dots; the update banner announces new versions
     await page.click('#btn-more');
     await page.click('#btn-settings');
     await expect(page.locator('#settings-modal')).toBeVisible();

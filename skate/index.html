@@ -29,12 +29,12 @@
                 <button class="fswitch" id="btn-free" type="button" role="switch" aria-checked="false" aria-label="Free sessions only" title="Free sessions only"><span class="fswitch-opt">All</span><span class="fswitch-opt">Free</span></button>
                 <!-- v3.16.1: Feedback, Refresh, Members and Settings under ⋮ -->
                 <div class="more-wrap">
-                    <button class="btn-icon btn-more" id="btn-more" type="button" aria-label="More: feedback, refresh, settings" aria-haspopup="menu" aria-expanded="false" aria-controls="more-menu" title="Feedback, refresh, settings"><span aria-hidden="true">⋮</span><span class="new-dot hidden" id="more-dot"></span></button>
+                    <button class="btn-icon btn-more" id="btn-more" type="button" aria-label="More: feedback, refresh, settings" aria-haspopup="menu" aria-expanded="false" aria-controls="more-menu" title="Feedback, refresh, settings"><span aria-hidden="true">⋮</span></button>
                     <div class="more-menu hidden" id="more-menu" role="menu" aria-label="More">
                         <button class="more-item" id="btn-feedback" type="button" role="menuitem" title="Report a bug or send feedback to the dev"><span class="mi-icon" aria-hidden="true">✎</span>Feedback<span class="badge hidden" id="feedback-badge">0</span></button>
                         <button class="more-item" id="btn-refresh" type="button" role="menuitem" title="Refresh the schedule, rink alerts and live spots"><span class="mi-icon" aria-hidden="true">↻</span>Refresh</button>
                         <button class="more-item hidden" id="btn-gate" type="button" role="menuitem" title="Members"><span class="mi-icon" aria-hidden="true">🏠</span>Members<span class="new-dot hidden" id="gate-dot"></span></button>
-                        <button class="more-item" id="btn-settings" type="button" role="menuitem" title="Settings"><span class="mi-icon" aria-hidden="true">⚙️</span>Settings<span class="new-dot hidden" id="settings-dot"></span></button>
+                        <button class="more-item" id="btn-settings" type="button" role="menuitem" title="Settings"><span class="mi-icon" aria-hidden="true">⚙️</span>Settings</button>
                     </div>
                 </div>
             </div>
@@ -503,7 +503,7 @@
          app.js loads it on demand (COMMUNITY_SCRIPTS) the first time a
          community section, invite link or the feedback sheet needs it, and
          the service worker keeps it cache-first from then on. -->
-    <script src="projects/js/config.js?v=73"></script>
+    <script src="projects/js/config.js?v=74"></script>
     <script src="projects/js/settings.js?v=9"></script>
     <script src="projects/js/favorites.js?v=1"></script>
     <script src="projects/js/api.js?v=22"></script>
@@ -517,7 +517,7 @@
     <script src="projects/js/calendar2.js?v=7"></script>
     <script src="projects/js/map.js?v=9"></script>
     <script src="projects/js/tour.js?v=5"></script>
-    <script src="projects/js/app.js?v=76"></script>
+    <script src="projects/js/app.js?v=77"></script>
     <script src="projects/js/refresh.js?v=5"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)
