@@ -2141,3 +2141,6 @@ body.dark-mode .tag.other    { background: #3a2f1f; color: #f0d0a0; }
 /* light mode: the accent as text (today, a chosen day or date) is deepened to read at 4.5:1 or better */
 body:not(.dark-mode) .day-bar.today, body:not(.dark-mode) .day-bar.today .db-when, body:not(.dark-mode) .day-bar .db-btn.on,
 body:not(.dark-mode) .day-head.today, body:not(.dark-mode) .day-head.today strong { color: color-mix(in srgb, var(--acc-programs) 68%, #000); }
+
+/* v3.17.2: the time reads clearly but no longer competes with the title: medium weight, even-width digits */
+.program-time { font-weight: 500; font-variant-numeric: tabular-nums; }

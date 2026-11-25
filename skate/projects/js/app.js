@@ -3023,8 +3023,6 @@ window.SkateApp = (() => {
         if (!CFG.calTypes.some(t => t.id === type)) return;
         SkateSettings.set('cal2', type !== 'week');
         if (type !== 'week') { S.cal2By = type; SkateSettings.set('cal2By', type); }
-        const box = $('set-cal2');
-        if (box) box.checked = type !== 'week';
         S.calMode = true;
         SkateSettings.set('calMode', true);
         Render.programs();
@@ -4345,16 +4343,7 @@ window.SkateApp = (() => {
             (window.requestIdleCallback || ((fn) => setTimeout(fn, 1500)))(() => Actions.openGate({ quiet: true }));
         }
         $('btn-settings-close').onclick = () => Modal.close('settings-modal');
-        const cal2 = $('set-cal2');
-        cal2.checked = cal2Active();
-        cal2.onchange = () => {
-            SkateSettings.set('cal2', cal2.checked);
-            if (cal2.checked && !S.calMode) { S.calMode = true; SkateSettings.set('calMode', true); }
-            Modal.close('settings-modal');
-            Actions.switchView('programs');
-            Render.programs();
-            SkateUI.toast(cal2.checked ? 'The day planner is on. The ▾ beside Calendar picks by time of day, by rink or by distance.' : 'Back to the week grid.', 'info', 3500);
-        };
+        // v3.17.2: no calendar switch in Settings any more: the ▾ beside Calendar picks the week grid or a day planner view
         $('btn-whatsnew').onclick = () => { Modal.close('settings-modal'); Actions.openWhatsNew(); };
         $('btn-whatsnew-close').onclick = () => Modal.close('whatsnew-modal');
         // v3.11: free skates. The chip on a session, the line under a day heading and the
