@@ -32,7 +32,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.16.5',
+    version: '3.17',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -46,6 +46,13 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.17', date: '2026-11-24', items: [
+                'Calmer colours, each with one job: blue for what you can tap or have chosen, gold for money, green for free or on now, red for cancelled, amber for a warning.',
+                'The kinds of skating keep softer colours of their own, on their tags, pills and calendar blocks, with tag text easier to read in light mode.',
+                'Session titles are in the text colour, age chips are grey, the rink pin is plain, and the coloured strip along the top is gone.'
+            ]
+        },
         {
             v: '3.16.5', date: '2026-11-24', items: [
                 'The "tap ♡ to save" tip no longer sits on the first session. It shows once, after you have scrolled past a few.',

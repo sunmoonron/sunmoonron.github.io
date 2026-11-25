@@ -15,13 +15,13 @@
 
 /* ========== Tokens ========== */
 :root {
-    --paid: #b8860b;              /* goldenrod family — "money" without neon */
+    --paid: #8f6a0a;              /* goldenrod family — "money" without neon; v3.17: deep enough for white text (4.9:1) */
     --paid-bg: #fdf6e3;
     --alert-red: #c0392b;
     --alert-red-bg: #fdecea;
     --alert-amber: #9a6700;
     --alert-amber-bg: #fff8e1;
-    --live: #1a9c4b;
+    --live: #12733a;              /* v3.17: deep enough to read as text on its own tint (4.8:1) */
 }
 body.dark-mode {
     --paid: #e6c35c;
@@ -2087,3 +2087,56 @@ body.dark-mode .pill.type { --tint: 30%; }
    and the sticky bar never hides what has keyboard focus (2.4.11) */
 .day-bar .db-btn { padding: 8px 0; margin: -8px 0; }
 #program-list .program-item, #program-list a, #program-list button, #program-list summary { scroll-margin-top: 60px; }
+
+/* ============================================================
+   v3.17 — one job per colour, in light and dark:
+   blue = you can tap it / it is chosen · gold = money · green = free or on now ·
+   red = cancelled or a problem · amber = a warning. The kinds of skating keep
+   soft colours of their own, only on their tags, pills, Filters rows and
+   calendar blocks; everything else on a card is neutral.
+   ============================================================ */
+/* no decorative strip along the top of the panel */
+.view-panel::before { content: none; }
+
+/* session titles in the text colour (blue is for things that open a page) */
+.program-title, .program-item.is-paid .program-title { color: var(--text); }
+body.dark-mode .program-title, body.dark-mode .program-item.is-paid .program-title { color: var(--text); }
+
+/* a plain pin instead of the red emoji */
+.where-link .pin { width: 13px; height: 13px; margin-right: 4px; vertical-align: -2px; fill: currentColor; opacity: .8; flex: none; }
+
+/* age chips are information, not a kind or a state: neutral */
+.age-badge, .age-badge.all-ages { background: #f1f3f6; color: #3b4652; border-color: #dce2e8; }
+body.dark-mode .age-badge, body.dark-mode .age-badge.all-ages { background: #222d39; color: #c5ced8; border-color: #34424f; }
+
+/* the kinds: softer colours, and tag text readable (4.5:1 or better) in both themes */
+.tag.leisure  { background: #e3f2ec; color: #1f6b52; }
+.tag.figure   { background: #e8eaf8; color: #3d4a9e; }
+.tag.hockey   { background: #f8e6ea; color: #94384d; }
+.tag.speed    { background: #f2eee3; color: #6f5a26; }
+.tag.adapted  { background: #eee8f6; color: #5f4691; }
+.tag.ringette { background: #f6e6f0; color: #8c3b72; }
+.tag.other    { background: #f6ece0; color: #7a5021; }
+body.dark-mode .tag.leisure  { background: #1f3530; color: #a3dac5; }
+body.dark-mode .tag.figure   { background: #262d48; color: #b9c2f0; }
+body.dark-mode .tag.hockey   { background: #3a2630; color: #f0b3c1; }
+body.dark-mode .tag.speed    { background: #35301f; color: #e0cd9e; }
+body.dark-mode .tag.adapted  { background: #2e2743; color: #cebff0; }
+body.dark-mode .tag.ringette { background: #3a2639; color: #efb7dd; }
+body.dark-mode .tag.other    { background: #3a2f1f; color: #f0d0a0; }
+.cal-type-leisure,  .legend-dot.leisure,  .c2-kind.leisure,  .pill.type.k-leisure  { --ct: #4c9f88; }
+.cal-type-figure,   .legend-dot.figure,   .c2-kind.figure,   .pill.type.k-figure   { --ct: #6673c2; }
+.cal-type-hockey,   .legend-dot.hockey,   .c2-kind.hockey,   .pill.type.k-hockey   { --ct: #c2647a; }
+.cal-type-speed,    .legend-dot.speed,    .c2-kind.speed    { --ct: #a68b52; }
+.cal-type-adapted,  .legend-dot.adapted,  .c2-kind.adapted  { --ct: #8a6cb8; }
+.cal-type-ringette, .legend-dot.ringette, .c2-kind.ringette { --ct: #b35f9a; }
+.cal-type-other,    .legend-dot.other,    .c2-kind.other    { --ct: #b98a52; }
+.fcat.type-leisure  { --tc: #4c9f88; }
+.fcat.type-hockey   { --tc: #c2647a; }
+.fcat.type-figure   { --tc: #6673c2; }
+.fcat.type-speed    { --tc: #a68b52; }
+.fcat.type-adapted  { --tc: #8a6cb8; }
+.fcat.type-ringette { --tc: #b35f9a; }
+/* light mode: the accent as text (today, a chosen day or date) is deepened to read at 4.5:1 or better */
+body:not(.dark-mode) .day-bar.today, body:not(.dark-mode) .day-bar.today .db-when, body:not(.dark-mode) .day-bar .db-btn.on,
+body:not(.dark-mode) .day-head.today, body:not(.dark-mode) .day-head.today strong { color: color-mix(in srgb, var(--acc-programs) 68%, #000); }

@@ -640,7 +640,7 @@ window.SkateApp = (() => {
     }
 
     // v3.16: the colours of the kinds folded into Other (as on the cards), warm to cool
-    const OTHER_HUES = { speed: '#b08a3d', other: '#c9862b', ringette: '#bb4499', adapted: '#8855bb' };
+    const OTHER_HUES = { speed: '#a68b52', other: '#b98a52', ringette: '#b35f9a', adapted: '#8a6cb8' };   // v3.17: the softer kind colours
     /** Other's pill: a blend of the kinds it holds right now (one kind = its colour alone). */
     function paintOther(b) {
         const on = Object.keys(OTHER_HUES).filter(c => S.types[c]);
@@ -1629,7 +1629,7 @@ window.SkateApp = (() => {
         // it opens the official page, so a card is two lines, not four.
         const aka = akaOf(P.locKey(p)).first;   // v3.12: "College Park (Barbara Ann Scott Ice Trail)"
         const whereHtml = location
-            ? `<a class="where-link" href="${mapsUrl(location, city)}" target="_blank" rel="noopener" title="Directions in Google Maps">📍 ${escapeHtml(location)}${aka ? ` <span class="where-aka">(${escapeHtml(aka)})</span>` : ''} ↗</a>`
+            ? `<a class="where-link" href="${mapsUrl(location, city)}" target="_blank" rel="noopener" title="Directions in Google Maps"><svg class="pin" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>${escapeHtml(location)}${aka ? ` <span class="where-aka">(${escapeHtml(aka)})</span>` : ''} ↗</a>`
             : '';
         const infoLink = off
             ? `<a class="where-info" href="${escapeHtml(off)}" target="_blank" rel="noopener" title="Official page on ${escapeHtml(site)}: the schedule the staff go by. Verify there before you go."><span class="where-info-site">${escapeHtml(site)}</span><svg class=\"where-glyph\" viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"8\" r=\"6.4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.4\"/><path d=\"M1.6 8h12.8M8 1.6c2.3 2.1 2.3 10.7 0 12.8M8 1.6c-2.3 2.1-2.3 10.7 0 12.8M2.8 4.6h10.4M2.8 11.4h10.4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.1\"/></svg></a>`
