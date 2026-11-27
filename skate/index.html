@@ -17,13 +17,17 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=11">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=4">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=66">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=67">
 </head>
 <body>
     <div class="app" id="app">
         <!-- Top Bar -->
         <div class="top-bar">
-            <h1>Toronto Skating</h1>
+            <div class="top-brand">
+                <!-- v3.20: the blue jay (projects/js/bird.js draws it): tap for a tip, the temperature, a bird fact -->
+                <button class="jay" id="jay" type="button" aria-label="The blue jay: tips, the temperature and bird facts" aria-haspopup="menu" title="Tap the blue jay"></button>
+                <h1>Toronto Skating</h1>
+            </div>
             <div class="top-bar-actions">
                 <!-- v3.16: Free only as a labelled switch: both choices inside it, the knob on the one in force (gold = paid too, green = free) -->
                 <button class="fswitch" id="btn-free" type="button" role="switch" aria-checked="false" aria-label="Free sessions only" title="Free sessions only"><span class="fswitch-opt">All</span><span class="fswitch-opt">Free</span></button>
@@ -503,7 +507,7 @@
          app.js loads it on demand (COMMUNITY_SCRIPTS) the first time a
          community section, invite link or the feedback sheet needs it, and
          the service worker keeps it cache-first from then on. -->
-    <script src="projects/js/config.js?v=76"></script>
+    <script src="projects/js/config.js?v=77"></script>
     <script src="projects/js/settings.js?v=9"></script>
     <script src="projects/js/favorites.js?v=1"></script>
     <script src="projects/js/api.js?v=22"></script>
@@ -516,8 +520,9 @@
     <script src="projects/js/calendar.js?v=14"></script>
     <script src="projects/js/calendar2.js?v=7"></script>
     <script src="projects/js/map.js?v=9"></script>
-    <script src="projects/js/tour.js?v=5"></script>
-    <script src="projects/js/app.js?v=79"></script>
+    <script src="projects/js/tour.js?v=6"></script>
+    <script src="projects/js/app.js?v=80"></script>
+    <script src="projects/js/bird.js?v=1"></script>
     <script src="projects/js/refresh.js?v=5"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)

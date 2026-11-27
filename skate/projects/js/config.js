@@ -32,7 +32,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.19',
+    version: '3.20',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -46,6 +46,12 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.20', date: '2026-11-27', items: [
+                'A blue jay perches beside the title. Tap it for a tip, the temperature in its own words, a blue jay fact, or to feed it. In the first-time guide it flies from step to step, then home to its perch.',
+                'The Indoor + outdoor pill has a colour of its own: steel for indoor, ice for outdoor, a blend of the two for both.'
+            ]
+        },
         {
             v: '3.19', date: '2026-11-27', items: [
                 'The City\'s Skate Lending Library stops are listed: 20 dates in December, with a free-skates tag on the sessions at each rink while the van is there.',

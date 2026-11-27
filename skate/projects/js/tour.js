@@ -28,6 +28,7 @@ window.SkateTour = (() => {
 
     const steps = () => (window.SkateConfig?.tourSteps || []);
 
+    let birdTimer = 0;       // v3.20: the blue jay follows the card
     function visible(el) {
         if (!el) return false;
         const r = el.getBoundingClientRect();
@@ -58,6 +59,8 @@ window.SkateTour = (() => {
 
     function teardown() {
         clearTimers();
+        clearTimeout(birdTimer);
+        if (window.SkateBird) window.SkateBird.home();       // v3.20: finished or skipped, the blue jay flies back to its perch
         window.removeEventListener('resize', reposition);
         window.removeEventListener('scroll', reposition, true);
         document.removeEventListener('keydown', onKey);
@@ -86,6 +89,9 @@ window.SkateTour = (() => {
         const below = r.bottom + 12 + cardH < innerHeight;
         card.style.top = below ? `${r.bottom + 12}px` : `${Math.max(10, r.top - cardH - 12)}px`;
         card.style.left = `${Math.min(Math.max(10, r.left), Math.max(10, innerWidth - card.offsetWidth - 10))}px`;
+        // v3.20: the blue jay flies to the card once it has settled (a step, a scroll, a resize)
+        clearTimeout(birdTimer);
+        birdTimer = setTimeout(() => { if (card && window.SkateBird) window.SkateBird.guide(card); }, 140);
     }
 
     /** Steps that exist on this layout (hidden targets are skipped). */

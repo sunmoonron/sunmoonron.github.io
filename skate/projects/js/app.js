@@ -669,7 +669,7 @@ window.SkateApp = (() => {
         wrap.appendChild(cityPill);
         // v3.19: indoor or outdoor is always in view beside the city (it decides most of the list): tap = choose, x = both
         const icePill = el('button', {
-            class: 'pill ice' + (S.ice !== 'all' ? ' on' : ''), dataset: { pill: 'ice' },
+            class: 'pill ice' + (S.ice !== 'all' ? ` on ${S.ice}` : ''), dataset: { pill: 'ice' },
             title: S.ice !== 'all' ? 'Tap to change. The x shows indoor and outdoor.' : 'Tap to choose indoor or outdoor ice'
         }, [el('span', { class: 'pill-label' }, [S.ice === 'indoor' ? 'Indoor' : S.ice === 'outdoor' ? 'Outdoor' : 'Indoor + outdoor']), el('span', { class: 'pill-caret', 'aria-hidden': 'true' }, ['▾'])]);
         if (S.ice !== 'all') icePill.appendChild(el('span', { class: 'pill-x', role: 'button', 'aria-label': 'Show indoor and outdoor', title: 'Show indoor and outdoor' }, ['✕']));

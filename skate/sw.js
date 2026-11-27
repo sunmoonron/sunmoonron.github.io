@@ -18,7 +18,7 @@
  *
  * Bump CACHE on releases that must evict old assets immediately.
  */
-const CACHE = 'skate-v3.19';
+const CACHE = 'skate-v3.20';
 
 self.addEventListener('install', (e) => {
     e.waitUntil(

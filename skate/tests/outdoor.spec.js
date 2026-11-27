@@ -47,8 +47,12 @@ test('indoor or outdoor: a section of its own in Filters (under Your age) and a 
     world(app);
     await app.open();
     const pill = page.locator('#active-filters .pill.ice');
-    await expect(pill).toHaveText(/^Indoor \+ outdoor/);                                 // always there, quiet while it shows both
+    await expect(pill).toHaveText(/^Indoor \+ outdoor/);                                 // always there
     await expect(pill).not.toHaveClass(/\bon\b/);
+    // v3.20: a colour of its own that shows what it holds: a blend for both, one colour once narrowed
+    const paint = () => pill.evaluate(e => getComputedStyle(e).backgroundImage);
+    const both = await paint();
+    expect(both).toMatch(/linear-gradient/);
     await page.click('#btn-filters');
     // v3.19: its own section, with Distance and Order, between Your age and When; each row on one line
     const heads = await page.locator('#filters-body .fsec h4').allTextContents();
@@ -59,6 +63,7 @@ test('indoor or outdoor: a section of its own in Filters (under Your age) and a 
     await page.click('#btn-filters-apply');
     await expect(pill).toHaveText(/^Outdoor/);
     await expect(pill).toHaveClass(/\bon\b/);
+    expect(await paint()).not.toBe(both);
     expect(await page.evaluate(() => SkateApp.S.filtered.length > 0 && [...document.querySelectorAll('.program-item')].every(c => c.querySelector('.ice-badge')))).toBe(true);
     await expect(page.locator('#program-list .out-head, #program-list .day-out')).toHaveCount(0);   // one kind listed: nothing to split
     expect(await page.evaluate(() => SkateSettings.get('ice'))).toBe('outdoor');
