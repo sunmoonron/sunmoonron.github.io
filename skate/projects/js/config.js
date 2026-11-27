@@ -32,7 +32,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.20',
+    version: '3.21',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -46,6 +46,12 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.21', date: '2026-11-27', items: [
+                'The blue jay has a life of its own: now and then it flies an arc across the top and lands somewhere, hops, preens, looks behind it or sings. It shivers when it is very cold, sleeps at night, and cheers when you save a session.',
+                'Its menu has Sit still, for anyone who would rather it did not move.'
+            ]
+        },
         {
             v: '3.20', date: '2026-11-27', items: [
                 'A blue jay perches beside the title. Tap it for a tip, the temperature in its own words, a blue jay fact, or to feed it. In the first-time guide it flies from step to step, then home to its perch.',

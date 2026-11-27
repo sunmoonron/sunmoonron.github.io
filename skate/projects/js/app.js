@@ -3532,7 +3532,7 @@ window.SkateApp = (() => {
      */
     /** ♡ from a row or a calendar block; the first save retires the heart nudge. */
     Actions.toggleSaved = function (p) {
-        if (SkateFavorites.toggle(p)) SkateSettings.set('heartHintDone', true);
+        if (SkateFavorites.toggle(p)) { SkateSettings.set('heartHintDone', true); if (window.SkateBird && SkateBird.cheer) SkateBird.cheer(); }   // v3.21: the blue jay cheers
         Render.programs();
     };
 
