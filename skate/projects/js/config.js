@@ -32,7 +32,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.18',
+    version: '3.19',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -47,9 +47,17 @@ window.SkateConfig = {
     },
     changelog: [
         {
+            v: '3.19', date: '2026-11-27', items: [
+                'The City\'s Skate Lending Library stops are listed: 20 dates in December, with a free-skates tag on the sessions at each rink while the van is there.',
+                'Indoor or outdoor is a pill beside your city now, always in view. In Filters it has a section of its own, with Distance and Order, right under Your age.',
+                'A closure notice with no end date reads as a likely cancellation for 48 hours, then as Call to confirm. A notice that says when it ends is taken at its word.',
+                'Shorter cards: notes that only repeated the price, "free" or "outdoor" are gone.'
+            ]
+        },
+        {
             v: '3.18', date: '2026-11-27', items: [
                 'Outdoor rinks open: their sessions carry an Outdoor tag. Each day lists its indoor sessions first, then its outdoor rinks, with a line at the top of the day to jump to them. Filters has Ice: Indoor + outdoor, Indoor, or Outdoor.',
-                'An old closure notice no longer reads as a cancellation. When the City posted "closed" more than a week ago, named no end and still lists the session, the card says Call to confirm.',
+                'An old closure notice no longer reads as a cancellation. When the City posted "closed" a while ago, named no end and still lists the session, the card says Call to confirm.',
                 'Coca-Cola Coliseum\'s free community skates are listed (December 11 and 18, 6:00 to 8:30 pm), with skates and helmets lent on site.'
             ]
         },

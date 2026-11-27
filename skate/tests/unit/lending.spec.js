@@ -119,3 +119,62 @@ test.describe('lending van schedule', () => {
         }
     });
 });
+
+// v3.19: since the 2026-27 winter the City's page has no table. It draws its Events from the City's events
+// calendar, which answers only to a browser on toronto.ca, so the list is a copy saved from a browser
+// (skate-lending-feed.json, in the feed's own shape) and published with the day it was saved.
+test.describe('the lending calendar (2026-27)', () => {
+    const P = require('../../../fetch-skate-data.js');
+    const copy = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '../../../skate-lending-feed.json'), 'utf8'));
+    test('the page names its calendar; the feed address asks for that calendar from today on', () => {
+        const html = '<script> $(function() { try { setConfiguration({"calendar_id": "65e1ba79-eae8-4b0b-97db-dc04e5c061e4", "initial_days": "365"}); } catch (e) {} }); </script>';
+        expect(P.lendingCalendarId(html)).toBe('65e1ba79-eae8-4b0b-97db-dc04e5c061e4');
+        expect(P.lendingCalendarId('<p>no calendar here</p>')).toBe(null);
+        expect(copy.calendar).toBe('65e1ba79-eae8-4b0b-97db-dc04e5c061e4');
+        const url = decodeURIComponent(P.lendingFeedUrl(copy.calendar, '2026-11-27'));
+        expect(url).toContain("(calendar_id eq '65e1ba79-eae8-4b0b-97db-dc04e5c061e4') and calendar_date ge 2026-11-27T00:00:00-05:00");
+    });
+    test('the copy saved on Nov 27: 20 stops, each with its own day\'s hours (a second date has its own)', () => {
+        const { stops, skipped } = P.parseLendingFeed(copy.value, '2026-11-27');
+        expect(skipped).toEqual([]);
+        expect(stops).toHaveLength(20);
+        const on = (d, place) => stops.filter(s => s.date === d && (!place || s.place.includes(place))).map(s => `${s.from}-${s.to} ${s.place}`);
+        expect(on('2026-12-04')).toEqual(['16:00-20:00 Dieppe Outdoor Rink']);
+        expect(on('2026-12-06')).toEqual(['14:30-16:00 Heron Park Community Centre']);
+        expect(on('2026-12-12')).toEqual(['10:00-13:00 Colonel Samuel Smith Park', '16:00-18:00 Malvern Recreation Centre']);
+        expect(on('2026-12-28')).toEqual(['10:00-16:00 Malvern Recreation Centre']);          // the second date's own hours, not the first's
+        expect(on('2026-12-14')).toEqual(['18:00-21:00 High Park Outdoor Rink']);
+        expect(on('2026-12-29')).toEqual(['10:00-16:00 High Park Outdoor Rink']);
+        expect(on('2026-12-11', 'Coliseum')).toEqual(['18:00-20:30 Coca-Cola Coliseum']);
+        expect(on('2026-12-18', 'Coliseum')).toEqual(['18:00-20:30 Coca-Cola Coliseum']);
+        expect(stops.find(s => s.place === 'Coca-Cola Coliseum').note).toBe('Free Holiday Leisure Skate at Coca-Cola Coliseum');
+        expect(stops.find(s => s.place === 'Dieppe Outdoor Rink')).toMatchObject({ address: '455 Cosburn Ave', lat: 43.692003116, lng: -79.336028262 });
+        // days already past are left out
+        expect(P.parseLendingFeed(copy.value, '2026-12-20').stops.every(s => s.date >= '2026-12-20')).toBe(true);
+    });
+    test('a stop finds its rink by address, else by the nearest rink to its point (an outdoor one first when it is named so)', () => {
+        const rinks = [
+            { locationid: '1', name: 'Dieppe Park', address: '455 Cosburn Ave', lat: 43.6920, lng: -79.3360, kinds: ['outdoor'] },
+            { locationid: '2', name: 'Earlscourt Park', address: '1200 Lansdowne Ave', lat: 43.6758, lng: -79.4513, kinds: ['outdoor'] },
+            { locationid: '3', name: 'Some Arena', address: '1367 St Clair Ave E', lat: 43.70, lng: -79.30, kinds: ['indoor'] },
+            { locationid: '4', name: 'Memorial Arena', address: '200 Eglinton Ave W', lat: 43.7061, lng: -79.4046, kinds: ['indoor'] },
+            { locationid: '5', name: 'Memorial Community Centre', address: '200 Eglinton Ave W', lat: 43.7062, lng: -79.4047, kinds: ['outdoor'] }
+        ];
+        const stops = P.parseLendingFeed(copy.value, '2026-11-27').stops;
+        const key = (place) => lendingRinkKey(stops.find(s => s.place.includes(place)), rinks);
+        expect(key('Dieppe')).toBe('1');                                   // the address
+        expect(key('Giovanni Caboto')).toBe('2');                          // "1367 St Clair Ave W" is no rink's address: the nearest rink to its point
+        expect(key('North Toronto Memorial Outdoor Rink')).toBe('5');      // two rinks at one address: the outdoor one, as named
+        expect(key('Rennie')).toBe(null);                                  // nothing within 300 m: no guess
+        expect(lendingRinkKey({ place: 'Somewhere', address: '200 Eglinton Ave W' }, rinks)).toBe(null);   // two at the address and no point: no guess, as before
+    });
+    test('odd feed rows are skipped, never thrown on', () => {
+        const bad = [null, 7, { calendar_date_group: 'soon' }, { calendar_date_group: '2026-12-09', short_name: '<b>x</b>', event_locations: 'nope' },
+            { calendar_date_group: '2026-12-09', short_name: 'No hours', event_locations: [{ location_name: 'A', location_dates: '{bad json' }] },
+            { calendar_date_group: '2026-12-09', short_name: 'Ends before it starts', event_locations: [{ location_name: 'B', location_dates: JSON.stringify([{ startdate: '2026-12-09', starttime: '06:00 PM', endtime: '04:00 PM' }]) }] }];
+        const r = P.parseLendingFeed(bad, '2026-11-27');
+        expect(r.stops).toEqual([]);
+        expect(r.skipped).toHaveLength(3);
+        expect(P.parseLendingFeed('not a list', '2026-11-27').stops).toEqual([]);
+    });
+});

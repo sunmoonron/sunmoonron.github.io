@@ -223,7 +223,7 @@ test.describe('where and when an alert applies', () => {
 
     test('one kind of ice closed at a place with both: closed while only that kind has ice, a warning in winter', () => {
         const both = { name: 'Two Rinks', pads: 3, kinds: ['indoor', 'outdoor'] };
-        expect(verdict(closed(), both, '2026-10-05').level).toBe('closed');                                   // no outdoor ice in October (within the week after the notice)
+        expect(verdict(closed(), both, '2026-10-02').level).toBe('closed');                                   // no outdoor ice in October (the day after the notice)
         const winter = verdict(closed(), both, '2027-01-10');
         expect(winter).toMatchObject({ level: 'warning', kind: 'part' });
         expect(winter.lead).toContain('indoor rink here is closed');
@@ -256,12 +256,16 @@ test.describe('where and when an alert applies', () => {
         expect(v).toMatchObject({ level: 'warning', kind: 'unconfirmed', lead: 'Call to confirm' });
         expect(v.text).toContain('The arena is closed until further notice.');
     });
-    test('a closure that names its end is taken at its word however old; one with no end is, for a week', () => {
+    test('a closure that names its end is taken at its word however old; one with no end is, for 48 hours', () => {
+        const rink = { pads: 1, kinds: ['indoor'] };
         const dated = closed({ Comments: 'The arena is closed until December 15, 2026 for repairs.' });
-        expect(verdict(dated, { pads: 1, kinds: ['indoor'] }, '2026-12-01').level).toBe('closed');            // two months after posting, inside its own dates
-        const open = closed();
-        expect(verdict(open, { pads: 1, kinds: ['indoor'] }, '2026-10-08').level).toBe('closed');             // day 7
-        expect(verdict(open, { pads: 1, kinds: ['indoor'] }, '2026-10-09').kind).toBe('unconfirmed');         // day 8
+        expect(verdict(dated, rink, '2026-12-01').level).toBe('closed');                                      // two months after posting, inside its own dates
+        expect(verdict(dated, rink, '2026-12-17')).toMatchObject({ level: 'note', kind: 'ended' });           // past its own end: a heads-up, not a closure
+        const open = closed();                                                                                 // posted Oct 1, 9:00 am
+        expect(verdict(open, rink, '2026-10-02').level).toBe('closed');                                       // 27 hours on
+        expect(verdict(open, rink, '2026-10-03', { start: '08:00', end: '09:00' }).level).toBe('closed');     // 47 hours on
+        expect(verdict(open, rink, '2026-10-03', { start: '10:00', end: '11:00' }).kind).toBe('unconfirmed'); // 49 hours on
+        expect(verdict(open, rink, '2026-10-20').kind).toBe('unconfirmed');
     });
 });
 

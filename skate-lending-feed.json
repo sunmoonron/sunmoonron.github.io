@@ -1,0 +1,248 @@
+{
+ "about": "A copy of the City of Toronto's Skate Lending Library schedule, in the shape of the City's own events feed. The page draws its Events from secure.toronto.ca, which answers only to a browser on toronto.ca (403 to the pipeline, to the Dell and to other sites, checked 2026-11-27), so the list is saved here from a browser and published with the day it was saved. TO REFRESH: open the page in a browser, open the developer console, run the snippet in fetch-skate-data.js beside LENDING_COPY, replace `value` with what it prints, set `capturedAt` to today, commit and push.",
+ "page": "https://www.toronto.ca/explore-enjoy/parks-recreation/program-activities/ice-snow-activities/public-leisure-skating/skate-lending-library/",
+ "calendar": "65e1ba79-eae8-4b0b-97db-dc04e5c061e4",
+ "capturedAt": "2026-11-27",
+ "value": [
+  {
+   "calendar_date_group": "2026-12-04",
+   "short_name": "Skate Lending Library at Dieppe Outdoor Rink",
+   "event_locations": [
+    {
+     "location_name": "Dieppe Outdoor Rink",
+     "location_address": "455 Cosburn Ave, East York, ON, M4J 2N2",
+     "location_gps": "[{\"gps_lat\":43.692003116,\"gps_lng\":-79.336028262}]",
+     "location_dates": "[{\"startdate\":\"2026-12-04\",\"starttime\":\"04:00 PM\",\"enddate\":\"2026-12-04\",\"endtime\":\"08:00 PM\",\"event_frequency\":\"Single Date\",\"multiple_dates\":[]}]"
+    }
+   ]
+  },
+  {
+   "calendar_date_group": "2026-12-05",
+   "short_name": "Skate Lending Library at at College Park",
+   "event_locations": [
+    {
+     "location_name": "College Park",
+     "location_address": "420 Yonge St, Toronto",
+     "location_gps": "[{\"gps_lat\":43.659913518,\"gps_lng\":-79.383825156}]",
+     "location_dates": "[{\"startdate\":\"2026-12-05\",\"starttime\":\"12:00 PM\",\"enddate\":\"2026-12-05\",\"endtime\":\"06:00 PM\",\"event_frequency\":\"Single Date\",\"multiple_dates\":[]}]"
+    }
+   ]
+  },
+  {
+   "calendar_date_group": "2026-12-06",
+   "short_name": "Skate Lending Library at Heron Park Community Centre",
+   "event_locations": [
+    {
+     "location_name": "Heron Park Community Centre",
+     "location_address": "292 Manse Rd, Scarborough, ON, M1E 3V4",
+     "location_gps": "[{\"gps_lat\":43.768855609,\"gps_lng\":-79.176938353}]",
+     "location_dates": "[{\"startdate\":\"2026-12-06\",\"starttime\":\"02:30 PM\",\"enddate\":\"2026-12-06\",\"endtime\":\"04:00 PM\",\"event_frequency\":\"Single Date\",\"multiple_dates\":[]}]"
+    }
+   ]
+  },
+  {
+   "calendar_date_group": "2026-12-11",
+   "short_name": "Free Holiday Leisure Skate at Coca-Cola Coliseum",
+   "event_locations": [
+    {
+     "location_name": "Coca-Cola Coliseum",
+     "location_address": "19 Nunavut Rd, Toronto, ON M6K 3C3",
+     "location_gps": "[{\"gps_lat\":43.657042458,\"gps_lng\":-79.433600905}]",
+     "location_dates": "[{\"startdate\":\"2026-12-11\",\"starttime\":\"06:00 PM\",\"enddate\":\"2026-12-11\",\"endtime\":\"08:30 PM\",\"event_frequency\":\"Multiple\",\"multiple_dates\":[{\"sdate\":\"2026-12-18\",\"stime\":\"06:00 PM\",\"etime\":\"08:30 PM\"}]}]"
+    }
+   ]
+  },
+  {
+   "calendar_date_group": "2026-12-12",
+   "short_name": "Skate Lending Library at Malvern Community Centre",
+   "event_locations": [
+    {
+     "location_name": "Malvern Recreation Centre",
+     "location_address": "30 Sewells Rd, Scarborough, ON, M1B 3G5",
+     "location_gps": "[{\"gps_lat\":43.808567708,\"gps_lng\":-79.216386233}]",
+     "location_dates": "[{\"startdate\":\"2026-12-12\",\"starttime\":\"04:00 PM\",\"enddate\":\"2026-12-12\",\"endtime\":\"06:00 PM\",\"event_frequency\":\"Multiple\",\"multiple_dates\":[{\"sdate\":\"2026-12-28\",\"stime\":\"10:00 AM\",\"etime\":\"04:00 PM\"}]}]"
+    }
+   ]
+  },
+  {
+   "calendar_date_group": "2026-12-12",
+   "short_name": "Skate Lending Library at Colonel Sam Smith Skate Trail",
+   "event_locations": [
+    {
+     "location_name": "Colonel Samuel Smith Park",
+     "location_address": "65 Colonel Samuel Smith Park Dr, Etobicoke, ON, M8V 4B6",
+     "location_gps": "[{\"gps_lat\":43.593518003,\"gps_lng\":-79.515361496}]",
+     "location_dates": "[{\"startdate\":\"2026-12-12\",\"starttime\":\"10:00 AM\",\"enddate\":\"2026-12-12\",\"endtime\":\"01:00 PM\",\"event_frequency\":\"Single Date\",\"multiple_dates\":[]}]"
+    }
+   ]
+  },
+  {
+   "calendar_date_group": "2026-12-13",
+   "short_name": "Skate Lending Library at Giovanni Caboto Outdoor Rink",
+   "event_locations": [
+    {
+     "location_name": "Giovanni Caboto Outdoor Rink at Earlscourt Park",
+     "location_address": "1367 St Clair Ave W, Toronto, ON, M6E 1C5",
+     "location_gps": "[{\"gps_lat\":43.675653453,\"gps_lng\":-79.451656855}]",
+     "location_dates": "[{\"startdate\":\"2026-12-13\",\"starttime\":\"12:00 PM\",\"enddate\":\"2026-12-13\",\"endtime\":\"06:00 PM\",\"event_frequency\":\"Single Date\",\"multiple_dates\":[]}]"
+    }
+   ]
+  },
+  {
+   "calendar_date_group": "2026-12-14",
+   "short_name": "Skate Lending Library at High Park Outdoor Rink",
+   "event_locations": [
+    {
+     "location_name": "High Park Outdoor Rink",
+     "location_address": "1873 Bloor St W, Toronto",
+     "location_gps": "[{\"gps_lat\":43.653569557,\"gps_lng\":-79.464086679}]",
+     "location_dates": "[{\"startdate\":\"2026-12-14\",\"starttime\":\"06:00 PM\",\"enddate\":\"2026-12-14\",\"endtime\":\"09:00 PM\",\"event_frequency\":\"Multiple\",\"multiple_dates\":[{\"sdate\":\"2026-12-29\",\"stime\":\"10:00 AM\",\"etime\":\"04:00 PM\"}]}]"
+    }
+   ]
+  },
+  {
+   "calendar_date_group": "2026-12-18",
+   "short_name": "Free Holiday Leisure Skate at Coca-Cola Coliseum",
+   "event_locations": [
+    {
+     "location_name": "Coca-Cola Coliseum",
+     "location_address": "19 Nunavut Rd, Toronto, ON M6K 3C3",
+     "location_gps": "[{\"gps_lat\":43.657042458,\"gps_lng\":-79.433600905}]",
+     "location_dates": "[{\"startdate\":\"2026-12-11\",\"starttime\":\"06:00 PM\",\"enddate\":\"2026-12-11\",\"endtime\":\"08:30 PM\",\"event_frequency\":\"Multiple\",\"multiple_dates\":[{\"sdate\":\"2026-12-18\",\"stime\":\"06:00 PM\",\"etime\":\"08:30 PM\"}]}]"
+    }
+   ]
+  },
+  {
+   "calendar_date_group": "2026-12-19",
+   "short_name": "Skate Lending Library at Sherbourne Common",
+   "event_locations": [
+    {
+     "location_name": "Sherbourne Common",
+     "location_address": "5 Lower Sherbourne St, Toronto",
+     "location_gps": "[{\"gps_lat\":43.645864157,\"gps_lng\":-79.365526601}]",
+     "location_dates": "[{\"startdate\":\"2026-12-19\",\"starttime\":\"12:00 PM\",\"enddate\":\"2026-12-19\",\"endtime\":\"06:00 PM\",\"event_frequency\":\"Single Date\",\"multiple_dates\":[]}]"
+    }
+   ]
+  },
+  {
+   "calendar_date_group": "2026-12-20",
+   "short_name": "Skate Lending Library at Trinity-Bellwoods Outdoor Rink",
+   "event_locations": [
+    {
+     "location_name": "Trinity-Bellwoods Outdoor Rink",
+     "location_address": "790 Queen St W, Toronto, ON, M6J 1G3",
+     "location_gps": "[{\"gps_lat\":43.645468123,\"gps_lng\":-79.413884193}]",
+     "location_dates": "[{\"startdate\":\"2026-12-20\",\"starttime\":\"12:00 PM\",\"enddate\":\"2026-12-20\",\"endtime\":\"06:00 PM\",\"event_frequency\":\"Single Date\",\"multiple_dates\":[]}]"
+    }
+   ]
+  },
+  {
+   "calendar_date_group": "2026-12-21",
+   "short_name": "Skate Lending Library at North Toronto Memorial Outdoor Rink",
+   "event_locations": [
+    {
+     "location_name": "North Toronto Memorial Outdoor Rink",
+     "location_address": "200 Eglinton Ave W, Toronto, ON, M4R 1A7",
+     "location_gps": "[{\"gps_lat\":43.706105834,\"gps_lng\":-79.40462301}]",
+     "location_dates": "[{\"startdate\":\"2026-12-21\",\"starttime\":\"10:00 AM\",\"enddate\":\"2026-12-21\",\"endtime\":\"04:00 PM\",\"event_frequency\":\"Single Date\",\"multiple_dates\":[]}]"
+    }
+   ]
+  },
+  {
+   "calendar_date_group": "2026-12-22",
+   "short_name": "Skate Lending Library at Dennis Flynn Park Outdoor Rink",
+   "event_locations": [
+    {
+     "location_name": "Dennis Flynn Park",
+     "location_address": "370 The West Mall, Etobicoke",
+     "location_gps": "[{\"gps_lat\":43.641588485,\"gps_lng\":-79.566149754}]",
+     "location_dates": "[{\"startdate\":\"2026-12-22\",\"starttime\":\"10:00 AM\",\"enddate\":\"2026-12-22\",\"endtime\":\"04:00 PM\",\"event_frequency\":\"Single Date\",\"multiple_dates\":[]}]"
+    }
+   ]
+  },
+  {
+   "calendar_date_group": "2026-12-23",
+   "short_name": "Skate Lending Library at Greenwood Park Skate Trail",
+   "event_locations": [
+    {
+     "location_name": "Greenwood Park",
+     "location_address": "150 Greenwood Ave, Toronto",
+     "location_gps": "[{\"gps_lat\":43.669638096,\"gps_lng\":-79.328165388}]",
+     "location_dates": "[{\"startdate\":\"2026-12-23\",\"starttime\":\"10:00 AM\",\"enddate\":\"2026-12-23\",\"endtime\":\"04:00 PM\",\"event_frequency\":\"Single Date\",\"multiple_dates\":[]}]"
+    }
+   ]
+  },
+  {
+   "calendar_date_group": "2026-12-24",
+   "short_name": "Skate Lending Library at Colonel Sam Smith Skate Trail Decem",
+   "event_locations": [
+    {
+     "location_name": "Colonel Samuel Smith Park",
+     "location_address": "3145 Lake Shore Blvd W, Etobicoke",
+     "location_gps": "[{\"gps_lat\":43.59809522,\"gps_lng\":-79.515281063}]",
+     "location_dates": "[{\"startdate\":\"2026-12-24\",\"starttime\":\"10:00 AM\",\"enddate\":\"2026-12-24\",\"endtime\":\"02:00 PM\",\"event_frequency\":\"Single Date\",\"multiple_dates\":[]}]"
+    }
+   ]
+  },
+  {
+   "calendar_date_group": "2026-12-26",
+   "short_name": "Skate Lending Library at McCowan District Park Skate Trail",
+   "event_locations": [
+    {
+     "location_name": "McCowan District Park",
+     "location_address": "150 McCowan Rd, Scarborough",
+     "location_gps": "[{\"gps_lat\":43.734524334,\"gps_lng\":-79.237467809}]",
+     "location_dates": "[{\"startdate\":\"2026-12-26\",\"starttime\":\"10:00 AM\",\"enddate\":\"2026-12-26\",\"endtime\":\"04:00 PM\",\"event_frequency\":\"Single Date\",\"multiple_dates\":[]}]"
+    }
+   ]
+  },
+  {
+   "calendar_date_group": "2026-12-27",
+   "short_name": "Skate Lending Library at Regent Park Athletic Grounds Outdoo",
+   "event_locations": [
+    {
+     "location_name": "Regent Park Athletic Grounds",
+     "location_address": "480 Shuter St, Toronto",
+     "location_gps": "[{\"gps_lat\":43.658661281,\"gps_lng\":-79.359412464}]",
+     "location_dates": "[{\"startdate\":\"2026-12-27\",\"starttime\":\"10:00 AM\",\"enddate\":\"2026-12-27\",\"endtime\":\"04:00 PM\",\"event_frequency\":\"Single Date\",\"multiple_dates\":[]}]"
+    }
+   ]
+  },
+  {
+   "calendar_date_group": "2026-12-28",
+   "short_name": "Skate Lending Library at Malvern Community Centre",
+   "event_locations": [
+    {
+     "location_name": "Malvern Recreation Centre",
+     "location_address": "30 Sewells Rd, Scarborough, ON, M1B 3G5",
+     "location_gps": "[{\"gps_lat\":43.808567708,\"gps_lng\":-79.216386233}]",
+     "location_dates": "[{\"startdate\":\"2026-12-12\",\"starttime\":\"04:00 PM\",\"enddate\":\"2026-12-12\",\"endtime\":\"06:00 PM\",\"event_frequency\":\"Multiple\",\"multiple_dates\":[{\"sdate\":\"2026-12-28\",\"stime\":\"10:00 AM\",\"etime\":\"04:00 PM\"}]}]"
+    }
+   ]
+  },
+  {
+   "calendar_date_group": "2026-12-29",
+   "short_name": "Skate Lending Library at High Park Outdoor Rink",
+   "event_locations": [
+    {
+     "location_name": "High Park Outdoor Rink",
+     "location_address": "1873 Bloor St W, Toronto",
+     "location_gps": "[{\"gps_lat\":43.653569557,\"gps_lng\":-79.464086679}]",
+     "location_dates": "[{\"startdate\":\"2026-12-14\",\"starttime\":\"06:00 PM\",\"enddate\":\"2026-12-14\",\"endtime\":\"09:00 PM\",\"event_frequency\":\"Multiple\",\"multiple_dates\":[{\"sdate\":\"2026-12-29\",\"stime\":\"10:00 AM\",\"etime\":\"04:00 PM\"}]}]"
+    }
+   ]
+  },
+  {
+   "calendar_date_group": "2026-12-30",
+   "short_name": "Skate Lending Library at Rennie Park Outdoor Rink",
+   "event_locations": [
+    {
+     "location_name": "Rennie Park Outdoor Rink",
+     "location_address": "1 Rennie Ter, Toronto, ON, M6S 3C6",
+     "location_gps": "[{\"gps_lat\":43.64507276,\"gps_lng\":-79.47464087}]",
+     "location_dates": "[{\"startdate\":\"2026-12-30\",\"starttime\":\"10:00 AM\",\"enddate\":\"2026-12-30\",\"endtime\":\"04:00 PM\",\"event_frequency\":\"Single Date\",\"multiple_dates\":[]}]"
+    }
+   ]
+  }
+ ]
+}

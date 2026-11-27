@@ -629,7 +629,6 @@ window.SkateApp = (() => {
         }
         if (S.day) pills.push({ key: 'day', label: DAY_LABEL(S.day) });
         if (S.dateFrom) pills.push({ key: 'dates', label: rangeLabel(S.dateFrom, S.dateTo) });
-        if (S.ice !== 'all') pills.push({ key: 'ice', label: S.ice === 'indoor' ? 'Indoor only' : 'Outdoor only' });
         if (S.age !== null) pills.push({ key: 'age', label: `${S.age} years old` });
         if (S.savedOnly) pills.push({ key: 'saved', label: 'Saved only' });
         if (S.nearRink) pills.push({ key: 'near', label: `Only ${S.nearRink.name}` });
@@ -668,6 +667,13 @@ window.SkateApp = (() => {
         }, [el('span', { class: 'pill-label' }, [cityPillLabel()]), el('span', { class: 'pill-caret', 'aria-hidden': 'true' }, ['▾'])]);
         if (S.cities.length) cityPill.appendChild(el('span', { class: 'pill-x', role: 'button', 'aria-label': 'Show every city', title: 'Show every city' }, ['✕']));
         wrap.appendChild(cityPill);
+        // v3.19: indoor or outdoor is always in view beside the city (it decides most of the list): tap = choose, x = both
+        const icePill = el('button', {
+            class: 'pill ice' + (S.ice !== 'all' ? ' on' : ''), dataset: { pill: 'ice' },
+            title: S.ice !== 'all' ? 'Tap to change. The x shows indoor and outdoor.' : 'Tap to choose indoor or outdoor ice'
+        }, [el('span', { class: 'pill-label' }, [S.ice === 'indoor' ? 'Indoor' : S.ice === 'outdoor' ? 'Outdoor' : 'Indoor + outdoor']), el('span', { class: 'pill-caret', 'aria-hidden': 'true' }, ['▾'])]);
+        if (S.ice !== 'all') icePill.appendChild(el('span', { class: 'pill-x', role: 'button', 'aria-label': 'Show indoor and outdoor', title: 'Show indoor and outdoor' }, ['✕']));
+        wrap.appendChild(icePill);
         const mine = (SkateSettings.get('myRinks') || []).length;
         if (mine) {
             // a standing toggle, not a removable pill: regulars flip it daily
@@ -708,7 +714,7 @@ window.SkateApp = (() => {
             if (kind === OTHER_KEY) paintOther(plain);
             wrap.appendChild(plain);
         });
-        const n = pills.length + (S.rinkScope === 'mine' && mine ? 1 : 0) + (S.cities.length ? 1 : 0);
+        const n = pills.length + (S.rinkScope === 'mine' && mine ? 1 : 0) + (S.cities.length ? 1 : 0) + (S.ice !== 'all' ? 1 : 0);
         $('filters-count').textContent = String(n);
         $('filters-count').classList.toggle('hidden', !n);
         $('btn-filters').classList.toggle('active', !!n);
@@ -927,6 +933,22 @@ window.SkateApp = (() => {
             ...(S.age !== null ? [el('button', { class: 'flink', dataset: { clearAge: '1' } }, ['Any age'])] : [])
         ]));
 
+        // v3.19: indoor or outdoor, how far, and the order: sections of their own up here (they were three rows
+        // at the foot of Where, under the long list of cities), each a single line of equal choices
+        const iceRow = el('div', { class: 'fchips fone fice' });
+        [['all', 'Both'], ['indoor', 'Indoor'], ['outdoor', 'Outdoor']].forEach(([id, label]) => iceRow.appendChild(chip(label, S.ice === id, { ice: id })));
+        section('Indoor or outdoor').appendChild(iceRow);
+        const hasSpot = !!SkateGeo.getUserLocation();
+        const far = el('div', { class: 'fchips fone fradius' });
+        far.appendChild(chip('Any', !S.radius || !hasSpot, { radius: '' }));
+        CFG.radiusOptions.forEach(km => far.appendChild(chip(`${km} km`, hasSpot && S.radius === km, { radius: String(km) })));
+        section('Distance from you').appendChild(far);
+        const ordSec = section('Order');
+        const ord = el('div', { class: 'fchips fone forder' });
+        CFG.sortOptions.forEach(x => ord.appendChild(chip(x.label, S.sort === x.id, { sort: x.id })));
+        ordSec.appendChild(ord);
+        if (S.sort === 'near' && !hasSpot) ordSec.appendChild(el('p', { class: 'settings-hint' }, ['Nearest needs your location. Set it under Rinks and map.']));
+
         // WHEN
         const w = section('When');
         const days = el('div', { class: 'fchips' });
@@ -946,21 +968,6 @@ window.SkateApp = (() => {
         const mineRow = check(`My rinks only${mine ? ` (${mine})` : ''}`, S.rinkScope === 'mine', { flag: 'mine' });
         mineRow.appendChild(el('button', { class: 'flink', dataset: { open: 'rinks' } }, [mine ? 'Edit' : 'Pick rinks']));
         where.appendChild(mineRow);
-        // v3.18: indoor arenas, outdoor rinks, or both (both = each day's indoor sessions first, then the outdoor rinks)
-        const iceRow = el('div', { class: 'fchips fice' }, [el('span', { class: 'flabel' }, ['Ice'])]);
-        [['all', 'Indoor + outdoor'], ['indoor', 'Indoor'], ['outdoor', 'Outdoor']].forEach(([id, label]) => iceRow.appendChild(chip(label, S.ice === id, { ice: id })));
-        where.appendChild(iceRow);
-        // v3.15.3: Distance and Order out in the open, under Where (they were folded under More options)
-        // v3.12: only what is within N km of your spot (a filter, unlike Nearest, which only reorders)
-        const far = el('div', { class: 'fchips fradius' }, [el('span', { class: 'flabel' }, ['Distance'])]);
-        const hasSpot = !!SkateGeo.getUserLocation();
-        far.appendChild(chip('Any', !S.radius || !hasSpot, { radius: '' }));
-        CFG.radiusOptions.forEach(km => far.appendChild(chip(`${km} km`, hasSpot && S.radius === km, { radius: String(km) })));
-        where.appendChild(far);
-        const ord = el('div', { class: 'fchips forder' }, [el('span', { class: 'flabel' }, ['Order'])]);
-        CFG.sortOptions.forEach(x => ord.appendChild(chip(x.label, S.sort === x.id, { sort: x.id })));
-        where.appendChild(ord);
-        if (S.sort === 'near' && !hasSpot) where.appendChild(el('p', { class: 'settings-hint' }, ['Nearest needs your location. Set it under Rinks and map.']));
         // v3.15.2: Free only is the switch in the sheet's header; it says how many paid sessions it hides
         $('f-free').checked = !S.paidVisible;
         $('f-free-sub').textContent = !S.paidVisible && f.paid ? `${f.paid} paid hidden` : '';
@@ -1389,7 +1396,7 @@ window.SkateApp = (() => {
         if (S.lending && S.lending.van && S.lending.checkedAt) {
             const stops = lendIx ? lendIx.stops.filter(x => x.date >= today).length : 0;
             add('city', 'City of Toronto', { kind: 'city', id: 'city-lending', city: 'Toronto', name: 'Free skates van', site: 'toronto.ca', tone: stops ? 'ok' : 'wait', head: `checked ${stWhen(S.lending.checkedAt)}`,
-                lines: [stops ? `${plural(stops, 'upcoming stop')} posted.` : 'The City has not posted this winter\'s stops yet.'] });
+                lines: [stops ? `${plural(stops, 'upcoming stop')} posted.${/^\d{4}-\d{2}-\d{2}$/.test(S.lending.van.asOf || '') ? ` The City's list as it stood on ${stDay(S.lending.van.asOf)}: its events server answers only to its own pages, so the list is saved by hand.` : ''}` : 'The City has not posted this winter\'s stops yet.'] });
         }
 
         // -- everything else: Toronto's two groups in their set order, then one group per city
@@ -2542,6 +2549,11 @@ window.SkateApp = (() => {
         },
 
         /** v3.12: the Within N km pill. */
+        /** v3.19: the standing indoor/outdoor pill. */
+        ice() {
+            return [['all', 'Indoor + outdoor'], ['indoor', 'Indoor only'], ['outdoor', 'Outdoor only']]
+                .map(([id, label]) => ({ label: `${S.ice === id ? '✓ ' : '\u2007\u2007 '}${label}`, onClick: () => Actions.setIce(id) }));
+        },
         radius() {
             const items = [{ label: `${S.radius ? '\u2007\u2007 ' : '✓ '}Any distance`, onClick: () => Actions.setRadius(null) }];
             CFG.radiusOptions.forEach(km => items.push({ label: `${S.radius === km ? '✓ ' : '\u2007\u2007 '}Within ${km} km`, onClick: () => Actions.setRadius(km) }));
@@ -3625,7 +3637,8 @@ window.SkateApp = (() => {
             }).join('') + '</ul>';
         }
         const checked = L.checkedAt ? new Date(L.checkedAt) : null;
-        html += `<p class="settings-hint">Stops move with the weather and the ice: check the linked page before you go.${checked && !isNaN(checked) ? ` Last checked ${escapeHtml(checked.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }))}.` : ''}</p>`;
+        const asOf = /^\d{4}-\d{2}-\d{2}$/.test(v.asOf || '') ? v.asOf : '';       // v3.19: the City's list is a copy saved that day (its events server answers only to its own pages)
+        html += `<p class="settings-hint">${asOf ? `This is the City's list as it stood on ${escapeHtml(lendDate(asOf))}. ` : ''}Stops move with the weather and the ice: check the linked page before you go.${!asOf && checked && !isNaN(checked) ? ` Last checked ${escapeHtml(checked.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }))}.` : ''}</p>`;
         box.innerHTML = html;
     };
     Actions.openLending = async function () {
@@ -4148,6 +4161,8 @@ window.SkateApp = (() => {
 
         // ---- Pills (the city pill opens a picker; its x clears to every city) ----
         delegate($('active-filters'), [
+            ['.pill.ice .pill-x', (x, e) => { e.stopPropagation(); Actions.setIce('all'); }],
+            ['.pill.ice', (b, e) => { e.stopPropagation(); Popover.open(b, Menus.ice(), 'Indoor or outdoor'); }],
             ['.pill.city .pill-x', (x, e) => { e.stopPropagation(); Actions.setCities([]); }],
             ['.pill.city', (b, e) => { e.stopPropagation(); Popover.open(b, Menus.cities(), 'Cities'); }],
             ['.pill.type .pill-x', (x, e) => { e.stopPropagation(); Actions.removePill(x.closest('.pill').dataset.pill); }],

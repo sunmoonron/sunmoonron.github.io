@@ -206,7 +206,7 @@ const EXTERNAL_SOURCES = {
         paid: true,
         // The booking page lists every tier as "Free", but that is the resident
         // rate; non-residents pay at the desk. Say so on every free row.
-        priceNote: (price) => price === 0 ? 'Free for Vaughan residents · non-residents: ask at the desk (city fees carry a 20% non-resident surcharge)' : '',
+        priceNote: (price) => price === 0 ? 'Free for Vaughan residents; anyone else, ask at the desk' : '',
         venues: {
             'Al Palladini Community Centre':       { address: '9201 Islington Ave',      district: 'Vaughan', postalCode: 'L4L 1A7', lat: 43.816528,  lng: -79.597205 },
             'Rosemount Community Centre':          { address: '1000 New Westminster Dr', district: 'Vaughan', postalCode: 'L4J 8G3', lat: 43.817858,  lng: -79.453424 },
@@ -387,7 +387,7 @@ const EXTERNAL_SOURCES = {
         address: '340 Chaplin Cres', district: 'Toronto and East York', postalCode: 'M5P 1A9',
         lat: 43.7042503753, lng: -79.4201852796,
         season: { from: '10-01', to: '04-30', lead: 45 },
-        paid: true, price: 3, priceNote: '$3 per person, pay at the door',
+        paid: true, price: 3, priceNote: '',
         unverified: true,
         infoUrl: 'https://larrygrossmanforesthillarena.com/recreational-skating-hours/'
     },
@@ -431,7 +431,7 @@ const EXTERNAL_SOURCES = {
         locationId: 789,
         address: '1073 Millwood Rd', district: 'Toronto and East York', postalCode: 'M4G 1X6',
         lat: 43.7016796841, lng: -79.3612191537,
-        paid: true, priceNote: 'HST included · register on PickupHub, sessions fill up',
+        paid: true, priceNote: '',
         infoUrl: 'https://pickuphub.net/leaside-gardens'
     },
     'bolton-public': {
@@ -547,7 +547,7 @@ const EXTERNAL_SOURCES = {
         kinds: ['outdoor'],
         season: { from: '11-15', to: '03-31', lead: 30 },
         paid: false, unverified: true,
-        priceNote: 'Outdoor ice, weather permitting. Resurfacing breaks through the day',
+        priceNote: '',
         infoUrl: 'https://harbourfrontcentre.com/program/skate/'
     },
     'bentway': {
@@ -561,7 +561,7 @@ const EXTERNAL_SOURCES = {
         kinds: ['outdoor'],
         season: { from: '12-01', to: '03-15', lead: 45 },
         paid: false, unverified: true,
-        priceNote: 'Outdoor trail, weather permitting',
+        priceNote: '',
         infoUrl: 'https://thebentway.ca/event/winter-skating/'
     },
     'evergreen': {
@@ -575,7 +575,7 @@ const EXTERNAL_SOURCES = {
         kinds: ['outdoor'],
         season: { from: '12-01', to: '03-15', lead: 45 },
         paid: false, unverified: true,
-        priceNote: 'Outdoor ice under an open roof, weather permitting',
+        priceNote: '',
         infoUrl: 'https://www.evergreen.ca/evergreen-brick-work/activities/free-public-skate/'
     },
     'mattamy': {
@@ -588,7 +588,7 @@ const EXTERNAL_SOURCES = {
         lat: 43.661820, lng: -79.380310,
         season: { from: '12-01', to: '04-15', lead: 75 },
         paid: false, unverified: true,
-        priceNote: 'No skate rentals. Helmets required under 6. First 200 skaters',
+        priceNote: 'First 200 skaters',
         infoUrl: 'https://www.mattamyathleticcentre.ca/venue-info/community-skates'
     },
     'fordperformance': {
@@ -607,7 +607,7 @@ const EXTERNAL_SOURCES = {
         lat: 43.6029579, lng: -79.5199134,
         kinds: ['indoor'],
         paid: false, unverified: true,
-        priceNote: 'Free, courtesy of Ford. CSA helmets required for 6 and under, strongly recommended for 7 and older',
+        priceNote: '',
         infoUrl: 'https://www.lakeshorearena.ca/programs/'
     },
     'yzd': {
@@ -652,7 +652,7 @@ const EXTERNAL_SOURCES = {
         kinds: ['outdoor'],
         season: { from: '12-10', to: '02-28', lead: 45 },
         paid: false, unverified: true,
-        priceNote: 'Outdoor ice, weather permitting. Hours entered by hand from yzd.ca',
+        priceNote: '',
         infoUrl: 'https://www.yzd.ca/event/hangar-skate'
     },
     'coliseum': {
@@ -665,7 +665,7 @@ const EXTERNAL_SOURCES = {
         //   no sticks or pucks; entry while there is room.
         // The page is fetched every run: if it stops naming those two dates, nothing is listed until it is read again.
         // TO ENTER THE NEXT SKATES: find the new page under https://www.explace.on.ca/community-event/,
-        // then set `watch`, `dates`, `rules`, `enteredOn` here and the LENDING_ALSO entries below.
+        // then set `watch`, `dates`, `rules`, `enteredOn` here. (Its skate lending comes with the City's lending list.)
         enteredOn: '2026-11-27',
         watch: { url: 'https://www.explace.on.ca/community-event/december-leisure-skate-2026/', says: /December\s+11\s*(?:&amp;|&#0?38;|&|and)\s*18/i },
         dates: { from: '2026-12-11', to: '2026-12-18' },
@@ -678,7 +678,7 @@ const EXTERNAL_SOURCES = {
         lat: 43.6358, lng: -79.4150,
         kinds: ['indoor'],
         paid: false, unverified: true,
-        priceNote: 'Free, entry while there is room. Skates and helmets lent on site, first come, first served. No sticks or pucks',
+        priceNote: 'Entry while there is room',
         infoUrl: 'https://www.explace.on.ca/community-event/december-leisure-skate-2026/'
     },
     'mississauga-square': {
@@ -692,7 +692,7 @@ const EXTERNAL_SOURCES = {
         kinds: ['outdoor'],
         season: { from: '11-15', to: '03-31', lead: 30 },
         paid: false, unverified: true,
-        priceNote: 'Outdoor ice, weather permitting',
+        priceNote: '',
         infoUrl: 'https://www.mississauga.ca/arts-and-culture/locations/celebration-square/venue-info/'
     },
     'brampton-outdoor': {
@@ -727,7 +727,7 @@ const EXTERNAL_SOURCES = {
         kinds: ['outdoor'],
         season: { from: '11-01', to: '03-31', lead: 30 },
         paid: false, unverified: true,
-        priceNote: 'Outdoor ice, weather permitting. Free, no registration',
+        priceNote: '',
         infoUrl: 'https://www.brampton.ca/EN/residents/Recreation/Programs-Activities/Pages/Outdoor-Skating.aspx'
     },
     /* ---- York & Durham cities without an API (see skate/docs/data-sources/york-durham.md) ---- */
@@ -754,7 +754,7 @@ const EXTERNAL_SOURCES = {
             { match: /shinny|stick/i, price: 7.50 },
             { match: /./,             price: 5.50 }
         ],
-        priceNote: 'Adult price at the door (15 min before) · youth & 60+ $3.50 / $5.50, tots $2.50 / $4.50, family $12.50 / $17.50',
+        priceNote: 'Adult price · youth & 60+ $3.50 / $5.50, tots $2.50 / $4.50, family $12.50 / $17.50',
         venues: {
             'Stouffville Clippers Sports Complex': { address: '120 Weldon Rd',     district: 'Stouffville', postalCode: 'L4A 1N2', lat: 43.9650556, lng: -79.2617345 },
             'Stouffville Arena':                   { address: '12483 Ninth Line', district: 'Stouffville', postalCode: 'L4A 1J3', lat: 43.9742243, lng: -79.2553137 }
@@ -786,7 +786,7 @@ const EXTERNAL_SOURCES = {
             { match: /family shinny/i, ageMin: 6, ageMax: 10 },
             { match: /adult|men[’']s|ladies/i, ageMin: 18 }
         ],
-        priceNote: 'Pay at the arena: public skating $3.37, shinny $7.23 per person (goalies free)',
+        priceNote: 'Public skating $3.37, shinny $7.23 (goalies free)',
         venues: {
             'Aurora Family Leisure Complex': { match: /family leisure|a\.f\.l\.c/i, address: '135 Industrial Pkwy N', district: 'Aurora', postalCode: '', lat: 44.0080564, lng: -79.4594168 },
             'Aurora Recreation Complex':     { match: /recreation complex|a\.r\.c/i, address: '1400 Wellington St E', district: 'Aurora', postalCode: '', lat: 44.0098616, lng: -79.4234044 }
@@ -807,7 +807,7 @@ const EXTERNAL_SOURCES = {
         grid: { stopAt: /Participants must|Maximum of \d+ skaters|For parents to teach/i },
         daysAhead: 28,
         paid: true,
-        priceNote: 'Pay at the Customer Service kiosk before the program; the fee is not on the schedule. Check in opens half an hour before',
+        priceNote: 'The Town does not post the fee',
         venues: {
             'Magna Centre':                   { address: '800 Mulock Dr', district: 'Newmarket', postalCode: '', lat: 44.0438385, lng: -79.4389729 },
             'Ray Twinney Recreation Complex': { address: '100 Eagle St W', district: 'Newmarket', postalCode: '', lat: 44.0446985, lng: -79.4866557 }
@@ -826,7 +826,7 @@ const EXTERNAL_SOURCES = {
         grid: { stopAt: /^\s*Shinny:|^\s*Admission:/i, venue: 'Magna Centre' },
         daysAhead: 28,
         paid: true,
-        priceNote: 'Full equipment and a CSA helmet; 17 and under also a mouth guard, neck guard and full face protection. Pay at the kiosk first',
+        priceNote: 'The Town does not post the fee',
         venues: {
             'Magna Centre': { address: '800 Mulock Dr', district: 'Newmarket', postalCode: '', lat: 44.0438385, lng: -79.4389729 }
         },
@@ -871,7 +871,7 @@ const EXTERNAL_SOURCES = {
             { match: /^recreational$/i, activity: 'Recreational Public Skate' }
         ],
         ageRules: [{ match: /adult|ladies/i, ageMin: 18 }, { match: /parent and tot/i, ageMax: 7 }],
-        priceNote: 'Pay at the arena (HST extra): adult skate $5.12, shinny $7.69; see whitby.ca for the rest',
+        priceNote: 'Adult skate $5.12, shinny $7.69, HST extra',
         venues: {
             'Iroquois Park Sports Centre': { match: /iroquois/i,  address: '500 Victoria St W',   district: 'Whitby', postalCode: 'L1N 9B4', lat: 43.8638, lng: -78.9536 },
             'McKinney Centre':             { match: /mckinney/i,  address: '222 McKinney Dr',     district: 'Whitby', postalCode: 'L1R 3M4', lat: 43.9036, lng: -78.9564 },
@@ -894,7 +894,7 @@ const EXTERNAL_SOURCES = {
             { match: /^skate$/i, activity: 'Recreational Skate' },
             { match: /^hockey$/i, activity: 'Drop-in Hockey' }
         ],
-        priceNote: 'Free for U of T members and students; anyone else needs a $22.73 day pass from U of T Sport & Rec (family passes can be bought online). Skate rentals $6 + HST',
+        priceNote: 'Free for U of T members and students; anyone else needs a $22.73 day pass',
         locationName: 'Varsity Arena (U of T)',
         venues: {
             'Varsity Arena (U of T)': { address: '299 Bloor St W', district: 'Toronto and East York', postalCode: 'M5S 1W2', lat: 43.6670621, lng: -79.3961168 }
@@ -929,7 +929,7 @@ const EXTERNAL_SOURCES = {
             { match: /sledge/i,                       activity: 'Sledge Shinny (adapted)',           price: 7.90 },
             { match: /shinny/i,                       activity: 'Adult Shinny',         ageMin: 18, price: 7.90 }
         ],
-        priceNote: 'Adult price · youth & 65+ $3.50 (shinny $5.65) · 3 & under free · pay at the desk',
+        priceNote: 'Adult price · youth & 65+ $3.50 (shinny $5.65) · 3 & under free',
         venues: {
             'Ajax Community Centre': { address: '75 Centennial Rd', district: 'Ajax', postalCode: 'L1S 4L1', lat: 43.8393724, lng: -79.0206406 }
         },
@@ -958,7 +958,7 @@ const EXTERNAL_SOURCES = {
             { match: /shinny/i,     price: 8.50 },
             { match: /./,           price: 5.25 }
         ],
-        priceNote: 'Adult price · child/youth/student $3.50, family $10.75, Oshawa 55+ $1.50 · shinny youth $6.50 · pay at the desk',
+        priceNote: 'Adult price · child/youth/student $3.50, family $10.75, Oshawa 55+ $1.50 · shinny youth $6.50',
         district: 'Oshawa',
         registrationUrl: () => 'https://register.oshawa.ca/OSHAWA/public/category/browse/SKATEDHC',
         infoUrl: 'https://www.oshawa.ca/explore-play/recreation/hockey-and-skating/leisure-skating/'
@@ -5111,14 +5111,19 @@ async function fetchVenueFacts(rinks, { all = false } = {}) {
  */
 const LENDING_FILE = 'lending.json';
 const LENDING_URL = 'https://www.toronto.ca/explore-enjoy/parks-recreation/program-activities/ice-snow-activities/public-leisure-skating/skate-lending-library/';
+/**
+ * v3.19: the City's list as saved from a browser (see the file's own "about"). To refresh it, open
+ * LENDING_URL in a browser, and in the developer console run:
+ *   copy(JSON.stringify((await (await fetch(performance.getEntriesByType('resource').map(r => r.name).find(u => /festivals_events\/events\?/.test(u)))).json()).value.map(e => ({ calendar_date_group: e.calendar_date_group, short_name: e.short_name, event_locations: e.event_locations.map(L => ({ location_name: L.location_name, location_address: L.location_address, location_gps: L.location_gps, location_dates: L.location_dates })) }))))
+ * then paste the result as `value` in the file and set `capturedAt` to today.
+ */
+const LENDING_COPY = path.join(__dirname, 'skate-lending-feed.json');
 const LENDING_MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
 const LENDING_DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 /* Other free ways to get on skates, each confirmed on the page named (checked = the day it was read). */
 const LENDING_ALSO = [
     { id: 'harbourfront-saturdays', place: 'Harbourfront Centre rink', address: '235 Queens Quay W, Toronto', what: 'Free skate rentals every Saturday, while quantities last', rink: 'ext-harbourfront', days: [6], start: '2026-11-21', end: '2027-02-27', url: 'https://harbourfrontcentre.com/program/skate/', checked: '2026-11-12' },
     { id: 'bentway-thursdays', place: 'The Bentway skate trail', address: '250 Fort York Blvd, Toronto', what: 'Free skate rentals on Thursdays. Bring government ID; a waiver is signed on site', rink: 'ext-bentway', days: [4], from: '17:00', to: '20:00', start: '2027-01-07', end: '2027-02-25', url: 'https://thebentway.ca/event/billy-bishop-free-rental-thursdays-2/', checked: '2026-11-12' },
-    { id: 'coliseum-dec-11', place: 'Coca-Cola Coliseum', address: '19 Nunavut Rd, Toronto', what: 'Free skates, helmets and skating aids from the Skate Lending Library, first come, first served', rink: 'ext-coliseum', date: '2026-12-11', from: '18:00', to: '20:30', start: '2026-12-11', end: '2026-12-11', url: 'https://www.explace.on.ca/community-event/december-leisure-skate-2026/', checked: '2026-11-27' },
-    { id: 'coliseum-dec-18', place: 'Coca-Cola Coliseum', address: '19 Nunavut Rd, Toronto', what: 'Free skates, helmets and skating aids from the Skate Lending Library, first come, first served', rink: 'ext-coliseum', date: '2026-12-18', from: '18:00', to: '20:30', start: '2026-12-18', end: '2026-12-18', url: 'https://www.explace.on.ca/community-event/december-leisure-skate-2026/', checked: '2026-11-27' },
     { id: 'college-park-opening', place: 'College Park ice trail', address: '420 Yonge St, Toronto', what: 'Free skate lending at the opening event, while supplies last', rink: '223', date: '2026-12-05', from: '14:00', to: '18:00', start: '2026-12-05', end: '2026-12-05', url: 'https://downtownyonge.com/basit2025/', checked: '2026-11-12' },
     { id: 'burlington-skate-hub', place: 'Skate Hub, Appleby Ice Centre (Arena A)', address: '1201 Appleby Line, Burlington', what: 'Free skates to take: first come, first served, no sign-out, keep them as long as you need', rink: 'ext-burlington-appleby-ice-centre', start: '2026-11-01', end: '2027-04-30', url: 'https://www.burlington.ca/recreation/skating/', checked: '2026-11-12' }
 ];
@@ -5225,6 +5230,66 @@ function parseLendingPage(html, today = lendingToday()) {
     };
 }
 /**
+ * v3.19: since the 2026-27 winter the page no longer carries a table: it draws its "Events" from the
+ * City's events calendar, and names that calendar in its own source (setConfiguration({"calendar_id": …})).
+ */
+const lendingCalendarId = (html) => (/"calendar_id"\s*:\s*"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"/i.exec(String(html || '')) || [])[1] || null;
+const lendingFeedUrl = (calendarId, today) => 'https://secure.toronto.ca/c3api_data/v2/DataAccess.svc/festivals_events/events?' + [
+    '$format=application/json;odata.metadata=none', '$skip=0', '$top=500',
+    '$select=id,short_name,event_locations,calendar_date_group', '$orderby=calendar_date_group',
+    '$filter=' + encodeURIComponent(`(calendar_id eq '${calendarId}') and calendar_date ge ${today}T00:00:00-05:00 and calendar_date lt ${addDays(today, 366)}T00:00:00-05:00`)
+].join('&');
+/** "04:00 PM" → "16:00", or null. */
+const lendingClock = (text) => {
+    const m = /^(\d{1,2}):(\d{2})\s*([AP])\.?M\.?$/i.exec(String(text || '').trim());
+    if (!m || Number(m[1]) < 1 || Number(m[1]) > 12 || Number(m[2]) > 59) return null;
+    return `${String((Number(m[1]) % 12) + (m[3].toUpperCase() === 'P' ? 12 : 0)).padStart(2, '0')}:${m[2]}`;
+};
+/**
+ * The calendar feed → { stops, skipped }. One row per day of an event; the row's place carries its
+ * dates and hours (the first date, plus any "multiple dates"). Pure; text only, bounded.
+ */
+function parseLendingFeed(data, today = lendingToday()) {
+    const rows = Array.isArray(data) ? data : (data && Array.isArray(data.value) ? data.value : []);
+    const stops = [], skipped = [];
+    for (const e of rows.slice(0, 500)) {
+        if (!e || typeof e !== 'object') continue;
+        const date = String(e.calendar_date_group || '').slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < today) continue;
+        const name = lendingPlain(e.short_name).slice(0, 120);
+        let found = false;
+        for (const L of (Array.isArray(e.event_locations) ? e.event_locations : []).slice(0, 5)) {
+            if (!L || typeof L !== 'object') continue;
+            let dates = [];
+            try { dates = JSON.parse(L.location_dates || '[]'); } catch { dates = []; }
+            let hours = null;
+            for (const d of (Array.isArray(dates) ? dates : []).slice(0, 20)) {
+                if (!d || typeof d !== 'object') continue;
+                if (d.startdate === date) hours = [d.starttime, d.endtime];
+                for (const x of (Array.isArray(d.multiple_dates) ? d.multiple_dates : []).slice(0, 60)) if (x && x.sdate === date) hours = [x.stime, x.etime];
+            }
+            const from = hours && lendingClock(hours[0]), to = hours && lendingClock(hours[1]);
+            const place = lendingPlain(L.location_name).slice(0, 120);
+            if (!from || !to || to <= from || !place) continue;
+            let gps = null;
+            try { gps = (JSON.parse(L.location_gps || '[]') || [])[0] || null; } catch { gps = null; }
+            const lat = gps ? Number(gps.gps_lat) : NaN, lng = gps ? Number(gps.gps_lng) : NaN;
+            const near = Number.isFinite(lat) && Number.isFinite(lng) && lat > 43 && lat < 44.5 && lng > -80.5 && lng < -78.5;
+            stops.push({
+                date, from, to, id: null, place, address: lendingPlain(L.location_address).split(',')[0].trim().slice(0, 120),
+                ...(near ? { lat, lng } : {}),
+                ...(/skate lending library/i.test(name) ? {} : { note: name.slice(0, 80) })       // an event that is more than the van ("Free Holiday Leisure Skate…")
+            });
+            found = true;
+        }
+        if (!found) skipped.push(`${date} ${name}`.slice(0, 140));
+    }
+    const seen = new Set();
+    const unique = stops.filter(x => { const k = `${x.date}|${x.from}|${x.place}`; if (seen.has(k)) return false; seen.add(k); return true; })
+        .sort((a, b) => (a.date + a.from < b.date + b.from ? -1 : 1));
+    return { stops: unique, skipped };
+}
+/**
  * Which rink of ours is a stop at? The City's id when rinks.json has it; else the
  * street address (the same place sometimes carries a park id in one season and a
  * complex id in the next). Returns the rinks.json key, or null.
@@ -5236,9 +5301,21 @@ function lendingRinkKey(stop, rinks) {
     const twin = stop.id ? list.find(r => (r.alsoIds || []).includes(String(stop.id))) : null;   // v3.12: the City's second id for the same rink
     if (twin) return String(twin.locationid);
     const want = lendingAddrKey(stop.address);
-    if (!/^\d+ \S/.test(want)) return null;
-    const hit = list.filter(r => lendingAddrKey(r.address) === want);
-    return hit.length === 1 ? String(hit[0].locationid) : null;       // two rinks at one address key: do not guess
+    const hasPoint = Number.isFinite(stop.lat) && Number.isFinite(stop.lng);
+    const m = (r) => { const dy = (r.lat - stop.lat) * 111320, dx = (r.lng - stop.lng) * 111320 * Math.cos(stop.lat * Math.PI / 180); return Math.sqrt(dx * dx + dy * dy); };
+    let hit = /^\d+ \S/.test(want) ? list.filter(r => lendingAddrKey(r.address) === want) : [];
+    // v3.19: the calendar gives a point, and the address key is only a number and a word ("1367 St" starts
+    // more than one street's address): a rink at that key but far from the point is another place
+    if (hasPoint) hit = hit.filter(r => !Number.isFinite(r.lat) || !Number.isFinite(r.lng) || m(r) <= 1500);
+    if (hit.length === 1) return String(hit[0].locationid);
+    // Among the rinks at that address (or, with none, within 300 m of the point), take the nearest,
+    // an outdoor one first when the stop is named as outdoor ice
+    if (!hasPoint) return null;                                        // two rinks at one address key and no point: do not guess
+    const outdoorNamed = /outdoor|trail|\bpark\b|common|square|grounds/i.test(stop.place || '');
+    const pool = (hit.length ? hit : list.filter(r => Number.isFinite(r.lat) && Number.isFinite(r.lng) && m(r) <= 300))
+        .map(r => ({ r, d: m(r), out: (r.kinds || []).includes('outdoor') }))
+        .sort((a, b) => (outdoorNamed ? (b.out - a.out) : 0) || (a.d - b.d));
+    return pool.length ? String(pool[0].r.locationid) : null;
 }
 /** Fetch the page (at most every 6 hours unless forced) and write lending.json. Never throws. */
 async function fetchLending({ force = false, rinks = null } = {}) {
@@ -5248,13 +5325,39 @@ async function fetchLending({ force = false, rinks = null } = {}) {
     try { prev = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* first run */ }
     const today = lendingToday();
     const also = LENDING_ALSO.filter(a => a.end >= today);
-    if (!force && prev && prev.van && Date.now() - Date.parse(prev.checkedAt || 0) < 6 * 3600 * 1000 && JSON.stringify(prev.also) === JSON.stringify(also)) {
+    let copy = null;
+    try { copy = JSON.parse(fs.readFileSync(LENDING_COPY, 'utf8')); if (!copy || !Array.isArray(copy.value) || !/^\d{4}-\d{2}-\d{2}$/.test(copy.capturedAt || '')) copy = null; } catch { copy = null; }
+    if (!force && prev && prev.van && Date.now() - Date.parse(prev.checkedAt || 0) < 6 * 3600 * 1000 && JSON.stringify(prev.also) === JSON.stringify(also)
+        && (prev.van.asOf || null) === (copy ? copy.capturedAt : null)) {
         console.log(`   ⛸ lending: checked ${Math.round((Date.now() - Date.parse(prev.checkedAt)) / 60000)} min ago (${prev.van.stops.length} stops, ${prev.van.status})`);
         return prev;
     }
     let van = prev && prev.van ? { ...prev.van } : null;
     try {
-        const parsed = parseLendingPage(await httpGetText(LENDING_URL), today);
+        const html = await httpGetText(LENDING_URL);
+        const parsed = parseLendingPage(html, today);
+        // v3.19: the schedule now lives in the City's events calendar, which the page names
+        const calendar = lendingCalendarId(html);
+        let asOf = null;
+        if (calendar) {
+            let feed = null;
+            try {
+                feed = parseLendingFeed(JSON.parse(await httpGetText(lendingFeedUrl(calendar, today))), today);
+                console.log(`   ⛸ lending: the page's calendar lists ${feed.stops.length} stop(s)`);
+            } catch (e) {
+                // the usual case: the City's events server answers only to a browser on its own pages
+                if (copy && copy.calendar !== calendar) console.warn(`   ⚠️ lending: the page now names another calendar (${calendar}); the saved copy is for ${copy.calendar} and needs a new capture`);
+                else if (copy) { feed = parseLendingFeed(copy.value, today); asOf = copy.capturedAt; console.log(`   ⛸ lending: the City's calendar refused (${String(e.message).slice(0, 60)}); using the copy saved ${copy.capturedAt}: ${feed.stops.length} stop(s) still ahead`); }
+                else console.warn(`   ⚠️ lending: the page's calendar could not be read (${e.message}) and there is no saved copy`);
+            }
+            if (feed) {
+                const have = new Set(parsed.stops.map(x => `${x.date}|${x.from}`));
+                parsed.stops.push(...feed.stops.filter(x => !have.has(`${x.date}|${x.from}`)));
+                parsed.stops.sort((a, b) => (a.date + a.from < b.date + b.from ? -1 : 1));
+                parsed.skipped.push(...feed.skipped);
+                if (parsed.stops.length) parsed.status = 'scheduled';
+            }
+        }
         // a schedule that was there and is now "nothing at all" (not even "coming soon") smells like a page redesign: keep what we had
         const vanished = parsed.status === 'none' && van && van.stops && van.stops.some(s => s.date >= today);
         if (vanished) { console.warn('   ⚠️ lending: the schedule table disappeared from the page; keeping the last good list'); van.stale = true; }
@@ -5263,6 +5366,7 @@ async function fetchLending({ force = false, rinks = null } = {}) {
                 name: 'Skate Lending Library', by: 'City of Toronto, with Desjardins', url: LENDING_URL,
                 lends: 'skates, helmets and skating aids', terms: 'Free for all ages. No reservation: find the van at the rink.',
                 status: parsed.status, startsOn: parsed.startsOn, modified: parsed.modified,
+                ...(asOf ? { asOf } : {}),                                    // the day the City's list was saved, when it is a saved copy
                 stops: parsed.stops.map(x => ({ ...x, rink: lendingRinkKey(x, rinks) }))
             };
         }
@@ -5572,7 +5676,7 @@ async function main() {
 }
 
 if (require.main === module) main();
-module.exports = { parseLendingPage, parseLendingTime, parseLendingDate, lendingRinkKey, fetchLending, LENDING_ALSO, LENDING_URL, llmParseSchedule, parseScheduleText, fetchLiveCheck, EXTERNAL_SOURCES, parseTimeRange, parseSeasonRange, parseDateList, parseWeekdayGridText, parseWeekdayLinesText, favouriteId, writeIcsFiles, dedupePrograms, sessionIdentity, titleCaseIfShouty,
+module.exports = { parseLendingPage, parseLendingFeed, lendingCalendarId, lendingFeedUrl, parseLendingTime, parseLendingDate, lendingRinkKey, fetchLending, LENDING_ALSO, LENDING_URL, llmParseSchedule, parseScheduleText, fetchLiveCheck, EXTERNAL_SOURCES, parseTimeRange, parseSeasonRange, parseDateList, parseWeekdayGridText, parseWeekdayLinesText, favouriteId, writeIcsFiles, dedupePrograms, sessionIdentity, titleCaseIfShouty,
     // alert reader + rink kinds (skate/tests/unit)
     // v3.12: seasons, source states, venue pages, the City's doubles (skate/tests/unit/sources.spec.js)
     parseNaturalIcePage, winterOf, fetchNaturalIce, fetchVenue, stripHtml,

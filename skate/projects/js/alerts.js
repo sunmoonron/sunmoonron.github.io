@@ -425,14 +425,21 @@ window.SkateAlerts = (() => {
      * 'before' it starts, 'active', 'outside' its hours on a covered day,
      * or 'ended' (with the last day it covered).
      */
-    /** v3.18: how long a closure with no end date is taken at its word (days after it began). */
-    const OPEN_ENDED_DAYS = 7;
-    /** A closure that names no end, and began more than OPEN_ENDED_DAYS before the session's day. */
-    function openEndedOld(R, a, programDate) {
+    /** How long a closure that names no end is taken at its word: 48 hours from when it was posted (v3.19; a week in v3.18). */
+    const OPEN_ENDED_HOURS = 48;
+    /**
+     * A closure that names no end and began more than OPEN_ENDED_HOURS before the session starts.
+     * One that says when it ends ("closed until Dec 1", "reopens Friday") is never this: it is taken
+     * at its word until that day, however long that is, and is a grey heads-up for a few days after.
+     */
+    function openEndedOld(R, a, programDate, p) {
         if (R.ends || R.seasonal || !isYmd(programDate)) return false;
         const posted = postedDay(a);
-        const began = R.starts && isYmd(R.starts) && (!posted || R.starts > posted) ? R.starts : posted;
-        return !!began && daysBetween(began, programDate) > OPEN_ENDED_DAYS;
+        const later = R.starts && isYmd(R.starts) && (!posted || R.starts > posted);       // "closed from Monday": the clock starts that day
+        const began = later ? Date.parse(`${R.starts}T00:00:00`) : Date.parse(String(a.PostedDate || '').trim().replace(' ', 'T'));
+        if (!Number.isFinite(began)) return false;
+        const t = /^\d{2}:\d{2}/.test((p && p['Start Time']) || '') ? p['Start Time'].slice(0, 5) : '12:00';
+        return Date.parse(`${programDate}T${t}:00`) - began > OPEN_ENDED_HOURS * 3600000;
     }
 
     function phaseOf(R, a, programDate, p) {
@@ -533,11 +540,11 @@ window.SkateAlerts = (() => {
             }
             if (ph.phase === 'outside') { otherHours.push(a); return; }
             if (R.skating === 'off' && R.seasonal && laterSeason(a, programDate)) season.push(a);
-            // v3.18: a closure that names no end speaks for the week after it began. Later than that,
+            // v3.18: a closure that names no end speaks for the 48 hours after it began (v3.19; a week at first). Later than that,
             // with the City's schedule still listing the session (Downsview, "closed for emergency
             // repairs", posted Nov 5 and never updated), nobody outside the rink knows: it is
             // "Call to confirm", never a cancellation in our words and never a promise it runs.
-            else if (R.skating === 'off' && openEndedOld(R, a, programDate)) unconfirmed.push(a);
+            else if (R.skating === 'off' && openEndedOld(R, a, programDate, p)) unconfirmed.push(a);
             else if (R.skating === 'off') off.push(a);
             else if (R.skating === 'one_pad_off') padOff.push(a);
             else if (R.skating === 'reduced') reduced.push(a);
