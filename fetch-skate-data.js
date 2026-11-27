@@ -655,6 +655,32 @@ const EXTERNAL_SOURCES = {
         priceNote: 'Outdoor ice, weather permitting. Hours entered by hand from yzd.ca',
         infoUrl: 'https://www.yzd.ca/event/hangar-skate'
     },
+    'coliseum': {
+        kind: 'manual',
+        // Coca-Cola Coliseum (Exhibition Place): free community skates a few evenings a year, each
+        // announced on a page of its own under Exhibition Place's Community Events. Entered by hand from
+        //   https://www.explace.on.ca/community-event/december-leisure-skate-2026/   (read 2026-11-27):
+        //   "December 11 & 18 · 6:00PM – 8:30PM · Coca-Cola Coliseum, 19 Nunavut Rd · FREE"; skates, helmets
+        //   and skating aids lent on site by the City's Skate Lending Library, first come, first served;
+        //   no sticks or pucks; entry while there is room.
+        // The page is fetched every run: if it stops naming those two dates, nothing is listed until it is read again.
+        // TO ENTER THE NEXT SKATES: find the new page under https://www.explace.on.ca/community-event/,
+        // then set `watch`, `dates`, `rules`, `enteredOn` here and the LENDING_ALSO entries below.
+        enteredOn: '2026-11-27',
+        watch: { url: 'https://www.explace.on.ca/community-event/december-leisure-skate-2026/', says: /December\s+11\s*(?:&amp;|&#0?38;|&|and)\s*18/i },
+        dates: { from: '2026-12-11', to: '2026-12-18' },
+        rules: [{ from: '2026-12-11', to: '2026-12-18', days: ['Friday'], start: '18:00', end: '20:30' }],
+        closedOn: [],
+        daysAhead: 60,
+        activity: 'Community Leisure Skate (Free)',
+        locationName: 'Coca-Cola Coliseum',
+        address: '19 Nunavut Rd', district: 'Toronto and East York', postalCode: 'M6K 3C3',
+        lat: 43.6358, lng: -79.4150,
+        kinds: ['indoor'],
+        paid: false, unverified: true,
+        priceNote: 'Free, entry while there is room. Skates and helmets lent on site, first come, first served. No sticks or pucks',
+        infoUrl: 'https://www.explace.on.ca/community-event/december-leisure-skate-2026/'
+    },
     'mississauga-square': {
         kind: 'venue', reader: 'mississaugaSquare',
         url: 'https://www.mississauga.ca/arts-and-culture/locations/celebration-square/venue-info/',
@@ -5091,6 +5117,8 @@ const LENDING_DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'f
 const LENDING_ALSO = [
     { id: 'harbourfront-saturdays', place: 'Harbourfront Centre rink', address: '235 Queens Quay W, Toronto', what: 'Free skate rentals every Saturday, while quantities last', rink: 'ext-harbourfront', days: [6], start: '2026-11-21', end: '2027-02-27', url: 'https://harbourfrontcentre.com/program/skate/', checked: '2026-11-12' },
     { id: 'bentway-thursdays', place: 'The Bentway skate trail', address: '250 Fort York Blvd, Toronto', what: 'Free skate rentals on Thursdays. Bring government ID; a waiver is signed on site', rink: 'ext-bentway', days: [4], from: '17:00', to: '20:00', start: '2027-01-07', end: '2027-02-25', url: 'https://thebentway.ca/event/billy-bishop-free-rental-thursdays-2/', checked: '2026-11-12' },
+    { id: 'coliseum-dec-11', place: 'Coca-Cola Coliseum', address: '19 Nunavut Rd, Toronto', what: 'Free skates, helmets and skating aids from the Skate Lending Library, first come, first served', rink: 'ext-coliseum', date: '2026-12-11', from: '18:00', to: '20:30', start: '2026-12-11', end: '2026-12-11', url: 'https://www.explace.on.ca/community-event/december-leisure-skate-2026/', checked: '2026-11-27' },
+    { id: 'coliseum-dec-18', place: 'Coca-Cola Coliseum', address: '19 Nunavut Rd, Toronto', what: 'Free skates, helmets and skating aids from the Skate Lending Library, first come, first served', rink: 'ext-coliseum', date: '2026-12-18', from: '18:00', to: '20:30', start: '2026-12-18', end: '2026-12-18', url: 'https://www.explace.on.ca/community-event/december-leisure-skate-2026/', checked: '2026-11-27' },
     { id: 'college-park-opening', place: 'College Park ice trail', address: '420 Yonge St, Toronto', what: 'Free skate lending at the opening event, while supplies last', rink: '223', date: '2026-12-05', from: '14:00', to: '18:00', start: '2026-12-05', end: '2026-12-05', url: 'https://downtownyonge.com/basit2025/', checked: '2026-11-12' },
     { id: 'burlington-skate-hub', place: 'Skate Hub, Appleby Ice Centre (Arena A)', address: '1201 Appleby Line, Burlington', what: 'Free skates to take: first come, first served, no sign-out, keep them as long as you need', rink: 'ext-burlington-appleby-ice-centre', start: '2026-11-01', end: '2027-04-30', url: 'https://www.burlington.ca/recreation/skating/', checked: '2026-11-12' }
 ];

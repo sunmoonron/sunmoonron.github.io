@@ -32,7 +32,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.17.3',
+    version: '3.18',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -46,6 +46,13 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.18', date: '2026-11-27', items: [
+                'Outdoor rinks open: their sessions carry an Outdoor tag. Each day lists its indoor sessions first, then its outdoor rinks, with a line at the top of the day to jump to them. Filters has Ice: Indoor + outdoor, Indoor, or Outdoor.',
+                'An old closure notice no longer reads as a cancellation. When the City posted "closed" more than a week ago, named no end and still lists the session, the card says Call to confirm.',
+                'Coca-Cola Coliseum\'s free community skates are listed (December 11 and 18, 6:00 to 8:30 pm), with skates and helmets lent on site.'
+            ]
+        },
         {
             v: '3.17.3', date: '2026-11-25', items: [
                 'No red dot on ⋮ or Settings any more. A new version still shows its update banner.'
@@ -680,6 +687,8 @@ window.SkateConfig = {
                          note: 'Dates read from the arena\'s own page. Free community skates, no skate rentals; CSA helmets required under 6; the first 200 skaters.' },
         'fordperformance': { city: 'Toronto', label: 'Ford Performance Centre', verified: false, site: 'lakeshorearena.ca',
                          note: 'Read from the monthly calendar picture on the arena\'s page, each date checked against its weekday. Free community skates courtesy of Ford; CSA helmets required for 6 and under, strongly recommended for 7 and older.' },
+        'coliseum':    { city: 'Toronto', label: 'Coca-Cola Coliseum', verified: false, site: 'explace.on.ca',
+                         note: 'Free community skates, a few evenings a year, entered by hand from Exhibition Place\'s page. Skates and helmets are lent on site, first come, first served.' },
         'yzd':         { city: 'Toronto', label: 'YZD Hangar Skate', verified: false, site: 'yzd.ca', outdoor: true,
                          note: 'Hours entered by hand from yzd.ca, which does not allow them to be read automatically. Free.' },
         'mississauga-square': { city: 'Mississauga', label: 'Celebration Square Rink', verified: false, site: 'mississauga.ca', outdoor: true,
@@ -696,7 +705,7 @@ window.SkateConfig = {
         { id: 'boards', label: 'Toronto arenas run by their own boards',
           keys: ['mosspark', 'grossman', 'leaside-public', 'leaside-community', 'leaside-pickuphub', 'bolton-public', 'bolton-adult', 'bolton-tots', 'georgebell', 'mccormick', 'northtoronto', 'tedreeve'] },
         { id: 'more', label: 'Other Toronto rinks',
-          keys: ['harbourfront', 'bentway', 'evergreen', 'mattamy', 'yzd', 'fordperformance', 'uoft', 'canlan-york', 'canlan-etobicoke', 'canlan-scarborough'] }
+          keys: ['harbourfront', 'bentway', 'evergreen', 'mattamy', 'yzd', 'coliseum', 'fordperformance', 'uoft', 'canlan-york', 'canlan-etobicoke', 'canlan-scarborough'] }
     ],
     sourceRows: { 'newmarket-shinny': 'newmarket', 'leaside-public': 'leaside', 'leaside-community': 'leaside', 'bolton-public': 'bolton', 'bolton-adult': 'bolton', 'bolton-tots': 'bolton' },
 

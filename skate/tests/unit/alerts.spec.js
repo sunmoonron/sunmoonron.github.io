@@ -123,13 +123,18 @@ test.describe('the two cards of 2026-11-11', () => {
             expect(SA.forLocation(a.LocationID)).toEqual([]);          // and it does not flag the rink in the list
         }
     });
-    test('"Arenas both are closed till further notice" cancels, for as long as it is posted', () => {
+    test('"Arenas both are closed till further notice" cancels for the week after it is posted; later it is Call to confirm, never silence', () => {
         const rec = find('Arenas both are closed');
         expect(rec.rink.pads).toBe(2);
         for (const a of [{ ...rec.alert }, withReading(rec)]) {
-            for (const day of ['2026-11-10', '2026-11-11', '2026-12-20']) {
+            for (const day of ['2026-11-10', '2026-11-11']) {
                 expect(verdict(a, rec.rink, day), day).toMatchObject({ level: 'closed', lead: 'Likely cancelled, rink alert' });
             }
+            // v3.18: weeks on, with no end named and the session still on the City's schedule, it is not our call
+            const later = verdict(a, rec.rink, '2026-12-20');
+            expect(later).toMatchObject({ level: 'warning', kind: 'unconfirmed', lead: 'Call to confirm' });
+            expect(later.text).toContain('has not updated it since');
+            expect(later.text).toContain('Call the rink');
         }
     });
 });
@@ -218,7 +223,7 @@ test.describe('where and when an alert applies', () => {
 
     test('one kind of ice closed at a place with both: closed while only that kind has ice, a warning in winter', () => {
         const both = { name: 'Two Rinks', pads: 3, kinds: ['indoor', 'outdoor'] };
-        expect(verdict(closed(), both, '2026-10-10').level).toBe('closed');                                   // no outdoor ice in October
+        expect(verdict(closed(), both, '2026-10-05').level).toBe('closed');                                   // no outdoor ice in October (within the week after the notice)
         const winter = verdict(closed(), both, '2027-01-10');
         expect(winter).toMatchObject({ level: 'warning', kind: 'part' });
         expect(winter.lead).toContain('indoor rink here is closed');
@@ -246,8 +251,17 @@ test.describe('where and when an alert applies', () => {
         const a = closed({ Status: 2, Reason: 'Technical Issues', Comments: 'Please note the building is experiencing cooler than normal temperatures.' });
         expect(verdict(a, { pads: 1, kinds: ['indoor'] }, '2026-10-02')).toMatchObject({ level: 'warning', kind: 'alert', lead: 'Service alert at this rink' });
     });
-    test('age alone never ends an alert: "until further notice" from a year ago still cancels', () => {
-        expect(verdict(closed({ PostedDate: '2025-10-01 09:00:00' }), { pads: 1, kinds: ['indoor'] }, '2026-11-11').level).toBe('closed');
+    test('age alone never silences an alert: "until further notice" from a year ago still shows, as Call to confirm (v3.18)', () => {
+        const v = verdict(closed({ PostedDate: '2025-10-01 09:00:00' }), { pads: 1, kinds: ['indoor'] }, '2026-11-11');
+        expect(v).toMatchObject({ level: 'warning', kind: 'unconfirmed', lead: 'Call to confirm' });
+        expect(v.text).toContain('The arena is closed until further notice.');
+    });
+    test('a closure that names its end is taken at its word however old; one with no end is, for a week', () => {
+        const dated = closed({ Comments: 'The arena is closed until December 15, 2026 for repairs.' });
+        expect(verdict(dated, { pads: 1, kinds: ['indoor'] }, '2026-12-01').level).toBe('closed');            // two months after posting, inside its own dates
+        const open = closed();
+        expect(verdict(open, { pads: 1, kinds: ['indoor'] }, '2026-10-08').level).toBe('closed');             // day 7
+        expect(verdict(open, { pads: 1, kinds: ['indoor'] }, '2026-10-09').kind).toBe('unconfirmed');         // day 8
     });
 });
 

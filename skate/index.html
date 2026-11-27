@@ -17,7 +17,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=11">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=4">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=64">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=65">
 </head>
 <body>
     <div class="app" id="app">
@@ -29,7 +29,7 @@
                 <button class="fswitch" id="btn-free" type="button" role="switch" aria-checked="false" aria-label="Free sessions only" title="Free sessions only"><span class="fswitch-opt">All</span><span class="fswitch-opt">Free</span></button>
                 <!-- v3.16.1: Feedback, Refresh, Members and Settings under ⋮ -->
                 <div class="more-wrap">
-                    <button class="btn-icon btn-more" id="btn-more" type="button" aria-label="More: feedback, refresh, settings" aria-haspopup="menu" aria-expanded="false" aria-controls="more-menu" title="Feedback, refresh, settings"><span aria-hidden="true">⋮</span></button>
+                    <button class="btn-icon btn-kebab" id="btn-more" type="button" aria-label="More: feedback, refresh, settings" aria-haspopup="menu" aria-expanded="false" aria-controls="more-menu" title="Feedback, refresh, settings"><span aria-hidden="true">⋮</span></button>
                     <div class="more-menu hidden" id="more-menu" role="menu" aria-label="More">
                         <button class="more-item" id="btn-feedback" type="button" role="menuitem" title="Report a bug or send feedback to the dev"><span class="mi-icon" aria-hidden="true">✎</span>Feedback<span class="badge hidden" id="feedback-badge">0</span></button>
                         <button class="more-item" id="btn-refresh" type="button" role="menuitem" title="Refresh the schedule, rink alerts and live spots"><span class="mi-icon" aria-hidden="true">↻</span>Refresh</button>
@@ -503,7 +503,7 @@
          app.js loads it on demand (COMMUNITY_SCRIPTS) the first time a
          community section, invite link or the feedback sheet needs it, and
          the service worker keeps it cache-first from then on. -->
-    <script src="projects/js/config.js?v=74"></script>
+    <script src="projects/js/config.js?v=75"></script>
     <script src="projects/js/settings.js?v=9"></script>
     <script src="projects/js/favorites.js?v=1"></script>
     <script src="projects/js/api.js?v=22"></script>
@@ -511,13 +511,13 @@
     <script src="projects/js/geo.js?v=7"></script>
     <script src="projects/js/live.js?v=4"></script>
     <script src="projects/js/weather.js?v=2"></script>
-    <script src="projects/js/alerts.js?v=11"></script>
+    <script src="projects/js/alerts.js?v=12"></script>
     <script src="projects/js/ui.js?v=9"></script>
     <script src="projects/js/calendar.js?v=14"></script>
     <script src="projects/js/calendar2.js?v=7"></script>
     <script src="projects/js/map.js?v=9"></script>
     <script src="projects/js/tour.js?v=5"></script>
-    <script src="projects/js/app.js?v=77"></script>
+    <script src="projects/js/app.js?v=78"></script>
     <script src="projects/js/refresh.js?v=5"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)

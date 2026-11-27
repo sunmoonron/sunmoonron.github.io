@@ -425,6 +425,16 @@ window.SkateAlerts = (() => {
      * 'before' it starts, 'active', 'outside' its hours on a covered day,
      * or 'ended' (with the last day it covered).
      */
+    /** v3.18: how long a closure with no end date is taken at its word (days after it began). */
+    const OPEN_ENDED_DAYS = 7;
+    /** A closure that names no end, and began more than OPEN_ENDED_DAYS before the session's day. */
+    function openEndedOld(R, a, programDate) {
+        if (R.ends || R.seasonal || !isYmd(programDate)) return false;
+        const posted = postedDay(a);
+        const began = R.starts && isYmd(R.starts) && (!posted || R.starts > posted) ? R.starts : posted;
+        return !!began && daysBetween(began, programDate) > OPEN_ENDED_DAYS;
+    }
+
     function phaseOf(R, a, programDate, p) {
         if (!isYmd(programDate)) return { phase: 'active' };
         const start = R.starts || postedDay(a);
@@ -509,7 +519,7 @@ window.SkateAlerts = (() => {
         const programDate = (p['Start Date Time'] || p['Start Date'] || '').slice(0, 10);
         const kindsHere = kindsOn(locationKinds, programDate);
 
-        const off = [], padOff = [], reduced = [], unknown = [], season = [], building = [], otherHours = [], ended = [], outlived = [];
+        const off = [], padOff = [], reduced = [], unknown = [], season = [], building = [], otherHours = [], ended = [], outlived = [], unconfirmed = [];
         alerts.forEach(a => {
             // v3.12: the arena's own site lists skating again, and this City notice is from before
             // it reopened (George Bell's "Under Construction", 2025): a note, never a cancellation
@@ -523,6 +533,11 @@ window.SkateAlerts = (() => {
             }
             if (ph.phase === 'outside') { otherHours.push(a); return; }
             if (R.skating === 'off' && R.seasonal && laterSeason(a, programDate)) season.push(a);
+            // v3.18: a closure that names no end speaks for the week after it began. Later than that,
+            // with the City's schedule still listing the session (Downsview, "closed for emergency
+            // repairs", posted Nov 5 and never updated), nobody outside the rink knows: it is
+            // "Call to confirm", never a cancellation in our words and never a promise it runs.
+            else if (R.skating === 'off' && openEndedOld(R, a, programDate)) unconfirmed.push(a);
             else if (R.skating === 'off') off.push(a);
             else if (R.skating === 'one_pad_off') padOff.push(a);
             else if (R.skating === 'reduced') reduced.push(a);
@@ -539,17 +554,31 @@ window.SkateAlerts = (() => {
             ...extra
         });
         const serious = [...off, ...padOff, ...reduced, ...unknown];
-
-        if (off.length) {
-            const closedKinds = off.map(alertKind);
-            if (coversLocation(closedKinds, kindsHere)) return make('closed', 'closed', 'Likely cancelled, rink alert', serious);
-            // one kind of ice is closed at a place that has another (or that we know too little about)
+        // one kind of ice is closed at a place that has another (or that we know too little about)
+        const partOf = (closedKinds, list) => {
             const which = closedKinds.includes('outdoor') ? 'outdoor' : 'indoor';
             const other = which === 'outdoor' ? 'indoor' : 'outdoor';
             const lead = kindsHere && kindsHere.includes(other)
                 ? `The ${which} rink here is closed. Sessions on the ${other} ice are not affected`
                 : 'Service alert at this rink';
-            return make('warning', 'part', lead, serious);
+            return make('warning', 'part', lead, list);
+        };
+
+        if (off.length) {
+            const closedKinds = off.map(alertKind);
+            if (coversLocation(closedKinds, kindsHere)) return make('closed', 'closed', 'Likely cancelled, rink alert', serious);
+            return partOf(closedKinds, serious);
+        }
+        if (unconfirmed.length) {
+            const a = unconfirmed[0];
+            const posted = postedDay(a);
+            if (coversLocation(unconfirmed.map(alertKind), kindsHere)) {
+                return make('warning', 'unconfirmed', 'Call to confirm', [...unconfirmed, ...serious], {
+                    reason: '',
+                    text: `The City posted a closure notice here${posted ? ` on ${fmtDay(posted)}` : ''} and has not updated it since: “${cleanComment(a.Comments) || a.Reason || 'Closed'}” Its schedule still lists this session, so it may or may not run. Call the rink (or 311) before you go.`
+                });
+            }
+            return partOf(unconfirmed.map(alertKind), [...unconfirmed, ...serious]);
         }
         if (padOff.length) return make('warning', 'pad', 'One pad is closed here. This session likely runs on the other pad', serious, { padOnly: true });
         if (reduced.length) return make('warning', 'reduced', 'Hours are reduced or some sessions are cancelled here', serious);

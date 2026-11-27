@@ -157,6 +157,23 @@ test.describe('venue sessions → records', () => {
     });
 });
 
+test.describe('hours entered by hand (Coca-Cola Coliseum)', () => {
+    const cfg = EXTERNAL_SOURCES.coliseum;
+    test('the two December evenings, free, indoor, and nothing else', () => {
+        const r = manualRecords('coliseum', cfg, '2026-11-27');
+        expect(r.map(x => `${x['Start Date']} ${x['Start Time']}-${x['End Time']} ${x.Paid ? 'paid' : 'free'}`)).toEqual(['2026-12-11 18:00-20:30 free', '2026-12-18 18:00-20:30 free']);
+        expect(r[0].LocationName).toBe('Coca-Cola Coliseum');
+        expect(cfg.kinds).toEqual(['indoor']);
+        expect(manualRecords('coliseum', cfg, '2026-12-19')).toEqual([]);                    // over after the 18th
+    });
+    test('its page no longer naming those dates lists nothing; the page as read on Nov 27 passes', async () => {
+        const gone = await fetchManual('coliseum', cfg, { get: async () => '<p>January 9 &amp; 16</p>', today: '2026-11-27' });
+        expect([gone.state, gone.records.length]).toEqual(['changed', 0]);
+        const ok = await fetchManual('coliseum', cfg, { get: async () => '<p>🗓️ December 11 &amp; 18<br>🕒 6:o0PM – 8:30PM</p>', today: '2026-11-27' });
+        expect([ok.state, ok.records.length]).toEqual(['pending', 2]);
+    });
+});
+
 test.describe('hours entered by hand (YZD)', () => {
     const cfg = EXTERNAL_SOURCES.yzd;
     const day = (records, d) => records.filter(r => r['Start Date'] === d).map(r => `${r['Start Time']}-${r['End Time']}`);

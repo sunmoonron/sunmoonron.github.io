@@ -98,11 +98,12 @@ test.describe('places', () => {
         await expect(rinkRow(page, 'George Bell Arena')).not.toHaveClass(/has-alert/);
         await page.click('#btn-rinks-close');
 
-        // the same notice without the mark still cancels, as before
+        // the same notice without the mark is still shown: a year old with no end named, it is "Call to confirm" (v3.18), not a cancellation
         app.data['alerts.json'].alerts = app.data['alerts.json'].alerts.filter(a => a.LocationID !== 3488).concat([notice]);
         await page.reload();
         await page.waitForSelector('.program-item');
-        await expect(card(page, 'George Bell Arena')).toHaveClass(/has-alert-closed/);
+        await expect(card(page, 'George Bell Arena')).toHaveClass(/has-alert\b(?!-)/);
+        await expect(card(page, 'George Bell Arena').locator('.alert-banner:not(.unverified)')).toContainText('Call to confirm');
         await app.noErrors();
     });
 

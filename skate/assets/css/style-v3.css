@@ -1963,13 +1963,12 @@ body.dark-mode .fage-box:focus-within { border-color: var(--primary); }
    ============================================================ */
 /* ⋯: Refresh, Members, Settings */
 .more-wrap { position: relative; z-index: 40; }
-.btn-more { position: relative; font-size: 20px; line-height: 1; font-weight: 700; }
-.top-bar .btn-more, body.dark-mode .top-bar .btn-more { width: 26px; min-width: 26px; border: 0; background: none; color: var(--text); font-size: 22px; }
-.top-bar .btn-more:hover { background: color-mix(in srgb, var(--acc-programs) 14%, transparent); }
+/* ⋮ has a class of its own: `.btn-more` is the list's "Show 30 more" button (v3.18 fix: sharing the name restyled those) */
+.top-bar .btn-kebab, body.dark-mode .top-bar .btn-kebab { position: relative; width: 26px; min-width: 26px; border: 0; background: none; color: var(--text); font-size: 22px; line-height: 1; font-weight: 700; }
+.top-bar .btn-kebab:hover { background: color-mix(in srgb, var(--acc-programs) 14%, transparent); }
 .more-item .badge { margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center;
     background: var(--alert-red, #d9534f); color: #fff; font-size: 11px; font-weight: 700; }
-.btn-more .new-dot, .more-item .new-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--alert-red, #e5484d); }
-.btn-more .new-dot { position: absolute; top: 4px; right: 1px; }
+.more-item .new-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--alert-red, #e5484d); }
 .more-item .new-dot { margin-left: auto; }
 .more-menu { position: absolute; right: 0; top: calc(100% + 6px); min-width: 180px; padding: 6px; display: flex; flex-direction: column; gap: 2px;
     border: 1px solid var(--border); border-radius: 12px; background: var(--bg-white); box-shadow: 0 8px 24px rgba(0, 0, 0, .18); }
@@ -2144,3 +2143,12 @@ body:not(.dark-mode) .day-head.today, body:not(.dark-mode) .day-head.today stron
 
 /* v3.17.2: the time reads clearly but no longer competes with the title: medium weight, even-width digits */
 .program-time { font-weight: 500; font-variant-numeric: tabular-nums; }
+
+/* v3.18: indoor and outdoor ice. A neutral "Outdoor" chip on the card (like the age chip); in the list each day is
+   its indoor sessions, then its outdoor rinks under a quiet sub-header, with one line in the day header to jump there */
+.ice-badge { display: inline-flex; align-items: center; padding: 2px 9px; border: 1px solid #dce2e8; border-radius: 999px; background: #f1f3f6; color: #3b4652; font-size: 11px; font-weight: 600; }
+body.dark-mode .ice-badge { background: #222d39; color: #c5ced8; border-color: #34424f; }
+.out-head { list-style: none; margin: 14px 0 8px; padding: 0 2px 4px; border-bottom: 1px dashed var(--border); font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); scroll-margin-top: 60px; }
+.day-out { display: block; flex: 1 0 100%; margin: 2px 0 0; padding: 4px 0; border: 0; background: none; text-align: left; font: inherit; font-size: 12px; font-weight: 600; color: var(--text-muted); cursor: pointer; text-transform: none; letter-spacing: 0; }
+.day-out:hover, .day-out:focus-visible { color: var(--text); text-decoration: underline; }
+.fice { align-items: center; }

@@ -53,6 +53,7 @@ window.SkateApp = (() => {
         kinds: sanitizeKinds(SkateSettings.get('hockeyKinds')),   // v3.12.2: null = every kind of hockey
         cities: Array.isArray(SkateSettings.get('cities')) ? SkateSettings.get('cities').filter(c => typeof c === 'string') : [],
         day: '',                       // '' | 'today' | 'tomorrow' | 'weekend' | weekday name
+        ice: ['indoor', 'outdoor'].includes(SkateSettings.get('ice')) ? SkateSettings.get('ice') : 'all',   // v3.18: indoor arenas, outdoor rinks, or both
         dateFrom: null, dateTo: null,  // v3.16: one day or a range from the date picker (YYYY-MM-DD; not kept between visits)
         barDay: null,                  // v3.16: the day the bar names (the one at the top of the list)
         calRenderedWeek: null,         // to keep the grid's scroll position across the minute re-render
@@ -628,6 +629,7 @@ window.SkateApp = (() => {
         }
         if (S.day) pills.push({ key: 'day', label: DAY_LABEL(S.day) });
         if (S.dateFrom) pills.push({ key: 'dates', label: rangeLabel(S.dateFrom, S.dateTo) });
+        if (S.ice !== 'all') pills.push({ key: 'ice', label: S.ice === 'indoor' ? 'Indoor only' : 'Outdoor only' });
         if (S.age !== null) pills.push({ key: 'age', label: `${S.age} years old` });
         if (S.savedOnly) pills.push({ key: 'saved', label: 'Saved only' });
         if (S.nearRink) pills.push({ key: 'near', label: `Only ${S.nearRink.name}` });
@@ -733,7 +735,7 @@ window.SkateApp = (() => {
      */
     let facetMemo = null;
     const facetKey = () => [S.programs.length, S.programs.length ? S.programs[0]._id : '', JSON.stringify(S.types), JSON.stringify(S.kinds), S.cities.join(','),
-        S.day, S.dateFrom, S.dateTo, S.age, S.savedOnly ? SkateFavorites.count() : '', S.rinkScope, (SkateSettings.get('myRinks') || []).join(','), S.nearRink ? S.nearRink.key : '',
+        S.day, S.dateFrom, S.dateTo, S.ice, S.age, S.savedOnly ? SkateFavorites.count() : '', S.rinkScope, (SkateSettings.get('myRinks') || []).join(','), S.nearRink ? S.nearRink.key : '',
         S.radius, (SkateGeo.getUserLocation() || {}).ts, S.search, S.showPast, S.showDropped, S.paidVisible, SkateAlerts.checkedAt, Math.floor(Date.now() / 60000)].join('\u0001');
     function filterFacets() {
         const key = facetKey();
@@ -944,6 +946,10 @@ window.SkateApp = (() => {
         const mineRow = check(`My rinks only${mine ? ` (${mine})` : ''}`, S.rinkScope === 'mine', { flag: 'mine' });
         mineRow.appendChild(el('button', { class: 'flink', dataset: { open: 'rinks' } }, [mine ? 'Edit' : 'Pick rinks']));
         where.appendChild(mineRow);
+        // v3.18: indoor arenas, outdoor rinks, or both (both = each day's indoor sessions first, then the outdoor rinks)
+        const iceRow = el('div', { class: 'fchips fice' }, [el('span', { class: 'flabel' }, ['Ice'])]);
+        [['all', 'Indoor + outdoor'], ['indoor', 'Indoor'], ['outdoor', 'Outdoor']].forEach(([id, label]) => iceRow.appendChild(chip(label, S.ice === id, { ice: id })));
+        where.appendChild(iceRow);
         // v3.15.3: Distance and Order out in the open, under Where (they were folded under More options)
         // v3.12: only what is within N km of your spot (a filter, unlike Nearest, which only reorders)
         const far = el('div', { class: 'fchips fradius' }, [el('span', { class: 'flabel' }, ['Distance'])]);
@@ -1172,11 +1178,16 @@ window.SkateApp = (() => {
         // rows grouped under day headers — the date leaves the row
         const items = filtered.slice(0, S.limit);
         const todayKey = SkateTime.todayKey(), tomorrowKey = SkateTime.addDays(todayKey, 1);
-        let html = '', lastDay = null;
+        // v3.18: with both kinds of ice listed, each day is its indoor sessions, then its outdoor rinks
+        const grouped = iceGrouped();
+        const inDay = new Map(), outDay = new Map();
+        if (grouped) filtered.forEach(p => { const m = isOutdoor(p) ? outDay : inDay, d = P.dateStr(p).slice(0, 10); m.set(d, (m.get(d) || 0) + 1); });
+        let html = '', lastDay = null, outHead = false;
         items.forEach((p, i) => {
             const d = P.dateStr(p).slice(0, 10);
+            const nOut = grouped && inDay.get(d) ? (outDay.get(d) || 0) : 0;   // a day with both kinds
             if (d !== lastDay) {
-                lastDay = d;
+                lastDay = d; outHead = false;
                 const dt = d ? parseLocalDate(d).toLocaleDateString('en-CA', { weekday: 'long', month: 'short', day: 'numeric' }) : 'Undated';
                 const rel = d === todayKey ? 'Today' : d === tomorrowKey ? 'Tomorrow' : '';
                 // v3.11: where skates can be borrowed free that day
@@ -1185,8 +1196,10 @@ window.SkateApp = (() => {
                     ? `<button type="button" class="day-lend" data-lending="1" title="Where to borrow skates free that day">⛸ Free skates: ${escapeHtml(free.slice(0, 2).map(f => f.place + (f.hours ? ' ' + f.hours : '')).join(' · '))}${free.length > 2 ? ` +${free.length - 2}` : ''}</button>` : '';
                 // v3.16: the first day's name is on the bar above the list (its free-skates line stays)
                 const first = i === 0;
-                html += `<li class="day-head${d === todayKey ? ' today' : ''}${first ? ' first' : ''}${first && !freeLine ? ' bare' : ''}" data-day="${escapeHtml(d)}"><span class="dh-text">${rel ? `<strong>${rel}</strong> · ` : ''}${escapeHtml(dt)}</span>${freeLine}</li>`;
+                const outLine = nOut ? `<button type="button" class="day-out" data-out-day="${escapeHtml(d)}" title="This day's outdoor rinks are listed after its indoor sessions">Outdoor rinks: ${nOut} session${nOut === 1 ? '' : 's'} ↓</button>` : '';
+                html += `<li class="day-head${d === todayKey ? ' today' : ''}${first ? ' first' : ''}${first && !freeLine && !outLine ? ' bare' : ''}" data-day="${escapeHtml(d)}"><span class="dh-text">${rel ? `<strong>${rel}</strong> · ` : ''}${escapeHtml(dt)}</span>${freeLine}${outLine}</li>`;
             }
+            if (nOut && !outHead && isOutdoor(p)) { outHead = true; html += `<li class="out-head" data-day="${escapeHtml(d)}">Outdoor rinks · ${nOut} session${nOut === 1 ? '' : 's'}</li>`; }
             html += Render.programRow(p, i, chatState, now);
         });
         list.innerHTML = html;
@@ -1652,7 +1665,7 @@ window.SkateApp = (() => {
                 </div>
                 ${alertHtml}${unverifiedHtml}
                 <div class="program-footer">
-                    <div class="program-badges">${P.tagFor(p)}${P.ageBadge(p)}${price}${padsBadge}${factsBadge}${lendBadge}${spotsBadge}</div>
+                    <div class="program-badges">${P.tagFor(p)}${P.ageBadge(p)}${isOutdoor(p) ? '<span class="ice-badge" title="Outdoor ice. It can close in warm, wet or very cold weather.">Outdoor</span>' : ''}${price}${padsBadge}${factsBadge}${lendBadge}${spotsBadge}</div>
                     <div class="program-actions">${actionHtml}</div>
                     <div class="program-links">${registerLink}</div>
                     ${noteBadge ? `<div class="program-note">${noteBadge}</div>` : ''}
@@ -2658,6 +2671,7 @@ window.SkateApp = (() => {
                 (p.District || '').toLowerCase().includes(term) ||
                 P.city(p).toLowerCase().includes(term) ||
                 (postalTerm && (p.PostalCode || '').toLowerCase().replace(/\s+/g, '').includes(postalTerm)))) return false;
+            if (S.ice !== 'all' && (S.ice === 'outdoor') !== isOutdoor(p)) return false;                              // v3.18
             if (S.dateFrom) { const d = P.dateStr(p).slice(0, 10); if (d < S.dateFrom || d > S.dateTo) return false; }   // v3.16
             if (S.day) {
                 const d = P.dateStr(p).slice(0, 10), dow = p['Day of Week'];
@@ -2699,11 +2713,32 @@ window.SkateApp = (() => {
                 if (db == null) return -1;
                 return (da - db) || (SkateTime.sortEpoch(a) - SkateTime.sortEpoch(b));
             });
+        } else if (S.ice === 'all') {
+            // v3.18: within a day, the indoor sessions first (short slots at set times), then the outdoor rinks:
+            // those are open most of the day, so by start time alone they would bury everything else
+            const key = new Map(result.map(p => [p, P.dateStr(p).slice(0, 10) + (isOutdoor(p) ? '1' : '0')]));
+            result.sort((a, b) => { const ka = key.get(a), kb = key.get(b); return (ka < kb ? -1 : ka > kb ? 1 : 0) || (SkateTime.sortEpoch(a) - SkateTime.sortEpoch(b)); });
         } else {
             result.sort((a, b) => SkateTime.sortEpoch(a) - SkateTime.sortEpoch(b));
         }
         return result;
     }
+    /** v3.18: is this session on outdoor ice? Every rink is indoor or outdoor, never both. */
+    function isOutdoor(p) {
+        const r = SkateGeo.rinkByLocation(P.locKey(p));
+        return r && Array.isArray(r.kinds) && r.kinds.length ? r.kinds.includes('outdoor') : !!(CFG.sourceInfo[p.Source] || {}).outdoor;
+    }
+    /** Are the day's sessions listed indoor first, then outdoor? (Both kinds shown, ordered by time.) */
+    const iceGrouped = () => S.ice === 'all' && !(S.sort === 'near' && SkateGeo.getUserLocation());
+    Actions.setIce = function (v) { S.ice = ['indoor', 'outdoor'].includes(v) ? v : 'all'; filtersChanged(); };
+    /** The day's outdoor sessions sit after its indoor ones: bring them into view. */
+    Actions.jumpOutdoor = function (day) {
+        const i = S.filtered.findIndex(p => P.dateStr(p).slice(0, 10) === day && isOutdoor(p));
+        if (i < 0) return;
+        if (i >= S.limit) { S.limit = i + 30; Render.programs(); }
+        const head = [...$('program-list').querySelectorAll('.out-head')].find(h => h.dataset.day === day);
+        if (head) head.scrollIntoView({ block: 'start' });
+    };
 
     /**
      * @param keepLimit true for background re-runs (the 1-minute status
@@ -2725,6 +2760,7 @@ window.SkateApp = (() => {
         SkateSettings.set('rinkScope', S.rinkScope);
         SkateSettings.set('sort', S.sort);
         SkateSettings.set('radius', S.radius);
+        SkateSettings.set('ice', S.ice);
     }
     /** Re-render after a filter change: sheet (if open) + list. */
     function filtersChanged() {
@@ -2990,7 +3026,7 @@ window.SkateApp = (() => {
     Actions.resetFilters = function () {
         S.types = {}; S.cities = []; S.day = ''; S.age = null; S.savedOnly = false;
         S.showPast = false; S.nearRink = null; S.rinkScope = 'all'; S.sort = 'time'; S.paidVisible = true;
-        S.showDropped = false; S.moreFilters = false; S.expandedCats = {}; S.radius = null; S.radiusWanted = null; S.dateFrom = null; S.dateTo = null;
+        S.showDropped = false; S.moreFilters = false; S.expandedCats = {}; S.radius = null; S.radiusWanted = null; S.dateFrom = null; S.dateTo = null; S.ice = 'all';
         filtersChanged();
     };
     /** Tapping a pill removes that one filter (or toggles ⭐ My rinks). */
@@ -3001,6 +3037,7 @@ window.SkateApp = (() => {
         else if (key.startsWith('city:')) S.cities = S.cities.filter(c => c !== key.slice(5));
         else if (key === 'day') S.day = '';
         else if (key === 'dates') { S.dateFrom = null; S.dateTo = null; }
+        else if (key === 'ice') S.ice = 'all';
         else if (key === 'age') S.age = null;
         else if (key === 'saved') S.savedOnly = false;
         else if (key === 'near') S.nearRink = null;
@@ -4174,6 +4211,7 @@ window.SkateApp = (() => {
             }],
             ['.fchip[data-day]', (b) => Actions.setDay(b.dataset.day)],
             ['.fchip[data-dates]', () => Actions.setDates(null)],
+            ['.fchip[data-ice]', (b) => Actions.setIce(b.dataset.ice)],
             ['.fchip[data-city]', (b) => (b.dataset.city ? Actions.toggleCity(b.dataset.city) : Actions.setCities([]))],
             ['.fchip[data-sort]', (b) => Actions.setSort(b.dataset.sort)],
             ['.fchip[data-radius]', (b) => Actions.setRadius(b.dataset.radius ? Number(b.dataset.radius) : null)],
@@ -4212,6 +4250,7 @@ window.SkateApp = (() => {
         // ---- List rows + show more ----
         delegate($('program-list'), [
             ['.loc-note', (n, e) => { e.stopPropagation(); SkateUI.toast(n.dataset.note, 'info', 6000); }],
+            ['.day-out', (b) => Actions.jumpOutdoor(b.dataset.outDay)],
             ['.heart-hint-x', (b, e) => { e.stopPropagation(); SkateSettings.set('heartHintDone', true); Render.programs(); }],
             ['button[data-act]', (btn) => {
                 const p = S.filtered[parseInt(btn.dataset.idx)];
