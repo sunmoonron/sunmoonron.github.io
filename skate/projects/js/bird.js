@@ -17,35 +17,67 @@
  *    It sleeps from 10 pm to 6 am, and cheers when a session is saved. "Sit still" in its menu
  *    stops all of it (the only thing it remembers, on this device).
  *
+ *  - v3.22: redrawn from the bird's field marks (dull blue back, brighter barred wings and tail, the
+ *    white wing bar and tail corners, the black necklace round a white throat, a stout black bill),
+ *    and lifelike between acts: see "lifelike" below.
+ *
  * Nothing here reads or stores anything about the visitor.
  */
 window.SkateBird = (() => {
     const SVG = `
-<svg class="jay-svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
-  <path class="jay-twig" d="M19 57.4C28 55.9 40 55.9 51 57.8M44.5 56.7l4.6-3.3"/>
+<svg class="jay-svg" viewBox="0 0 128 128" aria-hidden="true" focusable="false">
+  <g class="jay-twig">
+    <path class="jay-twig-main" d="M24 112.6C46 108.4 78 109 109 113.8"/>
+    <path class="jay-twig-side" d="M89 110.8c4.6-3.4 8.400-7 12.200-11.400"/>
+    <path class="jay-twig-shade" d="M27 114.4C48 110.700 78 111.200 106 115.400"/>
+    <circle class="jay-twig-bud" cx="101.600" cy="98.800" r="1.9"/>
+  </g>
   <g class="jay-bird">
     <g class="jay-tail">
-      <path class="jay-deep" d="M19 42.5 5.2 57.2c-.7 1.2.1 2.7 1.6 2.7l5.6-.3 13.2-11.2z"/>
-      <path class="jay-white" d="M5.2 57.2c-.7 1.2.1 2.7 1.6 2.7l3.8-.2-3-5z"/>
-      <path class="jay-bars" d="M14.6 50l4.2 3.2M10.9 53.8l4 3.1"/>
+      <path class="jay-tail-deep" d="M46.1 85.4L19.4 113.3Q16.6 115.5 14.7 113.6Q12.7 111.8 14.8 108.9L41.4 80.9Z"/>
+      <path class="jay-white" d="M22.2 110.4L19.4 113.3Q16.6 115.5 14.7 113.6Q12.7 111.8 14.8 108.9L17.5 106Z"/>
+      <path class="jay-bars" d="M38.7 92.2L34.4 89.3M35 96.1L30.6 93.2M31.2 100L26.9 97.1M27.5 103.9L23.2 101M23.8 107.8L19.5 104.9"/>
+      <path class="jay-tail-deep" d="M52.4 91.4L23.9 121.3Q21.3 123.4 19.4 121.6Q17.6 119.9 19.6 117.2L48.1 87.3Z"/>
+      <path class="jay-white" d="M26.1 119L23.9 121.3Q21.3 123.4 19.4 121.6Q17.6 119.9 19.6 117.2L21.8 114.9Z"/>
+      <path class="jay-bars" d="M45.1 98.3L41 95.6M41.4 102.2L37.3 99.5M37.6 106.1L33.5 103.4M33.9 110L29.8 107.3M30.2 113.9L26.1 111.2"/>
+      <path class="jay-tail-top" d="M49.5 88.7L18.7 121Q15.5 123.4 13.4 121.4Q11.2 119.3 13.5 116L44.3 83.7Z"/>
+      <path class="jay-bars" d="M42.1 95.4L37.3 92.1M38.4 99.3L33.6 96M34.6 103.2L29.9 99.9M30.9 107.1L26.1 103.8M27.2 111L22.4 107.7M23.5 114.9L18.7 111.6M19.7 118.9L14.9 115.5"/>
     </g>
-    <path class="jay-legs" d="M31.5 50 31 55.4M36.6 49.4l.8 6M28.6 56h5M35 56h5"/>
-    <path class="jay-blue" d="M36 26c-8 0-17 6-17.500 15-.3 5 4.500 9.500 12.500 9.500 9 0 16.500-6.500 16.500-15.500 0-4-2.500-7-5.500-8z"/>
-    <path class="jay-white jay-edge" d="M47.300 35.500c0 8.500-7.300 14.700-16.300 14.700-3.500 0-6.400-1-8.400-2.600 8.400.2 15.900-4.600 17.900-13.600.500-2.800 3-4.600 5.500-3.400.900 1.400 1.300 3.100 1.300 4.900z"/>
+    <g class="jay-legs">
+      <path class="jay-leg" d="M72 100.500 71.200 110.600M82.600 99.400l1 11"/>
+      <path class="jay-toe" d="M67.400 112.300c1.700-2.600 5.900-2.800 7.800-.2M79.600 112.100c1.800-2.600 6-2.600 7.900.1"/>
+    </g>
+    <path class="jay-back" d="M80 52C66 51 48 60 41 77c-2.500 7-.5 15 6 20 8 6 23 7.500 35 2.500C95 94 103.500 80 103 65c-.2-6-3-10.500-7-13z"/>
+    <g class="jay-chest">
+      <path class="jay-pale jay-edge" d="M103 65c.5 15-8 29-21 34.500-12 5-27 3.500-35-2.500-1.600-1.400-3-3-4-4.800C54 96 69 93.500 80 84c8-7 12.500-16 13.500-25.500 3-2 7 .500 9.500 6.500z"/>
+      <path class="jay-flank" d="M43 92.200C54 96 69 93.500 80 84c-4 8-14 14-25 15.500-4.500-.9-8.600-3.300-12-7.300z"/>
+      <path class="jay-wash" d="M93.500 58.500c3-2 7 .5 9.500 6.500.2 6-1 12-3.400 17.400-3.400-6.200-5.800-14.600-6.100-23.900z"/>
+    </g>
+    <path class="jay-back-shine" d="M76 54.500c-10 1-20.500 7-27 16.500"/>
     <g class="jay-wing">
-      <path class="jay-deep" d="M37 29.500c-6.500-2-14.500 1.500-17.400 10-.8 3-.2 5.500 1.400 6.700 8-.2 15.500-5.200 18.200-12.700.1-2-.7-3.300-2.200-4z"/>
-      <path class="jay-shine" d="M36.500 31c-5-1.200-10.500.8-13.500 5"/>
-      <path class="jay-bar-white" d="M26.500 41.800c3.500-.8 6.700-3 8.700-5.800"/>
-      <path class="jay-bars" d="M22.200 41.200l3-1.900M23.800 44.200l3.400-2M21.200 37.600l2.600-1.700"/>
+      <path class="jay-wing-main" d="M88 59c-8-5.500-24-3.500-35 7-7 7-11.500 17-12.500 27 9.500 1.500 22.500-3 32.500-11.500 8-7 14.500-14.500 17-19.500 0-1.400-.8-2.500-2-3z"/>
+      <path class="jay-wing-tip" d="M40.500 93c1-7 3.500-13.500 7.500-19 1.500 6 1 13-1.200 19.400-2.200.2-4.300 0-6.300-.4z"/>
+      <path class="jay-bars" d="M72.7 69.4Q74 74.3 77.8 79.3M68.9 71.9Q70.1 76.5 73.7 81.2M65.1 74.3Q66.2 78.7 69.6 83.1M61.3 76.8Q62.3 80.9 65.5 85.1M57.5 79.3Q58.4 83.1 61.4 87M53.8 81.7Q54.4 85.3 57.3 88.9M50 84.2Q50.5 87.6 53.2 90.8"/>
+      <path class="jay-scap" d="M88 59c-8-5.500-19.500-4.400-29 1.500 5.500 4 14 6.100 23 4.500 3.600-1 6.400-3.200 6-6z"/>
+      <path class="jay-bars jay-bars-fine" d="M64 62.6l-1.4 6M69.2 62.6l-1.4 6M74.4 62.7l-1.4 6M79.6 62.8l-1.4 6"/>
+      <path class="jay-bar-white" d="M58.800 71.600c8.400-.4 17-1.800 24.400-4.400"/>
+      <path class="jay-tips-white" d="M49.800 91.600l4-1.400M57.400 88.900l3.800-1.800M64.600 85.300l3.500-2.200"/>
+      <path class="jay-wing-shine" d="M86 60.800c-7-3.600-17-3-25 1.600"/>
     </g>
     <g class="jay-head">
-      <circle class="jay-white jay-edge" cx="44" cy="21" r="9.600"/>
-      <path class="jay-blue" d="M52.800 17.400c-2.200-4.800-6.800-7.200-11.600-6.500-3.200-2.200-7.400-3.700-11.700-3.700 1.900 2.200 3.200 4.900 3.900 7.800 0 2.800.4 5.400 1.500 7.800 3.700-4 10.500-6.200 17.900-5.400z"/>
-      <path class="jay-crest-line" d="M32 9.200c2.200 1.800 3.700 4 4.500 6.400"/>
-      <path class="jay-collar" d="M35 21.600c.2 5.600 4.400 9.800 10.600 9.600 1.800-.1 3.300-.8 4.400-2"/>
-      <path class="jay-bars" d="M48.600 21l4.300.4"/>
-      <g class="jay-eye"><circle class="jay-ink" cx="46.600" cy="20.400" r="1.750"/><circle class="jay-white" cx="47.200" cy="19.800" r=".55"/></g>
-      <path class="jay-beak" d="M52.600 19.200 60 21.900l-7.200 2.500c-.6-1.700-.6-3.500-.2-5.200z"/>
+      <path class="jay-white jay-edge" d="M77 46c-.5-11 7-18.500 16.500-18.500 9 0 15.500 6.500 15.500 15.500 0 9.500-6.500 16.500-15.500 17-8.500.3-16-5.500-16.500-14z"/>
+      <path class="jay-collar" d="M77.200 43.500c-1.600 10 3.600 19.300 13.800 22.500 6.400 2 12.600 0 15.600-4.600-3.600 1.800-8.600 2.200-13.600.6-8.400-2.700-12.400-9.400-12-16.600-1.100-1.200-2.400-1.900-3.800-1.900z"/>
+      <path class="jay-crown" d="M108.600 39c-2.100-7.500-8.100-12-15.600-12-4.500 0-8.500 1.600-11.500 4.400-2.500 2.600-4.100 6.200-4.500 10.200 0 2 .3 3.800.8 5.400C84 40.500 96 37 108.600 39z"/>
+      <g class="jay-crest">
+        <path class="jay-crown-top" d="M99 28.200C90 22.500 77 15.800 62 13.500c4.500 3.300 8 6.900 10.400 10.900-3.600-.8-7.600-.6-11.900.8 6 3.200 11 8.200 15.100 15.200 3.600-6.200 11.900-10.800 23.400-12.200z"/>
+        <path class="jay-crest-line" d="M69 17.600c7 3 14 6.800 20 11M67.600 26.600c4 2.200 7.600 5.200 10.400 8.800"/>
+      </g>
+      <path class="jay-eyeline" d="M106.800 43.600c-3.200-1.400-6.200-2-8.800-1.800M95 42.400c-4.500.6-9.500 2-13.600 3.800"/>
+      <g class="jay-eye"><circle class="jay-ink" cx="97.600" cy="41.400" r="3"/><circle class="jay-glint" cx="98.600" cy="40.300" r=".9"/></g>
+      <path class="jay-bill" d="M107.600 39.600c4.900.2 10.800 2.800 15 6.600-4.800.2-10 .3-15 0-.5-2.200-.5-4.400 0-6.600z"/>
+      <path class="jay-bill-low" d="M107.600 46.200c5 .3 10.200.2 15 0-4 3-9.400 4.200-14.200 3.400-.5-1.100-.8-2.200-.8-3.400z"/>
+      <path class="jay-bill-shine" d="M109.600 40.600c4.400.8 8.400 2.800 11.200 4.800"/>
+      <path class="jay-tuft" d="M106 38.400c2-.8 4.400-.2 5.600 1.400-1.800.2-3.600.4-5.200 1z"/>
     </g>
   </g>
 </svg>`;
@@ -129,6 +161,7 @@ window.SkateBird = (() => {
         if (window.SkateSettings) SkateSettings.set('birdStill', !!v);
         if (v) { stopAct(); clearTimeout(actTimer); } else schedule(true);
         mood();
+        tick();
     }
     /** Still, asleep (10 pm to 6 am, unless just woken by a tap) or neither: the styles go by these. */
     function mood(hour) {
@@ -148,7 +181,7 @@ window.SkateBird = (() => {
         document.body.appendChild(flyer);
         return flyer;
     }
-    const SIZE = 34;
+    const SIZE = 40;
     function place(x, y, fly) {
         const f = ensureFlyer();
         const from = f._at || { x, y };
@@ -306,6 +339,54 @@ window.SkateBird = (() => {
     /** A session was saved: a happy hop and two notes. */
     function cheer() { mood(); if (free()) { once(btn, 'hop', 450); notes(); } }
 
+    /* ---- lifelike (v3.22) ----
+     * A real bird is never frozen and never on a beat: its head darts to a new angle and holds, it
+     * blinks, the tail flicks, the crest lifts when something catches its eye, it shifts its feet.
+     * So a timer with irregular gaps picks one small move at a time, and each move only sets a
+     * number the stylesheet turns into one short transition on one group of the drawing. It looks
+     * toward where you tap (and follows a mouse), and glances down when the page scrolls.
+     */
+    const life = { head: 0, timer: 0, lookUntil: 0, alertUntil: 0, lastScroll: 0, lastMove: 0 };
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const any = (list) => list[Math.floor(Math.random() * list.length)];
+    const setVar = (k, v) => { if (btn) btn.style.setProperty(k, v); if (flyer) flyer.style.setProperty(k, v); };
+    const alive = () => !!btn && !reduce() && !still() && !btn.classList.contains('asleep') && document.visibilityState === 'visible';
+    function headTo(deg) { life.head = Math.max(-20, Math.min(18, deg)); setVar('--jay-head', `${life.head.toFixed(1)}deg`); }
+    function blink(n) { setVar('--jay-lid', '.1'); setTimeout(() => { setVar('--jay-lid', '1'); if (n > 1) setTimeout(() => blink(n - 1), 140); }, 90); }
+    function flick() { setVar('--jay-tail', `${rnd(4, 9).toFixed(1)}deg`); setTimeout(() => setVar('--jay-tail', '0deg'), 120); }
+    function crestTo(deg) { setVar('--jay-crest', `${deg}deg`); }
+    function shuffle() { setVar('--jay-step', `${Math.random() < 0.5 ? -3 : 3}px`); setVar('--jay-bob', '-3.5px'); setTimeout(() => setVar('--jay-bob', '0px'), 110); setTimeout(() => setVar('--jay-step', '0px'), rnd(900, 2600)); }
+    function puff() { setVar('--jay-puff', '1.05'); setTimeout(() => setVar('--jay-puff', '1'), 520); }
+    function calm() { ['--jay-head', '--jay-tail', '--jay-crest', '--jay-lid', '--jay-step', '--jay-bob', '--jay-puff'].forEach(k => { if (btn) btn.style.removeProperty(k); if (flyer) flyer.style.removeProperty(k); }); life.head = 0; }
+    function tick() {
+        clearTimeout(life.timer);
+        if (!alive()) { calm(); life.timer = setTimeout(tick, 3000); return; }
+        const now = Date.now(), alert = now < life.alertUntil, r = Math.random();
+        if (!busy || !atHome) {
+            if (now > life.lookUntil && r < 0.40) headTo(any([-15, -10, -6, -3, 0, 0, 3, 7, 11]) + rnd(-1.5, 1.5));    // a snap to a new angle, then it holds
+            else if (r < 0.58) blink(Math.random() < 0.22 ? 2 : 1);
+            else if (r < 0.70) flick();
+            else if (r < 0.78) crestTo(alert ? -15 : any([0, 0, -7, 5]));
+            else if (r < 0.84 && atHome && !busy) shuffle();
+            else if (r < 0.88) puff();
+        }
+        life.timer = setTimeout(tick, alert ? rnd(240, 800) : rnd(420, 2300));
+    }
+    /** Something happened over there: it looks that way, crest up, for a moment. */
+    function attend(x, y, keen) {
+        if (!alive() || !atHome || busy) return;
+        const r = btn.getBoundingClientRect();
+        const ang = Math.atan2(y - (r.top + r.height * 0.33), Math.max(24, x - (r.left + r.width * 0.75))) * 57.3;   // 0 = straight ahead, + = down
+        headTo(ang * 0.55);
+        life.lookUntil = Date.now() + (keen ? 1900 : 1100);
+        if (keen) { crestTo(-14); life.alertUntil = Date.now() + 3200; setTimeout(() => { if (Date.now() >= life.alertUntil - 60) crestTo(0); }, 3300); }
+    }
+    function senses() {
+        document.addEventListener('pointerdown', (e) => { if (!e.target.closest || !e.target.closest('#jay')) attend(e.clientX, e.clientY, true); }, { capture: true, passive: true });
+        document.addEventListener('pointermove', (e) => { if (e.pointerType !== 'mouse') return; const now = Date.now(); if (now - life.lastMove < 160) return; life.lastMove = now; attend(e.clientX, e.clientY, false); }, { passive: true });
+        document.addEventListener('scroll', () => { const now = Date.now(); if (now - life.lastScroll < 3500 || !alive() || !atHome || busy) return; life.lastScroll = now; headTo(12); flick(); life.lookUntil = now + 900; }, { capture: true, passive: true });
+    }
+
     /** The guide's card moved: fly to its top edge and stand there. */
     function guide(card) {
         if (!btn || !card || !card.isConnected || reduce()) return;
@@ -357,11 +438,14 @@ window.SkateBird = (() => {
         setInterval(mood, 60000);
         mood();
         schedule(true);
+        senses();
+        life.timer = setTimeout(tick, 900);
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 
     return {
         guide, home, say, weatherLine, act, cheer, mood, SVG,
+        look: attend, get head() { return life.head; },
         get atHome() { return atHome; }, get still() { return still(); },
         set tempo(v) { tempo = Number(v) > 0 ? Number(v) : 1; }          // tests run the acts faster
     };

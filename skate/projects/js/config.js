@@ -32,7 +32,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.21',
+    version: '3.22',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -46,6 +46,13 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.22', date: '2026-11-27', items: [
+                'The blue jay is redrawn from the real bird: a dull blue back, brighter barred wings and tail, the white wing bar and tail corners, the black necklace, a swept-back crest.',
+                'It moves like a bird now: its head darts and holds, it blinks, flicks its tail, shifts its feet, and looks toward where you tap. Its crest lifts when something catches its eye.',
+                'The weather no longer goes blank or keeps asking when the service says "too many requests": the last reading stays for up to three hours, and the next try waits.'
+            ]
+        },
         {
             v: '3.21', date: '2026-11-27', items: [
                 'The blue jay has a life of its own: now and then it flies an arc across the top and lands somewhere, hops, preens, looks behind it or sings. It shivers when it is very cold, sleeps at night, and cheers when you save a session.',

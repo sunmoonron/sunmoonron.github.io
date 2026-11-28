@@ -2174,56 +2174,86 @@ body.dark-mode #active-filters .pill.ice { --in: #8395b3; --out: #6cc4e3; --t: 3
    With "reduce motion" on it sits still and never flies.
    ============================================================ */
 .top-brand { display: flex; align-items: center; gap: 4px; min-width: 0; }
-.jay { flex: none; width: 34px; height: 34px; padding: 0; margin: 0 0 0 -4px; border: 0; border-radius: 10px; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.jay { flex: none; width: 40px; height: 40px; padding: 0; margin: -2px 0 -2px -5px; border: 0; border-radius: 10px; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .jay:focus-visible { outline: 2px solid var(--acc-programs); outline-offset: 1px; }
 .jay.away .jay-bird { visibility: hidden; }
 .jay-svg { display: block; width: 100%; height: 100%; overflow: visible;
-    --jay-blue: #3d86dc; --jay-deep: #2c69bd; --jay-shine: #86bff5; --jay-white: #f8fbff; --jay-edge: #9db3d0; --jay-ink: #17223a; --jay-beak: #2b3140; --jay-legs: #3b4252; --jay-twig: #8b6b4e; }
-body.dark-mode .jay-svg { --jay-blue: #4a94ea; --jay-deep: #3274cb; --jay-edge: transparent; --jay-beak: #6b7689; --jay-legs: #8792a5; --jay-twig: #a98862; }
-.jay-svg .jay-blue { fill: var(--jay-blue); }
-.jay-svg .jay-deep { fill: var(--jay-deep); }
+    --jay-back: #6c8fd4; --jay-crown: #6088d6; --jay-crown-top: #5a83d6; --jay-crest-line: #456bb8;
+    --jay-wing: #2f86e8; --jay-wing-deep: #1f57ab; --jay-scap: #7d9ad8; --jay-tail: #3187ea; --jay-tail-deep: #2a70cf;
+    --jay-white: #f8fafd; --jay-pale: #eceff4; --jay-flank: #cdd5e1; --jay-edge: #9fb2cc; --jay-ink: #131a2b;
+    --jay-bill: #191d28; --jay-bill-low: #272c3a; --jay-legs: #252935; --jay-twig: #8a6a4c; --jay-twig-dark: #6a4f37; }
+body.dark-mode .jay-svg { --jay-back: #7b9be0; --jay-crown: #6f95e4; --jay-crown-top: #6990e4; --jay-crest-line: #4f76c6; --jay-wing: #3f95f4; --jay-wing-deep: #2a69c2; --jay-scap: #8aa6e4;
+    --jay-tail: #4196f4; --jay-tail-deep: #3580de; --jay-edge: transparent; --jay-bill: #3a4459; --jay-bill-low: #485268; --jay-legs: #7b8698; --jay-twig: #a98862; --jay-twig-dark: #7d6245; }
+.jay-svg .jay-back { fill: var(--jay-back); }
+.jay-svg .jay-crown { fill: var(--jay-crown); }
+.jay-svg .jay-crown-top { fill: var(--jay-crown-top); }
+.jay-svg .jay-crest-line { fill: none; stroke: var(--jay-crest-line); stroke-width: 1.5; stroke-linecap: round; }
+.jay-svg .jay-wing-main { fill: var(--jay-wing); }
+.jay-svg .jay-wing-tip { fill: var(--jay-wing-deep); }
+.jay-svg .jay-scap { fill: var(--jay-scap); }
+.jay-svg .jay-tail-top { fill: var(--jay-tail); }
+.jay-svg .jay-tail-deep { fill: var(--jay-tail-deep); }
 .jay-svg .jay-white { fill: var(--jay-white); }
-.jay-svg .jay-edge { stroke: var(--jay-edge); stroke-width: .8; }
-.jay-svg .jay-ink { fill: var(--jay-ink); }
-.jay-svg .jay-beak { fill: var(--jay-beak); }
-.jay-svg .jay-shine { fill: none; stroke: var(--jay-shine); stroke-width: 1.3; stroke-linecap: round; }
-.jay-svg .jay-bar-white { fill: none; stroke: var(--jay-white); stroke-width: 1.9; stroke-linecap: round; }
-.jay-svg .jay-bars { fill: none; stroke: var(--jay-ink); stroke-width: 1.15; stroke-linecap: round; }
-.jay-svg .jay-crest-line { fill: none; stroke: var(--jay-deep); stroke-width: 1.2; stroke-linecap: round; }
-.jay-svg .jay-collar { fill: none; stroke: var(--jay-ink); stroke-width: 2; stroke-linecap: round; }
-.jay-svg .jay-legs { fill: none; stroke: var(--jay-legs); stroke-width: 1.5; stroke-linecap: round; }
-.jay-svg .jay-twig { fill: none; stroke: var(--jay-twig); stroke-width: 2.4; stroke-linecap: round; }
-.jay-svg .jay-head, .jay-svg .jay-eye, .jay-svg .jay-tail, .jay-svg .jay-wing, .jay-svg .jay-bird { transform-box: view-box; }
-.jay-svg .jay-head { transform-origin: 41px 29px; }
-.jay-svg .jay-eye { transform-origin: 46.6px 20.4px; }
-.jay-svg .jay-tail { transform-origin: 21px 45px; }
-.jay-svg .jay-wing { transform-origin: 36px 31px; }
-.jay-svg .jay-bird { transform-origin: 34px 56px; }
+.jay-svg .jay-pale { fill: var(--jay-pale); }
+.jay-svg .jay-flank { fill: var(--jay-flank); opacity: .75; }
+.jay-svg .jay-wash { fill: var(--jay-flank); opacity: .35; }
+.jay-svg .jay-edge { stroke: var(--jay-edge); stroke-width: 1.3; }
+.jay-svg .jay-ink, .jay-svg .jay-collar { fill: var(--jay-ink); }
+.jay-svg .jay-glint { fill: #fff; }
+.jay-svg .jay-bars { fill: none; stroke: var(--jay-ink); stroke-width: 1.7; stroke-linecap: round; }
+.jay-svg .jay-bars-fine { stroke-width: 1.2; opacity: .85; }
+.jay-svg .jay-bar-white { fill: none; stroke: var(--jay-white); stroke-width: 3.6; stroke-linecap: round; }
+.jay-svg .jay-tips-white { fill: none; stroke: var(--jay-white); stroke-width: 2.6; stroke-linecap: round; }
+.jay-svg .jay-back-shine, .jay-svg .jay-wing-shine { fill: none; stroke: #fff; stroke-width: 1.6; stroke-linecap: round; opacity: .28; }
+.jay-svg .jay-eyeline { fill: none; stroke: var(--jay-ink); stroke-width: 1.6; stroke-linecap: round; }
+.jay-svg .jay-bill { fill: var(--jay-bill); }
+.jay-svg .jay-bill-low { fill: var(--jay-bill-low); }
+.jay-svg .jay-bill-shine { fill: none; stroke: #fff; stroke-width: .9; stroke-linecap: round; opacity: .3; }
+.jay-svg .jay-tuft { fill: var(--jay-scap); }
+.jay-svg .jay-leg { fill: none; stroke: var(--jay-legs); stroke-width: 2.7; stroke-linecap: round; }
+.jay-svg .jay-toe { fill: none; stroke: var(--jay-legs); stroke-width: 2.2; stroke-linecap: round; }
+.jay-svg .jay-twig-main { fill: none; stroke: var(--jay-twig); stroke-width: 5; stroke-linecap: round; }
+.jay-svg .jay-twig-side { fill: none; stroke: var(--jay-twig); stroke-width: 3; stroke-linecap: round; }
+.jay-svg .jay-twig-shade { fill: none; stroke: var(--jay-twig-dark); stroke-width: 1.6; stroke-linecap: round; opacity: .6; }
+.jay-svg .jay-twig-bud { fill: var(--jay-twig); }
+.jay-svg .jay-head, .jay-svg .jay-eye, .jay-svg .jay-tail, .jay-svg .jay-wing, .jay-svg .jay-bird, .jay-svg .jay-crest, .jay-svg .jay-chest { transform-box: view-box; }
+.jay-svg .jay-head { transform-origin: 88px 58px; }
+.jay-svg .jay-eye { transform-origin: 97.6px 41.4px; }
+.jay-svg .jay-tail { transform-origin: 45px 90px; }
+.jay-svg .jay-wing { transform-origin: 86px 60px; }
+.jay-svg .jay-bird { transform-origin: 77px 111px; }
+.jay-svg .jay-crest { transform-origin: 85px 32px; }
+.jay-svg .jay-chest { transform-origin: 74px 80px; }
+/* v3.22, lifelike: bird.js sets these few numbers at irregular moments (a head snap, a blink, a tail flick, the
+   crest lifting, a small step), and each is one short transition on a group. Nothing loops on a fixed beat
+   except the breathing. (In the drawing's own units: 128 across, so 3 of them is about a screen pixel.) */
+.jay-svg .jay-head { transform: rotate(var(--jay-head, 0deg)); transition: transform .13s cubic-bezier(.3, 1.6, .5, 1); }
+.jay-svg .jay-tail { transform: rotate(var(--jay-tail, 0deg)); transition: transform .11s ease-out; }
+.jay-svg .jay-crest { transform: rotate(var(--jay-crest, 0deg)); transition: transform .22s ease-out; }
+.jay-svg .jay-eye { transform: scaleY(var(--jay-lid, 1)); transition: transform .05s linear; }
+.jay-svg .jay-bird { transform: translate(var(--jay-step, 0px), var(--jay-bob, 0px)) scale(var(--jay-puff, 1)); transition: transform .16s ease-out; }
 @media (prefers-reduced-motion: no-preference) {
-    .jay .jay-eye { animation: jay-blink 5.6s infinite; }
-    .jay .jay-head { animation: jay-tilt 13s infinite; }
-    .jay .jay-tail { animation: jay-flick 9s infinite; }
+    .jay .jay-chest { animation: jay-breath 2.1s ease-in-out infinite; }
     .jay.hop .jay-bird { animation: jay-hop .45s ease-out; }
     .jay.landed .jay-bird { animation: jay-land .7s ease-out; }
     .jay.pecking .jay-bird { animation: jay-peck 1.3s ease-in-out; }
     .jay-flyer.flying .jay-wing { animation: jay-flap .16s steps(2, jump-none) infinite alternate; }
     .jay-flyer.flying .jay-flip { animation: jay-bob .9s ease-in-out; }
 }
-@keyframes jay-blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.12); } }
-@keyframes jay-tilt { 0%, 60%, 74%, 100% { transform: rotate(0); } 64%, 70% { transform: rotate(-9deg); } }
-@keyframes jay-flick { 0%, 82%, 90%, 100% { transform: rotate(0); } 86% { transform: rotate(5deg); } }
-@keyframes jay-hop { 40% { transform: translateY(-5px); } }
-@keyframes jay-land { 0% { transform: translateY(-3px) rotate(-6deg); } 55% { transform: translateY(1px) rotate(3deg); } 100% { transform: none; } }
+@keyframes jay-breath { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.022); } }
+@keyframes jay-hop { 40% { transform: translateY(-11px); } }
+@keyframes jay-land { 0% { transform: translateY(-7px) rotate(-6deg); } 55% { transform: translateY(2px) rotate(3deg); } 100% { transform: none; } }
 @keyframes jay-peck { 0%, 100% { transform: rotate(0); } 18%, 54% { transform: rotate(22deg); } 36%, 72% { transform: rotate(4deg); } }
 @keyframes jay-flap { from { transform: rotate(-58deg) scaleY(1.05); } to { transform: rotate(24deg) scaleY(.8); } }
 @keyframes jay-bob { 0%, 100% { translate: 0 0; } 45% { translate: 0 -16px; } }
 /* in the air (the first-time guide): above the guide's dim layer, moved by transform only */
-.jay-flyer { position: fixed; left: 0; top: 0; z-index: 640; width: 34px; height: 34px; pointer-events: none; will-change: transform; transition: transform .85s cubic-bezier(.45, .05, .35, 1); }
+.jay-flyer { position: fixed; left: 0; top: 0; z-index: 640; width: 40px; height: 40px; pointer-events: none; will-change: transform; transition: transform .85s cubic-bezier(.45, .05, .35, 1); }
 .jay-flyer.no-move { transition: none; }
 .jay-flyer .jay-flip { width: 100%; height: 100%; }
 .jay-flyer.left .jay-flip { transform: scaleX(-1); }
 .jay-flyer .jay-twig { display: none; }
 .jay-flyer.flying .jay-legs { opacity: 0; }
+.jay.away .jay-bird { visibility: hidden; }
 /* what it says */
 .jay-say { position: fixed; z-index: 450; max-width: min(300px, calc(100vw - 16px)); padding: 9px 12px; border: 1px solid var(--border); border-radius: 4px 14px 14px 14px;
     background: var(--bg-white); color: var(--text); font-size: 13.5px; line-height: 1.4; box-shadow: 0 8px 24px rgba(0, 0, 0, .18); cursor: pointer; }
@@ -2248,12 +2278,14 @@ body.dark-mode .jay-say { background: #1b2530; border-color: #38485a; box-shadow
 .jay.asleep .jay-eye { animation: none; transform: scaleY(.12); }
 .jay.asleep .jay-head { animation: none; transform: rotate(11deg); }
 .jay.asleep .jay-tail { animation: none; }
-.jay.still .jay-eye, .jay.still .jay-head, .jay.still .jay-tail, .jay.still .jay-bird { animation: none; }
-@keyframes jay-hops { 0%, 40%, 82%, 100% { transform: none; } 20% { transform: translateY(-5px); } 62% { transform: translateY(-4px); } }
+.jay.asleep .jay-chest { animation: none; }
+.jay.asleep .jay-crest { transform: rotate(7deg); }
+.jay.still .jay-eye, .jay.still .jay-head, .jay.still .jay-tail, .jay.still .jay-bird, .jay.still .jay-chest { animation: none; }
+@keyframes jay-hops { 0%, 40%, 82%, 100% { transform: none; } 20% { transform: translateY(-11px); } 62% { transform: translateY(-9px); } }
 @keyframes jay-preen { 0%, 100% { transform: rotate(0); } 25%, 75% { transform: rotate(36deg); } 40% { transform: rotate(29deg); } 55% { transform: rotate(39deg); } }
 @keyframes jay-look { 0%, 82%, 100% { transform: none; } 12% { transform: scaleX(-1); } }
 @keyframes jay-sing { 0%, 100% { transform: rotate(0); } 20%, 80% { transform: rotate(-14deg); } 35%, 65% { transform: rotate(-9deg); } 50% { transform: rotate(-15deg); } }
-@keyframes jay-shiver { 0%, 100% { transform: none; } 10%, 30%, 50%, 70% { transform: translateX(-.8px) rotate(-1.5deg); } 20%, 40%, 60%, 80% { transform: translateX(.8px) rotate(1.5deg); } 90% { transform: scale(1.06); } }
+@keyframes jay-shiver { 0%, 100% { transform: none; } 10%, 30%, 50%, 70% { transform: translateX(-1.8px) rotate(-1.5deg); } 20%, 40%, 60%, 80% { transform: translateX(1.8px) rotate(1.5deg); } 90% { transform: scale(1.06); } }
 @keyframes jay-peek { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-10deg); } 60% { transform: rotate(8deg); } }
 @keyframes jay-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
 @keyframes jay-note { 0% { opacity: 0; transform: translate(0, 0) scale(.7); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(10px, -22px) scale(1.1); } }

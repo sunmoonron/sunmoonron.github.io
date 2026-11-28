@@ -130,13 +130,50 @@ test.describe('its own little acts', () => {
         await app.open();
         await page.evaluate(() => SkateBird.mood(23));
         await expect(page.locator('#jay')).toHaveClass(/\basleep\b/);
-        expect(await page.locator('#jay .jay-eye').evaluate(e => getComputedStyle(e).transform)).toMatch(/matrix\(1, 0, 0, 0\.12/);
+        await expect.poll(() => page.locator('#jay .jay-eye').evaluate(e => getComputedStyle(e).transform)).toMatch(/matrix\(1, 0, 0, 0\.12/);   // the lid closes in a few hundredths of a second
         await page.evaluate(() => SkateBird.mood(3));
         await expect(page.locator('#jay')).toHaveClass(/\basleep\b/);
         await page.evaluate(() => SkateBird.mood(13));
         await expect(page.locator('#jay')).not.toHaveClass(/\basleep\b/);
         await page.emulateMedia({ reducedMotion: 'reduce' });
         expect((await run(page, 'lap')).did).toBe(false);
+        await app.noErrors();
+    });
+});
+
+// v3.22: lifelike between acts. Its head darts and holds, it blinks, its crest lifts at a tap; the drawing
+// carries the real bird's marks (the necklace, the white wing bar, barred wings and tail with white corners).
+test.describe('lifelike', () => {
+    test('the drawing has the blue jay\'s field marks, in parts that can move on their own', async ({ page, app }) => {
+        await app.open();
+        for (const part of ['.jay-crest', '.jay-collar', '.jay-bar-white', '.jay-tail .jay-bars', '.jay-wing .jay-bars', '.jay-tail .jay-white', '.jay-bill', '.jay-eye', '.jay-legs', '.jay-twig'])
+            await expect(page.locator(`#jay svg ${part}`).first(), part).toBeAttached();
+        expect(await page.locator('#jay svg .jay-tail .jay-bars').evaluateAll(els => els.reduce((n, e) => n + (e.getAttribute('d').match(/M/g) || []).length, 0))).toBeGreaterThanOrEqual(12);   // barred, not plain
+    });
+
+    test('a tap elsewhere: it looks that way (down and to the right) with its crest up, then settles; by itself it keeps moving', async ({ page, app }) => {
+        await app.open();
+        const v = (name) => page.locator('#jay').evaluate((b, n) => b.style.getPropertyValue(n), name);
+        await page.mouse.click(300, 560);
+        expect(parseFloat(await v('--jay-head'))).toBeGreaterThan(4);                         // beak down toward the tap
+        expect(await v('--jay-crest')).toBe('-14deg');
+        await page.mouse.click(300, 2);                                                       // and up for something above it
+        expect(parseFloat(await v('--jay-head'))).toBeLessThan(0);
+        // left alone, the numbers keep changing: record every change for a few seconds
+        await page.evaluate(() => { window.__moves = new Set(); new MutationObserver(() => window.__moves.add(document.getElementById('jay').getAttribute('style'))).observe(document.getElementById('jay'), { attributes: true, attributeFilter: ['style'] }); });
+        await page.waitForTimeout(6000);
+        expect(await page.evaluate(() => window.__moves.size)).toBeGreaterThanOrEqual(3);
+        await app.noErrors();
+    });
+
+    test('Sit still, sleep and reduce motion stop the small movements too', async ({ page, app }) => {
+        await app.open();
+        await page.click('#jay');
+        await page.locator('#popover .popover-item', { hasText: 'Sit still' }).click();
+        await page.locator('.jay-say').click();
+        await page.mouse.click(300, 560);
+        expect(await page.locator('#jay').evaluate(b => b.style.getPropertyValue('--jay-head'))).toBe('');
+        expect(await page.locator('#jay .jay-chest').evaluate(e => getComputedStyle(e).animationName)).toBe('none');
         await app.noErrors();
     });
 });

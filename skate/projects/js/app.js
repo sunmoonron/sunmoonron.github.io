@@ -2049,7 +2049,8 @@ window.SkateApp = (() => {
         const label = /^my location$/i.test(w.label || '') ? 'near you' : (w.label || '');
         chip.textContent = `${w.emoji} ${w.temp}°`;
         chip.appendChild(el('span', { class: 'wx-spot' }, [` · ${label.length > 18 ? label.slice(0, 17) + '…' : label}`]));
-        chip.title = `${w.text} in ${w.label}: ${w.temp}°C, feels like ${w.feels}°C. Tap to pick another spot (Open-Meteo).`;
+        const old = Date.now() - w.at > 45 * 60000 ? ` As of ${SkateSettings.formatTime(w.at)}.` : '';      // v3.22: a kept reading says its time
+        chip.title = `${w.text} in ${w.label}: ${w.temp}°C, feels like ${w.feels}°C.${old} Tap to pick another spot (Open-Meteo).`;
     };
 
     /* ---------- Rinks and map: one view for the map, distances and your rinks ---------- */
@@ -4745,6 +4746,7 @@ window.SkateApp = (() => {
         SkateAlerts.onUpdate(() => { if (S.programs.length) { mergeLiveExtras(); Actions.applyFilters(true); } });
         SkateLive.onUpdate(() => { if (S.programs.length) Render.programs(); });
         SkateWeather.onUpdate(Render.weather);
+        Render.weather();                                   // v3.22: the reading kept from last time shows at once, whatever the request does
 
         // Map popups pull their content/actions from app-side data
         SkateMap.configure({

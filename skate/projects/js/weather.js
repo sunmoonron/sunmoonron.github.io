@@ -8,6 +8,13 @@
  *
  * Fetch discipline: 30-min TTL, in-flight dedupe, silent failure (the
  * chip simply doesn't render — weather is a bonus, never a blocker).
+ *
+ * v3.22, when a request fails (a 429 "too many requests" above all: Open-Meteo
+ * counts per IP address, and a campus or a phone carrier shares one):
+ *  - the last good reading is kept on the device and shown for up to 3 hours
+ *    (its time is in the chip's tooltip once it is more than 45 minutes old);
+ *  - the next try waits: what the server asks for (Retry-After), else 2, 5, 15,
+ *    then every 30 minutes. No more asking again every minute.
  */
 window.SkateWeather = (() => {
     'use strict';
@@ -32,6 +39,24 @@ window.SkateWeather = (() => {
     let lastOkAt = 0;
     let inFlight = null;
     const listeners = [];
+    const KEEP_KEY = 'skate_weather_v1';
+    const SHOW_FOR_MS = 3 * 3600000;                            // a reading older than this is not shown
+    const WAITS_MS = [2, 5, 15, 30].map(m => m * 60000);        // after a failure: 2, 5, 15, then every 30 minutes
+    let fails = 0, nextTryAt = 0;
+    const spotKey = (s) => `${s.lat.toFixed(3)},${s.lng.toFixed(3)}`;
+    const fresh = (c) => !!c && typeof c.temp === 'number' && typeof c.at === 'number' && Date.now() >= c.at && Date.now() - c.at < SHOW_FOR_MS;
+    function keep() { try { localStorage.setItem(KEEP_KEY, JSON.stringify({ spot: spotKey(spot()), current })); } catch { /* private mode: nothing kept */ } }
+    /** The last good reading for this same spot, if it is recent enough to show. */
+    function restore() {
+        try {
+            const k = JSON.parse(localStorage.getItem(KEEP_KEY) || 'null');
+            if (!k || k.spot !== spotKey(spot()) || !fresh(k.current)) return;
+            const d = describe(typeof k.current.code === 'number' ? k.current.code : -1);
+            current = { temp: Math.round(k.current.temp), feels: Math.round(typeof k.current.feels === 'number' ? k.current.feels : k.current.temp), code: k.current.code ?? null,
+                emoji: d.emoji, text: d.text, label: String(k.current.label || spot().label).slice(0, 60), at: k.current.at };
+            lastOkAt = current.at;                              // younger than 30 minutes: no request at all
+        } catch { /* unreadable: start without it */ }
+    }
 
     function onUpdate(cb) { listeners.push(cb); }
 
@@ -57,12 +82,16 @@ window.SkateWeather = (() => {
     function setSpot(id) {
         window.SkateSettings?.set('weatherSpot', id || 'auto');
         current = null;          // old reading is for another place
+        lastOkAt = 0;
+        restore();               // unless the kept one is for this very place
         return load(true);
     }
 
     function load(force = false) {
         if (inFlight) return inFlight;
         if (!force && Date.now() - lastOkAt < TTL_MS) return Promise.resolve();
+        // after a failure, wait (a tap on Refresh may try sooner, but not more than three times as fast)
+        if (Date.now() < nextTryAt && (!force || nextTryAt - Date.now() > WAITS_MS[0] * 0.66)) return Promise.resolve();
 
         const s = spot();
         const url = `${API}?latitude=${s.lat.toFixed(4)}&longitude=${s.lng.toFixed(4)}` +
@@ -70,7 +99,12 @@ window.SkateWeather = (() => {
         inFlight = (async () => {
             try {
                 const res = await fetch(url);
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                if (!res.ok) {
+                    const e = new Error(`HTTP ${res.status}`);
+                    const ask = Number(res.headers.get('Retry-After'));          // seconds, when the server names its own wait
+                    if (res.status === 429 && Number.isFinite(ask) && ask > 0) e.waitMs = Math.min(3600000, Math.max(60000, ask * 1000));
+                    throw e;
+                }
                 const data = await res.json();
                 const c = data.current || {};
                 if (typeof c.temperature_2m !== 'number') throw new Error('no temperature in response');
@@ -83,9 +117,15 @@ window.SkateWeather = (() => {
                     label: s.label, at: Date.now()
                 };
                 lastOkAt = Date.now();
+                fails = 0; nextTryAt = 0;
+                keep();
                 listeners.forEach(cb => { try { cb(current); } catch {} });
             } catch (e) {
-                console.warn('[SkateWeather] skipped:', e.message);
+                fails++;
+                const wait = e.waitMs || WAITS_MS[Math.min(fails, WAITS_MS.length) - 1];
+                nextTryAt = Date.now() + wait;
+                console.warn(`[SkateWeather] skipped: ${e.message}. Next try in ${Math.round(wait / 60000)} min${current ? '; showing the last reading meanwhile' : ''}.`);
+                if (current && !fresh(current)) { current = null; listeners.forEach(cb => { try { cb(null); } catch {} }); }   // too old to show
             } finally {
                 inFlight = null;
             }
@@ -93,7 +133,9 @@ window.SkateWeather = (() => {
         return inFlight;
     }
 
-    return { load, onUpdate, spots, setSpot, selectedId, get current() { return current; } };
+    restore();
+
+    return { load, onUpdate, spots, setSpot, selectedId, get current() { return fresh(current) ? current : null; }, get nextTryAt() { return nextTryAt; } };
 })();
 
 if (typeof module !== 'undefined') module.exports = window.SkateWeather;
