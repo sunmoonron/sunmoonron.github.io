@@ -2139,13 +2139,13 @@ body.dark-mode .jay-svg { --jay-back: #7b9be0; --jay-crown: #6f95e4; --jay-crown
 .jay-svg .jay-twig-shade { fill: none; stroke: var(--jay-twig-dark); stroke-width: 1.6; stroke-linecap: round; opacity: .6; }
 .jay-svg .jay-twig-bud { fill: var(--jay-twig); }
 .jay-svg .jay-head, .jay-svg .jay-eye, .jay-svg .jay-tail, .jay-svg .jay-wing, .jay-svg .jay-bird, .jay-svg .jay-crest, .jay-svg .jay-chest { transform-box: view-box; }
-.jay-svg .jay-head { transform-origin: 88px 58px; }
-.jay-svg .jay-eye { transform-origin: 97.6px 41.4px; }
-.jay-svg .jay-tail { transform-origin: 45px 90px; }
-.jay-svg .jay-wing { transform-origin: 86px 60px; }
-.jay-svg .jay-bird { transform-origin: 77px 111px; }
-.jay-svg .jay-crest { transform-origin: 85px 32px; }
-.jay-svg .jay-chest { transform-origin: 74px 80px; }
+.jay-svg .jay-head { transform-origin: 89px 58px; }           /* v3.24: the slimmer drawing's own pivots */
+.jay-svg .jay-eye { transform-origin: 97.2px 44.4px; }
+.jay-svg .jay-tail { transform-origin: 48px 89px; }
+.jay-svg .jay-wing { transform-origin: 87px 61px; }
+.jay-svg .jay-bird { transform-origin: 73px 107.6px; }
+.jay-svg .jay-crest { transform-origin: 90px 35.5px; }
+.jay-svg .jay-chest { transform-origin: 74px 82px; }
 /* v3.22, lifelike: bird.js sets these few numbers at irregular moments (a head snap, a blink, a tail flick, the
    crest lifting, a small step), and each is one short transition on a group. Nothing loops on a fixed beat
    except the breathing. (In the drawing's own units: 128 across, so 3 of them is about a screen pixel.) */
@@ -2357,3 +2357,9 @@ body.dark-mode .map-canvas.leaflet-container { background: #121a23; }
     .map-view:not(.wide) .map-radius { gap: 4px; }
     .map-view:not(.wide) .map-radius .fchip { min-width: 32px; padding: 0 8px; }
 }
+
+/* ===================== v3.24: the blue jay points something out ===================== */
+/* Its line sits beside it, above the control it stands on: the corner near its beak is the square one. */
+.jay-say.beside { border-radius: 14px 14px 14px 4px; }
+/* the control it points at: a soft ring in the "tap here" blue, no flashing */
+.jay-points input, input.jay-points { border-color: var(--acc-programs); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc-programs) 30%, transparent); transition: box-shadow .25s ease, border-color .25s ease; }

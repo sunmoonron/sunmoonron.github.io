@@ -17,7 +17,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=11">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=4">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=75">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=76">
 </head>
 <body>
     <div class="app" id="app">
@@ -68,9 +68,10 @@
                         <button id="btn-search-clear" class="search-clear hidden" aria-label="Clear search">✕</button>
                     </div>
                     <!-- v3.23: in the Map view the same place holds the rink search. Typing filters the list AND the map;
-                         the line under it offers the same text as "measure distances from here". -->
+                         the line under it offers the same text as "measure distances from here".
+                         v3.24: it says "your address" first: that this box is where a spot is set was easy to miss. -->
                     <div class="search-box rinks-search-box">
-                        <input type="text" id="rinks-search" placeholder="Rink, area or postal code" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Find a rink by name, area, address or postal code">
+                        <input type="text" id="rinks-search" placeholder="Your address, or a rink" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Type your address or postal code to see what is near you, or find a rink by name or area">
                         <button id="btn-rinks-search-clear" class="search-clear hidden" aria-label="Clear the search">✕</button>
                     </div>
                     <button id="btn-filters" class="tb-btn tb-filters" title="Type, age groups, day, cities, your rinks, order">Filters<span class="tb-count hidden" id="filters-count"></span></button>
@@ -517,7 +518,7 @@
          app.js loads it on demand (COMMUNITY_SCRIPTS) the first time a
          community section, invite link or the feedback sheet needs it, and
          the service worker keeps it cache-first from then on. -->
-    <script src="projects/js/config.js?v=80"></script>
+    <script src="projects/js/config.js?v=81"></script>
     <script src="projects/js/settings.js?v=9"></script>
     <script src="projects/js/favorites.js?v=1"></script>
     <script src="projects/js/api.js?v=22"></script>
@@ -531,8 +532,8 @@
     <script src="projects/js/calendar2.js?v=7"></script>
     <script src="projects/js/map.js?v=12"></script>
     <script src="projects/js/tour.js?v=6"></script>
-    <script src="projects/js/app.js?v=87"></script>
-    <script src="projects/js/bird.js?v=4"></script>
+    <script src="projects/js/app.js?v=88"></script>
+    <script src="projects/js/bird.js?v=5"></script>
     <script src="projects/js/refresh.js?v=5"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)

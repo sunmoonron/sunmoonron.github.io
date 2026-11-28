@@ -156,7 +156,7 @@ test.describe('lifelike', () => {
         const v = (name) => page.locator('#jay').evaluate((b, n) => b.style.getPropertyValue(n), name);
         await page.mouse.click(300, 560);
         expect(parseFloat(await v('--jay-head'))).toBeGreaterThan(4);                         // beak down toward the tap
-        expect(parseFloat(await v('--jay-crest'))).toBeLessThanOrEqual(-10);                  // crest up (its own small moves may nudge the exact angle a moment later)
+        expect(parseFloat(await v('--jay-crest'))).toBeGreaterThanOrEqual(10);                // crest UP: its tip is behind the pivot, so up is a positive turn (v3.24: it used to go down)
         await page.mouse.click(300, 2);                                                       // and up for something above it
         expect(parseFloat(await v('--jay-head'))).toBeLessThan(0);
         // left alone, the numbers keep changing: record every change for a few seconds

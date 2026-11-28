@@ -32,7 +32,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.23',
+    version: '3.24',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -46,6 +46,12 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.24', date: '2026-11-27', items: [
+                'The blue jay is slimmer, and its crest lies back in one piece instead of standing up in two spikes. The crest now lifts when something catches its eye.',
+                'On the map, the box at the top now says it takes your address. The first time you put the "where from?" question away, the blue jay flies to that box and says so, once.'
+            ]
+        },
         {
             v: '3.23', date: '2026-11-27', items: [
                 'The map is a view now: List, Calendar and Map are one switch, and the separate "Rinks & map" button is gone. The map uses the same search row, pills and filters as the list. Each rink counts the sessions that match what you have chosen, and a rink with none for that day or kind is a hollow dot.',

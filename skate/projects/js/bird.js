@@ -21,63 +21,67 @@
  *    white wing bar and tail corners, the black necklace round a white throat, a stout black bill),
  *    and lifelike between acts: see "lifelike" below.
  *
+ *  - v3.24: slimmer (it had come out a ball) and its crest lies back in one piece (it was two spikes:
+ *    "punk hair"). The crest now rises when something catches its eye; the sign was the wrong way
+ *    round. And it can point something out when the app asks: see point().
+ *
  * Nothing here reads or stores anything about the visitor.
  */
 window.SkateBird = (() => {
     const SVG = `
 <svg class="jay-svg" viewBox="0 0 128 128" aria-hidden="true" focusable="false">
   <g class="jay-twig">
-    <path class="jay-twig-main" d="M24 112.6C46 108.4 78 109 109 113.8"/>
-    <path class="jay-twig-side" d="M89 110.8c4.6-3.4 8.400-7 12.200-11.400"/>
-    <path class="jay-twig-shade" d="M27 114.4C48 110.700 78 111.200 106 115.400"/>
-    <circle class="jay-twig-bud" cx="101.600" cy="98.800" r="1.9"/>
+    <path class="jay-twig-main" d="M24 109.2C46 105 78 105.6 109 110.4"/>
+    <path class="jay-twig-side" d="M89 107.4c4.6-3.4 8.4-7 12.2-11.4"/>
+    <path class="jay-twig-shade" d="M27 111C48 107.3 78 107.8 106 112"/>
+    <circle class="jay-twig-bud" cx="101.6" cy="95.4" r="1.9"/>
   </g>
   <g class="jay-bird">
     <g class="jay-tail">
-      <path class="jay-tail-deep" d="M46.1 85.4L19.4 113.3Q16.6 115.5 14.7 113.6Q12.7 111.8 14.8 108.9L41.4 80.9Z"/>
-      <path class="jay-white" d="M22.2 110.4L19.4 113.3Q16.6 115.5 14.7 113.6Q12.7 111.8 14.8 108.9L17.5 106Z"/>
-      <path class="jay-bars" d="M38.7 92.2L34.4 89.3M35 96.1L30.6 93.2M31.2 100L26.9 97.1M27.5 103.9L23.2 101M23.8 107.8L19.5 104.9"/>
-      <path class="jay-tail-deep" d="M52.4 91.4L23.9 121.3Q21.3 123.4 19.4 121.6Q17.6 119.9 19.6 117.2L48.1 87.3Z"/>
-      <path class="jay-white" d="M26.1 119L23.9 121.3Q21.3 123.4 19.4 121.6Q17.6 119.9 19.6 117.2L21.8 114.9Z"/>
-      <path class="jay-bars" d="M45.1 98.3L41 95.6M41.4 102.2L37.3 99.5M37.6 106.1L33.5 103.4M33.9 110L29.8 107.3M30.2 113.9L26.1 111.2"/>
-      <path class="jay-tail-top" d="M49.5 88.7L18.7 121Q15.5 123.4 13.4 121.4Q11.2 119.3 13.5 116L44.3 83.7Z"/>
-      <path class="jay-bars" d="M42.1 95.4L37.3 92.1M38.4 99.3L33.6 96M34.6 103.2L29.9 99.9M30.9 107.1L26.1 103.8M27.2 111L22.4 107.7M23.5 114.9L18.7 111.6M19.7 118.9L14.9 115.5"/>
+      <path class="jay-tail-deep" d="M49.3 85.6L22.8 113.3Q20.4 115.2 18.7 113.6Q17 112 18.8 109.4L45.2 81.7Z"/>
+      <path class="jay-white" d="M25.5 110.5L22.8 113.3Q20.4 115.2 18.7 113.6Q17 112 18.8 109.4L21.5 106.6Z"/>
+      <path class="jay-bars" d="M42 92.4L38.1 90M38.4 96.2L34.5 93.7M34.8 99.9L30.9 97.5M31.2 103.7L27.3 101.3M27.6 107.5L23.7 105"/>
+      <path class="jay-tail-deep" d="M54.6 90.7L26.3 120.4Q24 122.2 22.4 120.7Q20.9 119.2 22.5 116.8L50.9 87.1Z"/>
+      <path class="jay-white" d="M28.5 118.1L26.3 120.4Q24 122.2 22.4 120.7Q20.9 119.2 22.5 116.8L24.7 114.5Z"/>
+      <path class="jay-bars" d="M47.4 97.6L43.7 95.3M43.8 101.3L40.1 99.1M40.2 105.1L36.5 102.9M36.6 108.8L33 106.6M33 112.6L29.4 110.4"/>
+      <path class="jay-tail-top" d="M52.2 88.4L21.6 120.5Q18.8 122.7 16.9 120.9Q14.9 119 17 116.1L47.6 84Z"/>
+      <path class="jay-bars" d="M44.9 95.2L40.6 92.3M41.3 99L37 96.1M37.7 102.7L33.4 99.8M34.1 106.5L29.8 103.6M30.5 110.2L26.2 107.4M26.9 114L22.6 111.1M23.3 117.8L19 114.9"/>
     </g>
     <g class="jay-legs">
-      <path class="jay-leg" d="M72 100.500 71.200 110.600M82.600 99.400l1 11"/>
-      <path class="jay-toe" d="M67.400 112.300c1.700-2.600 5.900-2.800 7.800-.2M79.600 112.100c1.800-2.600 6-2.600 7.900.1"/>
+      <path class="jay-leg" d="M68.4 96 67.4 107M78.2 94.5l.6 12.5"/>
+      <path class="jay-toe" d="M63.6 108.8c1.7-2.6 5.9-2.8 7.8-.2M74.8 108.7c1.8-2.6 6-2.6 7.9.1"/>
     </g>
-    <path class="jay-back" d="M80 52C66 51 48 60 41 77c-2.500 7-.5 15 6 20 8 6 23 7.500 35 2.500C95 94 103.500 80 103 65c-.2-6-3-10.500-7-13z"/>
+    <path class="jay-back" d="M80 54C70 55 57 66 49 82c-2 5-1 10 4 13 9 5 24 4 33-3 8-6 14-17 13-28-.5-5-3.5-9-8-11z"/>
     <g class="jay-chest">
-      <path class="jay-pale jay-edge" d="M103 65c.5 15-8 29-21 34.500-12 5-27 3.500-35-2.500-1.600-1.400-3-3-4-4.800C54 96 69 93.500 80 84c8-7 12.500-16 13.500-25.500 3-2 7 .500 9.500 6.500z"/>
-      <path class="jay-flank" d="M43 92.200C54 96 69 93.500 80 84c-4 8-14 14-25 15.500-4.500-.9-8.600-3.300-12-7.300z"/>
-      <path class="jay-wash" d="M93.500 58.500c3-2 7 .5 9.500 6.500.2 6-1 12-3.400 17.400-3.400-6.200-5.800-14.600-6.100-23.900z"/>
+      <path class="jay-pale jay-edge" d="M99 64c1 11-5 22-13 28-9 7-24 8-33 3-1.8-1.2-3.2-2.7-4.2-4.4C58 92 71 88 79 80c7-6.5 11-14.5 11.5-23 3-1.5 7 1 8.5 7z"/>
+      <path class="jay-flank" d="M48.8 90.6C58 92 71 88 79 80c-3.5 7.5-12.5 13.5-23 15.6-3-1-5.4-2.7-7.2-5z"/>
+      <path class="jay-wash" d="M90.5 57c3-1.5 7 1 8.5 7 .3 5.5-.8 11-2.8 16-3-6-5.3-14-5.7-23z"/>
     </g>
-    <path class="jay-back-shine" d="M76 54.500c-10 1-20.500 7-27 16.500"/>
+    <path class="jay-back-shine" d="M77 56.5c-9 2.5-17.5 9.5-23.5 19"/>
     <g class="jay-wing">
-      <path class="jay-wing-main" d="M88 59c-8-5.500-24-3.500-35 7-7 7-11.500 17-12.500 27 9.500 1.500 22.500-3 32.500-11.500 8-7 14.500-14.500 17-19.500 0-1.400-.8-2.500-2-3z"/>
-      <path class="jay-wing-tip" d="M40.500 93c1-7 3.500-13.500 7.500-19 1.500 6 1 13-1.200 19.400-2.200.2-4.300 0-6.300-.4z"/>
-      <path class="jay-bars" d="M72.7 69.4Q74 74.3 77.8 79.3M68.9 71.9Q70.1 76.5 73.7 81.2M65.1 74.3Q66.2 78.7 69.6 83.1M61.3 76.8Q62.3 80.9 65.5 85.1M57.5 79.3Q58.4 83.1 61.4 87M53.8 81.7Q54.4 85.3 57.3 88.9M50 84.2Q50.5 87.6 53.2 90.8"/>
-      <path class="jay-scap" d="M88 59c-8-5.500-19.500-4.400-29 1.500 5.500 4 14 6.100 23 4.500 3.600-1 6.400-3.200 6-6z"/>
-      <path class="jay-bars jay-bars-fine" d="M64 62.6l-1.4 6M69.2 62.6l-1.4 6M74.4 62.7l-1.4 6M79.6 62.8l-1.4 6"/>
-      <path class="jay-bar-white" d="M58.800 71.600c8.400-.4 17-1.800 24.400-4.400"/>
-      <path class="jay-tips-white" d="M49.800 91.600l4-1.400M57.400 88.900l3.800-1.800M64.600 85.300l3.500-2.200"/>
-      <path class="jay-wing-shine" d="M86 60.800c-7-3.600-17-3-25 1.600"/>
+      <path class="jay-wing-main" d="M87 61c-7-4-19-2-27 6-6 6-10 14.5-11.5 23 8.5.5 19.5-4 27.5-11 6-5.5 11-11 13-15.5 0-1.2-.8-2.1-2-2.5z"/>
+      <path class="jay-wing-tip" d="M48.5 90c.8-6.5 3-12.5 6.5-17.5 1.6 5.5 1.4 12-.6 17.9-2 .2-4 0-5.9-.4z"/>
+      <path class="jay-bars" d="M74.5 69Q75.7 72.9 79 76.8M71.1 71.5Q72.1 75.2 75.3 78.8M67.7 74Q68.6 77.4 71.5 80.8M64.3 76.4Q65.1 79.7 67.8 82.7M60.9 78.9Q61.5 81.9 64.1 84.7M57.5 81.4Q58 84.2 60.4 86.6"/>
+      <path class="jay-scap" d="M87 61c-7-4-17.5-2.7-25 3.5 5 3.1 12.5 4.3 19.5 2.5 3.1-1 5.5-3 5.5-6z"/>
+      <path class="jay-bars jay-bars-fine" d="M66.6 64.9l-1.2 5M71.2 64.6l-1.2 5M75.8 64.3l-1.2 5M80.4 64l-1.2 5"/>
+      <path class="jay-bar-white" d="M62.4 73.3c7.2-.6 14.2-2.2 20.2-4.8"/>
+      <path class="jay-tips-white" d="M54.6 88.6l3.6-1M61.4 86.5l3.4-1.6M67.8 83.3l3-2"/>
+      <path class="jay-wing-shine" d="M85.4 62.6c-6-3-14.6-2.4-21.6 1.8"/>
     </g>
     <g class="jay-head">
-      <path class="jay-white jay-edge" d="M77 46c-.5-11 7-18.500 16.500-18.500 9 0 15.500 6.500 15.500 15.500 0 9.500-6.500 16.500-15.500 17-8.500.3-16-5.500-16.500-14z"/>
-      <path class="jay-collar" d="M77.200 43.500c-1.600 10 3.600 19.300 13.800 22.500 6.400 2 12.600 0 15.600-4.600-3.600 1.800-8.600 2.200-13.600.6-8.400-2.700-12.400-9.400-12-16.600-1.100-1.200-2.400-1.900-3.800-1.900z"/>
-      <path class="jay-crown" d="M108.600 39c-2.100-7.500-8.100-12-15.600-12-4.500 0-8.500 1.600-11.500 4.400-2.500 2.600-4.100 6.200-4.500 10.200 0 2 .3 3.800.8 5.400C84 40.500 96 37 108.600 39z"/>
+      <path class="jay-white jay-edge" d="M79.6 46a13.4 13.4 0 1 1 26.8 0a13.4 13.4 0 1 1 -26.8 0Z"/>
+      <path class="jay-collar" d="M78.3 42.1A14.9 14.9 0 0 0 103.2 57.1L103.1 54.9A13.3 13.3 0 0 1 80.9 41.6Z"/>
+      <path class="jay-crown" d="M106.2 43.4C104.8 36.6 99.6 32.6 93 32.6c-7.4 0-13.4 5.8-13.4 13.2C83.6 42.4 94.6 39.6 106.2 43.4z"/>
       <g class="jay-crest">
-        <path class="jay-crown-top" d="M99 28.200C90 22.500 77 15.800 62 13.500c4.500 3.300 8 6.900 10.400 10.900-3.600-.8-7.600-.6-11.900.8 6 3.200 11 8.200 15.100 15.200 3.600-6.200 11.900-10.800 23.400-12.200z"/>
-        <path class="jay-crest-line" d="M69 17.600c7 3 14 6.800 20 11M67.600 26.600c4 2.200 7.600 5.200 10.400 8.800"/>
+        <path class="jay-crown-top" d="M101.5 35.2C94 30 85 27.3 76 27.2c-1.7 0-2.2 1.1-1.3 2.2 2.8 2.9 4.9 6.4 6 10.3C84.2 37 92 35.2 101.5 35.2z"/>
+        <path class="jay-crest-line" d="M79.4 29.4c5.6.5 11 2.1 15.8 4.7M81.6 33.6c2.8.5 5.4 1.4 7.8 2.7"/>
       </g>
-      <path class="jay-eyeline" d="M106.800 43.600c-3.200-1.400-6.200-2-8.800-1.800M95 42.400c-4.500.6-9.500 2-13.600 3.800"/>
-      <g class="jay-eye"><circle class="jay-ink" cx="97.600" cy="41.400" r="3"/><circle class="jay-glint" cx="98.600" cy="40.300" r=".9"/></g>
-      <path class="jay-bill" d="M107.600 39.600c4.900.2 10.800 2.800 15 6.600-4.800.2-10 .3-15 0-.5-2.200-.5-4.400 0-6.600z"/>
-      <path class="jay-bill-low" d="M107.600 46.200c5 .3 10.200.2 15 0-4 3-9.400 4.200-14.200 3.400-.5-1.100-.8-2.200-.8-3.400z"/>
-      <path class="jay-bill-shine" d="M109.600 40.600c4.400.8 8.400 2.800 11.200 4.800"/>
-      <path class="jay-tuft" d="M106 38.400c2-.8 4.400-.2 5.600 1.400-1.800.2-3.600.4-5.200 1z"/>
+      <path class="jay-eyeline" d="M105.4 45.6c-2.2-.8-4-1.1-5.4-1M94.4 45c-4.4.5-9 1.8-12.8 3.6"/>
+      <g class="jay-eye"><circle class="jay-ink" cx="97.2" cy="44.4" r="2.7"/><circle class="jay-glint" cx="98.1" cy="43.4" r=".8"/></g>
+      <path class="jay-bill" d="M105.4 42.4c4.8.4 10.2 2.2 14 4.9-4.6.3-9.4.4-14.2.2-.5-1.7-.4-3.5.2-5.1z"/>
+      <path class="jay-bill-low" d="M105.2 47.5c4.8.2 9.6.1 14.2-.2-3.7 2.4-8.3 3.3-13.2 2.7-.6-.8-.9-1.6-1-2.5z"/>
+      <path class="jay-bill-shine" d="M107 43.5c3.9.7 7.3 2 10.1 3.4"/>
+      <path class="jay-tuft" d="M104.2 41.6c1.8-.6 3.8 0 4.8 1.3-1.6.2-3 .5-4.4 1z"/>
     </g>
   </g>
 </svg>`;
@@ -89,7 +93,7 @@ window.SkateBird = (() => {
         'Outdoor rinks close in warm or wet weather. Check before you go.',
         'No skates? Look for the free skates tag on a session.',
         'The All and Free switch hides everything that costs money.',
-        'The Map view shows what is close to you.',
+        'On the map, type your address in the box at the top to see what is close to you.',
         'Bend your knees a little. It is easier to balance.',
         'Dull skates slip. Most arenas sharpen them in a few minutes.',
         'A helmet is a good idea for everyone, and a rule for small kids at many rinks.'
@@ -126,7 +130,7 @@ window.SkateBird = (() => {
 
     function say(text) {
         if (!bubble || !btn) return;
-        clearTimeout(hideTimer);
+        hush();
         bubble.textContent = text;
         const r = btn.getBoundingClientRect();
         bubble.style.top = `${Math.round(r.bottom + 8)}px`;
@@ -134,7 +138,12 @@ window.SkateBird = (() => {
         bubble.classList.remove('hidden');
         hideTimer = setTimeout(hush, Math.min(12000, 4000 + text.length * 55));
     }
-    function hush() { clearTimeout(hideTimer); if (bubble) bubble.classList.add('hidden'); }
+    let pointing = null;     // v3.24: what it is pointing out right now ({ end() }), if anything
+    function hush() {
+        clearTimeout(hideTimer);
+        if (bubble) { bubble.classList.add('hidden'); bubble.classList.remove('beside'); bubble.style.maxWidth = ''; }
+        if (pointing) { const p = pointing; pointing = null; p.end(); }      // the line is gone: it stops pointing and goes home
+    }
 
     function once(el, cls, ms) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); setTimeout(() => el.classList.remove(cls), ms); }
 
@@ -366,7 +375,7 @@ window.SkateBird = (() => {
             if (now > life.lookUntil && r < 0.40) headTo(any([-15, -10, -6, -3, 0, 0, 3, 7, 11]) + rnd(-1.5, 1.5));    // a snap to a new angle, then it holds
             else if (r < 0.58) blink(Math.random() < 0.22 ? 2 : 1);
             else if (r < 0.70) flick();
-            else if (r < 0.78) crestTo(alert ? -15 : any([0, 0, -7, 5]));
+            else if (r < 0.78) crestTo(alert ? 20 : any([0, 0, 8, -5]));        // up when alert; otherwise it lifts or settles a little
             else if (r < 0.84 && atHome && !busy) shuffle();
             else if (r < 0.88) puff();
         }
@@ -379,7 +388,7 @@ window.SkateBird = (() => {
         const ang = Math.atan2(y - (r.top + r.height * 0.33), Math.max(24, x - (r.left + r.width * 0.75))) * 57.3;   // 0 = straight ahead, + = down
         headTo(ang * 0.55);
         life.lookUntil = Date.now() + (keen ? 1900 : 1100);
-        if (keen) { crestTo(-14); life.alertUntil = Date.now() + 3200; setTimeout(() => { if (Date.now() >= life.alertUntil - 60) crestTo(0); }, 3300); }
+        if (keen) { crestTo(22); life.alertUntil = Date.now() + 3200; setTimeout(() => { if (Date.now() >= life.alertUntil - 60) crestTo(0); }, 3300); }
     }
     function senses() {
         document.addEventListener('pointerdown', (e) => { if (!e.target.closest || !e.target.closest('#jay')) attend(e.clientX, e.clientY, true); }, { capture: true, passive: true });
@@ -414,6 +423,59 @@ window.SkateBird = (() => {
         homeTimer = setTimeout(() => { touchDown(); schedule(false); }, 920);
     }
 
+    /* ---- pointing something out (v3.24) ----
+     * Asked by the app, once, for a control that is easy to miss. It flies to the top edge of that
+     * control and says one line beside itself, above the control (never over it); the control gets a
+     * soft ring. At the first tap or key, or after a few seconds, the line goes and it flies home.
+     * With "Sit still" or reduce motion it stays on its perch and only the line and the ring show.
+     * → true when it did.
+     */
+    function point(el, text, opts = {}) {
+        if (!btn || !bubble || !el || !el.isConnected || !text) return false;
+        if ((window.SkateTour && SkateTour.running) || (window.SkateUI && SkateUI.Modal && SkateUI.Modal.any && SkateUI.Modal.any())) return false;
+        const r = el.getBoundingClientRect();
+        if (!r.width || !r.height) return false;
+        hush();
+        stopAct();
+        clearTimeout(actTimer);
+        clearTimeout(homeTimer);
+        awakeUntil = Date.now() + 90000; mood();                                        // asked for at night: it wakes for this
+        const moves = !reduce() && !still();
+        const perch = { x: Math.max(4, Math.min(innerWidth - SIZE - 4, r.left + 2)), y: Math.max(2, r.top - SIZE + 8) };
+        if (moves) {
+            const f = ensureFlyer();
+            if (atHome) { takeOff(); void f.offsetWidth; }
+            f.classList.remove('no-move', 'arc', 'guide');
+            f.classList.add('on-card');
+            place(perch.x, perch.y, true);
+        }
+        el.classList.add('jay-points');
+        const show = () => {
+            bubble.textContent = text;
+            bubble.classList.add('beside');
+            const left = Math.round(perch.x + SIZE + 2);
+            bubble.style.maxWidth = `${Math.max(150, Math.min(300, innerWidth - left - 8))}px`;
+            bubble.style.left = `${left}px`;
+            bubble.classList.remove('hidden');
+            bubble.style.top = `${Math.max(4, Math.round(r.top - 6 - bubble.offsetHeight))}px`;   // above the control, its lower corner at the beak
+        };
+        const showTimer = setTimeout(show, moves ? 860 : 0);                             // it lands, then it speaks
+        const endTimer = setTimeout(hush, (opts.ms || 9000) + (moves ? 860 : 0));
+        const onInput = () => hush();
+        document.addEventListener('pointerdown', onInput, { capture: true, passive: true });
+        document.addEventListener('keydown', onInput, { capture: true });
+        pointing = {
+            end() {
+                clearTimeout(showTimer); clearTimeout(endTimer);
+                document.removeEventListener('pointerdown', onInput, { capture: true });
+                document.removeEventListener('keydown', onInput, { capture: true });
+                el.classList.remove('jay-points');
+                if (!atHome && flyer && !busy) home();
+            }
+        };
+        return true;
+    }
+
     function init() {
         btn = document.getElementById('jay');
         if (!btn || btn.dataset.ready) return;
@@ -444,7 +506,8 @@ window.SkateBird = (() => {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 
     return {
-        guide, home, say, weatherLine, act, cheer, mood, SVG,
+        guide, home, say, point, hush, weatherLine, act, cheer, mood, SVG,
+        get pointing() { return !!pointing; },
         look: attend, get head() { return life.head; },
         get atHome() { return atHome; }, get still() { return still(); },
         set tempo(v) { tempo = Number(v) > 0 ? Number(v) : 1; }          // tests run the acts faster

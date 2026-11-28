@@ -3379,6 +3379,7 @@ window.SkateApp = (() => {
         panel.classList.toggle('map-on', on);
         $('map-view').classList.toggle('hidden', !on);
         if (on) { panel.scrollTop = 0; askShown = null; Sheet.fit('peek'); }
+        else { clearTimeout(spotTipTimer); if (window.SkateBird && SkateBird.pointing) SkateBird.hush(); }
         if (render) Render.programs();
         if (!on) panel.scrollTop = keepScroll && render ? listScrollKept : 0;
     }
@@ -3399,6 +3400,7 @@ window.SkateApp = (() => {
         try {
             await SkateMap.open(opts);   // lazy-loads Leaflet into the view
             if (S.rinksAsk && !SkateGeo.getUserLocation() && !(window.matchMedia && matchMedia('(pointer: coarse)').matches)) $('map-ask-input').focus();   // a phone's keyboard opens on the reader's own tap
+            spotTip(1300);               // v3.24: for whoever put the question away before the blue jay knew to help
         } catch (e) {
             const canvas = $('map-canvas');
             if (canvas && !canvas.querySelector('.leaflet-pane')) canvas.innerHTML = '<div class="loading">The map could not load.</div>';
@@ -3484,7 +3486,24 @@ window.SkateApp = (() => {
         SkateSettings.set('mapAsked', true);
         S.rinksAsk = ''; S.radiusWanted = null;
         Render.rinks();
+        spotTip(450);
     };
+    /**
+     * v3.24: with the question put away, nothing said that the box at the top is where an address goes.
+     * The blue jay says it, once: it lands on the box and holds up one line. Not while the question is
+     * up, not once a spot is set, not if the reader is already typing there.
+     */
+    let spotTipTimer = 0;
+    function spotTip(delay) {
+        clearTimeout(spotTipTimer);
+        if (SkateSettings.get('mapTipDone') || !window.SkateBird || typeof SkateBird.point !== 'function') return;
+        spotTipTimer = setTimeout(() => {
+            const box = document.querySelector('.search-row .rinks-search-box');
+            if (!S.mapMode || !box || SkateGeo.getUserLocation() || askState() || SkateSettings.get('mapTipDone')) return;
+            if (document.activeElement === $('rinks-search') || $('rinks-search').value) return;
+            if (SkateBird.point(box, 'Type your address or postal code here to see what is near you.')) SkateSettings.set('mapTipDone', true);
+        }, delay);
+    }
 
     /** Forget the saved location: distances, Nearest order and the weather spot fall back. */
     Actions.clearLocation = function () {

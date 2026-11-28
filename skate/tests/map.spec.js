@@ -282,3 +282,87 @@ test.describe('the rink list over the map', () => {
         await app.noErrors();
     });
 });
+
+// v3.24: with the question put away, nothing said that the box at the top takes an address. The blue jay says it, once.
+test.describe('the blue jay points at the address box', () => {
+    const TIP = 'Type your address or postal code here to see what is near you.';
+    const say = (page) => page.locator('.jay-say');
+
+    test.describe('on the first look', () => {
+        test.use({ settings: { mapAsked: false, mapTipDone: false } });
+
+        test('"Not now": it lands on the box and says where an address goes, above the box; a tap sends it home; never again', async ({ page, app }) => {
+            await openMap(page, app);
+            await expect(page.locator('#rinks-search')).toHaveAttribute('placeholder', 'Your address, or a rink');
+            await page.waitForTimeout(1800);
+            await expect(say(page)).toBeHidden();                                     // not while the question is up
+            await page.click('#btn-ask-skip');
+            await expect(say(page)).toBeVisible();
+            await expect(say(page)).toHaveText(TIP);
+            const box = await page.locator('.search-row .rinks-search-box').boundingBox();
+            const line = await say(page).boundingBox();
+            expect(line.y + line.height).toBeLessThanOrEqual(box.y);                  // above the box, never over it
+            expect(line.x + line.width).toBeLessThanOrEqual(page.viewportSize().width);
+            const onTop = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.id, [box.x + box.width / 2, box.y + box.height / 2]);
+            expect(onTop).toBe('rinks-search');
+            await expect(page.locator('.search-row .rinks-search-box')).toHaveClass(/jay-points/);
+            // the bird itself stands on the box's top edge, at its left end, and its perch by the title is empty
+            const bird = await page.locator('.jay-flyer').boundingBox();
+            expect(Math.abs(bird.x - box.x)).toBeLessThan(12);
+            expect(bird.y + bird.height).toBeGreaterThan(box.y);
+            expect(bird.y + bird.height).toBeLessThan(box.y + 14);
+            await expect(page.locator('#jay')).toHaveClass(/away/);
+            expect(await page.evaluate(() => SkateSettings.get('mapTipDone'))).toBe(true);
+
+            await page.click('#rinks-search');                                        // a tap: the line goes, the bird flies home
+            await expect(say(page)).toBeHidden();
+            await expect(page.locator('.search-row .rinks-search-box')).not.toHaveClass(/jay-points/);
+            await expect(page.locator('#jay')).not.toHaveClass(/away/);
+            await expect(page.locator('#rinks-search')).toBeFocused();
+
+            await page.click('#btn-list');                                            // once only
+            await page.click('#btn-rinks');
+            await page.waitForTimeout(1900);
+            await expect(say(page)).toBeHidden();
+            await app.noErrors();
+        });
+
+        test('once a spot is set there is nothing to point out', async ({ page, app }) => {
+            await openMap(page, app);
+            await page.fill('#map-ask-input', 'M1J 3K4');
+            await page.locator('#map-ask-input').press('Enter');
+            await expect(page.locator('#locator-status')).toContainText('M1J');
+            await page.waitForTimeout(1900);
+            await expect(say(page)).toBeHidden();
+            expect(await page.evaluate(() => SkateSettings.get('mapTipDone'))).toBeFalsy();
+            await app.noErrors();
+        });
+    });
+
+    test.describe('for someone who put the question away before', () => {
+        test.use({ settings: { mapAsked: true, mapTipDone: false } });
+
+        test('the next time the map opens it says it; with reduce motion only the line and the ring show', async ({ page, app }) => {
+            await page.emulateMedia({ reducedMotion: 'reduce' });
+            await openMap(page, app);
+            await expect(say(page)).toBeVisible();
+            await expect(say(page)).toHaveText(TIP);
+            await expect(page.locator('#jay')).not.toHaveClass(/away/);               // it stays on its perch
+            await expect(page.locator('.search-row .rinks-search-box')).toHaveClass(/jay-points/);
+            const box = await page.locator('.search-row .rinks-search-box').boundingBox(), line = await say(page).boundingBox();
+            expect(line.y + line.height).toBeLessThanOrEqual(box.y);
+            await page.keyboard.press('Tab');                                         // a key ends it too
+            await expect(say(page)).toBeHidden();
+            await app.noErrors();
+        });
+
+        test('leaving the map takes the line with it', async ({ page, app }) => {
+            await openMap(page, app);
+            await expect(say(page)).toBeVisible();
+            await page.evaluate(() => SkateApp.Actions.closeRinks());
+            await expect(say(page)).toBeHidden();
+            await expect(page.locator('#jay')).not.toHaveClass(/away/);
+            await app.noErrors();
+        });
+    });
+});
