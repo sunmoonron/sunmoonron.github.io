@@ -64,7 +64,7 @@ test.describe('places', () => {
         await page.click('#btn-lending');
         await expect(page.locator('#lending-body .lend-shut')).toHaveText('The rink: not open yet.');
         await page.click('#btn-lending-close');
-        await page.click('#btn-rinks-close');
+        await page.click('#btn-list');
 
         // the day it opens, the line is back by itself
         app.data['rinks.json'].rinks.find(r => r.locationid === 'ext-harbourfront').seasonal = { state: 'ok' };
@@ -96,7 +96,7 @@ test.describe('places', () => {
         await expect(gb.locator('.alert-banner.note')).toContainText('georgebellarena.com says the arena reopened on Sat, Oct 10 and lists this skate.');
         await page.click('#btn-rinks');
         await expect(rinkRow(page, 'George Bell Arena')).not.toHaveClass(/has-alert/);
-        await page.click('#btn-rinks-close');
+        await page.click('#btn-list');
 
         // the same notice without the mark is still shown: a year old with no end named, it is "Call to confirm" (v3.18), not a cancellation
         app.data['alerts.json'].alerts = app.data['alerts.json'].alerts.filter(a => a.LocationID !== 3488).concat([notice]);
@@ -114,7 +114,7 @@ test.describe('places', () => {
         await expect(page.locator('#natural-modal')).toBeVisible();
         await expect(page.locator('#natural-body')).toContainText('could not be loaded');          // no file in this world yet
         await page.click('#btn-natural-close');
-        await page.click('#btn-rinks-close');
+        await page.click('#btn-list');
 
         app.data['natural-ice.json'] = { generatedAt: app.NOW_ISO, checkedAt: app.NOW_ISO, url: 'https://www.toronto.ca/x/natural-ice-rinks/', season: '2025/2026', current: false,
             next: 'Approved rinks for 2026/27 will be available in late November/early December.',

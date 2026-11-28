@@ -1,7 +1,8 @@
 // The LIVE site with the LIVE data, headless (not part of the test suite; run by hand after a deploy):
 //   node skate/tests/tools/live-smoke.js            (from the repo root)
 // Checks: no page errors, the Filters numbers add up to the list, the Data status rows, searches,
-// the day bar and date picker, indoor-before-outdoor order, prices without "?", the map's pins.
+// the day bar and date picker, indoor-before-outdoor order, prices without "?", the Map view (pins, the count beside
+// them, rows in the list, the first look's question).
 const { chromium, devices } = require('@playwright/test');
 const URL = process.env.SITE || 'https://sunmoonron.github.io/skate/';
 const problems = [];
@@ -51,6 +52,13 @@ async function run(device, settings, label) {
     await p.click('#btn-rinks');
     await p.waitForSelector('.leaflet-marker-icon', { timeout: 30000 }).catch(() => problems.push(`${label}: map pins never appeared`));
     const pins = await p.locator('.leaflet-marker-pane .leaflet-marker-icon').count();
+    const mapView = await p.evaluate(() => ({
+        shown: !document.getElementById('map-view').classList.contains('hidden'),
+        count: +((document.getElementById('rinks-count') || {}).dataset || {}).n || 0,
+        rows: document.querySelectorAll('#rinks-list .rink-row').length,
+        ask: !document.getElementById('map-ask').classList.contains('hidden'),
+        kinds: ['indoor', 'outdoor'].map(k => document.querySelectorAll(`.rink-pin.${k}`).length)
+    })).catch(e => ({ error: String(e) }));
     await b.close();
     const sumOn = (s) => s.cats.filter(c => c.on).reduce((a, c) => a + c.n, 0);
     const sumCities = (s) => (s.cities.some(c => c.on) ? s.cities.filter(c => c.on) : s.cities).reduce((a, c) => a + c.n, 0);
@@ -65,6 +73,7 @@ async function run(device, settings, label) {
     check(out.picker.days > 0 && out.picker.overflow <= 0, `${label}: date picker ${JSON.stringify(out.picker)}`);
     check(out.order.indoorFirst, `${label}: ${out.order.day} is not indoor first, then outdoor`);
     check(pins > 150, `${label}: only ${pins} pins on the map`);
+    check(mapView.shown && mapView.count === pins && mapView.rows > 0 && mapView.ask && mapView.kinds.every(n => n > 20), `${label}: the Map view ${JSON.stringify(mapView)} (pins ${pins})`);
     Object.keys(out).filter(k => k.startsWith('cal_')).forEach(k => problems.push(`${label}: ${k} ${out[k]}`));
     errs.forEach(e => problems.push(`${label}: ${e}`));
     console.log(label, `v${out.v}`, JSON.stringify({ base: out.base.list, all: out.all.list, free: out.free.list, outdoor: out.outdoor.list, firstDay: out.order, search: out.search, pins }), '| bar:', out.bar);

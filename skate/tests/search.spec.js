@@ -89,20 +89,18 @@ test.describe('rinks search: the best match first', () => {
 });
 
 test.describe('rinks search: typing is cheap', () => {
-    test('rows, pins and the city picker are kept between letters, not rebuilt', async ({ page, app }) => {
+    test('rows and pins are kept between letters, not rebuilt', async ({ page, app }) => {
         await openRinks(page, app);
         await expect(rows(page)).toHaveCount(7);
         await expect(pins(page)).toHaveCount(7);
         await page.evaluate(() => {
             document.querySelectorAll('#rinks-list .rink-row').forEach(r => { r.dataset.kept = '1'; });
             document.querySelectorAll('.leaflet-marker-pane .leaflet-marker-icon').forEach(m => { m.dataset.kept = '1'; });
-            document.getElementById('rinks-city').dataset.kept = '1';
         });
         const search = page.locator('#rinks-search');
         await search.pressSequentially('a', { delay: 15 });                // every rink here has an "a": the list does not change
         await page.waitForTimeout(450);                                    // past the map's pause
         await expect(page.locator('#rinks-list .rink-row[data-kept="1"]')).toHaveCount(7);
-        await expect(page.locator('#rinks-city[data-kept="1"]')).toHaveCount(1);
         await expect(page.locator('.leaflet-marker-pane .leaflet-marker-icon[data-kept="1"]:not(.you-pin-wrap)')).toHaveCount(7);
 
         await search.pressSequentially('lpha', { delay: 15 });             // "alpha": one rink left
@@ -145,7 +143,7 @@ test.describe('rinks search: typing is cheap', () => {
         const found = await names(page);
         expect(found[0]).toBe('Bulk Rink 120');                            // the names that start with what was typed come first
         expect(found.slice(10)).toEqual(['Bulk Rink 012', 'Bulk Rink 112']);
-        await expect(page.locator('#rinks-list')).toHaveJSProperty('scrollTop', 0);
+        await expect(page.locator('#sheet-body')).toHaveJSProperty('scrollTop', 0);
         await app.noErrors();
     });
 
@@ -186,24 +184,30 @@ test.describe('iPhone habits', () => {
         await app.noErrors();
     });
 
-    test('held sideways, the rinks sheet puts the map and the list side by side; upright again, one above the other', async ({ page, app }) => {
+    test('held sideways, the map and the rink list sit side by side; upright again, the list is a sheet over the map', async ({ page, app }) => {
         await page.setViewportSize({ width: 844, height: 390 });
         await openRinks(page, app);
         const box = (sel) => page.locator(sel).boundingBox();
-        let map = await box('#map-canvas'), list = await box('#rinks-list');
+        let map = await box('#map-canvas'), list = await box('#sheet-body');
         expect(map.height).toBeGreaterThanOrEqual(150);                     // was 420px tall with 61px left for the list
         expect(list.height).toBeGreaterThanOrEqual(150);
         expect(map.y + map.height).toBeLessThanOrEqual(391);
         expect(list.y + list.height).toBeLessThanOrEqual(391);
         expect(list.x).toBeGreaterThanOrEqual(map.x + map.width - 1);       // beside the map, not under it
+        await expect(page.locator('#sheet-grip')).toBeHidden();             // nothing to drag beside the map
         await expect(page.locator('#rinks-search')).toBeInViewport();
         await expect(rows(page).first()).toBeInViewport();
 
         await page.setViewportSize({ width: 390, height: 844 });
-        await expect.poll(async () => (await box('#rinks-list')).y).toBeGreaterThan(300);
-        map = await box('#map-canvas'); list = await box('#rinks-list');
-        expect(list.y).toBeGreaterThanOrEqual(map.y + map.height - 1);      // under the map again
-        expect(Math.abs(list.x - map.x)).toBeLessThan(40);
+        await expect(page.locator('#sheet-grip')).toBeVisible();
+        await expect.poll(async () => (await box('#map-sheet')).y).toBeGreaterThan(300);
+        map = await box('#map-canvas');
+        const sheet = await box('#map-sheet');
+        expect(sheet.y).toBeGreaterThan(map.y + 100);                       // over the lower part of the map, the map still showing above
+        expect(Math.abs((sheet.y + sheet.height) - (map.y + map.height))).toBeLessThan(3);
+        expect(Math.abs(sheet.x - map.x)).toBeLessThan(3);
+        await expect(rows(page).first()).toBeInViewport();
+        await expect(rows(page).nth(1)).toBeInViewport();                   // two rinks at a glance, not one
         await app.noErrors();
     });
 

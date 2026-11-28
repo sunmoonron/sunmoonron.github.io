@@ -67,11 +67,11 @@ shell whose only job is naming the mount points.
 
 **`index.html`** — Static shell only; the only inline script registers the
 service worker. The schedule panel (v3.2 "calm" layout) is: one search
-field, three text buttons (Filters · Rinks & map · Week), the
+field with Filters beside it, one switch (List · Calendar · Map), the
 active-filter `#active-filters` pills, one `#status-data` line, the saved
 countdown card, data warnings, then the list under day headers with a
-"Show more" button. Nine modal skeletons (first-visit setup, filters
-sheet, rinks & map, what's-new, settings, QR, discover, invite, share),
+"Show more" button, or the Map view in its place. Modal skeletons (first-visit setup,
+filters sheet, what's-new, settings, QR, discover, invite, share),
 the floating `#popover`, the pull-to-refresh indicator, and *empty
 containers* that `app.js` populates from config at boot: `#view-tabs`,
 `#filters-body`, `#rinks-list`, `#chat-filters`, `#guide-cat-filters`,
@@ -379,9 +379,16 @@ VENDORED (`assets/vendor/leaflet/`) and lazy-injected on first open, so
 non-map visitors download zero map bytes. OSM tiles (attributed); dark
 mode re-inks tiles with a CSS filter. Pin popups come from app.js via
 `configure({popupHtml,userPoint})` — same content/chrome split as the
-calendar. It now lives inside the Rinks & map view (`#rinks-modal`),
-next to the nearest-rinks list; `open({filter:'outdoor'})` is still there
-for callers that want the outdoor pins only.
+calendar. Since v3.23 the map is a VIEW of the schedule (`#map-view`
+inside the schedule panel; `S.mapMode`, never persisted), not a sheet:
+the same search row, pills and day bar sit above it. Which rinks show
+(`rinkFilter`: the cities, indoor/outdoor, the distance, the rink
+search), what a pin looks like (`pinState`: its ice, filled when the
+filters leave sessions there, a gold ring for "my rinks"), the "within N
+km" ring (`radiusKm`) and how much of the canvas the pull-up rink list
+covers (`inset`) all come from app.js. The rink list is `Sheet` in
+app.js: over the map at three heights on a phone, a column beside it
+when the view is 640px or wider.
 
 **`projects/js/weather.js`** — `SkateWeather`. Open-Meteo current
 conditions (30-min TTL, CC BY attribution) for the stats-line chip.

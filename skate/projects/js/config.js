@@ -32,7 +32,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.22',
+    version: '3.23',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -46,6 +46,14 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.23', date: '2026-11-27', items: [
+                'The map is a view now: List, Calendar and Map are one switch, and the separate "Rinks & map" button is gone. The map uses the same search row, pills and filters as the list. Each rink counts the sessions that match what you have chosen, and a rink with none for that day or kind is a hollow dot.',
+                'On a phone the rink list is a sheet over the lower part of the map, with two rinks showing at a glance. Drag it up for the whole list or down to a strip, or tap its grip. Tap a rink and the map goes to it. Tap a dot and its rink comes to the top of the list. On a wide screen the list sits beside the map.',
+                'The first time you open the map it asks where from: Use my location, or type an address. It then draws a 5 km ring around you and lists the rinks inside it, nearest first. The 2, 5, 10 and 20 km buttons on the list change the ring, and they are the same filter as the "Within" pill.',
+                'Dots are the colour of their ice: steel for indoor rinks, ice blue for outdoor ones, like the Indoor + outdoor pill, which now filters the map too. A gold ring marks your rinks.'
+            ]
+        },
         {
             v: '3.22', date: '2026-11-27', items: [
                 'The blue jay is redrawn from the real bird: a dull blue back, brighter barred wings and tail, the white wing bar and tail corners, the black necklace, a swept-back crest.',
@@ -539,7 +547,7 @@ window.SkateConfig = {
         { sel: '#search-input',          title: 'Search',                text: 'Type a rink, a city or a session name. Results filter as you type.', sec: 4 },
         { sel: '#btn-filters',           title: 'Filters',               text: 'Leisure, figure and hockey with their age groups, a day, cities, your rinks and the order. Your picks are remembered on this device.', sec: 6 },
         { sel: '#active-filters',        title: 'Your active filters',   text: 'Each pill is one filter. Tap the x to remove it. Tap the city pill to pick other cities.', sec: 5 },
-        { sel: '#btn-rinks',             title: 'Rinks and map',         text: 'Every rink on a map, with distances from your location or an address you type. Star the rinks that are yours.', sec: 6 },
+        { sel: '#btn-rinks',             title: 'The map',               text: 'Every rink on a map, with the same filters as the list. Set your spot to see what is within 2, 5 or 10 km, and star the rinks that are yours.', sec: 6 },
         { sel: '#view-seg',              title: 'List or calendar',      text: 'The same sessions as a list or a week grid. In the grid, tap a day chip to jump to that day and any block for details.', sec: 5 },
         { sel: '#btn-free',              title: 'Free only',             text: 'All shows everything with its price. Slide it to Free to keep only the free sessions.', sec: 4 },
         { sel: '#day-bar',               title: 'Day and dates',         text: 'Tap the day for another day, or the date for a calendar: one day, or a range. The count at its right end has the data options.', sec: 6 },

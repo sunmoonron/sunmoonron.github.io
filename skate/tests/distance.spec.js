@@ -65,7 +65,7 @@ test.describe('within N km', () => {
         await expect(page.locator('#active-filters .pill.radius')).toHaveCount(1);
         await page.click('#btn-rinks');
         await page.click('#btn-clear-location');                               // "Forget this spot"
-        await page.click('#btn-rinks-close');
+        await page.click('#btn-list');
         await expect(page.locator('#active-filters .pill.radius')).toHaveCount(0);
         await expect(page.locator('.program-item')).toHaveCount(7);
         expect(await page.evaluate(() => SkateSettings.get('radius'))).toBeNull();
@@ -114,13 +114,13 @@ test.describe('without a spot', () => {
         await app.open();
         await page.click('#btn-filters');
         await page.locator('#filters-body .fradius .fchip', { hasText: /^5 km$/ }).click();
-        await expect(page.locator('#rinks-modal')).toBeVisible();              // the place to set a spot
+        await expect(page.locator('#map-view')).toBeVisible();              // the place to set a spot
         await expect(page.locator('#filters-modal')).toBeHidden();
         await expect(page.locator('#active-filters .pill.radius')).toHaveCount(0);
         await page.fill('#rinks-search', 'M1J 3K4');
         await page.click('#btn-locator-search');                               // the mocked geocoder answers with a point beside Warning Arena
         await expect(page.locator('#locator-status')).toContainText('M1J');
-        await page.click('#btn-rinks-close');
+        await page.click('#btn-list');
         await expect(page.locator('#active-filters .pill.radius')).toContainText('Within 5 km');
         await expect(page.locator('.program-item')).toHaveCount(1);
         await expect(card(page, 'Warning Arena')).toHaveCount(1);
@@ -134,7 +134,7 @@ test.describe('without a spot', () => {
         await expect(page.locator('.c2-radius')).toHaveCount(0);
         await expect(page.locator('.c2-band')).toHaveCount(0);
         await page.locator('.c2-need-spot [data-cal2-place]').click();
-        await expect(page.locator('#rinks-modal')).toBeVisible();
+        await expect(page.locator('#map-view')).toBeVisible();
         await app.noErrors();
     });
 });

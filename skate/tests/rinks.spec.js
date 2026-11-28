@@ -1,30 +1,40 @@
-// Rinks & map: the sheet, counts that agree, the city picker, tapping a row,
-// a postal code, the You marker.
+// The Map view (v3.23: a view of the schedule, not a sheet of its own): pins and rows that agree,
+// the same pills as the list, tapping a row, a postal code, the You marker.
 const { test, expect } = require('./fixtures');
 
-const titleCount = (page) => page.locator('#rinks-title').innerText().then(t => +(t.match(/\((\d+)\)/) || [])[1]);
-const listCount = (page) => page.locator('#rinks-scope span').first().innerText().then(t => +(t.match(/^(\d+)/) || [])[1]);
+const titleCount = (page) => page.evaluate(() => SkateMap.pinCount);                                   // the pins on the map
+const listCount = (page) => page.locator('#rinks-count').innerText().then(t => +(t.match(/^(\d+)/) || [])[1]);   // the count the list states
 
 test.describe('rinks & map', () => {
-    test('opens with pins and rows, counts agree, kind and city filters agree', async ({ page, app }) => {
+    test('opens with pins and rows, counts agree, and the pills above decide what shows', async ({ page, app }) => {
         await app.open();
         await page.click('#btn-rinks');
-        await expect(page.locator('#rinks-modal')).toBeVisible();
+        await expect(page.locator('#map-view')).toBeVisible();
+        await expect(page.locator('#btn-rinks')).toHaveAttribute('aria-pressed', 'true');
+        await expect(page.locator('#program-list')).toBeHidden();                 // the map is in the list's place
         await expect(page.locator('#rinks-list .rink-row').first()).toBeVisible();
         await expect(page.locator('.leaflet-marker-icon').first()).toBeVisible();
         expect(await titleCount(page)).toBe(7);                 // the Toronto rinks
         expect(await listCount(page)).toBe(7);
-        await page.click('#map-filter-seg [data-mapfilter="indoor"]');
+        // indoor or outdoor: the same pill as on the list
+        await page.click('#active-filters .pill.ice');
+        await page.locator('#popover .popover-item', { hasText: 'Indoor only' }).click();
+        await expect(page.locator('#rinks-count')).toHaveText('6 indoor rinks');
         expect(await titleCount(page)).toBe(6);
-        expect(await listCount(page)).toBe(6);
-        await page.selectOption('#rinks-city', 'all');
-        expect(await titleCount(page)).toBe(7);                 // + Mississauga's indoor rink
-        expect(await listCount(page)).toBe(7);
+        // which cities: the city pill (its x is every city)
+        await page.click('#active-filters .pill.city .pill-x');
+        await expect(page.locator('#rinks-count')).toHaveText('7 indoor rinks');   // + Mississauga's indoor rink
+        expect(await titleCount(page)).toBe(7);
         await expect(page.locator('#rinks-list .rink-row', { hasText: 'Paul Coffey' })).toHaveCount(1);
-        await page.click('#map-filter-seg [data-mapfilter="all"]');
+        await page.click('#active-filters .pill.ice .pill-x');
+        await expect(page.locator('#rinks-count')).toHaveText('8 rinks');
         expect(await titleCount(page)).toBe(8);
-        await page.selectOption('#rinks-city', 'Toronto');
-        expect(await listCount(page)).toBe(7);
+        // List is the way back, with the filters as the map left them
+        await page.click('#btn-list');
+        await expect(page.locator('#map-view')).toBeHidden();
+        await expect(page.locator('#program-list')).toBeVisible();
+        await expect(page.locator('#btn-list')).toHaveAttribute('aria-pressed', 'true');
+        await expect(page.locator('#active-filters .pill.city')).not.toHaveClass(/\bon\b/);
         await app.noErrors();
     });
 
@@ -96,20 +106,22 @@ test.describe('rinks & map', () => {
         await page.fill('#rinks-search', 'beta');
         await page.locator('#rinks-search').press('Escape');                      // so does Escape, without closing the sheet
         await expect(page.locator('#rinks-search')).toHaveValue('');
-        await expect(page.locator('#rinks-modal')).toBeVisible();
+        await expect(page.locator('#map-view')).toBeVisible();
         await app.noErrors();
     });
 
-    test('the search box stays inside the sheet at phone width and its buttons are tappable', async ({ page, app }) => {
+    test('the search box takes the schedule search\'s place, and the line under it stays on the screen', async ({ page, app }) => {
         await app.open();
         await page.click('#btn-rinks');
+        await expect(page.locator('#search-input')).toBeHidden();                 // one box at a time, in the same place
         await page.fill('#rinks-search', 'scarborough town centre, a long thing to type');
         const box = await page.locator('#rinks-search').boundingBox();
         const near = await page.locator('#btn-share-location').boundingBox();
-        const sheet = await page.locator('#rinks-modal .modal').boundingBox();
+        const sheet = await page.locator('#map-view').boundingBox();
         expect(box.height).toBeGreaterThanOrEqual(38);
-        expect(near.height).toBeGreaterThanOrEqual(38);
+        expect(near.height).toBeGreaterThanOrEqual(34);                           // Near me floats on the map
         expect(box.x).toBeGreaterThanOrEqual(sheet.x);
+        expect(near.x).toBeGreaterThanOrEqual(sheet.x);
         expect(near.x + near.width).toBeLessThanOrEqual(sheet.x + sheet.width + 1);
         const from = await page.locator('#btn-locator-search').boundingBox();     // long text is cut with an ellipsis, not wrapped off screen
         expect(from.x + from.width).toBeLessThanOrEqual(sheet.x + sheet.width + 1);
@@ -125,7 +137,7 @@ test.describe('rinks & map', () => {
         await expect(page.locator('#rinks-list .rink-row')).toHaveCount(1);          // Warning Arena, the one rink in that district
         await expect(page.locator('#rinks-list .rink-row')).toContainText('Warning Arena');
         await expect(page.locator('.leaflet-marker-pane .leaflet-marker-icon:not(.you-pin-wrap)')).toHaveCount(1);
-        await page.click('#btn-rinks-close');
+        await page.click('#btn-list');
         await page.fill('#search-input', 'leisure');                                   // matches sessions, not rinks
         await page.click('#btn-rinks');
         await expect(page.locator('#rinks-search')).toHaveValue('');
@@ -136,7 +148,7 @@ test.describe('rinks & map', () => {
         await app.open();
         await page.click('#btn-rinks');
         await page.locator('#rinks-list .rink-row', { hasText: 'Beta Park Rink' }).locator('[data-loc-filter]').click();
-        await expect(page.locator('#rinks-modal')).toBeHidden();
+        await expect(page.locator('#map-view')).toBeHidden();
         await expect(page.locator('#active-filters .pill.rink')).toContainText('Beta Park Rink');
         await expect(page.locator('.program-item')).toHaveCount(1);
         await page.click('#active-filters .pill.rink');

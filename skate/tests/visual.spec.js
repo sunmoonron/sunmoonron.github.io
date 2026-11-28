@@ -14,11 +14,18 @@ test.describe('visual', () => {
         await expect(page.locator('#filters-modal')).toBeVisible();
         await expect(page).toHaveScreenshot('filters.png');
     });
-    test('rinks sheet', async ({ page, app }) => {
+    test('the map view', async ({ page, app, isMobile }) => {
         await app.open();
         await page.click('#btn-rinks');
         await expect(page.locator('#rinks-list .rink-row').first()).toBeVisible();
-        await expect(page).toHaveScreenshot('rinks.png', { mask: [page.locator('#map-canvas')] });
+        await expect(page.locator('.leaflet-marker-icon').first()).toBeVisible();
+        if (isMobile) {                                                           // the sheet has taken its height (beside the map it has none to take)…
+            await expect(page.locator('#map-view')).toHaveAttribute('data-rows2', /\d+/);
+            await page.waitForTimeout(350);                                        // …and has slid to it
+        }
+        // no mask: the tiles are blocked in tests and the pins are drawn by the page, so the map is the same every time
+        // (a mask over the canvas would also cover the rink list, which lies over it on a phone)
+        await expect(page).toHaveScreenshot('map.png');
     });
     test('settings', async ({ page, app }) => {
         await app.open();

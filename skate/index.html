@@ -17,7 +17,7 @@
     <meta name="apple-mobile-web-app-title" content="TO Skating">
     <link rel="stylesheet" href="assets/css/style.css?v=11">
     <link rel="stylesheet" href="assets/css/style-additions.css?v=4">
-    <link rel="stylesheet" href="assets/css/style-v3.css?v=69">
+    <link rel="stylesheet" href="assets/css/style-v3.css?v=75">
 </head>
 <body>
     <div class="app" id="app">
@@ -63,19 +63,28 @@
                 <div class="ptr" id="ptr" aria-hidden="true"><span class="ptr-icon">↓</span><span class="ptr-text">Pull to refresh</span></div>
                 <div class="panel-title">Schedule</div>
                 <div class="search-row">
-                    <div class="search-box">
+                    <div class="search-box sched-search-box">
                         <input type="text" id="search-input" placeholder="Search rinks, cities, sessions…" autocomplete="off" aria-label="Search">
                         <button id="btn-search-clear" class="search-clear hidden" aria-label="Clear search">✕</button>
+                    </div>
+                    <!-- v3.23: in the Map view the same place holds the rink search. Typing filters the list AND the map;
+                         the line under it offers the same text as "measure distances from here". -->
+                    <div class="search-box rinks-search-box">
+                        <input type="text" id="rinks-search" placeholder="Rink, area or postal code" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Find a rink by name, area, address or postal code">
+                        <button id="btn-rinks-search-clear" class="search-clear hidden" aria-label="Clear the search">✕</button>
                     </div>
                     <button id="btn-filters" class="tb-btn tb-filters" title="Type, age groups, day, cities, your rinks, order">Filters<span class="tb-count hidden" id="filters-count"></span></button>
                 </div>
 
+                <button class="rinks-from hidden" id="btn-locator-search"></button>
+
+                <!-- v3.23: one switch for the three ways to look at the schedule. The map used to be a separate "Rinks & map" sheet. -->
                 <div class="toolbar" id="toolbar">
-                    <button id="btn-rinks" class="tb-btn" title="Map of every rink, distances from your spot, your rinks">Rinks &amp; map</button>
-                    <div class="view-seg" id="view-seg" role="group" aria-label="List or calendar">
+                    <div class="view-seg" id="view-seg" role="group" aria-label="List, calendar or map">
                         <button id="btn-list" class="active" title="Sessions as a list, grouped by day" aria-pressed="true">List</button>
                         <button id="btn-cal" title="Sessions as a calendar" aria-pressed="false"><span class="cal-dot" aria-hidden="true"></span>Calendar</button>
                         <button id="btn-cal-type" class="cal-type-btn" title="Choose the calendar: week grid, or a day by time of day, by rink or by distance" aria-label="Choose the calendar" aria-haspopup="menu">▾</button>
+                        <button id="btn-rinks" title="Every rink on a map, with the same filters: what is near you, indoor or outdoor" aria-pressed="false">Map</button>
                     </div>
                 </div>
 
@@ -100,6 +109,45 @@
                         <button class="db-btn db-count" id="status-data" type="button" title="How many sessions match. Tap for options.">Loading…</button>
                         <button class="db-btn db-wx hidden" id="weather-chip" type="button" aria-label="Current weather. Tap to choose the spot."></button>
                     </span>
+                </div>
+
+                <!-- v3.23: the map as a view. The search row, the pills and the day bar above stay as they are; the map fills
+                     the rest, and the rink list is a sheet that pulls up over it (a column beside it on a wide screen). -->
+                <div class="map-view hidden" id="map-view" data-stop="peek">
+                    <div class="map-stage" id="map-stage">
+                        <div id="map-canvas" class="map-canvas"><div class="loading">Loading map…</div></div>
+                        <button class="map-near" id="btn-share-location" type="button" title="Distances from where you are right now">Near me</button>
+                        <!-- the first look at the map, and whenever a filter needs a starting point: one clear question -->
+                        <div class="map-ask hidden" id="map-ask" role="group" aria-labelledby="map-ask-title">
+                            <strong id="map-ask-title">Find rinks near you</strong>
+                            <p id="map-ask-text"></p>
+                            <button class="btn-primary" id="btn-ask-locate" type="button">Use my location</button>
+                            <form class="map-ask-form" id="map-ask-form" autocomplete="off">
+                                <input type="text" id="map-ask-input" placeholder="or type an address or postal code" enterkeyhint="go" autocapitalize="off" spellcheck="false" aria-label="An address or a postal code to measure from">
+                                <button type="submit" id="btn-ask-go">Go</button>
+                            </form>
+                            <p class="map-ask-err hidden" id="map-ask-err" role="alert"></p>
+                            <button class="flink" id="btn-ask-skip" type="button">Not now, show every rink</button>
+                        </div>
+                    </div>
+                    <div class="map-sheet" id="map-sheet">
+                        <button class="sheet-grip" id="sheet-grip" type="button" aria-label="The rink list. Drag it, or tap to make it taller or shorter." aria-expanded="false"><span aria-hidden="true"></span></button>
+                        <div class="sheet-head" id="sheet-head">
+                            <!-- one line that reads as a sentence: "25 rinks within [Any] [2] [5] [10] [20] km" -->
+                            <div class="sheet-line">
+                                <span class="rinks-scope" id="rinks-scope"></span>
+                                <div class="map-radius" id="map-radius" role="group" aria-label="How far from your spot"></div>
+                            </div>
+                            <p class="settings-hint locator-status"><span id="locator-status"></span><button class="flink hidden" id="btn-clear-location" title="Forget my saved location">Forget this spot</button></p>
+                        </div>
+                        <div class="sheet-body" id="sheet-body">
+                            <div id="rinks-list" class="rinks-list"></div>
+                            <!-- v3.11: where skates can be borrowed free (the City's lending van and other confirmed options) -->
+                            <button class="flink rinks-lending" id="btn-lending" data-lending="1">⛸ No skates? Where to borrow them free</button>
+                            <button class="flink rinks-lending rinks-natural" id="btn-natural">❄ Natural ice: parks where neighbours make a rink</button>
+                            <p class="settings-hint rinks-hint">★ marks your rinks. Address search by OpenStreetMap; your location stays in this browser.</p>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Week calendar (list ↔ week toggled by the Week button) -->
@@ -397,44 +445,6 @@
     </div>
 
     <!-- Rinks and map: one view for the map, distances and your rinks -->
-    <div class="modal-overlay hidden" id="rinks-modal">
-        <div class="modal rinks-box">
-            <div class="modal-header">
-                <h3 id="rinks-title">Rinks</h3>
-                <div class="map-header-actions">
-                    <div class="seg-control map-filter-seg" id="map-filter-seg">
-                        <button data-mapfilter="all" class="active">All</button>
-                        <button data-mapfilter="indoor">Indoor</button>
-                        <button data-mapfilter="outdoor">Outdoor</button>
-                    </div>
-                    <button class="btn-icon" id="btn-rinks-close" aria-label="Close">✕</button>
-                </div>
-            </div>
-            <!-- v3.10.2: one box for the whole sheet. Typing filters the list AND the map;
-                 the line under it offers the same text as "measure distances from here". -->
-            <div class="rinks-locate">
-                <div class="search-box rinks-search-box">
-                    <input type="text" id="rinks-search" placeholder="Rink, area or postal code" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Find a rink by name, area, address or postal code">
-                    <button id="btn-rinks-search-clear" class="search-clear hidden" aria-label="Clear the search">✕</button>
-                </div>
-                <button id="btn-share-location" title="Distances from where you are right now">Near me</button>
-            </div>
-            <button class="rinks-from hidden" id="btn-locator-search"></button>
-            <!-- v3.11: where skates can be borrowed free (the City's lending van and other confirmed options) -->
-            <button class="flink rinks-lending" id="btn-lending" data-lending="1">⛸ No skates? Where to borrow them free</button>
-            <button class="flink rinks-lending rinks-natural" id="btn-natural">❄ Natural ice: parks where neighbours make a rink</button>
-            <p class="settings-hint locator-status"><span id="locator-status"></span><button class="flink hidden" id="btn-clear-location" title="Forget my saved location">Forget this spot</button></p>
-            <div class="rinks-split">
-                <div id="map-canvas" class="map-canvas"><div class="loading">Loading map…</div></div>
-                <div class="rinks-list-wrap">
-                    <div class="rinks-scope" id="rinks-scope"></div>
-                    <div id="rinks-list" class="rinks-list"></div>
-                </div>
-            </div>
-            <p class="settings-hint rinks-hint">★ marks your rinks. Address search by OpenStreetMap; your location stays in this browser.</p>
-        </div>
-    </div>
-
     <!-- Discover / new conversation modal -->
     <div class="modal-overlay hidden" id="discover-modal">
         <div class="modal">
@@ -507,7 +517,7 @@
          app.js loads it on demand (COMMUNITY_SCRIPTS) the first time a
          community section, invite link or the feedback sheet needs it, and
          the service worker keeps it cache-first from then on. -->
-    <script src="projects/js/config.js?v=79"></script>
+    <script src="projects/js/config.js?v=80"></script>
     <script src="projects/js/settings.js?v=9"></script>
     <script src="projects/js/favorites.js?v=1"></script>
     <script src="projects/js/api.js?v=22"></script>
@@ -519,10 +529,10 @@
     <script src="projects/js/ui.js?v=9"></script>
     <script src="projects/js/calendar.js?v=14"></script>
     <script src="projects/js/calendar2.js?v=7"></script>
-    <script src="projects/js/map.js?v=9"></script>
+    <script src="projects/js/map.js?v=12"></script>
     <script src="projects/js/tour.js?v=6"></script>
-    <script src="projects/js/app.js?v=82"></script>
-    <script src="projects/js/bird.js?v=3"></script>
+    <script src="projects/js/app.js?v=87"></script>
+    <script src="projects/js/bird.js?v=4"></script>
     <script src="projects/js/refresh.js?v=5"></script>
     <script>
         // PWA install + offline (no-op where unsupported / file://)

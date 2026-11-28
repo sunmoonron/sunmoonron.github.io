@@ -89,7 +89,7 @@ window.SkateBird = (() => {
         'Outdoor rinks close in warm or wet weather. Check before you go.',
         'No skates? Look for the free skates tag on a session.',
         'The All and Free switch hides everything that costs money.',
-        'Rinks & map shows what is close to you.',
+        'The Map view shows what is close to you.',
         'Bend your knees a little. It is easier to balance.',
         'Dull skates slip. Most arenas sharpen them in a few minutes.',
         'A helmet is a good idea for everyone, and a rule for small kids at many rinks.'

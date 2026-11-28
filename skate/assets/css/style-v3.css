@@ -590,20 +590,6 @@ body.dark-mode .share-paid-badge { color: #10151a; }
 .qr-copy { width: 100%; }
 
 /* ---- Interactive rink map ---- */
-.map-header-actions { display: flex; align-items: center; gap: 8px; }
-.map-filter-seg button { font-size: 12px; padding: 6px 10px; }
-.map-canvas {
-    height: min(62vh, 560px);
-    min-height: 320px;
-    border-radius: var(--radius);
-    overflow: hidden;
-    border: 1px solid var(--border);
-    background: var(--bg);
-}
-@media (max-width: 767px) {
-    /* phones: the map takes the whole screen — free scroll everywhere */
-.map-canvas { flex: 1; height: auto; min-height: 0; }
-}
 /* Leaflet popup content */
 .map-pop { display: flex; flex-direction: column; gap: 4px; font-size: 13px; min-width: 180px; }
 .map-pop-meta { font-size: 11.5px; color: #555; }
@@ -892,17 +878,8 @@ body.hide-guides.hide-chats .view-tabs { display: none; }
 .fage input { width: 90px; }
 .flink { margin-left: auto; background: none; border: none; color: var(--primary); font-size: 13px; text-decoration: underline; padding: 0 4px; }
 
-/* ---- Rinks & map: one view ---- */
-.rinks-box { max-width: 960px; width: 96vw; display: flex; flex-direction: column; max-height: 92vh; }
-.rinks-locate { display: flex; gap: 8px; margin-bottom: 4px; }
-.rinks-locate input { flex: 1; min-width: 0; }
-.rinks-locate .btn-primary { white-space: nowrap; }
-.locator-status { min-height: 14px; margin: 2px 0 8px; }
-.rinks-split { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; }
-.rinks-box .map-canvas { height: min(44vh, 400px); min-height: 220px; }
-.rinks-list-wrap { display: flex; flex-direction: column; min-height: 0; }
-#rinks-search { width: 100%; margin-bottom: 6px; }
-.rinks-list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; max-height: 32vh; }
+/* ---- the rink list (v3.23: it lives in the Map view; its layout is at the end of this file) ---- */
+.rinks-list { display: flex; flex-direction: column; gap: 6px; }
 .rink-row {
     display: flex; align-items: center; justify-content: space-between; gap: 8px;
     background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
@@ -915,21 +892,6 @@ body.hide-guides.hide-chats .view-tabs { display: none; }
 .rink-actions { display: flex; gap: 6px; flex-shrink: 0; }
 .rink-actions .star { min-width: 34px; font-size: 14px; }
 .rink-actions .star.starred { border-color: var(--paid); background: color-mix(in srgb, var(--paid) 15%, var(--bg)); color: var(--paid); }
-.rinks-hint { margin-top: 8px; }
-@media (max-width: 767px) {
-    /* phones: the whole screen — map on top, list below, free scroll everywhere */
-    #rinks-modal { padding: 0; }
-    .rinks-box { width: 100vw; max-width: none; height: 100dvh; max-height: none; border-radius: 0; }
-    .rinks-box .map-canvas { height: 38vh; min-height: 200px; flex: none; }
-    .rinks-list { max-height: none; flex: 1; }
-    .rinks-hint { display: none; }
-}
-@media (min-width: 768px) {
-    .rinks-split { flex-direction: row; }
-    .rinks-box .map-canvas { flex: 1.3; height: auto; min-height: 420px; }
-    .rinks-list-wrap { flex: 1; min-width: 280px; }
-    .rinks-list { max-height: 52vh; }
-}
 
 /* ---- dark mode ---- */
 body.dark-mode .tb-btn, body.dark-mode .fchip, body.dark-mode .btn-more, body.dark-mode .fexpand,
@@ -1106,10 +1068,6 @@ body.dark-mode .modal-overlay { background: rgba(0, 0, 0, 0.62); }
 .alert-banner .verify-link { margin-left: 0; }
 
 /* ---- rinks view: one control height, scope line, sections ---- */
-.rinks-locate { align-items: stretch; }
-.rinks-locate button, .rinks-locate input { height: 38px; font-size: 13px; }
-.rinks-locate button { padding: 0 12px; white-space: nowrap; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); font-weight: 600; }
-.rinks-locate .btn-primary { border-color: var(--primary); }
 .rinks-scope { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
 .rinks-head { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); padding: 6px 2px 2px; }
 .rink-row.has-alert .rink-meta { color: var(--alert-amber); }
@@ -1154,7 +1112,7 @@ body.dark-mode .modal-overlay { background: rgba(0, 0, 0, 0.62); }
 
 /* ---- dark mode for the new pieces ---- */
 body.dark-mode .top-toggle, body.dark-mode .view-seg, body.dark-mode .fexpand, body.dark-mode .ftoggle,
-body.dark-mode .sbtns button, body.dark-mode .settings-inline button, body.dark-mode .rinks-locate button { background: #1b2530; color: var(--text); border-color: #38485a; }
+body.dark-mode .sbtns button, body.dark-mode .settings-inline button { background: #1b2530; color: var(--text); border-color: #38485a; }
 body.dark-mode .top-toggle { color: var(--text-muted); }
 body.dark-mode .top-toggle.active { background: #2c2718; border-color: var(--paid); color: var(--text); }
 body.dark-mode .view-seg button.active { background: var(--acc-programs); color: #0d141b; }
@@ -1463,10 +1421,8 @@ body.dark-mode .c2-kind { color: color-mix(in srgb, var(--ct, var(--text)) 60%, 
 .install-btns button { padding: 7px 12px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg-white); font-size: 12.5px; font-weight: 600; color: var(--text); }
 .install-btns .btn-primary { border-color: transparent; color: #fff; }
 .install-steps { margin: 0 0 12px 20px; padding: 0; font-size: 14px; line-height: 1.6; }
-.rinks-locate #btn-clear-location { padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-white); font-size: 12.5px; color: var(--text-muted); }
-.rinks-locate #btn-clear-location:hover { color: var(--text); border-color: var(--border-dark); }
 body.dark-mode .install-card { background: color-mix(in srgb, var(--acc-programs) 14%, #1b2530); }
-body.dark-mode .install-btns button, body.dark-mode .rinks-locate #btn-clear-location { background: #1b2530; border-color: #38485a; color: var(--text); }
+body.dark-mode .install-btns button { background: #1b2530; border-color: #38485a; color: var(--text); }
 body.dark-mode .install-btns .btn-primary { color: #fff; border-color: transparent; }
 
 /* ---- message the dev ---- */
@@ -1558,7 +1514,7 @@ body.dark-mode .top-feedback:hover { background: color-mix(in srgb, var(--acc-pr
    The base rule above sets 16 px on small screens; these classed fields set
    their own size later in the cascade, so they are pinned here. ---- */
 @media (max-width: 767px), (pointer: coarse) {
-    .rinks-locate input, .fage input, .devchat-compose textarea, #settings-name, #locator-input,
+    #map-ask-input, .fage input, .devchat-compose textarea, #settings-name, #locator-input,
     .search-row .search-box input, .chat-input-bar input, .chat-input-bar textarea { font-size: 16px; }
     .fage input { width: 80px; }
 }
@@ -1642,7 +1598,6 @@ body.dark-mode .react-chip.mine { border-color: var(--acc-chats); }
 .alert-banner.note strong { color: var(--text); }
 .program-item.has-alert-closed .program-meta > * { text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: color-mix(in srgb, var(--alert-red) 65%, transparent); opacity: .8; }
 .pill.rink { background: color-mix(in srgb, var(--live, #1a9c4b) 16%, var(--bg-white)); border-color: var(--live, #1a9c4b); color: var(--live, #1a9c4b); font-weight: 600; }
-.rinks-city { font: inherit; font-size: 12px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-white); color: var(--text); max-width: 62%; }
 .top-feedback { position: relative; }
 .top-feedback .badge { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--alert-red, #d9534f); color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
 .top-feedback .badge.hidden { display: none; }
@@ -1655,21 +1610,12 @@ body.dark-mode .react-chip.mine { border-color: var(--acc-chats); }
 /* Android browsers: the page handles dark mode itself (no forced-dark inversion), text stays the size we set */
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body:not(.dark-mode) { color-scheme: light; }
-body.dark-mode .rinks-city { background: #1b2530; border-color: #38485a; }
 body.dark-mode .alert-banner.note { background: #1b2530; }
 
 /* ===================== v3.10.2 ===================== */
 /* Rinks sheet: one search box (rink, area, address, postal code), the map follows it */
-.rinks-locate { display: flex; gap: 8px; align-items: stretch; margin-bottom: 4px; }
 .rinks-search-box { flex: 1 1 auto; min-width: 0; }
-.rinks-locate .rinks-search-box input, #rinks-search { width: 100%; height: 40px; margin: 0; box-sizing: border-box; font-size: 14px; padding-right: 38px; }
 /* the clear ✕ lives inside the field and stays quiet: no box, no fill, only there once something is typed */
-.rinks-locate .search-clear, body.dark-mode .rinks-locate .search-clear {
-    height: auto; padding: 6px 9px; border: none; background: none; font-size: 12px; font-weight: 400;
-    color: var(--text-muted); opacity: 0.75; border-radius: 50%;
-}
-.rinks-locate .search-clear:hover { opacity: 1; color: var(--text); }
-.rinks-locate #btn-share-location { height: 40px; flex: 0 0 auto; }
 .rinks-from {
     display: block; width: 100%; margin: 6px 0 2px; padding: 9px 12px; text-align: left;
     border: 1px dashed color-mix(in srgb, var(--acc-programs) 55%, var(--border)); border-radius: var(--radius);
@@ -1680,10 +1626,6 @@ body.dark-mode .alert-banner.note { background: #1b2530; }
 .rinks-from:disabled { opacity: 0.6; cursor: default; }
 .locator-status { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
 .locator-status .flink { font-size: 12px; padding: 0; }
-/* the sheet's close ✕ sat in the same boxes as All / Indoor / Outdoor and read as a fourth choice */
-.map-header-actions .btn-icon { border: none; background: transparent; box-shadow: none; margin-left: 4px; color: var(--text-muted); }
-.map-header-actions .btn-icon:hover { color: var(--text); background: color-mix(in srgb, var(--text-muted) 14%, transparent); }
-body.dark-mode .map-header-actions .btn-icon { border: none; background: transparent; }
 
 /* Dev inbox: the thread rail was a shrinkable flex child with overflow, so a long thread
    squashed it to a sliver: empty pill outlines with the names cut off by the scrollbar */
@@ -1884,24 +1826,6 @@ body.dark-mode .pill.radius { background: color-mix(in srgb, var(--cal-distance)
    same no-way-back as the field zoom. Taps are taps here; pinching to zoom still works. */
 html { touch-action: manipulation; }
 
-/* A phone held sideways is wide but only about 390px tall. It took the desktop layout of the
-   rinks sheet, whose map is at least 420px high: the map ran off the bottom and the list was
-   left one row. Sideways the sheet fills the screen: map on the left, list on the right. */
-@media (min-width: 600px) and (max-height: 520px) {
-    #rinks-modal { padding: 0; }
-    .rinks-box {
-        width: 100vw; max-width: none; height: 100dvh; max-height: none; border-radius: 0;
-        padding: 8px max(12px, env(safe-area-inset-right, 0px)) 8px max(12px, env(safe-area-inset-left, 0px));
-    }
-    .rinks-box .modal-header { margin-bottom: 6px; }
-    .rinks-box .rinks-lending { display: inline-block; margin: 0 14px 2px 0; }
-    .rinks-box .locator-status { margin: 0 0 4px; min-height: 0; }
-    .rinks-split { flex-direction: row; gap: 10px; }
-    .rinks-box .map-canvas { flex: 1.2; height: auto; min-height: 0; }
-    .rinks-list-wrap { flex: 1; min-width: 260px; }
-    .rinks-list { max-height: none; flex: 1; }
-    .rinks-hint { display: none; }
-}
 
 /* ============================================================
    v3.12.2
@@ -1918,8 +1842,6 @@ html { touch-action: manipulation; }
 /* the line between the kinds and the ages in the Hockey pill's menu */
 .popover-item.popover-sep { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 10px; }
 
-/* What a filter needs a spot for, said inside Rinks & map (it used to be a toast over the search box) */
-#locator-status.ask { color: var(--text); font-weight: 600; }
 
 /* v3.12.3: hockey's kind as one-tap chips, each with its count */
 .fkinds { margin: 2px 0 6px; }
@@ -2289,3 +2211,149 @@ body.dark-mode .jay-say { background: #1b2530; border-color: #38485a; box-shadow
 @keyframes jay-peek { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-10deg); } 60% { transform: rotate(8deg); } }
 @keyframes jay-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
 @keyframes jay-note { 0% { opacity: 0; transform: translate(0, 0) scale(.7); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(10px, -22px) scale(1.1); } }
+
+/* ===================== v3.23: the map is a view (List | Calendar | Map) ===================== */
+/* One switch for the three ways to look at the schedule; it has the row to itself now. */
+.toolbar .view-seg { flex: 1 1 auto; }
+
+/* In the Map view the panel does not scroll: the rows above keep their height, the map takes the rest. */
+.view-panel.panel-programs.map-on { flex-direction: column; overflow: hidden; }
+.view-panel.panel-programs.map-on.active { display: flex; }
+@media (min-width: 1100px) { .view-panel.panel-programs.map-on { display: flex; } }
+.panel-programs.map-on > * { flex: 0 0 auto; }
+.panel-programs.map-on > :is(.ptr, .panel-title, #install-hint, #saved-next, #data-warnings, #calendar-wrap, #program-list, #show-more, .list-foot) { display: none !important; }
+.panel-programs.map-on > .map-view { flex: 1 1 auto; min-height: 0; }
+.panel-programs.map-on > .day-bar { position: static; }
+
+/* The search row: in the Map view the same place holds the rink search, and the line under it measures from what was typed. */
+.search-row .rinks-search-box { display: none; }
+.map-on .search-row .rinks-search-box { display: block; }
+.map-on .search-row .sched-search-box { display: none; }
+.panel-programs:not(.map-on) > .rinks-from { display: none; }
+.panel-programs > .rinks-from { margin: -4px 0 8px; }
+
+/* The same pills, on one line that slides sideways: the map needs the height more than they do. */
+.map-on .pills { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.map-on .pills::-webkit-scrollbar { display: none; }
+.map-on .pills .pill { flex: 0 0 auto; }
+
+/* The map with the rink list over its lower part (phones), or beside it (.wide, set from the view's own width). */
+.map-view { position: relative; display: flex; min-height: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--bg); }
+.map-stage { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.map-canvas { position: absolute; inset: 0; z-index: 0; background: var(--bg); }
+.map-canvas > .loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+
+.map-near {
+    position: absolute; z-index: 2; left: 10px; top: 10px; height: 34px; padding: 0 13px 0 10px;
+    border: 1px solid var(--border); border-radius: 17px; background: var(--bg-white); color: var(--text);
+    font-size: 13px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 8px rgba(0, 0, 0, .2); cursor: pointer;
+}
+.map-near::before { content: '📍'; margin-right: 4px; }
+.map-near:hover { border-color: var(--acc-programs); }
+.map-near:disabled { opacity: .7; cursor: default; }
+
+/* The question: where from? Shown on the first look at the map, and when a filter needs a starting point. */
+.map-ask {
+    position: absolute; z-index: 3; left: 10px; right: 10px; top: 10px; max-width: 380px; margin: 0 auto;
+    display: flex; flex-direction: column; gap: 9px; padding: 14px;
+    background: var(--bg-white); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 28px rgba(0, 0, 0, .24);
+}
+.map-ask.hidden { display: none; }
+.map-ask strong { font-size: 16px; line-height: 1.2; }
+.map-ask p { margin: 0; font-size: 13px; line-height: 1.4; color: var(--text-muted); }
+.map-ask .btn-primary { height: 42px; font-size: 14px; font-weight: 700; border-radius: var(--radius); cursor: pointer; }
+.map-ask .btn-primary::before { content: '📍'; margin-right: 6px; }
+.map-ask-form { display: flex; gap: 6px; }
+.map-ask-form input { flex: 1 1 auto; min-width: 0; height: 40px; box-sizing: border-box; margin: 0; }
+.map-ask-form button { flex: 0 0 auto; height: 40px; padding: 0 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--text); font-weight: 600; cursor: pointer; }
+.map-ask-form button:hover { border-color: var(--acc-programs); }
+.map-ask p.map-ask-err { color: var(--alert-red, #b3261e); font-weight: 600; }
+.map-ask p.map-ask-err.hidden { display: none; }
+.map-ask .flink { align-self: center; font-size: 13px; padding: 2px 6px; }
+
+.map-sheet {
+    position: absolute; z-index: 2; left: 0; right: 0; bottom: 0; height: var(--sheet-h, 46%);
+    display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+    background: var(--bg-white); border-radius: 14px 14px 0 0; box-shadow: 0 -4px 18px rgba(0, 0, 0, .18);
+    transition: height .22s ease;
+}
+.map-view.dragging .map-sheet { transition: none; }
+.sheet-grip {
+    flex: 0 0 auto; display: flex; align-items: center; justify-content: center; width: 100%; height: 22px; padding: 0;
+    border: 0; border-radius: 0; background: none; cursor: grab; touch-action: none;
+}
+.sheet-grip span { width: 38px; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--text-muted) 55%, transparent); }
+.sheet-grip:focus-visible span { background: var(--acc-programs); }
+.sheet-head { flex: 0 0 auto; padding: 0 10px 6px; touch-action: none; }
+.sheet-line { display: flex; align-items: center; gap: 7px; min-height: 34px; }
+.sheet-line .rinks-scope { display: block; flex: 0 0 auto; margin: 0; font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; }
+.map-radius { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 5px; overflow-x: auto; scrollbar-width: none; }
+.map-radius::-webkit-scrollbar { display: none; }
+.map-radius-lead { flex: 0 0 auto; font-size: 13px; color: var(--text-muted); }
+.map-radius .fchip { flex: 0 0 auto; min-width: 34px; min-height: 30px; padding: 0 9px; font-size: 12.5px; cursor: pointer; }
+.map-radius .fchip.wanted { border-style: dashed; border-color: var(--acc-programs); }   /* picked, waiting for a spot to measure from */
+.map-radius.paused { opacity: .5; }
+.sheet-head .locator-status { margin: 2px 0 0; min-height: 0; font-size: 11.5px; }
+.sheet-head .locator-status:has(#locator-status:empty) { display: none; }
+.sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 2px 10px calc(10px + env(safe-area-inset-bottom, 0px)); }
+/* until the list is all the way up, a finger on it moves the sheet (then it scrolls like any list) */
+.map-view:not(.wide):not([data-stop="full"]) .sheet-body { touch-action: none; }
+.sheet-body .rinks-lending { margin-top: 10px; }
+.sheet-body .rinks-lending + .rinks-lending { margin-top: 0; }
+.sheet-body .rinks-hint { margin: 8px 0 0; }
+/* over the map a row keeps to two lines of detail, so two rinks or more show at a glance; pulled all the way up, all of it */
+.map-view:not(.wide):not([data-stop="full"]) .rink-meta { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+/* the map's own corner credits stay above the sheet */
+.map-view:not(.wide) .leaflet-bottom { bottom: var(--sheet-h, 46%); transition: bottom .22s ease; }
+.map-view.dragging .leaflet-bottom { transition: none; }
+@media (prefers-reduced-motion: reduce) { .map-sheet, .map-view:not(.wide) .leaflet-bottom { transition: none; } }
+
+/* wide enough for both: the list is a column beside the map, and nothing is dragged */
+.map-view.wide { flex-direction: row; }
+.map-view.wide .map-sheet {
+    position: relative; z-index: auto; flex: 0 0 auto; width: min(380px, 44%); height: auto;
+    border-radius: 0; box-shadow: none; border-left: 1px solid var(--border); transition: none;
+}
+.map-view.wide .sheet-grip { display: none; }
+.map-view.wide .sheet-head { padding-top: 10px; touch-action: auto; }
+
+/* Pins: a dot in the colour of its ice (steel indoors, ice blue outdoors, as on the pill). Filled when the list
+   would show sessions there with the filters in force, hollow when not; a gold ring marks your rinks. */
+.rink-pin-wrap { display: flex; align-items: center; justify-content: center; background: transparent; border: 0; }
+.rink-pin {
+    --c: #4d6187; display: block; box-sizing: border-box; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--c); border: 2.5px solid #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .5); transition: transform .12s ease;
+}
+.rink-pin.outdoor { --c: #1b93c2; }
+.rink-pin.off { width: 13px; height: 13px; background: #fff; border: 3px solid var(--c); box-shadow: 0 1px 3px rgba(0, 0, 0, .35); opacity: .9; }
+.rink-pin.mine { box-shadow: 0 0 0 2.5px #e0a800, 0 1px 4px rgba(0, 0, 0, .5); }
+.rink-pin-wrap:hover .rink-pin, .rink-pin-wrap:focus-visible .rink-pin { transform: scale(1.25); }
+.rink-pin-wrap:focus-visible { outline: 2px solid var(--acc-programs); outline-offset: -4px; border-radius: 50%; }
+body.dark-mode .rink-pin { --c: #9fb1cf; border-color: #0f1720; }
+body.dark-mode .rink-pin.outdoor { --c: #6cc4e3; }
+body.dark-mode .rink-pin.off { background: #0f1720; border-color: var(--c); }
+body.dark-mode .rink-pin.mine { box-shadow: 0 0 0 2.5px #ecc25f, 0 1px 4px rgba(0, 0, 0, .6); }
+/* the "within N km" ring around your spot: the blue of a chosen filter, like its chip and its pill */
+.radius-ring { stroke: var(--acc-programs); stroke-opacity: .95; fill: var(--acc-programs); fill-opacity: .08; }
+/* before its tiles arrive (or offline) the map is the page's own colour, not Leaflet's light grey */
+.map-canvas.leaflet-container { background: color-mix(in srgb, var(--text-muted) 16%, var(--bg)); }
+body.dark-mode .map-canvas.leaflet-container { background: #121a23; }
+/* put away to a strip, the list is out of reach of the Tab key too */
+.map-view:not(.wide)[data-stop="min"] .sheet-body { visibility: hidden; }
+/* A phone held sideways has about 390px of height in all. The search and the switch share one line and the
+   day bar steps out, so the map and the list beside it keep some 220px (they had 160). */
+@media (max-height: 520px) and (min-width: 600px) {
+    .view-panel.panel-programs.map-on.active { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, 34%); grid-template-rows: auto auto auto minmax(0, 1fr); column-gap: 8px; }
+    .panel-programs.map-on > .search-row { grid-area: 1 / 1; margin: 0 0 6px; }
+    .panel-programs.map-on > .toolbar { grid-area: 1 / 2; margin: 0 0 6px; }
+    .panel-programs.map-on > .rinks-from { grid-area: 2 / 1 / auto / -1; margin: 0 0 6px; }
+    .panel-programs.map-on > .pills { grid-area: 3 / 1 / auto / -1; margin-bottom: 6px; }
+    .panel-programs.map-on > .day-bar { display: none; }
+    .panel-programs.map-on > .map-view { grid-area: 4 / 1 / auto / -1; }
+}
+/* a narrow phone: the count line still fits on one line ("116 rinks  Any 2 5 10 20 km") */
+@media (max-width: 380px) {
+    .map-view:not(.wide) .map-radius-lead:first-child { display: none; }
+    .map-view:not(.wide) .map-radius { gap: 4px; }
+    .map-view:not(.wide) .map-radius .fchip { min-width: 32px; padding: 0 8px; }
+}

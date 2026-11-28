@@ -68,11 +68,11 @@ window.SkateApp = (() => {
         rinkScope: SkateSettings.get('rinkScope') || 'all',
         sort: SkateSettings.get('sort') || 'time',
         calMode: !!SkateSettings.get('calMode'),
+        mapMode: false,                // v3.23: the Map view (List | Calendar | Map); never kept, so a visit that does not want the map loads none of it
+        filterGen: 0,                  // counts every pass of the filters: what was worked out for one pass is stale after the next
         calWeekOffset: 0,
         showDropped: false,            // include City sessions toronto.ca no longer lists (hidden by default: toronto.ca is the ground truth)
         moreFilters: false,            // Filters sheet: the collapsed "More options" section
-        rinksAllCities: false,         // Rinks view: ignore the Where cities for one look
-        rinksCity: null,               // Rinks view: a city picked in the sheet ('all' = every city, null = follow the filters)
         nearRink: null,                // {key, name} — "Sessions" from the Rinks view
         expandedCats: {},              // Filters sheet: which categories show their age groups
         activeGuideId: null, guideCat: '',
@@ -574,6 +574,31 @@ window.SkateApp = (() => {
     function upcomingSplit(key, nowMs = Date.now()) {
         return rinkCounts(nowMs).get(key) || NO_SESSIONS;
     }
+    /**
+     * v3.23: the Map view counts with the filters. For each rink, the sessions the list would show
+     * there: the kinds, the age, the day or dates, saved only, ended or not. What picks a PLACE is
+     * left out (the search text, "only this rink", my rinks, the distance, the cities): the map
+     * decides which rinks show by itself, and a rink must not read "none" because another one was picked.
+     * One pass over the schedule per pass of the filters.
+     */
+    let matchCache = { gen: -1, map: new Map() };
+    function matchCounts() {
+        if (matchCache.gen === S.filterGen) return matchCache.map;
+        const c = filterChecks({ place: false });
+        const map = new Map();
+        S.programs.forEach(p => {
+            if (!c.rest(p) || !c.type(p)) return;
+            const k = P.locKey(p);
+            let e = map.get(k);
+            if (!e) map.set(k, e = { free: 0, paid: 0 });
+            if (p.Paid) e.paid++; else e.free++;
+        });
+        matchCache = { gen: S.filterGen, map };
+        return map;
+    }
+    const matchSplit = (key) => matchCounts().get(key) || NO_SESSIONS;
+    /** How many sessions the list would show at this rink right now (paid ones only when Paid is on). */
+    const matchShown = (key) => { const m = matchSplit(key); return S.paidVisible ? m.free + m.paid : m.free; };
 
     /* ---------- Other names of a rink (v3.12) ----------
      * rinks.json carries `aka`: "College Park" is also the Barbara Ann Scott Ice
@@ -718,15 +743,19 @@ window.SkateApp = (() => {
         $('filters-count').textContent = String(n);
         $('filters-count').classList.toggle('hidden', !n);
         $('btn-filters').classList.toggle('active', !!n);
-        $('btn-list').classList.toggle('active', !S.calMode);
-        $('btn-list').setAttribute('aria-pressed', S.calMode ? 'false' : 'true');
-        $('btn-cal').classList.toggle('active', S.calMode);
-        $('btn-cal').setAttribute('aria-pressed', S.calMode ? 'true' : 'false');
+        // v3.23: List | Calendar | Map. The map sits on top of whichever of the other two was showing.
+        const onList = !S.mapMode && !S.calMode, onCal = !S.mapMode && S.calMode;
+        $('btn-list').classList.toggle('active', onList);
+        $('btn-list').setAttribute('aria-pressed', onList ? 'true' : 'false');
+        $('btn-cal').classList.toggle('active', onCal);
+        $('btn-cal').setAttribute('aria-pressed', onCal ? 'true' : 'false');
+        $('btn-rinks').classList.toggle('active', S.mapMode);
+        $('btn-rinks').setAttribute('aria-pressed', S.mapMode ? 'true' : 'false');
         // v3.12: which calendar the button opens, as a colour (the ▾ beside it switches)
         const ct = calType();
         $('view-seg').dataset.cal = ct;
         $('btn-cal').title = `Calendar: ${(CFG.calTypes.find(t => t.id === ct) || {}).label || 'week grid'}. The ▾ switches calendars.`;
-        $('btn-cal-type').classList.toggle('active', S.calMode);
+        $('btn-cal-type').classList.toggle('active', onCal);
         $('btn-free').setAttribute('aria-checked', S.paidVisible ? 'false' : 'true');
         $('btn-free').title = S.paidVisible ? 'Showing everything with prices. Tap for free sessions only.' : 'Showing free sessions only. Tap to show paid ones too.';
     };
@@ -1155,10 +1184,11 @@ window.SkateApp = (() => {
         Render.installHint();
         $('btn-clear-location').classList.toggle('hidden', !SkateGeo.getUserLocation());
 
-        // list ↔ week (the Week button)
-        $('calendar-wrap').classList.toggle('hidden', !S.calMode);
-        $('program-list').classList.toggle('hidden', S.calMode);
-        $('show-more').classList.toggle('hidden', S.calMode);
+        // list ↔ week (the Week button); v3.23: the map takes the place of both
+        $('calendar-wrap').classList.toggle('hidden', !S.calMode || S.mapMode);
+        $('program-list').classList.toggle('hidden', S.calMode || S.mapMode);
+        $('show-more').classList.toggle('hidden', S.calMode || S.mapMode);
+        if (S.mapMode) { Render.dayBar(); Render.rinks(); SkateMap.syncPins(); return; }
         if (S.calMode) return Render.calendar();
 
         const list = $('program-list');
@@ -2060,9 +2090,7 @@ window.SkateApp = (() => {
     }
     /** The Where cities apply to the rink list and the map too (your rinks always show). */
     function rinkInScope(r) {
-        if (S.rinksCity === 'all') return true;
-        if (S.rinksCity) return rinkCity(r) === S.rinksCity;
-        if (!S.cities.length || S.rinksAllCities) return true;
+        if (!S.cities.length) return true;       // v3.23: the city pill is the only say (the sheet had a picker of its own)
         return S.cities.includes(rinkCity(r)) || (SkateSettings.get('myRinks') || []).includes(String(r.locationid));
     }
 
@@ -2077,8 +2105,22 @@ window.SkateApp = (() => {
         return q.split(' ').every(word => hay.includes(word));
     }
     const rinksQuery = () => foldText($('rinks-search').value);
-    /** What the map and the list both show: in scope for the chosen cities and matching the search. */
-    const rinkShown = (r) => rinkInScope(r) && rinkMatchesQuery(r, rinksQuery());
+    /** v3.23: the distance in force on the map: the "Within N km" filter, once there is a spot to measure from. */
+    const mapRadius = () => (S.radius && SkateGeo.getUserLocation() ? S.radius : null);
+    /**
+     * What the map and the list both show. v3.23: the same filters as the schedule decide it: the cities,
+     * indoor or outdoor (the pill) and the distance. A name typed in the search looks past the distance:
+     * someone looking for one rink by name wants to find it wherever it is.
+     */
+    function rinkShown(r, q = rinksQuery(), user = SkateGeo.getUserLocation()) {
+        if (!rinkInScope(r) || !rinkMatchesQuery(r, q)) return false;
+        if (S.ice !== 'all' && !(r.kinds || []).includes(S.ice)) return false;
+        if (!q && S.radius && user) {
+            if (r.lat == null) return false;
+            if (SkateGeo.distanceKm(user, { lat: r.lat, lng: r.lng }) > S.radius) return false;
+        }
+        return true;
+    }
 
     /**
      * v3.12.1: how well a rink answers the search, lower first. A rink whose NAME holds the
@@ -2110,8 +2152,9 @@ window.SkateApp = (() => {
     let rinkRowBuilds = 0;             // rows (re)built so far: a rebuilt row means the DOM must take it
     function rinkRowNode(r, mine) {
         const key = String(r.locationid);
-        const sp = upcomingSplit(key);
-        const sessions = S.paidVisible ? sp.free + sp.paid : sp.free;
+        const sp = upcomingSplit(key);                             // everything coming up here
+        const m = matchSplit(key);                                 // v3.23: what the filters leave of it
+        const sessions = S.paidVisible ? m.free + m.paid : m.free;
         const alerts = SkateAlerts.forLocation(key);
         const starred = mine.has(key);
         const season = seasonWord(r);                              // v3.12: a seasonal rink that is not open right now
@@ -2124,12 +2167,13 @@ window.SkateApp = (() => {
             lendNextAt(key),                                      // v3.11: the lending van's next visit here
             ...(factsFor(key) ? factsBits(factsFor(key)) : [])   // v3.7: rentals / admission / helmets from the rink's site
         ].filter(Boolean).join(' · ');
-        const label = sessions ? `${sessions} session${sessions === 1 ? '' : 's'}` : (sp.paid ? `${sp.paid} paid` : 'No sessions');
+        const total = sp.free + sp.paid;
+        const label = sessions ? `${sessions} session${sessions === 1 ? '' : 's'}` : (m.paid ? `${m.paid} paid` : (total ? 'None match' : 'No sessions'));
         const seasonTitle = season ? ((r.seasonal && typeof r.seasonal.quote === 'string' && r.seasonal.quote) ? `Its page says: “${r.seasonal.quote.slice(0, 170)}”` : season) : '';
         const akaTitle = also ? (r.aka.length > 1 ? `Also known as ${r.aka.join(', ')}` : `Also known as ${also}`) : '';
         const alertTitle = alerts.length ? 'Service alert: ' + alerts.map(a => a.Reason).join(', ') : '';
-        const dead = !sessions && !sp.paid;
-        const sig = [r.name, also, akaTitle, season, seasonTitle, meta, label, dead ? 1 : 0, starred ? 1 : 0, alertTitle].join('\u0001');
+        const dead = !sessions && !m.paid;
+        const sig = [r.name, also, akaTitle, season, seasonTitle, meta, label, total, dead ? 1 : 0, starred ? 1 : 0, alertTitle].join('\u0001');
         const hit = rinkRowCache.get(key);
         if (hit && hit.sig === sig) return hit.node;
 
@@ -2151,7 +2195,8 @@ window.SkateApp = (() => {
         ]));
         const sessionsBtn = el('button', {
             class: 'btn-small rink-sessions', dataset: { locFilter: key, locName: r.name },
-            title: dead ? 'No drop-in sessions listed for this rink' : 'Show only this rink\'s sessions'
+            title: !dead ? 'Show only this rink\'s sessions'
+                : total ? `None of the ${total} session${total === 1 ? '' : 's'} coming up here match${total === 1 ? 'es' : ''} your filters` : 'No drop-in sessions listed for this rink'
         }, [label]);
         if (dead) sessionsBtn.disabled = true;
         node.appendChild(el('div', { class: 'rink-actions' }, [
@@ -2173,7 +2218,7 @@ window.SkateApp = (() => {
         const rinks = SkateGeo.rinks;
         let i = 0;
         const step = () => {
-            if ($('rinks-modal').classList.contains('hidden') || rinks !== SkateGeo.rinks) return;
+            if (!S.mapMode || rinks !== SkateGeo.rinks) return;
             const user = SkateGeo.getUserLocation(), mine = new Set(SkateSettings.get('myRinks') || []);
             const t0 = performance.now();
             while (i < rinks.length && performance.now() - t0 < 6) {
@@ -2186,13 +2231,50 @@ window.SkateApp = (() => {
         rinkWarmTimer = setTimeout(step, 500);
     }
 
+    /** v3.23: the question on the map: the first look ("find rinks near you"), or what a filter needs a spot for. */
+    const ASK_KM = 5;      // the distance the first answer starts with
+    function askState() {
+        if (SkateGeo.getUserLocation()) return null;
+        if (S.rinksAsk) return { title: 'Where from?', text: S.rinksAsk, skip: 'Not now' };
+        if (!SkateSettings.get('mapAsked')) return {
+            title: 'Find rinks near you',
+            text: `Share your location, or type an address, to see the rinks within ${ASK_KM} km, nearest first. You can change the distance after.`,
+            skip: 'Not now, show every rink'
+        };
+        return null;
+    }
+    let askShown = null;   // was the question up at the last look? (null: the view has just opened)
+    Render.mapAsk = function () {
+        const box = $('map-ask'), ask = askState();
+        box.classList.toggle('hidden', !ask);
+        $('map-view').classList.toggle('asking', !!ask);
+        // while it is up the list steps down to a strip; answered or put away, the list comes back up
+        if (S.mapMode && askShown !== !!ask) { if (ask || askShown !== null) Sheet.set(ask ? 'min' : 'peek'); askShown = !!ask; }
+        if (!ask) { $('map-ask-err').classList.add('hidden'); return; }
+        $('map-ask-title').textContent = ask.title;
+        $('map-ask-text').textContent = ask.text;
+        $('btn-ask-skip').textContent = ask.skip;
+    };
+
     Render.rinks = function () {
         const user = SkateGeo.getUserLocation();
-        const ask = !user && S.rinksAsk;      // v3.12.2: what a filter needs a spot for, said here and not in a toast over the box
-        $('locator-status').textContent = user ? `Distances from ${user.label}` : (ask || 'Type a rink, an area or your postal code. Near me sorts by distance.');
-        $('locator-status').classList.toggle('ask', !!ask);
+        Render.mapAsk();
+        $('locator-status').textContent = user ? `Distances from ${user.label}` : '';   // v3.23: nothing to say without a spot (the box and Near me say it)
         const wrap = $('rinks-list');
         const scope = $('rinks-scope');
+        // The distance, as chips on the sheet: the same filter as the "Within N km" pill and the Filters sheet.
+        const far = $('map-radius');
+        const farSig = [S.radius || 0, S.radiusWanted || 0, user ? 1 : 0].join('|');
+        if (far.dataset.sig !== farSig) {
+            far.dataset.sig = farSig;
+            far.innerHTML = '';
+            // with the count before it, the line reads "25 rinks within [Any] [2] [5] [10] [20] km"
+            far.appendChild(el('span', { class: 'map-radius-lead' }, ['within']));
+            const chipOf = (label, on, km, say, wanted) => el('button', { class: 'fchip' + (on ? ' active' : '') + (wanted ? ' wanted' : ''), type: 'button', dataset: { mapRadius: km }, 'aria-pressed': on ? 'true' : 'false', 'aria-label': say, title: say }, [label]);
+            far.appendChild(chipOf('Any', !mapRadius() && !S.radiusWanted, '', 'Any distance'));
+            CFG.radiusOptions.forEach(km => far.appendChild(chipOf(String(km), mapRadius() === km, String(km), `Within ${km} km`, !user && S.radiusWanted === km)));
+            far.appendChild(el('span', { class: 'map-radius-lead' }, ['km']));
+        }
         if (!SkateGeo.loaded || !SkateGeo.rinks.length) {
             wrap.innerHTML = '';
             scope.innerHTML = '';
@@ -2203,10 +2285,10 @@ window.SkateApp = (() => {
         if (rinkRowsFor !== SkateGeo.rinks) { rinkRowsFor = SkateGeo.rinks; rinkRowCache.clear(); }   // new data: nothing kept
         const q = rinksQuery();
         const mine = new Set(SkateSettings.get('myRinks') || []);
-        const kind = SkateMap.filter;   // All / Indoor / Outdoor from the sheet's header
+        const kind = S.ice;             // v3.23: indoor or outdoor is the pill's choice, here as in the list
+        const within = q ? null : mapRadius();
         const rows = SkateGeo.rinks
-            .filter(r => rinkInScope(r) && rinkMatchesQuery(r, q))
-            .filter(r => kind === 'all' || (r.kinds || []).includes(kind))
+            .filter(r => rinkShown(r, q, user))
             .map(r => ({ ...r, city: rinkCity(r), km: user && r.lat != null ? SkateGeo.distanceKm(user, { lat: r.lat, lng: r.lng }) : null, rank: rinkRank(r, q) }));
         rows.sort(q
             ? (a, b) => (a.rank - b.rank) ||                                           // searching: the best match first,
@@ -2216,30 +2298,17 @@ window.SkateApp = (() => {
                 ((a.km ?? Infinity) - (b.km ?? Infinity)) ||                            // then nearest
                 a.name.localeCompare(b.name));                                          // then A–Z
 
-        // Scope line: which cities the list follows, with a one-tap way out.
-        // v3.9: a city picker (the old "show every city" link could not pick one city), and the
-        // count here is the same count as the map's title: both follow the city and the kind.
-        // (Rebuilt only when what it says changes: a <select> recreated on every letter is wasted work.)
-        const selValue = S.rinksCity || (S.cities.length === 1 ? S.cities[0] : (S.cities.length > 1 ? '' : 'all'));
-        const scopeSig = [rows.length, kind, S.cities.join('|'), selValue, SkateGeo.rinks.length].join('\u0001');
+        // The count line: how many rinks, of which ice and how far. It is the number of pins on the map (both follow
+        // the same test); which cities is the city pill's business, above the map (v3.23: the sheet's own picker is gone).
+        const scopeSig = [rows.length, kind].join('\u0001');
         if (scopeSig !== rinkScopeSig || !scope.firstChild) {
             rinkScopeSig = scopeSig;
             scope.innerHTML = '';
-            scope.appendChild(el('span', {}, [`${rows.length} rink${rows.length === 1 ? '' : 's'}${kind !== 'all' ? ` (${kind})` : ''}`]));
-            const counts = {};
-            SkateGeo.rinks.forEach(r => { const c = rinkCity(r); counts[c] = (counts[c] || 0) + 1; });
-            const sel = el('select', { id: 'rinks-city', class: 'rinks-city', 'aria-label': 'Which city' });
-            if (S.cities.length > 1) sel.appendChild(el('option', { value: '' }, [`Your cities (${S.cities.length})`]));
-            sel.appendChild(el('option', { value: 'all' }, [`Every city (${SkateGeo.rinks.length})`]));
-            Object.entries(counts).sort((a, b) => b[1] - a[1]).forEach(([c, n]) => sel.appendChild(el('option', { value: c }, [`${c} (${n})`])));
-            sel.value = selValue;
-            sel.onchange = () => {
-                S.rinksCity = sel.value || null;
-                S.rinksAllCities = sel.value === 'all';
-                SkateMap.setFilter(SkateMap.filter);   // re-pins + retitles; the hook re-renders this list
-            };
-            scope.appendChild(sel);
+            scope.appendChild(el('span', { id: 'rinks-count', dataset: { n: String(rows.length) } }, [`${rows.length} ${kind !== 'all' ? kind + ' ' : ''}rink${rows.length === 1 ? '' : 's'}`]));
         }
+        // a name typed in the box looks past the distance: the chips step back while it does
+        far.classList.toggle('paused', !!q && !!mapRadius());
+        far.title = q && mapRadius() ? 'A name typed in the box is looked for at any distance' : '';
 
         // What the list shows, in order: rows (kept nodes) and two small headings.
         const built = rinkRowBuilds;
@@ -2253,7 +2322,8 @@ window.SkateApp = (() => {
         }
         others.slice(0, RINK_ROWS_MAX).forEach(r => parts.push({ key: String(r.locationid), node: rinkRowNode(r, mine) }));
         if (others.length > RINK_ROWS_MAX) parts.push({ hint: `${q ? 'The best' : 'The first'} ${RINK_ROWS_MAX} of ${others.length}. ${q ? 'Keep typing' : 'Type a name or an area'} to narrow it down.` });
-        if (!rows.length) parts.push({ hint: q ? 'No rink matches that. If it is an address or a postal code, use the line above to measure distances from it.' : 'No rink matches that.' });
+        if (!rows.length) parts.push({ hint: q ? 'No rink matches that. If it is an address or a postal code, use the line under the box to measure distances from it.'
+            : within ? `No rink within ${within} km of that spot${kind !== 'all' ? ` is ${kind}` : ''}. Try a longer distance.` : 'No rink matches that.' });
         // Another letter of a word that still matches the same rinks in the same order changes
         // nothing on screen: then nothing is moved, and the browser has no layout to redo.
         const listSig = parts.map(x => x.key || x.head || x.hint).join('\u0001');
@@ -2261,7 +2331,7 @@ window.SkateApp = (() => {
             rinkListSig = listSig;
             fillRinkList(wrap, parts);
         }
-        if (q !== rinkListQuery) { rinkListQuery = q; wrap.scrollTop = 0; }   // a new search starts at its best match
+        if (q !== rinkListQuery) { rinkListQuery = q; $('sheet-body').scrollTop = 0; }   // a new search starts at its best match
     };
     const RINK_ROWS_MAX = 80;
     /**
@@ -2654,7 +2724,8 @@ window.SkateApp = (() => {
      * Every filter as its own check (v3.14). The list needs all of them; each part of the
      * Filters sheet counts with all of them but its own (filterFacets).
      */
-    function filterChecks() {
+    function filterChecks(opts = {}) {
+        const place = opts.place !== false;   // v3.23: false = leave out what picks a place (search text, one rink, my rinks, the distance)
         const mine = new Set(SkateSettings.get('myRinks') || []);
         const nowMs = Date.now();
         const todayKey = SkateTime.todayKey(), tomorrowKey = SkateTime.addDays(todayKey, 1);
@@ -2673,10 +2744,10 @@ window.SkateApp = (() => {
         const rest = (p) => {
             if (!S.showDropped && SkateAlerts.isDropped(p)) return false;   // toronto.ca is the ground truth
             if (S.savedOnly && !SkateFavorites.has(p)) return false;
-            if (S.rinkScope === 'mine' && mine.size && !mine.has(P.locKey(p))) return false;
-            if (S.nearRink && P.locKey(p) !== S.nearRink.key) return false;
-            if (radius != null) { const d = kmOf(p); if (d == null || d > radius) return false; }
-            if (term && !(
+            if (place && S.rinkScope === 'mine' && mine.size && !mine.has(P.locKey(p))) return false;
+            if (place && S.nearRink && P.locKey(p) !== S.nearRink.key) return false;
+            if (place && radius != null) { const d = kmOf(p); if (d == null || d > radius) return false; }
+            if (place && term && !(
                 P.activity(p).toLowerCase().includes(term) ||
                 P.location(p).toLowerCase().includes(term) ||
                 akaOf(P.locKey(p)).hay.includes(term) ||               // v3.12: "Barbara Ann Scott" finds College Park
@@ -2758,6 +2829,7 @@ window.SkateApp = (() => {
      * ticker) — keeps however many rows the reader expanded to.
      */
     Actions.applyFilters = function (keepLimit = false) {
+        S.filterGen++;
         S.filtered = computeFiltered();
         if (!keepLimit) S.limit = 30;
         Render.programs();
@@ -2873,23 +2945,26 @@ window.SkateApp = (() => {
         const todayKey = SkateTime.todayKey(), tomorrowKey = SkateTime.addDays(todayKey, 1);
         // the day the bar is about: the one at the top of the list; with nothing listed (today's sessions all over,
         // say), the day you picked, else today. v3.16.2: never "Any day".
-        const d = (S.calMode ? null : S.barDay) || S.dateFrom || todayKey;
+        const d = ((S.calMode || S.mapMode) ? null : S.barDay) || S.dateFrom || todayKey;
+        const anyDay = S.mapMode && !S.day && !S.dateFrom;   // v3.23: the map counts every day coming up, and says so
         const oneDay = !!S.dateFrom && S.dateFrom === S.dateTo;
         const rel = d === todayKey ? 'Today' : d === tomorrowKey ? 'Tomorrow' : '';
         const weekday = parseLocalDate(d).toLocaleDateString('en-CA', { weekday: 'long' });
         // a day you picked is named by its weekday ("Tuesday · Nov 24"); otherwise Today, Tomorrow or the weekday
-        const when = S.day ? (S.day === 'today' ? 'Today' : S.day === 'tomorrow' ? 'Tomorrow' : S.day === 'weekend' ? 'Weekend' : S.day)
+        const when = anyDay ? 'Any day'
+            : S.day ? (S.day === 'today' ? 'Today' : S.day === 'tomorrow' ? 'Tomorrow' : S.day === 'weekend' ? 'Weekend' : S.day)
             : oneDay ? weekday : (rel || weekday);
         setBarBtn($('db-when'), when, !!S.day);
         // "Wednesday, Nov 25" when the first part says Today, Tomorrow or a When choice; "Nov 26" when it already names the weekday
         let long, short = mdLabel(d);
         if (S.dateFrom) long = short = oneDay ? mdLabel(S.dateFrom) : rangeLabel(S.dateFrom, S.dateTo);
+        else if (anyDay) long = short = `from ${short}`;
         else long = (S.day || rel) ? parseLocalDate(d).toLocaleDateString('en-CA', { weekday: 'long', month: 'short', day: 'numeric' }) : short;
         const db = $('db-date');
         db.querySelector('.db-long').textContent = long;
         db.querySelector('.db-short').textContent = short;
         db.classList.toggle('on', !!S.dateFrom);
-        $('day-bar').classList.toggle('today', d === todayKey && !S.day && !S.dateFrom);
+        $('day-bar').classList.toggle('today', d === todayKey && !S.day && !S.dateFrom && !anyDay);
     };
     /** Which day is at the top of the list, under the bar: the last separator that has gone under it. */
     let spyRaf = 0;
@@ -2994,7 +3069,7 @@ window.SkateApp = (() => {
         S.sort = id;
         if (id === 'near' && !SkateGeo.getUserLocation()) {
             Modal.close('filters-modal');
-            Actions.openRinks({ ask: 'Nearest first needs a spot to measure from. Type a place or a postal code, or tap Near me.' });
+            Actions.openRinks({ ask: 'Nearest first needs a spot to measure from.' });
         }
         filtersChanged();
     };
@@ -3011,7 +3086,7 @@ window.SkateApp = (() => {
         if (v && !SkateGeo.getUserLocation()) {
             S.radiusWanted = v;
             Modal.close('filters-modal');
-            Actions.openRinks({ ask: `Within ${v} km needs a starting point. Type a place or a postal code, or tap Near me: the filter applies as soon as it is set.` });
+            Actions.openRinks({ ask: `Within ${v} km needs a starting point. The filter applies as soon as it is set.` });
             return;
         }
         S.radius = v; S.radiusWanted = null;
@@ -3065,6 +3140,7 @@ window.SkateApp = (() => {
     Actions.setCalMode = function (on) {
         S.calMode = !!on;
         SkateSettings.set('calMode', S.calMode);
+        if (S.mapMode) return setMapMode(false);   // v3.23: List and Calendar are also the way out of the Map view
         Render.programs();
     };
     /** v3.12: pick a calendar from the ▾ beside Calendar (and show it). 'week' is the grid; the rest are the day planner's views. */
@@ -3074,6 +3150,7 @@ window.SkateApp = (() => {
         if (type !== 'week') { S.cal2By = type; SkateSettings.set('cal2By', type); }
         S.calMode = true;
         SkateSettings.set('calMode', true);
+        if (S.mapMode) return setMapMode(false, { keepScroll: false });
         Render.programs();
     };
 
@@ -3145,7 +3222,7 @@ window.SkateApp = (() => {
         SkateSettings.set('myRinks', [...mine]);
         if (mine.has(key)) ensurePaidVisibleFor(key);
         if (!mine.size && S.rinkScope === 'mine') { S.rinkScope = 'all'; SkateSettings.set('rinkScope', 'all'); }
-        if (!$('rinks-modal').classList.contains('hidden')) { Render.rinks(); SkateMap.refresh(); }
+        if (S.mapMode) SkateMap.refresh();     // the pin's ring and its popup; the list follows with the filters below
         Actions.applyFilters(true);
     };
 
@@ -3178,6 +3255,134 @@ window.SkateApp = (() => {
         if (focus) $('rinks-search').focus();
     };
 
+    /* ---------- The rink list as a sheet over the map (v3.23) ----------
+     * On a phone the list sits over the bottom of the map at one of three heights: a strip (the count
+     * and the distance chips), a peek (two or three rinks, the map above) and nearly all of it. Drag the
+     * grip, the header or (until it is all the way up) the list itself; or tap the grip. On a wide screen
+     * the list is a column beside the map and none of this runs. The height is one CSS variable on
+     * #map-view: the sheet and the map's own corner controls both read it. */
+    const Sheet = (() => {
+        const STOPS = ['min', 'peek', 'full'];
+        let stop = 'peek';
+        const view = () => $('map-view'), box = () => $('map-sheet');
+        const over = () => !view().classList.contains('hidden') && getComputedStyle(box()).position === 'absolute';
+        let twoRows = 0;      // as last measured: the height that shows the header and the first two rinks
+        function heights() {
+            const H = view().clientHeight || 0;
+            // the peek: two rinks at a glance and the map above them. Never more than 58% of the view (a small phone
+            // then shows one rink and the start of the next); before anything is measured, a little under half.
+            const peek = Math.round(twoRows ? Math.max(150, Math.min(twoRows, H * 0.58)) : Math.max(170, Math.min(H * 0.46, 280)));
+            return { min: 60, peek, full: Math.max(H - 8, peek) };               // min: the grip and the count line
+        }
+        const paint = (h) => view().style.setProperty('--sheet-h', `${Math.round(h)}px`);
+        let measureTimer = 0;
+        /** How tall are the header and the first two rows, really? (Names wrap, a set spot adds a line: 150 to 280px.) */
+        function measure() {
+            const rows = $('rinks-list').querySelectorAll('.rink-row');
+            if (!over() || rows.length < 2) return;
+            const need = rows[1].offsetTop + rows[1].offsetHeight + 8;           // from the sheet's top edge to under the second row
+            view().dataset.rows2 = String(need);                                 // (the tests wait for this before they look at heights)
+            if (Math.abs(need - twoRows) < 4) return;
+            const before = heights().peek;
+            twoRows = need;
+            if (stop !== 'peek' || view().classList.contains('dragging')) return;
+            paint(heights().peek);
+            if (Math.abs(heights().peek - before) > 12) SkateMap.reframe();      // the ring, if there is one, back in what still shows
+        }
+        function set(name) {
+            stop = STOPS.includes(name) ? name : 'peek';
+            view().dataset.stop = stop;
+            $('sheet-grip').setAttribute('aria-expanded', stop === 'full' ? 'true' : 'false');
+            if (over()) paint(heights()[stop]); else view().style.removeProperty('--sheet-h');
+            // measured a moment later: rows just put on the page have not been given their real height yet
+            clearTimeout(measureTimer);
+            if (stop === 'peek') measureTimer = setTimeout(measure, 90);
+        }
+        /** How much of the map's bottom the list covers right now (0 beside the map). */
+        const inset = () => (over() ? heights()[stop] : 0);
+        function bind() {
+            let drag = null;
+            const start = (e) => {
+                if (!over() || (e.pointerType === 'mouse' && e.button !== 0)) return;
+                if (e.target.closest('select, input')) return;                              // a field on the sheet is typed in, not dragged
+                // all the way up the list scrolls like any list; a mouse has its wheel at every height
+                if (e.target.closest('.sheet-body') && (stop === 'full' || e.pointerType !== 'touch')) return;
+                drag = { id: e.pointerId, y0: e.clientY, h0: box().getBoundingClientRect().height, moved: false, y: e.clientY, t: e.timeStamp, v: 0 };
+                // followed on the window: a mouse leaves the sheet's edge before the sheet has moved under it
+                window.addEventListener('pointermove', move);
+                window.addEventListener('pointerup', end);
+                window.addEventListener('pointercancel', end);
+            };
+            const move = (e) => {
+                if (!drag || e.pointerId !== drag.id) return;
+                const dy = drag.y0 - e.clientY;
+                if (!drag.moved) {
+                    if (Math.abs(dy) < 6) return;                                            // still a tap
+                    drag.moved = true;
+                    view().classList.add('dragging');
+                }
+                const hs = heights();
+                paint(Math.max(hs.min, Math.min(hs.full, drag.h0 + dy)));
+                const dt = e.timeStamp - drag.t;
+                if (dt > 0) drag.v = (drag.y - e.clientY) / dt;                              // pixels a millisecond, up is positive
+                drag.y = e.clientY; drag.t = e.timeStamp;
+            };
+            const end = (e) => {
+                if (!drag || e.pointerId !== drag.id) return;
+                const d = drag; drag = null;
+                window.removeEventListener('pointermove', move);
+                window.removeEventListener('pointerup', end);
+                window.removeEventListener('pointercancel', end);
+                view().classList.remove('dragging');
+                if (!d.moved) return;                                                        // a tap: its click does the rest
+                const hs = heights(), h = box().getBoundingClientRect().height;
+                const to = Math.abs(d.v) > 0.45
+                    ? (d.v > 0 ? (STOPS.find(n => hs[n] > h + 1) || 'full') : ([...STOPS].reverse().find(n => hs[n] < h - 1) || 'min'))   // a flick: the next stop that way
+                    : STOPS.reduce((best, n) => (Math.abs(hs[n] - h) < Math.abs(hs[best] - h) ? n : best), 'peek');                  // let go: the nearest one
+                set(to);
+                // the drag must not also press what was under the finger when it ended
+                const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+                box().addEventListener('click', swallow, { capture: true, once: true });
+                setTimeout(() => box().removeEventListener('click', swallow, true), 350);
+            };
+            box().addEventListener('pointerdown', start);
+            $('sheet-grip').addEventListener('click', () => set(stop === 'peek' ? 'full' : 'peek'));
+            $('sheet-grip').addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowUp') { e.preventDefault(); set(stop === 'min' ? 'peek' : 'full'); }
+                else if (e.key === 'ArrowDown') { e.preventDefault(); set(stop === 'full' ? 'peek' : 'min'); }
+            });
+            // the phone turned, the window resized, the keyboard came or went: the layout and the heights are worked out again
+            const again = () => { if (S.mapMode) { fit(); SkateMap.resize(); } };
+            if (window.ResizeObserver) new ResizeObserver(again).observe(view()); else window.addEventListener('resize', again);
+        }
+        /** Beside the map or over it? Decided by the room the view itself has (the schedule can be one column of three). */
+        function fit(name) {
+            const w = view().clientWidth, was = view().classList.contains('wide');
+            if (w) view().classList.toggle('wide', w >= 640);
+            set(name || stop);
+            if (w && was !== view().classList.contains('wide')) SkateMap.reframe();   // the phone was turned: the ring back in view
+        }
+        return { set, fit, inset, bind, get stop() { return stop; } };
+    })();
+
+    /**
+     * v3.23: the Map view on or off. The list (or the calendar) stays as it was underneath and comes
+     * back where it was left. `render: false` when the caller is about to run the filters anyway.
+     */
+    let listScrollKept = 0;
+    function setMapMode(on, { render = true, keepScroll = true } = {}) {
+        on = !!on;
+        if (on === S.mapMode) return;
+        const panel = $('programs-panel');
+        if (on) listScrollKept = panel.scrollTop;
+        S.mapMode = on;
+        panel.classList.toggle('map-on', on);
+        $('map-view').classList.toggle('hidden', !on);
+        if (on) { panel.scrollTop = 0; askShown = null; Sheet.fit('peek'); }
+        if (render) Render.programs();
+        if (!on) panel.scrollTop = keepScroll && render ? listScrollKept : 0;
+    }
+
     Actions.openRinks = async function (opts = {}) {
         S.rinksAsk = typeof opts.ask === 'string' ? opts.ask : '';
         // What is typed in the schedule's search box carries over when it names a place
@@ -3187,39 +3392,98 @@ window.SkateApp = (() => {
         const carry = carried && SkateGeo.rinks.some(r => rinkMatchesQuery(r, foldText(carried)));
         $('rinks-search').value = carry ? carried : '';
         syncRinkSearch();
-        Render.rinks();
+        const was = S.mapMode;
+        setMapMode(true);
+        if (was) Render.rinks();   // already on the map: only the question changed
         warmRinkRows();     // v3.12.1: the rest of the rows, built while nobody is typing
         try {
-            await SkateMap.open(opts);   // shows #rinks-modal, lazy-loads Leaflet
-            if (S.rinksAsk && !(window.matchMedia && matchMedia('(pointer: coarse)').matches)) $('rinks-search').focus();   // a phone's keyboard opens on the reader's own tap
+            await SkateMap.open(opts);   // lazy-loads Leaflet into the view
+            if (S.rinksAsk && !SkateGeo.getUserLocation() && !(window.matchMedia && matchMedia('(pointer: coarse)').matches)) $('map-ask-input').focus();   // a phone's keyboard opens on the reader's own tap
         } catch (e) {
+            const canvas = $('map-canvas');
+            if (canvas && !canvas.querySelector('.leaflet-pane')) canvas.innerHTML = '<div class="loading">The map could not load.</div>';
+            Sheet.set('full');
             SkateUI.toast('The map could not load. The rink list still works.', 'error');
         }
     };
-    Actions.closeRinks = function () { SkateMap.close(); };
+    Actions.closeRinks = function () { setMapMode(false); };
+
+    /** A pin was tapped: its row comes to the top of the list (and the list comes up if it was put away). */
+    function pinTapped(key) {
+        const row = $('rinks-list').querySelector(`.rink-row[data-map-focus="${String(key).replace(/["\\]/g, '\\$&')}"]`);
+        if (!row) return;
+        if (Sheet.stop === 'min') Sheet.set('peek');
+        const body = $('sheet-body');
+        body.scrollTop += row.getBoundingClientRect().top - body.getBoundingClientRect().top - 4;
+        row.classList.add('focused'); setTimeout(() => row.classList.remove('focused'), 1600);
+    }
 
     /** After the user's point changes: distances everywhere, map dot, list order. */
     function locationChanged() {
         // v3.12: a radius picked before there was a spot starts counting now; no spot, no radius
-        if (SkateGeo.getUserLocation()) { if (S.radiusWanted) { S.radius = S.radiusWanted; S.radiusWanted = null; SkateSettings.set('radius', S.radius); } }
+        if (SkateGeo.getUserLocation()) {
+            S.rinksAsk = '';
+            SkateSettings.set('mapAsked', true);      // v3.23: a spot was set once: the map's first question is answered for good
+            if (S.radiusWanted) { S.radius = S.radiusWanted; S.radiusWanted = null; SkateSettings.set('radius', S.radius); }
+        }
         else if (S.radius) { S.radius = null; SkateSettings.set('radius', null); }
         SkateWeather.load(true);
-        Render.rinks();
-        SkateMap.refresh();
-        Actions.applyFilters(true);
+        Actions.applyFilters(true);                   // distances everywhere; on the map: the rink list, its pins, the You marker and the ring
+        if (S.mapMode) SkateMap.refresh();            // then the pins anew, for the distances in their popups (after the list: it settles how much map shows)
     }
 
-    Actions.useMyLocation = async function () {
-        const btn = $('btn-share-location');
-        btn.disabled = true; btn.textContent = 'Locating…';
+    /** The map's question said why it could not be answered (location refused, address not found). */
+    function askError(text) {
+        const box = $('map-ask-err');
+        box.textContent = text || '';
+        box.classList.toggle('hidden', !text);
+    }
+    /** The first look starts with a distance (the ring is the point of it); a filter's own question keeps its own. */
+    function armAskRadius() {
+        if (S.rinksAsk || S.radius || S.radiusWanted) return false;
+        S.radiusWanted = ASK_KM;
+        return true;
+    }
+
+    Actions.useMyLocation = async function (opts = {}) {
+        const btn = $('btn-share-location'), ask = $('btn-ask-locate');
+        const armed = opts.fromAsk ? armAskRadius() : false;
+        btn.disabled = ask.disabled = true; btn.textContent = ask.textContent = 'Locating…';
+        askError('');
         try {
             const loc = await SkateGeo.locateMe();
             SkateGeo.setUserLocation(loc);
             locationChanged();
         } catch (e) {
+            if (armed) S.radiusWanted = null;
             $('locator-status').textContent = e.message;
+            askError(e.message);
         }
-        btn.disabled = false; btn.textContent = 'Near me';
+        btn.disabled = ask.disabled = false; btn.textContent = 'Near me'; ask.textContent = 'Use my location';
+    };
+    /** The map's question, answered with an address or a postal code. */
+    Actions.askGo = async function () {
+        const text = $('map-ask-input').value.trim();
+        if (text.length < 3) { askError('Type an address, an intersection or a postal code.'); $('map-ask-input').focus(); return; }
+        const armed = armAskRadius(), go = $('btn-ask-go');
+        go.disabled = true;
+        askError('');
+        try {
+            const loc = await SkateGeo.geocode(text);
+            SkateGeo.setUserLocation(loc);
+            $('map-ask-input').value = '';
+            locationChanged();
+        } catch (e) {
+            if (armed) S.radiusWanted = null;
+            askError(e.message);
+        }
+        go.disabled = false;
+    };
+    /** "Not now": every rink, and the question does not come back by itself. */
+    Actions.askSkip = function () {
+        SkateSettings.set('mapAsked', true);
+        S.rinksAsk = ''; S.radiusWanted = null;
+        Render.rinks();
     };
 
     /** Forget the saved location: distances, Nearest order and the weather spot fall back. */
@@ -3292,7 +3556,7 @@ window.SkateApp = (() => {
         const rink = SkateGeo.rinkByLocation(key);
         if (rink && rink.paid) { S.paidVisible = true; SkateSettings.set('freeOnly', false); }
         ensurePaidVisibleFor(key, name);
-        SkateMap.close();
+        setMapMode(false, { render: false });      // v3.23: out of the Map view, to that rink's sessions from the top
         Actions.applyFilters();
         SkateUI.toast(`Showing only ${name}. Tap the pill's x to clear.`, 'info', 3500);
     };
@@ -3590,21 +3854,23 @@ window.SkateApp = (() => {
         const key = String(r.locationid);
         const user = SkateGeo.getUserLocation();
         const km = user && r.lat != null ? SkateGeo.distanceKm(user, { lat: r.lat, lng: r.lng }) : null;
-        const sp = upcomingSplit(key);
-        const sessions = S.paidVisible ? sp.free + sp.paid : sp.free;
+        const sp = upcomingSplit(key), m = matchSplit(key);      // v3.23: what is coming up here, and what the filters leave of it
+        const sessions = S.paidVisible ? m.free + m.paid : m.free;
+        const total = sp.free + sp.paid;
         const alerts = SkateAlerts.forLocation(key);
         const mine = (SkateSettings.get('myRinks') || []).includes(key);
         const kinds = (r.kinds || []).map(k => k === 'indoor' ? 'indoor' : 'outdoor').join(' · ');
         const city = rinkCity(r);
         const offR = officialUrlForRink(r);
         const sessionsTxt = sessions ? `${sessions} upcoming session${sessions === 1 ? '' : 's'}`
-            : (sp.paid ? `${sp.paid} paid session${sp.paid === 1 ? '' : 's'} (Paid toggle off)` : 'no drop-ins listed');
+            : m.paid ? `${m.paid} paid session${m.paid === 1 ? '' : 's'} (the switch at the top is on Free)`
+            : total ? `none of the ${total} session${total === 1 ? '' : 's'} coming up here match${total === 1 ? 'es' : ''} your filters` : 'no drop-ins listed';
         return `<div class="map-pop">
             <strong>${escapeHtml(r.name)}</strong>
             <span class="map-pop-meta">${city !== 'Toronto' ? escapeHtml(city) + ' · ' : ''}${kinds}${r.paid ? ' · paid' : ''}${km != null ? ` · ${SkateGeo.fmtKm(km)}` : ''}${offR ? ` · <a href="${escapeHtml(offR)}" target="_blank" rel="noopener">official page ↗</a>` : ''}</span>
             <span class="map-pop-meta">${sessionsTxt}${alerts.length ? ' · <span class="map-pop-alert">service alert</span>' : ''}</span>
             <span class="map-pop-actions">
-                ${(sessions || sp.paid) ? `<button class="btn-small" data-map-sessions="${escapeHtml(key)}" data-map-name="${escapeHtml(r.name)}">Show sessions</button>` : ''}
+                ${(sessions || m.paid) ? `<button class="btn-small" data-map-sessions="${escapeHtml(key)}" data-map-name="${escapeHtml(r.name)}">Show sessions</button>` : ''}
                 <button class="btn-small${mine ? ' starred' : ''}" data-map-star="${escapeHtml(key)}">${mine ? '★ One of my rinks' : '☆ Add to my rinks'}</button>
             </span>
         </div>`;
@@ -3967,7 +4233,7 @@ window.SkateApp = (() => {
         // and Android then clicked whatever had slid under it (v3.9).
         const SLOP = 14;
         panel.addEventListener('touchstart', (e) => {
-            if (busy || panel.scrollTop > 0 || Modal.any() || SkateTour.running || e.target.closest('button, a, input, label, select, textarea, [role="button"], .pill, .fchip')) { startY = null; return; }
+            if (busy || S.mapMode || panel.scrollTop > 0 || Modal.any() || SkateTour.running || e.target.closest('button, a, input, label, select, textarea, [role="button"], .pill, .fchip')) { startY = null; return; }
             startY = e.touches[0].clientY; pulling = false; armed = false;
         }, { passive: true });
         panel.addEventListener('touchmove', (e) => {
@@ -4153,7 +4419,7 @@ window.SkateApp = (() => {
 
         // ---- Toolbar ----
         $('btn-filters').onclick = Actions.openFilters;
-        $('btn-rinks').onclick = () => Actions.openRinks();
+        $('btn-rinks').onclick = () => { if (!S.mapMode) Actions.openRinks(); };
         $('btn-list').onclick = () => Actions.setCalMode(false);
         $('btn-cal').onclick = () => Actions.setCalMode(true);
         $('btn-cal-type').onclick = (e) => { e.stopPropagation(); Popover.open($('btn-cal-type'), Menus.calTypes(), 'Which calendar'); };
@@ -4249,9 +4515,9 @@ window.SkateApp = (() => {
             ['[data-cal2-locate]', async (b) => {
                 b.disabled = true; b.textContent = 'Locating…';
                 try { SkateGeo.setUserLocation(await SkateGeo.locateMe()); locationChanged(); }
-                catch (e) { Actions.openRinks({ ask: `${e.message} Type a place or a postal code instead.` }); }
+                catch (e) { Actions.openRinks({ ask: `${e.message} Type an address or a postal code instead.` }); }
             }],
-            ['[data-cal2-place]', () => Actions.openRinks({ ask: 'Type a place or a postal code, then tap the line that appears under the box.' })],
+            ['[data-cal2-place]', () => Actions.openRinks({ ask: 'Distances need a starting point.' })],
             ['[data-cal2-ended]', (b, e) => { e.stopPropagation(); Actions.cal2ToggleEnded(); }],
             ['[data-cal2-fav]', (b, e) => { e.stopPropagation(); const p = S.filtered.find(x => P.id(x) === b.dataset.cal2Fav); if (p) Actions.toggleSaved(p); }],
             ['[data-cal2-day]', (b) => Actions.cal2SetDay(b.dataset.cal2Day)],
@@ -4278,10 +4544,18 @@ window.SkateApp = (() => {
         ]);
         delegate($('show-more'), [['button[data-more]', (b) => { S.limit = b.dataset.more === 'all' ? Infinity : S.limit + 30; Render.programs(); }]]);
 
-        // ---- Rinks & map ----
-        $('btn-rinks-close').onclick = Actions.closeRinks;
-        $('btn-share-location').onclick = Actions.useMyLocation;
+        // ---- The Map view ----
+        $('btn-share-location').onclick = () => Actions.useMyLocation();
         $('btn-clear-location').onclick = Actions.clearLocation;
+        $('btn-ask-locate').onclick = () => Actions.useMyLocation({ fromAsk: true });
+        $('map-ask-form').onsubmit = (e) => { e.preventDefault(); Actions.askGo(); };
+        $('btn-ask-skip').onclick = Actions.askSkip;
+        // the distance chips on the sheet: the same filter as the "Within N km" pill
+        delegate($('map-radius'), [['button[data-map-radius]', (b) => {
+            const km = b.dataset.mapRadius ? Number(b.dataset.mapRadius) : null;
+            Actions.setRadius(km && km === mapRadius() ? null : km);      // the one in force, tapped again, lets go of it
+        }]]);
+        Sheet.bind();
         $('btn-install').onclick = Actions.openInstall;
         // The feedback sheet rides the chat stack: load it on first use.
         Actions.openDevChat = async () => {
@@ -4362,16 +4636,11 @@ window.SkateApp = (() => {
             ['[data-loc-star]', (b) => Actions.toggleMyRink(b.dataset.locStar)],
             // v3.7b: anywhere on the row flies the map to the rink's pin and opens it
             ['[data-map-focus]', (b) => {
+                if (Sheet.stop === 'full') Sheet.set('peek');     // v3.23: a list pulled all the way up steps aside for the map
                 SkateMap.focusRink(b.dataset.mapFocus);
                 const row = b.closest('.rink-row');
                 if (row) { row.classList.add('focused'); setTimeout(() => row.classList.remove('focused'), 1600); }
             }]
-        ]);
-        delegate($('rinks-scope'), [
-            ['[data-rinks-scope]', (b) => { S.rinksAllCities = b.dataset.rinksScope === 'all'; Render.rinks(); SkateMap.refresh(); }]
-        ]);
-        delegate($('map-filter-seg'), [
-            ['button[data-mapfilter]', (b) => SkateMap.setFilter(b.dataset.mapfilter)]
         ]);
         // popup buttons render inside the Leaflet container → one delegate
         delegate($('map-canvas'), [
@@ -4741,7 +5010,7 @@ window.SkateApp = (() => {
         SkateWeather.load();
         SkateGeo.onUpdate(() => {
             if (S.programs.length) Actions.applyFilters(true);
-            if (!$('rinks-modal').classList.contains('hidden')) { Render.rinks(); SkateMap.refresh(); }
+            if (S.mapMode) { Render.rinks(); SkateMap.refresh(); }
         });
         SkateAlerts.onUpdate(() => { if (S.programs.length) { mergeLiveExtras(); Actions.applyFilters(true); } });
         SkateLive.onUpdate(() => { if (S.programs.length) Render.programs(); });
@@ -4752,8 +5021,15 @@ window.SkateApp = (() => {
         SkateMap.configure({
             popupHtml: mapPopupHtml,
             userPoint: () => SkateGeo.getUserLocation(),
-            rinkFilter: rinkShown,           // the pins follow the cities AND the rink search
-            onFilter: () => Render.rinks()   // the list follows All / Indoor / Outdoor
+            rinkFilter: (r) => rinkShown(r), // the pins follow the cities, indoor or outdoor, the distance AND the rink search
+            // v3.23: a pin is the colour of its ice, filled when the list would show sessions there, ringed in gold when it is yours
+            pinState: (r) => {
+                const key = String(r.locationid);
+                return { kind: (r.kinds || []).includes('outdoor') ? 'outdoor' : 'indoor', on: matchShown(key) > 0, mine: (SkateSettings.get('myRinks') || []).includes(key) };
+            },
+            radiusKm: mapRadius,             // the ring around your spot
+            inset: () => ({ bottom: Sheet.inset() }),   // how much of the map the pulled-up list covers
+            onPin: pinTapped
         });
 
         try {

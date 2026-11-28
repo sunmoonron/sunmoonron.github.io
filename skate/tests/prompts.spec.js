@@ -32,37 +32,39 @@ test.describe('prompts that got in the way', () => {
         await app.noErrors();
     });
 
-    test('a filter that needs a spot asks inside Rinks & map, with no toast over the search box', async ({ page, app, isMobile }) => {
+    test('a filter that needs a spot asks on the map, with no toast over the search box', async ({ page, app, isMobile }) => {
         await app.open();
         await page.evaluate(() => SkateApp.Actions.setRadius(5));
-        await expect(page.locator('#rinks-modal')).toBeVisible();
-        const status = page.locator('#locator-status');
-        await expect(status).toHaveText('Within 5 km needs a starting point. Type a place or a postal code, or tap Near me: the filter applies as soon as it is set.');
-        await expect(status).toHaveClass(/ask/);
+        await expect(page.locator('#map-view')).toBeVisible();
+        await expect(page.locator('#map-ask')).toBeVisible();
+        await expect(page.locator('#map-ask-title')).toHaveText('Where from?');
+        await expect(page.locator('#map-ask-text')).toHaveText('Within 5 km needs a starting point. The filter applies as soon as it is set.');
         await expect(page.locator('#toast-container .toast')).toHaveCount(0);
-        if (!isMobile) await expect(page.locator('#rinks-search')).toBeFocused();
+        await expect(page.locator('#map-radius .fchip.wanted')).toHaveText('5');         // the distance that is waiting for a spot
+        if (!isMobile) await expect(page.locator('#map-ask-input')).toBeFocused();
         // the search box is not covered by anything
         const box = await page.locator('#rinks-search').boundingBox();
         const onTop = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.id, [box.x + box.width / 2, box.y + box.height / 2]);
         expect(onTop).toBe('rinks-search');
-        // typing keeps the question; a spot replaces it
+        // typing a rink's name keeps the question; a spot answers it
         await page.fill('#rinks-search', 'alpha');
-        await expect(status).toHaveClass(/ask/);
+        await expect(page.locator('#map-ask')).toBeVisible();
         await page.fill('#rinks-search', 'M1J 3K4');
         await page.locator('#rinks-search').press('Enter');
-        await expect(status).toContainText('M1J');
-        await expect(status).not.toHaveClass(/ask/);
+        await expect(page.locator('#locator-status')).toContainText('M1J');
+        await expect(page.locator('#map-ask')).toBeHidden();
+        await expect(page.locator('#active-filters .pill.radius')).toContainText('Within 5 km');
         await app.noErrors();
     });
 
-    test('the next time the sheet opens by itself, the question is gone', async ({ page, app }) => {
+    test('the next time the map opens by itself, the question is gone', async ({ page, app }) => {
         await app.open();
         await page.evaluate(() => SkateApp.Actions.setRadius(5));
-        await expect(page.locator('#locator-status')).toHaveClass(/ask/);
-        await page.click('#btn-rinks-close');
+        await expect(page.locator('#map-ask')).toBeVisible();
+        await page.click('#btn-list');
         await page.click('#btn-rinks');
-        await expect(page.locator('#locator-status')).not.toHaveClass(/ask/);
-        await expect(page.locator('#locator-status')).toContainText('Type a rink, an area or your postal code');
+        await expect(page.locator('#rinks-list .rink-row').first()).toBeVisible();
+        await expect(page.locator('#map-ask')).toBeHidden();
         await app.noErrors();
     });
 });

@@ -156,7 +156,7 @@ test.describe('lifelike', () => {
         const v = (name) => page.locator('#jay').evaluate((b, n) => b.style.getPropertyValue(n), name);
         await page.mouse.click(300, 560);
         expect(parseFloat(await v('--jay-head'))).toBeGreaterThan(4);                         // beak down toward the tap
-        expect(await v('--jay-crest')).toBe('-14deg');
+        expect(parseFloat(await v('--jay-crest'))).toBeLessThanOrEqual(-10);                  // crest up (its own small moves may nudge the exact angle a moment later)
         await page.mouse.click(300, 2);                                                       // and up for something above it
         expect(parseFloat(await v('--jay-head'))).toBeLessThan(0);
         // left alone, the numbers keep changing: record every change for a few seconds

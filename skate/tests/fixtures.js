@@ -99,7 +99,7 @@ function buildData() {
 }
 
 const DEFAULT_SETTINGS = {
-    setupDone: true, tourDone: true, heartHintDone: true, installSeen: true, lastSeenVersion: '3.22',
+    setupDone: true, tourDone: true, heartHintDone: true, installSeen: true, mapAsked: true, lastSeenVersion: '3.23',
     showGuides: false, showChats: false, timeFormat: '12h', freeOnly: false, rinkScope: 'all', myRinks: [], sort: 'time',
     cities: ['Toronto'], typeSel: { leisure: 'all', figure: 'all', other: 'all', adapted: 'all', ringette: 'all', speed: 'all' },
     invisible: false, dmsAllowed: true, notifyDesktop: false
