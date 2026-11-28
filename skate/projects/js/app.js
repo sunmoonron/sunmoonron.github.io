@@ -696,7 +696,7 @@ window.SkateApp = (() => {
         const icePill = el('button', {
             class: 'pill ice' + (S.ice !== 'all' ? ` on ${S.ice}` : ''), dataset: { pill: 'ice' },
             title: S.ice !== 'all' ? 'Tap to change. The x shows indoor and outdoor.' : 'Tap to choose indoor or outdoor ice'
-        }, [el('span', { class: 'pill-label' }, [S.ice === 'indoor' ? 'Indoor' : S.ice === 'outdoor' ? 'Outdoor' : 'Indoor + outdoor']), el('span', { class: 'pill-caret', 'aria-hidden': 'true' }, ['▾'])]);
+        }, [el('span', { class: 'pill-label' }, [S.ice === 'indoor' ? 'Indoor' : S.ice === 'outdoor' ? 'Outdoor' : 'Indoor + Outdoor']), el('span', { class: 'pill-caret', 'aria-hidden': 'true' }, ['▾'])]);
         if (S.ice !== 'all') icePill.appendChild(el('span', { class: 'pill-x', role: 'button', 'aria-label': 'Show indoor and outdoor', title: 'Show indoor and outdoor' }, ['✕']));
         wrap.appendChild(icePill);
         const mine = (SkateSettings.get('myRinks') || []).length;
@@ -1593,7 +1593,7 @@ window.SkateApp = (() => {
         } else if (alert) {
             const closed = alert.level === 'closed';
             const lead = alert.lead || (closed ? 'Likely cancelled, rink alert'
-                : alert.padOnly ? 'One pad is closed here. This session likely runs on the other pad'
+                : alert.padOnly ? 'One pad is closed here. This session may be affected'
                 : 'Service alert at this rink');
             const body = [alert.reason, alert.text].filter(Boolean).map(escapeHtml).join('. ');
             alertHtml = `<div class="alert-banner ${closed ? 'closed' : 'warning'}"><strong>${escapeHtml(lead)}.</strong> ${body}${verify}</div>`;
@@ -2622,7 +2622,7 @@ window.SkateApp = (() => {
         /** v3.12: the Within N km pill. */
         /** v3.19: the standing indoor/outdoor pill. */
         ice() {
-            return [['all', 'Indoor + outdoor'], ['indoor', 'Indoor only'], ['outdoor', 'Outdoor only']]
+            return [['all', 'Indoor + Outdoor'], ['indoor', 'Indoor only'], ['outdoor', 'Outdoor only']]
                 .map(([id, label]) => ({ label: `${S.ice === id ? '✓ ' : '\u2007\u2007 '}${label}`, onClick: () => Actions.setIce(id) }));
         },
         radius() {

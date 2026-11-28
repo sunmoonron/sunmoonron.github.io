@@ -1,6 +1,6 @@
 // v3.18: outdoor rinks. Their sessions carry an Outdoor tag; with both kinds of ice listed each day is
 // its indoor sessions first, then its outdoor rinks (open most of the day, they would bury the rest),
-// with a line in the day header to jump to them; Filters has Ice: Indoor + outdoor / Indoor / Outdoor.
+// with a line in the day header to jump to them; Filters has Ice: Both / Indoor / Outdoor; the pill reads "Indoor + Outdoor".
 // And an old open-ended closure notice is "Call to confirm", not a cancellation.
 const { test, expect, row, dayPlus, stamp } = require('./fixtures');
 
@@ -47,7 +47,7 @@ test('indoor or outdoor: a section of its own in Filters (under Your age) and a 
     world(app);
     await app.open();
     const pill = page.locator('#active-filters .pill.ice');
-    await expect(pill).toHaveText(/^Indoor \+ outdoor/);                                 // always there
+    await expect(pill).toHaveText(/^Indoor \+ Outdoor/);                                 // always there
     await expect(pill).not.toHaveClass(/\bon\b/);
     // v3.20: a colour of its own that shows what it holds: a blend for both, one colour once narrowed
     const paint = () => pill.evaluate(e => getComputedStyle(e).backgroundImage);
@@ -74,7 +74,7 @@ test('indoor or outdoor: a section of its own in Filters (under Your age) and a 
     expect(await page.evaluate(() => document.querySelectorAll('.program-item .ice-badge').length)).toBe(0);
     await pill.locator('.pill-x').click();
     expect(await page.evaluate(() => SkateApp.S.ice)).toBe('all');
-    await expect(pill).toHaveText(/^Indoor \+ outdoor/);
+    await expect(pill).toHaveText(/^Indoor \+ Outdoor/);
     await app.noErrors();
 });
 

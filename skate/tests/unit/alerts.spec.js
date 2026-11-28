@@ -378,3 +378,91 @@ test.describe('indoor or outdoor, for a rink the City\'s datasets do not list', 
         expect(['2026-04-14', '2026-04-15', '2026-07-01', '2026-11-14', '2026-11-15', '2027-01-10'].map(pipe.inOutdoorLull)).toEqual([false, true, true, true, false, false]);
     });
 });
+
+// v3.26: opening day of the outdoor season (2026-11-28), gone through rink by rink against the City's own
+// alerts page. Three things the app said that the City's words did not support, each pinned here.
+test.describe('opening day, checked against the City rink by rink', () => {
+    const at = (alerts, rink, title, day, start, today) => {
+        RINK = rink; TODAY = today || day;
+        H.index([].concat(alerts));
+        const first = [].concat(alerts)[0];
+        return SA.forProgram({ 'Location ID': first.LocationID, 'Course Title': title, 'Start Date': day, 'Start Time': start, 'End Time': '22:00', Source: 'city' });
+    };
+    const twoPads = { pads: 2, kinds: ['outdoor'] }, onePad = { pads: 1, kinds: ['outdoor'] };
+    const greenwood = (extra = {}) => ({ LocationID: 70, AssetID: 14280, AssetName: 'Greenwood Park - Outdoor Artificial Ice Rink', Reason: 'Leisure Closed, Hockey Pad Open',
+        Comments: 'Ice Maintenance in progress.', Status: 2, Category: 'Skate', Type: 'Outdoor Ice Rink', DisplayAlertName: '', PostedDate: '2026-11-28 07:27:32', ...extra });
+    const modelRead = { v: 1, skating: 'one_pad_off', about: 'ice', starts: '2026-11-28', ends: null, timeFrom: null, timeTo: null, seasonal: false, by: 'claude-haiku-5-5' };
+
+    test('which pad the words name', () => {
+        const named = (Reason, Comments = '') => H.padNamed({ Reason, Comments });
+        expect(named('Leisure Closed, Hockey Pad Open')).toEqual({ closed: 'leisure', open: 'hockey' });
+        expect(named('Hockey Closed, Leisure Pad Open')).toEqual({ closed: 'hockey', open: 'leisure' });
+        expect(named('Maintenance/Repairs', 'The hockey pad is closed for repairs. The leisure pad remains open.')).toEqual({ closed: 'hockey', open: 'leisure' });
+        expect(named('Ice Conditions', 'Pleasure pad closed until further notice.')).toEqual({ closed: 'leisure', open: null });
+        expect(named('Ice Conditions', 'Leisure pad closed. Hockey pad closed.')).toBeNull();                       // both: the whole rink
+        expect(named('Maintenance/Repairs', 'Rink 2 is closed.')).toBeNull();                                       // a pad, but not said which kind
+        expect(named('Technical Issues', 'Leisure Skate from 11:30am-1:30pm is cancelled today.')).toBeNull();      // a session, not a pad
+        expect(named('Ice Conditions', 'The leisure pad is not closed.')).toBeNull();
+        expect(H.padOfProgram({ 'Course Title': 'Shinny: Child with Caregiver' })).toBe('hockey');
+        expect(H.padOfProgram({ 'Course Title': 'Pick Up Hockey: Adults' })).toBe('hockey');
+        expect(H.padOfProgram({ 'Course Title': 'Ringette' })).toBe('hockey');
+        expect(H.padOfProgram({ 'Course Title': 'Leisure Skate (Unsupervised)' })).toBe('leisure');
+        expect(H.padOfProgram({ 'Course Title': 'Ice Breakdancing' })).toBe('leisure');
+    });
+
+    for (const [how, Read] of [['read by the model as "one pad off"', modelRead], ['read by the word rules alone', undefined]]) {
+        test(`"Leisure Closed, Hockey Pad Open" (${how}): the Leisure Skate is off, the shinny is not`, () => {
+            const a = greenwood(Read ? { Read } : {});
+            const leisure = at(a, twoPads, 'Leisure Skate', '2026-11-28', '09:00');
+            expect(leisure).toMatchObject({ level: 'closed', kind: 'pad-closed', lead: 'Likely cancelled: the leisure pad is closed', reason: 'Leisure Closed, Hockey Pad Open' });
+            expect(leisure.text).toContain('Ice Maintenance in progress.');
+            const shinny = at(a, twoPads, 'Shinny: Youth', '2026-11-28', '11:00');
+            expect(shinny).toMatchObject({ level: 'note', kind: 'pad-other', lead: 'The leisure pad here is closed. The City says the hockey pad is open' });
+            expect(shinny.text).toBe('The City\'s notice: “Leisure Closed, Hockey Pad Open. Ice Maintenance in progress.”');
+        });
+    }
+
+    test('the other way round, and when the open pad is not mentioned', () => {
+        const a = greenwood({ Reason: 'Hockey Closed, Leisure Pad Open' });
+        expect(at(a, twoPads, 'Shinny (Women)', '2026-11-28', '09:00')).toMatchObject({ level: 'closed', kind: 'pad-closed', lead: 'Likely cancelled: the hockey pad is closed' });
+        expect(at(a, twoPads, 'Leisure Skate', '2026-11-28', '09:00')).toMatchObject({ level: 'note', kind: 'pad-other', lead: 'The hockey pad here is closed. The City says the leisure pad is open' });
+        const b = greenwood({ Reason: 'Ice Conditions', Comments: 'Hockey pad closed.' });
+        expect(at(b, twoPads, 'Leisure Skate', '2026-11-28', '09:00')).toMatchObject({ level: 'note', kind: 'pad-other', lead: 'The hockey pad here is closed. This session is on the leisure pad' });
+    });
+
+    test('left up for more than 48 hours with no end, it is "Call to confirm" for that pad and still a note for the other', () => {
+        const a = greenwood({ Read: modelRead });
+        expect(at(a, twoPads, 'Leisure Skate', '2026-11-30', '12:00')).toMatchObject({ level: 'warning', kind: 'unconfirmed', lead: 'Call to confirm' });
+        expect(at(a, twoPads, 'Leisure Skate', '2026-11-30', '07:00')).toMatchObject({ level: 'closed', kind: 'pad-closed' });      // 47.5 hours on
+        expect(at(a, twoPads, 'Shinny: Adult', '2026-11-30', '19:00')).toMatchObject({ level: 'note', kind: 'pad-other' });
+    });
+
+    test('a pad is shut and nothing says which: the session "may be affected", never "likely runs"', () => {
+        const a = { LocationID: 9, AssetName: 'Twin Arena - Indoor Ice Rink', Reason: 'Maintenance/Repairs', Comments: 'Rink 2 is closed for repairs.', Status: 2, Category: 'Skate', Type: 'Indoor Ice Rink', PostedDate: '2026-11-28 08:00:00' };
+        const v = at(a, { pads: 2, kinds: ['indoor'] }, 'Leisure Skate', '2026-11-28', '13:00');
+        expect(v).toMatchObject({ level: 'warning', kind: 'pad', padOnly: true, lead: 'One pad is closed here. This session may be affected' });
+    });
+
+    test('"Closed for the Season" posted this morning closes today; an old one is still only "marked closed"', () => {
+        const fresh = { LocationID: 1860, AssetID: 1, AssetName: 'Sherbourne Common - Outdoor Artificial Ice Rink', Reason: 'Closed for the Season', Comments: '', Status: 0, Category: 'Skate', Type: 'Outdoor Ice Rink', PostedDate: '2026-11-28 07:34:10' };
+        expect(at(fresh, onePad, 'Leisure Skate (Unsupervised)', '2026-11-28', '10:00')).toMatchObject({ level: 'closed', kind: 'closed', lead: 'Likely cancelled, rink alert' });
+        expect(at(fresh, onePad, 'Leisure Skate (Unsupervised)', '2026-11-30', '07:00', '2026-11-28')).toMatchObject({ level: 'closed' });                 // inside 48 hours
+        expect(at(fresh, onePad, 'Leisure Skate (Unsupervised)', '2026-11-30', '10:00', '2026-11-30')).toMatchObject({ level: 'warning', kind: 'season-today' });   // past them, on the day
+        expect(at(fresh, onePad, 'Leisure Skate (Unsupervised)', '2026-12-05', '10:00', '2026-11-28')).toMatchObject({ level: 'note', kind: 'season' });            // next week: a grey note
+        const old = { ...fresh, LocationID: 1089, AssetName: 'Nathan Phillips Square - Outdoor Artificial Ice Rink', Comments: 'Ice not safe for skating', PostedDate: '2026-05-19 11:08:00' };
+        const v = at(old, onePad, 'Leisure Skate (Unsupervised)', '2026-11-28', '10:00');
+        expect(v).toMatchObject({ level: 'warning', kind: 'season-today', lead: 'Still marked closed for the season' });
+        expect(v.text).toBe('The City posted that notice on Tue, May 19 and has not lifted it. If the rink has not reopened yet, this session will not run.');
+    });
+
+    test('a rink still marked closed for the season says so first, whatever else is posted there', () => {
+        const season = { LocationID: 2155, AssetID: 14072, AssetName: 'Albert Campbell Square - Outdoor Artificial Ice Rink', Reason: 'Closed for the Season', Comments: '', Status: 0, Category: 'Skate', Type: 'Outdoor Ice Rink', DisplayAlertName: '', PostedDate: '2026-03-23 05:41:18' };
+        const washroom = { LocationID: 2155, AssetID: 12, AssetName: 'Albert Campbell Square Outdoor Rink Washroom', Reason: 'Maintenance/Repairs', Comments: 'Ice maintenance', Status: 2, Category: 'Outdoor Rink Washroom', Type: 'Washroom', DisplayAlertName: 'Washroom', PostedDate: '2026-11-28 07:38:20', Scope: 'asset' };
+        const today = at([washroom, season], onePad, 'Leisure Skate', '2026-11-28', '10:00');
+        expect(today).toMatchObject({ level: 'warning', kind: 'season-today', lead: 'Still marked closed for the season' });
+        expect(today.text).toContain('has not lifted it');
+        expect(today.text).toContain('Also posted here: Albert Campbell Square Outdoor Rink Washroom: Ice maintenance');
+        // for a later day the season notice is only a grey note, so the other notice is what shows
+        expect(at([washroom, season], onePad, 'Leisure Skate', '2026-12-03', '10:00', '2026-11-28')).toMatchObject({ level: 'warning', kind: 'alert' });
+    });
+});

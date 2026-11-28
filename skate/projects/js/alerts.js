@@ -25,8 +25,8 @@
  *     time, the rink's indoor/outdoor kinds and pad count) into the banner:
  *       closed  — skating is off there on that day, for every kind of ice
  *                 the location has
- *       warning — one pad of several, part of the location, reduced hours,
- *                 or an alert nobody could classify
+ *       warning — one pad of several (which one is not said), part of the
+ *                 location, reduced hours, or an alert nobody could classify
  *       note    — good to know, not about this session: a building notice,
  *                 an alert for other hours, one that ended in the last four
  *                 days, or last season's closure notice
@@ -44,6 +44,17 @@
  *   - Status 0 on a rink asset is the City's own closed flag; no reading
  *     talks it down to "skating as usual".
  *   - The full alert text is always shown so the human makes the final call.
+ *   - v3.26, after going through opening day (2026-11-28) rink by rink against the City's page:
+ *       · A notice that says WHICH pad is shut ("Leisure Closed, Hockey Pad Open") closes the
+ *         sessions on that pad and only those. (Greenwood Park's Leisure Skate was told it
+ *         "likely runs on the other pad": the other pad was the hockey one.)
+ *       · When it does not say which, nobody here knows which pad a session is on: the banner
+ *         says the session may be affected, not that it likely runs.
+ *       · "Closed for the Season" posted in the last 48 hours is the City saying so now, not
+ *         last winter's leftover: it closes the session (Sherbourne Common, re-posted at 7:34
+ *         on opening morning).
+ *       · A rink still marked closed for the season says so first, whatever else is posted
+ *         there (Albert Campbell Square showed only a washroom notice).
  */
 window.SkateAlerts = (() => {
     'use strict';
@@ -442,6 +453,37 @@ window.SkateAlerts = (() => {
         return Date.parse(`${programDate}T${t}:00`) - began > OPEN_ENDED_HOURS * 3600000;
     }
 
+    /** Posted in the OPEN_ENDED_HOURS before this session starts (or later that same day): the City is saying it now. */
+    function freshlyPosted(a, programDate, p) {
+        const posted = postedDay(a);
+        const at = Date.parse(String(a.PostedDate || '').trim().replace(' ', 'T'));
+        if (!posted || !Number.isFinite(at) || !isYmd(programDate) || programDate < posted) return false;
+        const t = /^\d{2}:\d{2}/.test((p && p['Start Time']) || '') ? p['Start Time'].slice(0, 5) : '12:00';
+        return Date.parse(`${programDate}T${t}:00`) - at <= OPEN_ENDED_HOURS * 3600000;
+    }
+
+    /**
+     * v3.26: which pad does the notice shut? An outdoor twin-pad rink has a hockey pad and a leisure
+     * (pleasure) pad, and the City's own reason often names one: "Leisure Closed, Hockey Pad Open",
+     * "Hockey pad is closed for repairs. The leisure pad remains open."
+     * → { closed: 'leisure'|'hockey', open: 'leisure'|'hockey'|null }, or null when the words do not
+     * single one out (both, neither, or a pad named some other way: "Rink 2", "the north pad").
+     */
+    const PAD_SAID_RE = /\b(leisure|pleasure|hockey|shinny)\b(?:\s+(?:skat\w*|pad|rink|ice|side|surface|trail))?\s*(?:(?:is|are|will be|remains?|stays?)\s+)?(closed|open)\b/gi;
+    function padNamed(a) {
+        const text = `${a.Reason || ''}. ${cleanComment(a.Comments)}`;
+        const closed = new Set(), open = new Set();
+        let m;
+        PAD_SAID_RE.lastIndex = 0;
+        while ((m = PAD_SAID_RE.exec(text))) (/closed/i.test(m[2]) ? closed : open).add(/hockey|shinny/i.test(m[1]) ? 'hockey' : 'leisure');
+        if (closed.size !== 1) return null;
+        const which = [...closed][0];
+        if (open.has(which)) return null;                     // it says both of the same pad: no use
+        return { closed: which, open: open.size ? [...open][0] : null };
+    }
+    /** The pad a session is on at such a rink: shinny, hockey and ringette on the hockey pad, everything else on the leisure pad. */
+    const padOfProgram = (p) => (/\b(?:shinny|hockey|ringette|stick\s*(?:and|&|n)\s*puck)\b/i.test(`${(p && (p['Course Title'] || p.Activity || p['Activity Title'])) || ''}`) ? 'hockey' : 'leisure');
+
     function phaseOf(R, a, programDate, p) {
         if (!isYmd(programDate)) return { phase: 'active' };
         const start = R.starts || postedDay(a);
@@ -527,6 +569,8 @@ window.SkateAlerts = (() => {
         const kindsHere = kindsOn(locationKinds, programDate);
 
         const off = [], padOff = [], reduced = [], unknown = [], season = [], building = [], otherHours = [], ended = [], outlived = [], unconfirmed = [];
+        const padMine = [], padOther = [];      // v3.26: notices that name the pad they shut: this session's pad, or the other one
+        const myPad = padOfProgram(p);
         alerts.forEach(a => {
             // v3.12: the arena's own site lists skating again, and this City notice is from before
             // it reopened (George Bell's "Under Construction", 2025): a note, never a cancellation
@@ -539,7 +583,18 @@ window.SkateAlerts = (() => {
                 return;
             }
             if (ph.phase === 'outside') { otherHours.push(a); return; }
-            if (R.skating === 'off' && R.seasonal && laterSeason(a, programDate)) season.push(a);
+            // v3.26: the notice says which pad is shut. That decides it for this session, whatever the
+            // reading made of the rest (a model said "one pad", the word rules could not tell at all).
+            const named = R.skating !== 'on' && !R.seasonal ? padNamed(a) : null;
+            if (named) {
+                if (named.closed !== myPad) padOther.push({ a, named });
+                else if (openEndedOld(R, a, programDate, p)) unconfirmed.push(a);     // left up for days with no end: nobody knows
+                else padMine.push(a);
+                return;
+            }
+            // a "closed for the season" notice from an earlier season is a leftover, unless the City
+            // posted it within the last 48 hours: then it is today's news and closes the session (v3.26)
+            if (R.skating === 'off' && R.seasonal && laterSeason(a, programDate) && !freshlyPosted(a, programDate, p)) season.push(a);
             // v3.18: a closure that names no end speaks for the 48 hours after it began (v3.19; a week at first). Later than that,
             // with the City's schedule still listing the session (Downsview, "closed for emergency
             // repairs", posted Nov 5 and never updated), nobody outside the rink knows: it is
@@ -560,7 +615,7 @@ window.SkateAlerts = (() => {
             alerts,
             ...extra
         });
-        const serious = [...off, ...padOff, ...reduced, ...unknown];
+        const serious = [...off, ...padMine, ...padOff, ...reduced, ...unknown];
         // one kind of ice is closed at a place that has another (or that we know too little about)
         const partOf = (closedKinds, list) => {
             const which = closedKinds.includes('outdoor') ? 'outdoor' : 'indoor';
@@ -587,7 +642,23 @@ window.SkateAlerts = (() => {
             }
             return partOf(unconfirmed.map(alertKind), [...unconfirmed, ...serious]);
         }
-        if (padOff.length) return make('warning', 'pad', 'One pad is closed here. This session likely runs on the other pad', serious, { padOnly: true });
+        // the pad this session is on is the one the notice shuts
+        if (padMine.length) return make('closed', 'pad-closed', `Likely cancelled: the ${myPad} pad is closed`, serious);
+
+        // A rink still marked closed for the season, on the day itself: that comes before anything
+        // else posted there (v3.26: a washroom notice used to be all Albert Campbell Square showed).
+        const seasonCovers = season.length > 0 && coversLocation(season.map(alertKind), kindsHere);
+        if (seasonCovers && isYmd(programDate) && programDate <= todayKey()) {
+            const posted = postedDay(season[0]);
+            const also = serious.map(lineFor).filter(Boolean).join(' • ');
+            return make('warning', 'season-today', 'Still marked closed for the season', season, {
+                reason: '',
+                text: `The City posted that notice${posted ? ` on ${fmtDay(posted)}` : ''} and has not lifted it. If the rink has not reopened yet, this session will not run.${also ? ` Also posted here: ${also}` : ''}`
+            });
+        }
+
+        // one pad is shut and the notice does not say which: nobody here knows which pad this session is on
+        if (padOff.length) return make('warning', 'pad', 'One pad is closed here. This session may be affected', serious, { padOnly: true });
         if (reduced.length) return make('warning', 'reduced', 'Hours are reduced or some sessions are cancelled here', serious);
         if (unknown.length) return make('warning', 'alert', 'Service alert at this rink', serious);
 
@@ -597,17 +668,11 @@ window.SkateAlerts = (() => {
             const posted = postedDay(a);
             const when = posted ? ` on ${fmtDay(posted)}` : '';
             const seasonKinds = season.map(alertKind);
-            const covers = coversLocation(seasonKinds, kindsHere);
-            if (covers && isYmd(programDate) && programDate <= todayKey()) {
-                return make('warning', 'season-today', 'Still marked closed for the season', season, {
-                    reason: '',
-                    text: `The City posted that notice${when} and has not lifted it. If the rink has not reopened yet, this session will not run.`
-                });
-            }
+            const covers = seasonCovers;
             if (covers) {
                 return make('note', 'season', 'Closed-for-the-season notice still up', season, {
                     reason: '',
-                    text: `The City posted it${when}, before opening day, and takes it down once the rink opens. Opening day can move with the weather.`
+                    text: `The City posted it${when} and takes it down once the rink opens. Opening day can move with the weather.`
                 });
             }
             // v3.11.1: the notice is about another kind of ice. The City posts one
@@ -633,6 +698,17 @@ window.SkateAlerts = (() => {
             return make('note', 'outlived', 'The City\'s page still shows an old notice', outlived, {
                 reason: '',
                 text: `“${cleanComment(a.Comments) || a.Reason || 'Closed'}”${posted ? `, posted ${fmtDay(posted)}` : ''}. ${who} says the arena reopened${on} and lists this skate.`
+            });
+        }
+        if (padOther.length) {
+            // the other pad is the one that is shut: good to know, not about this session
+            const { named } = padOther[0];
+            const said = padOther.map(x => [x.a.Reason, cleanComment(x.a.Comments)].filter(Boolean).join('. ')).filter(Boolean).join(' • ');
+            return make('note', 'pad-other', named.open === myPad
+                ? `The ${named.closed} pad here is closed. The City says the ${myPad} pad is open`
+                : `The ${named.closed} pad here is closed. This session is on the ${myPad} pad`, padOther.map(x => x.a), {
+                reason: '',
+                text: `The City's notice: “${said}”`
             });
         }
         if (otherHours.length) {
@@ -702,7 +778,7 @@ window.SkateAlerts = (() => {
         get liveStats() { return liveStats; },
         get liveExtra() { return liveExtra; },
         // exposed for testing
-        _classifyHelpers: { alertKind, coversLocation, dateWindows, datesIn, ruleReading, readingFor, noticeSeason, seasonOf, sentences, index, isSkateAlert }
+        _classifyHelpers: { alertKind, coversLocation, dateWindows, datesIn, ruleReading, readingFor, noticeSeason, seasonOf, sentences, index, isSkateAlert, padNamed, padOfProgram }
     };
 })();
 

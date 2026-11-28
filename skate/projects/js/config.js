@@ -32,7 +32,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.25',
+    version: '3.26',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -46,6 +46,14 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.26', date: '2026-11-28', items: [
+                'When the City says which pad of an outdoor rink is closed ("Leisure Closed, Hockey Pad Open"), the sessions on that pad are marked likely cancelled and the ones on the other pad are not. Before, every session there, the leisure skate included, was told it likely ran on the other pad.',
+                'When a notice does not say which pad is closed, the banner now says the session may be affected. It used to say the session likely runs.',
+                'A "Closed for the Season" notice the City posted in the last 48 hours marks that rink\'s sessions as likely cancelled. A rink still marked closed for the season says so first, whatever else is posted there.',
+                'The pill now reads "Indoor + Outdoor".'
+            ]
+        },
         {
             v: '3.25', date: '2026-11-27', items: [
                 'When the blue jay shows where the map takes your address, it now swoops down over the map and back up before it lands on the box, and only then says its line.'
