@@ -30,7 +30,11 @@ async function run(device, settings, label) {
         A.setFlag('free', true); r.free = sheet(); A.setFlag('free', false);
         A.setIce('outdoor'); r.outdoor = sheet(); A.setIce('all');
         // indoor first, then outdoor, within the first day that has both
-        const out = (p) => { const k = (SkateGeo.rinkByLocation(SkateApp.P ? SkateApp.P.locKey(p) : String(p['Location ID'])) || {}).kinds || []; return k.includes('outdoor'); };
+        // outdoor the way the app decides it (app.js isOutdoor): the rink's kind when the rink is known, found by the app's
+        // own key (a venue of another city has no City id), else whether the source is an outdoor one. (Until the first
+        // outdoor rinks of other cities opened, 2026-11-28, looking up by City id alone passed by luck.)
+        const locKey = (p) => p.ExtLocationKey || (p['Location ID'] != null ? String(p['Location ID']) : (p.Source && p.Source !== 'city' ? 'ext-' + p.Source : ''));
+        const out = (p) => { const r = SkateGeo.rinkByLocation(locKey(p)); return r && Array.isArray(r.kinds) && r.kinds.length ? r.kinds.includes('outdoor') : !!(SkateConfig.sourceInfo[p.Source] || {}).outdoor; };
         const day = S.filtered.length ? String(S.filtered[0]['Start Date']) : '';
         const seq = S.filtered.filter(p => String(p['Start Date']) === day).map(out);
         r.order = { day, n: seq.length, outdoor: seq.filter(Boolean).length, indoorFirst: seq.lastIndexOf(false) < (seq.indexOf(true) < 0 ? Infinity : seq.indexOf(true)) };
