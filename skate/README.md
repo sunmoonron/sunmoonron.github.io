@@ -8,6 +8,8 @@ toronto.ca's *live* per-rink schedules); everything social rides on
 [Nostr](https://nostr.com) relays over WebSockets — three public ones plus
 the site's own; identity and history live in your browser's localStorage.
 
+![The Map view: the rinks within 5 km of Nathan Phillips Square, nearest first](assets/img/toronto-skating-map.jpg)
+
 To run it yourself:
 
 - `node fetch-skate-data.js` (repo root) to grab the JSON files from the
