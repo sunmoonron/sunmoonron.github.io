@@ -3501,7 +3501,11 @@ window.SkateApp = (() => {
             const box = document.querySelector('.search-row .rinks-search-box');
             if (!S.mapMode || !box || SkateGeo.getUserLocation() || askState() || SkateSettings.get('mapTipDone')) return;
             if (document.activeElement === $('rinks-search') || $('rinks-search').value) return;
-            if (SkateBird.point(box, 'Type your address or postal code here to see what is near you.')) SkateSettings.set('mapTipDone', true);
+            // v3.25: it gets there by a swoop over the middle of the map that shows, and the tip counts as given
+            // only once its line is up (a tap while it is still flying means nobody read it)
+            const stage = $('map-stage').getBoundingClientRect();
+            const via = { x: stage.left + stage.width * 0.58, y: stage.top + Math.max(70, (stage.height - Sheet.inset()) * 0.5) };
+            SkateBird.point(box, 'Type your address or postal code here to see what is near you.', { via, onShown: () => SkateSettings.set('mapTipDone', true) });
         }, delay);
     }
 

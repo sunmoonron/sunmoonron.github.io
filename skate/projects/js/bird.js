@@ -25,6 +25,9 @@
  *    "punk hair"). The crest now rises when something catches its eye; the sign was the wrong way
  *    round. And it can point something out when the app asks: see point().
  *
+ *  - v3.25: on its way to what it points out it swoops down over the page and up again before it
+ *    lands, and only then says its line.
+ *
  * Nothing here reads or stores anything about the visitor.
  */
 window.SkateBird = (() => {
@@ -228,12 +231,13 @@ window.SkateBird = (() => {
      * Fly from one spot to another along an arc (lifted above the straight line), nose following the
      * path. One Web Animation on transform; → a promise that settles when it lands (or is cut short).
      */
-    function fly(from, to, lift) {
+    function fly(from, to, lift, o = {}) {
         const f = ensureFlyer();
         const dir = to.x >= from.x ? 1 : -1;
         f.classList.add('no-move', 'arc', 'flying');
         f.classList.toggle('left', dir < 0);
-        const cx = (from.x + to.x) / 2, cy = Math.min(from.y, to.y) - lift;
+        // the bend: by default lifted above the straight line; a swoop names its own (v3.25)
+        const cx = o.cx != null ? o.cx : (from.x + to.x) / 2, cy = o.cy != null ? o.cy : Math.min(from.y, to.y) - lift;
         const frames = [];
         for (let i = 0; i <= 14; i++) {
             const t = i / 14, u = 1 - t;
@@ -244,8 +248,22 @@ window.SkateBird = (() => {
         }
         const done = () => { f.style.transform = `translate3d(${Math.round(to.x)}px, ${Math.round(to.y)}px, 0)`; f._at = { x: to.x, y: to.y }; f.classList.remove('flying', 'arc'); anim = null; };
         if (typeof f.animate !== 'function') { done(); return Promise.resolve(); }
-        anim = f.animate(frames, { duration: T(Math.max(650, Math.min(1500, Math.hypot(to.x - from.x, to.y - from.y) * 4 + 520))), easing: 'cubic-bezier(.42, .02, .3, 1)' });
+        anim = f.animate(frames, { duration: T(o.ms || Math.max(650, Math.min(1500, Math.hypot(to.x - from.x, to.y - from.y) * 4 + 520))), easing: 'cubic-bezier(.42, .02, .3, 1)' });
         return anim.finished.then(done, () => {});
+    }
+    /** Stop a flight where it is: the flying copy keeps its place and can be sent somewhere else from there. */
+    function halt() {
+        if (!anim || !flyer) return;
+        const m = /matrix\(([^)]+)\)/.exec(getComputedStyle(flyer).transform || '');
+        try { anim.cancel(); } catch (e) { /* an engine without it */ }
+        anim = null;
+        flyer.classList.remove('arc', 'flying');
+        if (m) {
+            const v = m[1].split(',').map(Number);
+            flyer.style.transform = `translate3d(${v[4].toFixed(1)}px, ${v[5].toFixed(1)}px, 0)`;
+            flyer._at = { x: v[4], y: v[5] };
+            void flyer.offsetWidth;        // it is there now: the next move starts from there
+        }
     }
     /** Cut short whatever it is doing and put it back on its perch (the guide is starting, or "Sit still"). */
     function stopAct() {
@@ -425,8 +443,10 @@ window.SkateBird = (() => {
 
     /* ---- pointing something out (v3.24) ----
      * Asked by the app, once, for a control that is easy to miss. It flies to the top edge of that
-     * control and says one line beside itself, above the control (never over it); the control gets a
+     * control (v3.25: by way of a swoop down the page and back up, `opts.via` naming the low point) and
+     * only then says one line beside itself, above the control (never over it); the control gets a
      * soft ring. At the first tap or key, or after a few seconds, the line goes and it flies home.
+     * `opts.onShown` is called when the line is actually up (a tap mid-flight means it never was).
      * With "Sit still" or reduce motion it stays on its perch and only the line and the ring show.
      * → true when it did.
      */
@@ -442,15 +462,11 @@ window.SkateBird = (() => {
         awakeUntil = Date.now() + 90000; mood();                                        // asked for at night: it wakes for this
         const moves = !reduce() && !still();
         const perch = { x: Math.max(4, Math.min(innerWidth - SIZE - 4, r.left + 2)), y: Math.max(2, r.top - SIZE + 8) };
-        if (moves) {
-            const f = ensureFlyer();
-            if (atHome) { takeOff(); void f.offsetWidth; }
-            f.classList.remove('no-move', 'arc', 'guide');
-            f.classList.add('on-card');
-            place(perch.x, perch.y, true);
-        }
+        const me = { ended: false };
+        let endTimer = 0;
         el.classList.add('jay-points');
         const show = () => {
+            if (me.ended) return;
             bubble.textContent = text;
             bubble.classList.add('beside');
             const left = Math.round(perch.x + SIZE + 2);
@@ -458,21 +474,46 @@ window.SkateBird = (() => {
             bubble.style.left = `${left}px`;
             bubble.classList.remove('hidden');
             bubble.style.top = `${Math.max(4, Math.round(r.top - 6 - bubble.offsetHeight))}px`;   // above the control, its lower corner at the beak
+            endTimer = setTimeout(hush, opts.ms || 9000);
+            if (typeof opts.onShown === 'function') { try { opts.onShown(); } catch (e) { /* the caller's own business */ } }
         };
-        const showTimer = setTimeout(show, moves ? 860 : 0);                             // it lands, then it speaks
-        const endTimer = setTimeout(hush, (opts.ms || 9000) + (moves ? 860 : 0));
+        /* v3.25: the way there is a swoop to be seen (people learn by eye): out along the top, down over the page
+         * ("south"), up again ("north") and in along the control's top edge to land on its near end. Two arcs:
+         * the first ends heading straight down, the second starts straight up, so the turn at the bottom is clean. */
+        const flyIn = async () => {
+            const f = ensureFlyer();
+            const from = atHome ? takeOff() : { ...(f._at || homeSpot()) };
+            f.classList.remove('on-card', 'guide', 'peek');
+            void f.offsetWidth;
+            const wish = opts.via && Number.isFinite(opts.via.x) && Number.isFinite(opts.via.y)
+                ? { x: opts.via.x - SIZE / 2, y: opts.via.y - SIZE / 2 }
+                : { x: r.left + Math.min(r.width * 0.62, 240), y: r.bottom + Math.min(innerHeight * 0.34, 300) };
+            const via = { x: Math.max(perch.x + 90, Math.min(innerWidth - SIZE - 16, wish.x)), y: Math.max(r.bottom + 50, Math.min(innerHeight - SIZE - 24, wish.y)) };
+            const leg = (a, b) => Math.max(820, Math.min(1350, Math.hypot(b.x - a.x, b.y - a.y) * 2.6 + 380));
+            await fly(from, via, 0, { cx: Math.min(innerWidth - SIZE - 6, via.x + 34), cy: Math.max(2, from.y + 6), ms: leg(from, via) });
+            if (me.ended) return;
+            await fly(via, perch, 0, { cx: perch.x + (via.x - perch.x) * 0.5, cy: Math.max(2, perch.y - 8), ms: leg(via, perch) });
+            if (me.ended) return;
+            f.classList.remove('left');                                                  // it turns to face the line it is about to say
+            f.classList.add('on-card', 'peek');
+            await wait(420);
+            show();
+        };
         const onInput = () => hush();
         document.addEventListener('pointerdown', onInput, { capture: true, passive: true });
         document.addEventListener('keydown', onInput, { capture: true });
         pointing = {
             end() {
-                clearTimeout(showTimer); clearTimeout(endTimer);
+                me.ended = true;
+                clearTimeout(endTimer);
                 document.removeEventListener('pointerdown', onInput, { capture: true });
                 document.removeEventListener('keydown', onInput, { capture: true });
                 el.classList.remove('jay-points');
+                halt();                                                                  // cut short mid-swoop: it turns for home from where it is
                 if (!atHome && flyer && !busy) home();
             }
         };
+        if (moves) flyIn(); else show();
         return true;
     }
 
