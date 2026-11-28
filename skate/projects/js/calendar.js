@@ -129,6 +129,8 @@ window.SkateCalendar = (() => {
         ]));
         block.appendChild(el('span', { class: 'cal-block-title' }, [p.Activity || 'Skating']));
         if (alert && alert.level === 'closed') block.appendChild(el('span', { class: 'cal-tag' }, ['likely cancelled']));
+        // v3.27: a warning had only an amber border here; now it says what the list says, in short
+        else if (alert && alert.level !== 'note') block.appendChild(el('span', { class: 'cal-tag warn' }, [((opts.alertLabel && opts.alertLabel(alert)) || 'Rink alert').toLowerCase()]));
         block.appendChild(el('span', { class: 'cal-block-loc' }, [p.LocationName || '']));
         return block;
     }

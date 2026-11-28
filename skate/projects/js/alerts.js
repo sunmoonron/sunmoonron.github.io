@@ -733,6 +733,18 @@ window.SkateAlerts = (() => {
     }
 
     /**
+     * v3.27: a banner in two or three words, for the views with no room for its sentence (the calendars,
+     * the map). Every view words an alert the same way, and none of them leaves one out: the day
+     * calendar used to show "In 1h 17m" in the place where it would have said there was an alert.
+     * → null for no banner or a grey note (a note is not about the session).
+     */
+    function label(v) {
+        if (!v || v.level === 'note') return null;
+        if (v.level === 'closed') return 'Likely cancelled';
+        return ({ unconfirmed: 'Call to confirm', 'season-today': 'Still marked closed', pad: 'One pad closed', reduced: 'Reduced hours' })[v.kind] || 'Rink alert';
+    }
+
+    /**
      * The alerts that matter at a rink today (rink list, map popups): in
      * force by their own words and about the ice. A building notice or an
      * alert that has not started yet does not flag the rink.
@@ -757,7 +769,7 @@ window.SkateAlerts = (() => {
 
     return {
         dateWindows,   // exposed for tests
-        load, onUpdate, forProgram, forLocation, liveFor, isDropped,
+        load, onUpdate, forProgram, forLocation, liveFor, isDropped, label,
         /** v3.12, for the Data status page: how many notices are on file, and how many were posted in the last day. */
         stats(nowMs = Date.now()) {
             let total = 0, recent = 0;

@@ -37,7 +37,7 @@ window.SkateMap = (() => {
     let lastFit = '';          // which pins the map was last framed around
     let lastUserKey = null;    // "lat,lng" of the user point last drawn (a change flies the map there)
     /**
-     * { popupHtml(rink), userPoint(), rinkFilter(rink), pinState(rink) → { kind, on, mine },
+     * { popupHtml(rink), userPoint(), rinkFilter(rink), pinState(rink) → { kind, on, mine, alert },
      *   radiusKm(), inset() → { top, right, bottom, left }, onPin(key) }
      */
     let hooks = {};
@@ -115,13 +115,15 @@ window.SkateMap = (() => {
         try { st = hooks.pinState ? hooks.pinState(r) : null; } catch {}
         const kind = st && st.kind === 'outdoor' ? 'outdoor' : st && st.kind === 'indoor' ? 'indoor'
             : ((r.kinds || []).includes('outdoor') ? 'outdoor' : 'indoor');
-        return { kind, on: !st || st.on !== false, mine: !!(st && st.mine) };
+        // v3.27: 'closed' (its listed sessions are likely cancelled) or 'warn' (an alert on some of them), as the list has it
+        const alert = st && (st.alert === 'closed' || st.alert === 'warn') ? st.alert : '';
+        return { kind, on: !st || st.on !== false, mine: !!(st && st.mine), alert };
     }
-    const pinSig = (st) => `${st.kind}|${st.on ? 1 : 0}|${st.mine ? 1 : 0}`;
+    const pinSig = (st) => `${st.kind}|${st.on ? 1 : 0}|${st.mine ? 1 : 0}|${st.alert}`;
     function pinIcon(st) {
         return L.divIcon({
             className: 'rink-pin-wrap',
-            html: `<span class="rink-pin ${st.kind}${st.on ? '' : ' off'}${st.mine ? ' mine' : ''}"></span>`,
+            html: `<span class="rink-pin ${st.kind}${st.on ? '' : ' off'}${st.mine ? ' mine' : ''}${st.alert === 'closed' ? ' shut' : st.alert === 'warn' ? ' warn' : ''}"></span>`,
             iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -9]
         });
     }

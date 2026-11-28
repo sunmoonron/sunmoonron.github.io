@@ -32,7 +32,7 @@ const LEISURE_WORDS = [
 window.SkateConfig = {
 
     /* ---------- Release info (powers the version chip + What's new) ---------- */
-    version: '3.26',
+    version: '3.27',
     // The site owner's Nostr public key (hex): the dev inbox, the guides pin/mute lists.
     ownerPubkey: 'a685bc7d6cf040b05d7c028407f21a5acf27f0e8bff7feb481d80975aeb27257',
     // Where "Report a bug or feedback" goes: the personal site / relay key
@@ -46,6 +46,12 @@ window.SkateConfig = {
         key: 'c8bf4b0e42568811edf18e40188746bf0c9fe2f5f2805736fe50ac8a893933e8'
     },
     changelog: [
+        {
+            v: '3.27', date: '2026-11-28', items: [
+                'An alert shows the same way in every view. The day calendars used to put "In 1h 17m" or "On now" where the alert belonged, so a rink the list warned about looked fine there. They now say both, the week calendar tags warnings too, and on the map a rink\'s dot wears a small badge: amber for an alert, red when its sessions are likely cancelled.',
+                'The ✕ in the search box no longer drops a little when you press it.'
+            ]
+        },
         {
             v: '3.26', date: '2026-11-28', items: [
                 'When the City says which pad of an outdoor rink is closed ("Leisure Closed, Hockey Pad Open"), the sessions on that pad are marked likely cancelled and the ones on the other pad are not. Before, every session there, the leisure skate included, was told it likely ran on the other pad.',

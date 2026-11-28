@@ -2363,3 +2363,26 @@ body.dark-mode .map-canvas.leaflet-container { background: #121a23; }
 .jay-say.beside { border-radius: 14px 14px 14px 4px; }
 /* the control it points at: a soft ring in the "tap here" blue, no flashing */
 .jay-points input, input.jay-points { border-color: var(--acc-programs); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc-programs) 30%, transparent); transition: box-shadow .25s ease, border-color .25s ease; }
+
+/* ===================== v3.27: an alert is said the same way in every view ===================== */
+/* The week grid: a warning has a tag of its own (it had an amber border and nothing else). */
+.cal-tag.warn { background: var(--alert-amber); color: #1a1a1a; }
+/* The day calendars: the line's frame turns amber or red with its alert, like a block of the grid. */
+.c2-line.cal-warning .c2-line-main { border-color: var(--alert-amber); }
+.c2-line.cal-closed .c2-line-main { border-color: var(--alert-red); }
+/* The map: the rink's tag is red when its listed sessions are likely cancelled, and its dot wears a small badge. */
+.rink-alert.shut { color: var(--alert-red); background: var(--alert-red-bg, color-mix(in srgb, var(--alert-red) 14%, transparent)); }
+.map-pop-alert.shut { color: var(--alert-red); }
+body.dark-mode .map-pop-alert.shut { color: #ff8e8e; }
+.rink-pin { position: relative; }
+.rink-pin.warn::after, .rink-pin.shut::after {
+    content: ''; position: absolute; top: -6px; right: -6px; width: 10px; height: 10px; box-sizing: border-box;
+    border-radius: 50%; border: 1.5px solid #fff; background: #e8a400;
+}
+.rink-pin.shut::after { background: #d92d20; }
+body.dark-mode .rink-pin.warn::after, body.dark-mode .rink-pin.shut::after { border-color: #0f1720; }
+
+/* The ✕ in a search box sat in the middle by a transform, and a pressed button's own transform (every button
+   shrinks a little while it is held) replaced it for as long as the finger was down: the ✕ dropped half its
+   height before it vanished. It is centred by its margins now, so being pressed only shrinks it in place. */
+.search-clear { top: 0; bottom: 0; margin: auto 0; height: 28px; transform: none; display: flex; align-items: center; justify-content: center; }

@@ -80,7 +80,7 @@ window.SkateCalendar2 = (() => {
         const a = opts.alertFor(p);
         return `${p.Activity || 'Skating'} · ${p.LocationName || ''} · ${opts.fmtClock(p['Start Time'] || '')}${p['End Time'] ? '–' + opts.fmtClock(p['End Time']) : ''}`
             + (dur(p) ? ` (${fmtDur(dur(p))})` : '') + (p.Paid ? ' · paid' : '')
-            + (a && a.level !== 'note' ? (a.level === 'closed' ? ' · likely cancelled (rink alert)' : ' · service alert at this rink') : '')
+            + (a && a.level !== 'note' ? (a.level === 'closed' ? ' · likely cancelled (rink alert)' : ` · ${((opts.alertLabel && opts.alertLabel(a)) || 'service alert at this rink').toLowerCase()}`) : '')
             + (p.Unverified ? ' · unverified schedule' : '');
     };
 
@@ -108,11 +108,16 @@ window.SkateCalendar2 = (() => {
         const saved = opts.isSaved(p);
         const alert = opts.alertFor(p);
         const kindCls = (opts.typeFor && opts.typeFor(p)) || '';
-        const state = alert && alert.level === 'closed' ? { cls: ' alert', txt: 'Likely cancelled' }
+        // v3.27: an alert on the session is said whatever else there is to say. It used to lose its place to
+        // "In 1h 17m" and "On now", so a rink the list warned about looked fine here (McCowan Park, 2026-11-28).
+        const said = alert && alert.level !== 'note' ? ((opts.alertLabel && opts.alertLabel(alert)) || (alert.level === 'closed' ? 'Likely cancelled' : 'Rink alert')) : '';
+        const timing = st.phase === 'live' ? `on now, ${opts.fmtMins(st.minsLeft)} left` : st.phase === 'soon' ? `in ${opts.fmtMins(st.minsToStart)}` : '';
+        const state = alert && alert.level === 'closed' ? { cls: ' alert', txt: said }
+            : st.phase === 'ended' ? { cls: ' ended', txt: 'Ended' }
+            : said ? { cls: ' warn', txt: timing ? `${said} · ${timing}` : said }
             : st.phase === 'live' ? { cls: ' live', txt: `On now · ${opts.fmtMins(st.minsLeft)} left` }
             : st.phase === 'soon' ? { cls: ' soon', txt: `In ${opts.fmtMins(st.minsToStart)}` }
-            : st.phase === 'ended' ? { cls: ' ended', txt: 'Ended' }
-            : alert && alert.level !== 'note' ? { cls: ' warn', txt: 'Rink alert' } : null;
+            : null;
         const km = nameIsRink ? opts.distanceFor(p) : null;
         const meta = [
             el('span', { class: 'c2-kind ' + kindCls }, [opts.kindLabel(p)]),

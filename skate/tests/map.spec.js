@@ -408,3 +408,88 @@ test.describe('the blue jay points at the address box', () => {
         });
     });
 });
+
+// v3.27: an alert is said the same way in every view (the list, both calendars, the map). The day calendar used to
+// show "In 1h 17m" where the alert belonged, so a rink the list warned about looked fine there (McCowan Park, 2026-11-28).
+test.describe('one alert, the same in every view', () => {
+    const { row: session, dayPlus: plus } = require('./fixtures');
+
+    test('the day calendars and the week grid say there is an alert, even on a session that starts soon', async ({ page, app }) => {
+        // a session at the rink with the warning, half an hour from now (the suite's clock stands at 13:00)
+        app.data['skating-programs.json'].programs.push(session({ id: 'w1', loc: 300, rink: 'Warning Arena', activity: 'Leisure Skate', date: plus(0), start: '13:30', end: '14:30' }));
+        await app.open();
+        const card = page.locator('.program-item', { hasText: 'Warning Arena' }).filter({ hasText: 'Leisure Skate' });
+        await expect(card.locator('.alert-banner.warning')).toContainText('Service alert at this rink');       // what the list says
+        for (const by of ['time', 'rink']) {
+            await page.evaluate((b) => SkateApp.Actions.setCalType(b), by);
+            // by time a line names its rink; by rink the rink is the heading of its own section
+            const line = (by === 'rink' ? page.locator('#calendar-view .c2-rink', { hasText: 'Warning Arena' }).locator('.c2-line') : page.locator('#calendar-view .c2-line', { hasText: 'Warning Arena' })).filter({ hasText: '1:30' });
+            await expect(line.locator('.c2-line-state'), by).toHaveText(/^Rink alert · in 30m$/);
+            await expect(line.locator('.c2-line-state'), by).toHaveClass(/\bwarn\b/);
+            await expect(line, by).toHaveClass(/cal-warning/);
+        }
+        await page.evaluate(() => SkateApp.Actions.setCalType('week'));
+        const block = page.locator('#calendar-view .cal-block.cal-warning', { hasText: 'Warning Arena' }).first();
+        await expect(block.locator('.cal-tag.warn')).toHaveText('rink alert');
+        const shut = page.locator('#calendar-view .cal-block.cal-closed', { hasText: 'Alpha Arena' }).first();
+        await expect(shut.locator('.cal-tag')).toHaveText('likely cancelled');
+        await app.noErrors();
+    });
+
+    test('on the map a rink\'s row, its dot and its popup carry the alert the list shows for it', async ({ page, app }) => {
+        await openMap(page, app);
+        // Alpha Arena: its one listed session today is likely cancelled (closed, red)
+        await expect(row(page, 'Alpha Arena').locator('.rink-alert')).toHaveText('likely closed');
+        await expect(row(page, 'Alpha Arena').locator('.rink-alert')).toHaveClass(/\bshut\b/);
+        await expect(pin(page, 'Alpha Arena')).toHaveClass(/\bshut\b/);
+        // Warning Arena: a warning on its session (amber)
+        await expect(row(page, 'Warning Arena').locator('.rink-alert')).toHaveText('alert');
+        await expect(row(page, 'Warning Arena').locator('.rink-alert')).not.toHaveClass(/\bshut\b/);
+        await expect(pin(page, 'Warning Arena')).toHaveClass(/\bwarn\b/);
+        // Beta Park Rink and the rink whose alert ended long ago: nothing
+        for (const name of ['Beta Park Rink', 'Expired Arena']) {
+            await expect(row(page, name).locator('.rink-alert')).toHaveCount(0);
+            await expect(pin(page, name)).not.toHaveClass(/\b(?:warn|shut)\b/);
+        }
+        const popup = (name) => page.locator('.leaflet-popup-content', { hasText: name });     // the one before fades out for a moment
+        await row(page, 'Alpha Arena').locator('.rink-meta').click();
+        await expect(popup('Alpha Arena').locator('.map-pop-alert')).toHaveText('likely cancelled today');
+        await row(page, 'Warning Arena').locator('.rink-meta').click();
+        await expect(popup('Warning Arena').locator('.map-pop-alert')).toHaveText('rink alert');
+
+        // the same filters as the list: with hockey on, Alpha Arena has a second session today, and both are likely cancelled
+        await page.evaluate(() => SkateApp.Actions.setType('hockey', null, true));
+        await expect(row(page, 'Alpha Arena').locator('.rink-sessions')).toHaveText('2 sessions');
+        await expect(row(page, 'Alpha Arena').locator('.rink-alert')).toHaveText('likely closed');
+        // tomorrow: nothing of Alpha's is listed, so its tag falls back to the notice in force today
+        await page.evaluate(() => SkateApp.Actions.setDay('tomorrow'));
+        await expect(row(page, 'Alpha Arena').locator('.rink-alert')).toHaveText('alert');
+        await expect(pin(page, 'Alpha Arena')).toHaveClass(/\bwarn\b/);
+        await app.noErrors();
+    });
+});
+
+test.describe('the ✕ in a search box', () => {
+    test('stays where it is while it is pressed, in the middle of the box', async ({ page, app }) => {
+        await app.open();
+        const check = async (input, clear) => {
+            await page.fill(input, 'alpha');
+            await expect(page.locator(clear)).toBeVisible();
+            const box = await page.locator(input).boundingBox();
+            const before = await page.locator(clear).boundingBox();
+            expect(Math.abs((before.y + before.height / 2) - (box.y + box.height / 2))).toBeLessThan(1.5);      // centred on the field
+            await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2);
+            await page.mouse.down();
+            const held = await page.locator(clear).boundingBox();
+            expect(Math.abs((held.y + held.height / 2) - (before.y + before.height / 2))).toBeLessThan(1);       // pressed: it only shrinks a hair, in place
+            await page.mouse.up();
+            await expect(page.locator(input)).toHaveValue('');
+            await expect(page.locator(clear)).toBeHidden();
+        };
+        await check('#search-input', '#btn-search-clear');
+        await page.click('#btn-rinks');
+        await expect(page.locator('#rinks-list .rink-row').first()).toBeVisible();
+        await check('#rinks-search', '#btn-rinks-search-clear');
+        await app.noErrors();
+    });
+});

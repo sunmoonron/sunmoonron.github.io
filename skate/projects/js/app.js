@@ -597,6 +597,50 @@ window.SkateApp = (() => {
         return map;
     }
     const matchSplit = (key) => matchCounts().get(key) || NO_SESSIONS;
+    /**
+     * v3.27: one answer per rink to "is there an alert?", and the same answer everywhere (its row beside
+     * the map, its dot, its popup). It is what the LIST shows: the sessions that match the filters at that
+     * rink, on the first day that has any. Every one of them likely cancelled → 'closed'; any warning or
+     * cancellation among them → 'warn'. A rink with nothing listed falls back to the notices in force
+     * there today. → { level: 'closed'|'warn', label, day, n, closed } or null.
+     */
+    let rinkAlertCache = { gen: -1, map: new Map() };
+    function rinkAlertMap() {
+        if (rinkAlertCache.gen === S.filterGen) return rinkAlertCache.map;
+        const c = filterChecks({ place: false });
+        const first = new Map();     // rink → the sessions of its first day
+        S.programs.forEach(p => {
+            if (!c.rest(p) || !c.type(p) || (p.Paid && !S.paidVisible)) return;
+            const k = P.locKey(p), day = P.dateStr(p).slice(0, 10);
+            const e = first.get(k);
+            if (!e || day < e.day) first.set(k, { day, list: [p] });
+            else if (day === e.day) e.list.push(p);
+        });
+        const map = new Map();
+        first.forEach((e, k) => {
+            let closed = 0, warn = 0, words = '';
+            e.list.forEach(p => {
+                const v = SkateAlerts.forProgram(p);
+                if (!v || v.level === 'note') return;
+                if (v.level === 'closed') closed++; else { warn++; if (!words) words = SkateAlerts.label(v); }
+            });
+            const n = e.list.length;
+            map.set(k, !(closed || warn) ? null : {
+                level: closed === n ? 'closed' : 'warn', day: e.day, n, closed,
+                label: closed === n ? 'Likely cancelled' : closed ? `${closed} of ${n} likely cancelled` : words
+            });
+        });
+        rinkAlertCache = { gen: S.filterGen, map };
+        return map;
+    }
+    function rinkAlert(key) {
+        const map = rinkAlertMap();
+        if (map.has(key)) return map.get(key);
+        const notices = SkateAlerts.forLocation(key);          // nothing listed there: what the City has posted for today
+        return notices.length ? { level: 'warn', day: SkateTime.todayKey(), n: 0, closed: 0, label: 'Rink alert', said: notices.map(a => a.Reason).filter(Boolean).join(', ') } : null;
+    }
+    /** "today", "tomorrow" or "on Dec 3": the day an alert state is about. */
+    const alertDay = (ymd) => { const t = SkateTime.todayKey(); return ymd === t ? 'today' : ymd === SkateTime.addDays(t, 1) ? 'tomorrow' : `on ${mdLabel(ymd)}`; };
     /** How many sessions the list would show at this rink right now (paid ones only when Paid is on). */
     const matchShown = (key) => { const m = matchSplit(key); return S.paidVisible ? m.free + m.paid : m.free; };
 
@@ -1515,6 +1559,7 @@ window.SkateApp = (() => {
             idFor: p => P.id(p),
             isSaved: p => SkateFavorites.has(p),
             alertFor: p => SkateAlerts.forProgram(p),
+            alertLabel: a => SkateAlerts.label(a),
             statusFor: p => SkateTime.status(p),
             typeFor: p => P.typeCls(p)
         });
@@ -1545,6 +1590,7 @@ window.SkateApp = (() => {
             idFor: p => P.id(p),
             isSaved: p => SkateFavorites.has(p),
             alertFor: p => SkateAlerts.forProgram(p),
+            alertLabel: a => SkateAlerts.label(a),
             statusFor: p => SkateTime.status(p),
             typeFor: p => P.typeCls(p),
             rinkKey: p => P.locKey(p),
@@ -2155,7 +2201,7 @@ window.SkateApp = (() => {
         const sp = upcomingSplit(key);                             // everything coming up here
         const m = matchSplit(key);                                 // v3.23: what the filters leave of it
         const sessions = S.paidVisible ? m.free + m.paid : m.free;
-        const alerts = SkateAlerts.forLocation(key);
+        const flag = rinkAlert(key);                               // v3.27: the alert the list shows for this rink's next sessions
         const starred = mine.has(key);
         const season = seasonWord(r);                              // v3.12: a seasonal rink that is not open right now
         const also = Array.isArray(r.aka) && typeof r.aka[0] === 'string' ? r.aka[0] : '';
@@ -2171,15 +2217,17 @@ window.SkateApp = (() => {
         const label = sessions ? `${sessions} session${sessions === 1 ? '' : 's'}` : (m.paid ? `${m.paid} paid` : (total ? 'None match' : 'No sessions'));
         const seasonTitle = season ? ((r.seasonal && typeof r.seasonal.quote === 'string' && r.seasonal.quote) ? `Its page says: “${r.seasonal.quote.slice(0, 170)}”` : season) : '';
         const akaTitle = also ? (r.aka.length > 1 ? `Also known as ${r.aka.join(', ')}` : `Also known as ${also}`) : '';
-        const alertTitle = alerts.length ? 'Service alert: ' + alerts.map(a => a.Reason).join(', ') : '';
+        const flagWhen = flag ? alertDay(flag.day) : '';
+        const alertText = !flag ? '' : flag.level === 'closed' ? `likely closed${flagWhen === 'today' ? '' : ' ' + flagWhen.replace(/^on /, '')}` : 'alert';
+        const alertTitle = !flag ? '' : `${flag.label}${flag.n ? `, ${flagWhen}` : ''}${flag.said ? `: ${flag.said}` : ''}. The sessions in the list say more.`;
         const dead = !sessions && !m.paid;
-        const sig = [r.name, also, akaTitle, season, seasonTitle, meta, label, total, dead ? 1 : 0, starred ? 1 : 0, alertTitle].join('\u0001');
+        const sig = [r.name, also, akaTitle, season, seasonTitle, meta, label, total, dead ? 1 : 0, starred ? 1 : 0, alertText, alertTitle].join('\u0001');
         const hit = rinkRowCache.get(key);
         if (hit && hit.sig === sig) return hit.node;
 
         // The whole row shows the rink on the map (the delegate lets the
         // sessions and star buttons win first); Enter/Space does the same.
-        const node = el('div', { class: 'rink-row' + (starred ? ' starred' : '') + (alerts.length ? ' has-alert' : ''), dataset: { mapFocus: key }, role: 'button', tabindex: '0', title: 'Show on the map' });
+        const node = el('div', { class: 'rink-row' + (starred ? ' starred' : '') + (flag ? ' has-alert' : ''), dataset: { mapFocus: key }, role: 'button', tabindex: '0', title: 'Show on the map' });
         node.onkeydown = (e) => {
             if (e.target !== node || (e.key !== 'Enter' && e.key !== ' ')) return;
             e.preventDefault();
@@ -2190,7 +2238,7 @@ window.SkateApp = (() => {
             el('strong', {}, [r.name,
                 ...(also ? [el('span', { class: 'rink-aka', title: akaTitle }, [` (${also})`])] : []),
                 ...(season ? [el('span', { class: 'rink-season', title: seasonTitle }, [season])] : []),
-                ...(alerts.length ? [el('span', { class: 'rink-alert', title: alertTitle }, ['alert'])] : [])]),
+                ...(flag ? [el('span', { class: 'rink-alert' + (flag.level === 'closed' ? ' shut' : ''), title: alertTitle }, [alertText])] : [])]),
             el('span', { class: 'rink-meta' }, [meta])
         ]));
         const sessionsBtn = el('button', {
@@ -3880,7 +3928,9 @@ window.SkateApp = (() => {
         const sp = upcomingSplit(key), m = matchSplit(key);      // v3.23: what is coming up here, and what the filters leave of it
         const sessions = S.paidVisible ? m.free + m.paid : m.free;
         const total = sp.free + sp.paid;
-        const alerts = SkateAlerts.forLocation(key);
+        const flag = rinkAlert(key);                              // v3.27: the same alert state as the list, the row and the dot
+        const flagTxt = !flag ? '' : flag.level === 'closed' ? `likely cancelled ${alertDay(flag.day)}`
+            : `${flag.label.charAt(0).toLowerCase()}${flag.label.slice(1)}${flag.n && flag.day !== SkateTime.todayKey() ? ` (${alertDay(flag.day)})` : ''}`;
         const mine = (SkateSettings.get('myRinks') || []).includes(key);
         const kinds = (r.kinds || []).map(k => k === 'indoor' ? 'indoor' : 'outdoor').join(' · ');
         const city = rinkCity(r);
@@ -3891,7 +3941,7 @@ window.SkateApp = (() => {
         return `<div class="map-pop">
             <strong>${escapeHtml(r.name)}</strong>
             <span class="map-pop-meta">${city !== 'Toronto' ? escapeHtml(city) + ' · ' : ''}${kinds}${r.paid ? ' · paid' : ''}${km != null ? ` · ${SkateGeo.fmtKm(km)}` : ''}${offR ? ` · <a href="${escapeHtml(offR)}" target="_blank" rel="noopener">official page ↗</a>` : ''}</span>
-            <span class="map-pop-meta">${sessionsTxt}${alerts.length ? ' · <span class="map-pop-alert">service alert</span>' : ''}</span>
+            <span class="map-pop-meta">${sessionsTxt}${flag ? ` · <span class="map-pop-alert${flag.level === 'closed' ? ' shut' : ''}">${escapeHtml(flagTxt)}</span>` : ''}</span>
             <span class="map-pop-actions">
                 ${(sessions || m.paid) ? `<button class="btn-small" data-map-sessions="${escapeHtml(key)}" data-map-name="${escapeHtml(r.name)}">Show sessions</button>` : ''}
                 <button class="btn-small${mine ? ' starred' : ''}" data-map-star="${escapeHtml(key)}">${mine ? '★ One of my rinks' : '☆ Add to my rinks'}</button>
@@ -5048,7 +5098,8 @@ window.SkateApp = (() => {
             // v3.23: a pin is the colour of its ice, filled when the list would show sessions there, ringed in gold when it is yours
             pinState: (r) => {
                 const key = String(r.locationid);
-                return { kind: (r.kinds || []).includes('outdoor') ? 'outdoor' : 'indoor', on: matchShown(key) > 0, mine: (SkateSettings.get('myRinks') || []).includes(key) };
+                const flag = rinkAlert(key);                         // v3.27: a small badge on the dot, amber for an alert, red when its sessions are likely cancelled
+                return { kind: (r.kinds || []).includes('outdoor') ? 'outdoor' : 'indoor', on: matchShown(key) > 0, mine: (SkateSettings.get('myRinks') || []).includes(key), alert: flag ? flag.level : null };
             },
             radiusKm: mapRadius,             // the ring around your spot
             inset: () => ({ bottom: Sheet.inset() }),   // how much of the map the pulled-up list covers
